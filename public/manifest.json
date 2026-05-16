@@ -1,0 +1,21 @@
+{
+  "name": "DUDE — Premium Personal Evolution",
+  "short_name": "DUDE",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0F0C",
+  "theme_color": "#6EE7A8",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/NF8PXScZ/dude-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.postimg.cc/4yvFcqgD/dude-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
