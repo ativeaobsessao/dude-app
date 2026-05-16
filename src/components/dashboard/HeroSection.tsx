@@ -173,6 +173,23 @@ export const HeroSection = () => {
         )}
       </AnimatePresence>
 
+      {/* Footer Headlines (Adaptive Dashboard) */}
+      {dataStore.hasCompletedFirstSession && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.3 }}
+          transition={{ delay: 1, duration: 1 }}
+          className="mt-20 border-t border-white/5 pt-12 w-full max-w-4xl"
+        >
+          <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 opacity-80 text-center">
+            <span className="block text-xl md:text-2xl">Tenha Controle Total Sobre Seu Tempo</span>
+          </h3>
+          <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em]">
+            Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+          </p>
+        </motion.div>
+      )}
+
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary-green/5 blur-[120px] rounded-full" />

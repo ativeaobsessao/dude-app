@@ -1,8 +1,12 @@
 export const sendToServiceWorker = async (type: string, data?: object) => {
   if (!('serviceWorker' in navigator)) return;
-  const registration = await navigator.serviceWorker.ready;
-  if (registration.active) {
-    registration.active.postMessage({ type, data });
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if (registration.active) {
+      registration.active.postMessage({ type, data });
+    }
+  } catch (err) {
+    console.log('SW não disponível:', err);
   }
 };
 

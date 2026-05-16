@@ -33,6 +33,7 @@ export const ActiveSession = () => {
 
   const hasObservedFinish = useRef(false);
   const wakeLockRef = useRef<any>(null);
+  const timerStartedRef = useRef(false);
 
   const currentProjectName = dataStore.projects.find(p => p.id === timer.projectId)?.name || 'Projeto Padrão';
   
@@ -80,14 +81,34 @@ export const ActiveSession = () => {
 
   // SW Timer Logic
   useEffect(() => {
-    if (timer.isActive && timer.startTime) {
+    if (timer.isActive && timer.startTime && !timerStartedRef.current) {
+      timerStartedRef.current = true;
+      const endTime = timer.startTime + (timer.totalDurationMs || 0);
       sendToServiceWorker('START_TIMER', {
-        totalMs: timer.getRemainingMs(),
+        totalMs: timer.totalDurationMs,
+        endTime: endTime,
         activity: timer.activityName,
         project: currentProjectName || 'Geral'
       });
     }
-  }, [timer.isActive, timer.startTime]); // Only on session start
+    if (!timer.isActive) {
+      timerStartedRef.current = false;
+    }
+  }, [timer.isActive, timer.startTime]);
+
+  // Sincroniza o endTime com SW a cada 30 segundos (resiliência)
+  useEffect(() => {
+    if (!timer.isActive) return;
+    const syncInterval = setInterval(() => {
+      const endTime = (timer.startTime || 0) + (timer.totalDurationMs || 0);
+      sendToServiceWorker('SYNC_TIMER', {
+        endTime,
+        activity: timer.activityName,
+        project: currentProjectName || 'Geral'
+      });
+    }, 30000);
+    return () => clearInterval(syncInterval);
+  }, [timer.isActive]);
 
   useEffect(() => {
     const unsubscribe = listenToServiceWorker((data) => {

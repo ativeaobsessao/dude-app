@@ -26,7 +26,12 @@ export default function App() {
   useEffect(() => {
     if (user && 'Notification' in window) {
       if (Notification.permission === 'default') {
-        Notification.requestPermission();
+        // Pequeno delay para não assustar o usuário
+        setTimeout(() => {
+          Notification.requestPermission().then(permission => {
+            console.log('Permissão de notificação:', permission);
+          });
+        }, 3000);
       }
     }
   }, [user]);
