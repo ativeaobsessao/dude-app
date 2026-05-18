@@ -13,6 +13,8 @@ import { formatHumanTime } from '../../lib/utils';
 
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history';
 
+import { CustomSelect } from '../ui/CustomSelect';
+
 export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen | null>(null);
@@ -300,26 +302,28 @@ export const ActionCenter = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           <div className="space-y-1 text-left">
                             <label className={labelClasses}>Projeto (opcional)</label>
-                            <select 
-                              className={selectClasses}
+                            <CustomSelect
                               value={sessionData.project}
-                              onChange={e => setSessionData({...sessionData, project: e.target.value, activityId: ''})}
-                            >
-                              <option value="" className="bg-surface">Geral (Sem Projeto)</option>
-                              {dataStore.projects.map(p => <option key={p.id} value={p.id} className="bg-surface">{p.name}</option>)}
-                            </select>
+                              onChange={val => setSessionData({...sessionData, project: val, activityId: ''})}
+                              placeholder="Geral (Sem Projeto)"
+                              options={[
+                                { value: '', label: 'Geral (Sem Projeto)' },
+                                ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                              ]}
+                            />
                           </div>
                           <div className="space-y-1 text-left">
                             <label className={labelClasses}>Atividade (opcional)</label>
-                            <select 
-                              disabled={!!sessionData.activityManual}
-                              className={selectClasses}
+                            <CustomSelect
+                              className={!!sessionData.activityManual ? 'opacity-50 pointer-events-none' : ''}
                               value={sessionData.activityId}
-                              onChange={e => setSessionData({...sessionData, activityId: e.target.value})}
-                            >
-                              <option value="" className="bg-surface">Selecionar Atividade</option>
-                              {filteredActivities.map(a => <option key={a.id} value={a.id} className="bg-surface">{a.name}</option>)}
-                            </select>
+                              onChange={val => setSessionData({...sessionData, activityId: val})}
+                              placeholder="Selecionar Atividade"
+                              options={[
+                                { value: '', label: 'Selecionar Atividade' },
+                                ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                              ]}
+                            />
                           </div>
                         </div>
                         <div className="space-y-1 text-left">
@@ -351,48 +355,65 @@ export const ActionCenter = () => {
                         </div>
                         <div className="grid grid-cols-3 gap-6 items-end">
                            <div className="col-span-2 grid grid-cols-2 gap-4">
+                              {/* HORAS */}
                               <div className="space-y-1 text-left">
                                 <label className={labelClasses}>Horas</label>
-                                <input 
-                                  type="number" 
-                                  min="0" 
-                                  max="12" 
-                                  enterKeyHint="go" 
-                                  className={`${inputClasses} text-center`} 
-                                  value={sessionData.hours} 
-                                  onBlur={(e) => e.target.blur()}
-                                  onChange={e => {
-                                    setSessionData({...sessionData, hours: parseInt(e.target.value) || 0});
-                                    if (e.target.value.length >= 2) {
-                                      e.target.blur();
+                                <input
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  maxLength={2}
+                                  enterKeyHint="done"
+                                  placeholder="0"
+                                  className={`${inputClasses} text-center text-2xl font-bold`}
+                                  value={sessionData.hours === 0 ? '' : sessionData.hours}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    const num = parseInt(val) || 0;
+                                    setSessionData({...sessionData, hours: Math.min(12, num)});
+                                  }}
+                                  onBlur={(e) => {
+                                    if (!e.target.value) {
+                                      setSessionData({...sessionData, hours: 0});
                                     }
+                                    e.target.blur();
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === 'Go') {
+                                    if (e.key === 'Enter') {
                                       e.preventDefault();
                                       (e.target as HTMLInputElement).blur();
                                     }
                                   }}
                                 />
                               </div>
+
+                              {/* MINUTOS */}
                               <div className="space-y-1 text-left">
                                 <label className={labelClasses}>Minutos</label>
-                                <input 
-                                  type="number" 
-                                  min="0" 
-                                  max="59" 
-                                  enterKeyHint="go" 
-                                  className={`${inputClasses} text-center`} 
-                                  value={sessionData.minutes} 
-                                  onBlur={(e) => e.target.blur()}
-                                  onChange={e => {
-                                    setSessionData({...sessionData, minutes: parseInt(e.target.value) || 0});
-                                    if (e.target.value.length >= 2) {
-                                      e.target.blur();
+                                <input
+                                  type="tel"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  maxLength={2}
+                                  enterKeyHint="done"
+                                  placeholder="25"
+                                  className={`${inputClasses} text-center text-2xl font-bold`}
+                                  value={sessionData.minutes === 0 ? '' : sessionData.minutes}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    const num = parseInt(val) || 0;
+                                    setSessionData({...sessionData, minutes: Math.min(59, num)});
+                                  }}
+                                  onBlur={(e) => {
+                                    if (!e.target.value) {
+                                      setSessionData({...sessionData, minutes: 0});
                                     }
+                                    e.target.blur();
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === 'Go') {
+                                    if (e.key === 'Enter') {
                                       e.preventDefault();
                                       (e.target as HTMLInputElement).blur();
                                     }
@@ -452,14 +473,15 @@ export const ActionCenter = () => {
                       </div>
                       <div className="space-y-1 text-left">
                         <label className={labelClasses}>Vincular Projeto (Opcional)</label>
-                        <select 
-                          className={selectClasses}
+                        <CustomSelect
                           value={newActivityProject}
-                          onChange={e => setNewActivityProject(e.target.value)}
-                        >
-                          <option value="" className="bg-surface">Geral (Sem Projeto)</option>
-                          {dataStore.projects.map(p => <option key={p.id} value={p.id} className="bg-surface">{p.name}</option>)}
-                        </select>
+                          onChange={val => setNewActivityProject(val)}
+                          placeholder="Geral (Sem Projeto)"
+                          options={[
+                            { value: '', label: 'Geral (Sem Projeto)' },
+                            ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                          ]}
+                        />
                       </div>
                       <button onClick={handleAddActivity} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Salvar Atividade</button>
                     </div>
@@ -482,19 +504,27 @@ export const ActionCenter = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1 text-left">
                           <label className={labelClasses}>Projeto (opcional)</label>
-                          <select className={selectClasses} value={noteProject} onChange={e => {setNoteProject(e.target.value); setNoteActivityId('');}}>
-                            <option value="">Sem Projeto</option>
-                            {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
+                          <CustomSelect
+                            value={noteProject}
+                            onChange={val => {setNoteProject(val); setNoteActivityId('');}}
+                            placeholder="Sem Projeto"
+                            options={[
+                              { value: '', label: 'Sem Projeto' },
+                              ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                            ]}
+                          />
                         </div>
                         <div className="space-y-1 text-left">
                           <label className={labelClasses}>Atividade (opcional)</label>
-                          <select className={selectClasses} value={noteActivityId} onChange={e => setNoteActivityId(e.target.value)}>
-                            <option value="">Sem Atividade</option>
-                            {(noteProject ? dataStore.activities.filter(a => a.project_id === noteProject) : dataStore.activities).map(a => (
-                              <option key={a.id} value={a.id}>{a.name}</option>
-                            ))}
-                          </select>
+                          <CustomSelect
+                            value={noteActivityId}
+                            onChange={val => setNoteActivityId(val)}
+                            placeholder="Sem Atividade"
+                            options={[
+                              { value: '', label: 'Sem Atividade' },
+                              ...(noteProject ? dataStore.activities.filter(a => a.project_id === noteProject) : dataStore.activities).map(a => ({ value: a.id, label: a.name }))
+                            ]}
+                          />
                         </div>
                       </div>
                       <div className="space-y-1 text-left">
@@ -542,14 +572,15 @@ export const ActionCenter = () => {
                       <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-white/5">
                         <div className="space-y-2 text-left">
                           <label className={labelClasses}>Filtrar por Projeto</label>
-                          <select 
-                            className={selectClasses}
+                          <CustomSelect
                             value={filterProject}
-                            onChange={e => setFilterProject(e.target.value)}
-                          >
-                            <option value="">Todos os Projetos</option>
-                            {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
+                            onChange={val => setFilterProject(val)}
+                            placeholder="Todos os Projetos"
+                            options={[
+                              { value: '', label: 'Todos os Projetos' },
+                              ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                            ]}
+                          />
                         </div>
                         <div className="space-y-2 text-left">
                           <label className={labelClasses}>Filtrar por Data</label>

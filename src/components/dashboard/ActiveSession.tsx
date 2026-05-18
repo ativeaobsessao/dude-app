@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { sendToServiceWorker, listenToServiceWorker } from '../../hooks/useServiceWorker';
 import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
+import { CustomSelect } from '../ui/CustomSelect';
 import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target } from 'lucide-react';
 
 export const ActiveSession = () => {
@@ -426,16 +427,15 @@ export const ActiveSession = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
-                  <select 
-                    value={lateProjectId} 
-                    onChange={e => setLateProjectId(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px] appearance-none"
-                  >
-                    <option value="">Sem Projeto</option>
-                    {dataStore.projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                  <CustomSelect
+                    value={lateProjectId}
+                    onChange={val => setLateProjectId(val)}
+                    placeholder="Sem Projeto"
+                    options={[
+                      { value: '', label: 'Sem Projeto' },
+                      ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -495,31 +495,29 @@ export const ActiveSession = () => {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
-                    <select 
-                      value={noteProjectId} 
-                      onChange={e => setNoteProjectId(e.target.value)}
-                      className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
-                    >
-                      <option value="">Sem Projeto</option>
-                      {dataStore.projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                      value={noteProjectId}
+                      onChange={val => setNoteProjectId(val)}
+                      placeholder="Sem Projeto"
+                      options={[
+                        { value: '', label: 'Sem Projeto' },
+                        ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                      ]}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
-                    <select 
-                      value={noteActivityId} 
-                      onChange={e => setNoteActivityId(e.target.value)}
-                      className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
-                    >
-                      <option value="">Sem Atividade</option>
-                      {dataStore.activities
-                        .filter(a => !noteProjectId || a.project_id === noteProjectId)
-                        .map(a => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                    </select>
+                    <CustomSelect
+                      value={noteActivityId}
+                      onChange={val => setNoteActivityId(val)}
+                      placeholder="Sem Atividade"
+                      options={[
+                        { value: '', label: 'Sem Atividade' },
+                        ...dataStore.activities
+                          .filter(a => !noteProjectId || a.project_id === noteProjectId)
+                          .map(a => ({ value: a.id, label: a.name }))
+                      ]}
+                    />
                   </div>
                 </div>
 
