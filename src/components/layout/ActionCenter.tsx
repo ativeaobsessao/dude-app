@@ -102,11 +102,9 @@ export const ActionCenter = () => {
     if (sessionData.description.trim() && user) {
       await dataStore.addNote(
         user.id,
-        null,
         sessionData.description,
         sessionData.project || undefined,
-        sessionData.activityId || undefined,
-        sessionData.date
+        sessionData.activityId || undefined
       );
     }
 
@@ -147,16 +145,14 @@ export const ActionCenter = () => {
     if (!noteText || !user) return;
     await dataStore.addNote(
       user.id, 
-      null, 
       noteText, 
       noteProject || undefined,
-      noteActivityId || undefined,
-      new Date().toISOString().split('T')[0] // Always today
+      noteActivityId || undefined
     );
     setNoteText('');
     setNoteProject('');
     setNoteActivityId('');
-    showSuccess('Anotação salva com sucesso!');
+    showSuccess('✅ Anotação salva!');
   };
 
   const handleDelete = async () => {
@@ -338,7 +334,7 @@ export const ActionCenter = () => {
                           />
                         </div>
                         <div className="space-y-1 text-left">
-                          <label className={labelClasses}>O que focar?</label>
+                          <label className={labelClasses}>ANOTAÇÃO</label>
                           <textarea
                             autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
                             onKeyDown={(e) => {
@@ -347,7 +343,7 @@ export const ActionCenter = () => {
                                 handleStartSession(e as unknown as FormEvent);
                               }
                             }}
-                            placeholder="O que está focando agora?"
+                            placeholder="Precisa realizar alguma anotação para se lembrar durante a Sessão Profunda?"
                             className={`${inputClasses} h-32 resize-none`}
                             value={sessionData.description}
                             onChange={e => setSessionData({...sessionData, description: e.target.value})}
@@ -357,11 +353,51 @@ export const ActionCenter = () => {
                            <div className="col-span-2 grid grid-cols-2 gap-4">
                               <div className="space-y-1 text-left">
                                 <label className={labelClasses}>Horas</label>
-                                <input type="number" min="0" max="12" enterKeyHint="done" className={`${inputClasses} text-center`} value={sessionData.hours} onChange={e => setSessionData({...sessionData, hours: parseInt(e.target.value) || 0})} />
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  max="12" 
+                                  enterKeyHint="go" 
+                                  className={`${inputClasses} text-center`} 
+                                  value={sessionData.hours} 
+                                  onBlur={(e) => e.target.blur()}
+                                  onChange={e => {
+                                    setSessionData({...sessionData, hours: parseInt(e.target.value) || 0});
+                                    if (e.target.value.length >= 2) {
+                                      e.target.blur();
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === 'Go') {
+                                      e.preventDefault();
+                                      (e.target as HTMLInputElement).blur();
+                                    }
+                                  }}
+                                />
                               </div>
                               <div className="space-y-1 text-left">
                                 <label className={labelClasses}>Minutos</label>
-                                <input type="number" min="0" max="59" enterKeyHint="done" className={`${inputClasses} text-center`} value={sessionData.minutes} onChange={e => setSessionData({...sessionData, minutes: parseInt(e.target.value) || 0})} />
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  max="59" 
+                                  enterKeyHint="go" 
+                                  className={`${inputClasses} text-center`} 
+                                  value={sessionData.minutes} 
+                                  onBlur={(e) => e.target.blur()}
+                                  onChange={e => {
+                                    setSessionData({...sessionData, minutes: parseInt(e.target.value) || 0});
+                                    if (e.target.value.length >= 2) {
+                                      e.target.blur();
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === 'Go') {
+                                      e.preventDefault();
+                                      (e.target as HTMLInputElement).blur();
+                                    }
+                                  }}
+                                />
                               </div>
                            </div>
                            <button
@@ -435,10 +471,10 @@ export const ActionCenter = () => {
 
                 {currentScreen === 'notes' && (
                   <div className="w-full max-w-2xl space-y-10">
-                    <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center uppercase tracking-[0.2em]">Anotações</h3>
+                    <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center">Anotações</h3>
                     <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-8">
                       <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                        <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest px-1">Novo Registro</span>
+                        <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest px-1">Nova Anotação</span>
                         <span className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest">
                           {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
@@ -446,8 +482,8 @@ export const ActionCenter = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1 text-left">
                           <label className={labelClasses}>Projeto (opcional)</label>
-                          <select className={selectClasses} value={noteProject} onChange={e => setNoteProject(e.target.value)}>
-                            <option value="">Geral</option>
+                          <select className={selectClasses} value={noteProject} onChange={e => {setNoteProject(e.target.value); setNoteActivityId('');}}>
+                            <option value="">Sem Projeto</option>
                             {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </div>
@@ -480,14 +516,14 @@ export const ActionCenter = () => {
                       <button onClick={handleAddNote} disabled={!noteText} className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] transition-all min-h-[44px] disabled:opacity-20 touch-manipulation">Salvar Registro</button>
                     </div>
 
-                    <div className="flex justify-center text-center">
+                    <div className="flex justify-center text-center pb-20">
                       <button 
                         onClick={() => {
-                          const trigger = document.querySelector('button[onClick*="setShowAllNotes(true)"]') as HTMLButtonElement;
-                          if (trigger) {
-                            setIsOpen(false);
-                            setTimeout(() => trigger.click(), 100);
-                          }
+                          // Close action center and signal to open history in RecentNotes
+                          setIsOpen(false);
+                          setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('open-notes-history'));
+                          }, 300);
                         }}
                         className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary-green border-b border-primary-green/20 pb-1 touch-manipulation"
                       >

@@ -3,6 +3,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { sendToServiceWorker, listenToServiceWorker } from '../../hooks/useServiceWorker';
+import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target } from 'lucide-react';
 
@@ -31,7 +32,9 @@ export const ActiveSession = () => {
   const [noteProjectId, setNoteProjectId] = useState(timer.projectId || '');
   const [noteActivityId, setNoteActivityId] = useState('');
 
+  const { triggerNotification } = useSessionNotifications();
   const hasObservedFinish = useRef(false);
+  const hasObservedWarning = useRef(false);
   const wakeLockRef = useRef<any>(null);
   const timerStartedRef = useRef(false);
 
@@ -113,7 +116,11 @@ export const ActiveSession = () => {
   useEffect(() => {
     const unsubscribe = listenToServiceWorker((data) => {
       if (data.type === 'TIMER_COMPLETE') {
-        setShowCompleteModal(true);
+         if (!hasObservedFinish.current) {
+           hasObservedFinish.current = true;
+           triggerNotification('complete');
+         }
+         setShowCompleteModal(true);
       }
     });
     return unsubscribe;
@@ -122,6 +129,7 @@ export const ActiveSession = () => {
   useEffect(() => {
     if (!timer.isActive) {
       hasObservedFinish.current = false;
+      hasObservedWarning.current = false;
       return;
     }
 
@@ -135,13 +143,17 @@ export const ActiveSession = () => {
         setProgress(Math.min(100, p));
       }
 
+      // 5-minute warning (300000ms)
+      if (ms <= 300000 && ms > 295000 && !hasObservedWarning.current && timer.isActive) {
+        hasObservedWarning.current = true;
+        triggerNotification('warning');
+      }
+
       if (ms <= 0 && timer.isActive && !hasObservedFinish.current) {
         hasObservedFinish.current = true;
         
-        // Vibrate
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
-        }
+        // Vibrate and Play Sound
+        triggerNotification('complete');
         
         setShowCompleteModal(true);
         timer.pause(); // Pause so it stays at 0
@@ -178,7 +190,6 @@ export const ActiveSession = () => {
     };
     const noteDescription = timer.description.trim();
     const noteProjectIdFix = timer.projectId || undefined;
-    const noteTargetDate = timer.targetDate;
 
     // Reset UI state immediately
     timer.reset();
@@ -192,11 +203,9 @@ export const ActiveSession = () => {
       if (noteDescription) {
         await dataStore.addNote(
           user.id,
-          null, // Title is null now
           noteDescription,
           noteProjectIdFix,
-          undefined,
-          noteTargetDate
+          undefined
         );
       }
       
@@ -231,11 +240,9 @@ export const ActiveSession = () => {
 
     await dataStore.addNote(
       user.id, 
-      null, 
       content, 
       pId,
-      aId,
-      new Date().toISOString().split('T')[0]
+      aId
     );
   };
 
@@ -462,7 +469,6 @@ export const ActiveSession = () => {
         )}
       </AnimatePresence>
 
-      {/* Note Modal (Form 3 - Quick Record) */}
       <AnimatePresence>
         {showNoteModal && (
           <motion.div
@@ -479,58 +485,66 @@ export const ActiveSession = () => {
               style={{ willChange: 'transform' }}
               className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-xl w-full space-y-10 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
             >
-              <div className="flex justify-between items-center border-b border-white/5 pb-6">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
                   <StickyNote className="text-primary-green" /> Registro Rápido
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto (opcional)</label>
-                  <select 
-                    value={noteProjectId} 
-                    onChange={e => setNoteProjectId(e.target.value)}
-                    className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
-                  >
-                    <option value="">Sem Projeto</option>
-                    {dataStore.projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade (opcional)</label>
-                  <select 
-                    value={noteActivityId} 
-                    onChange={e => setNoteActivityId(e.target.value)}
-                    className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
-                  >
-                    <option value="">Sem Atividade</option>
-                    {dataStore.activities
-                      .filter(a => !noteProjectId || a.project_id === noteProjectId)
-                      .map(a => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
+                    <select 
+                      value={noteProjectId} 
+                      onChange={e => setNoteProjectId(e.target.value)}
+                      className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
+                    >
+                      <option value="">Sem Projeto</option>
+                      {dataStore.projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
+                    <select 
+                      value={noteActivityId} 
+                      onChange={e => setNoteActivityId(e.target.value)}
+                      className="w-full bg-transparent border-b border-border-white py-2 text-sm focus:border-primary-green outline-none min-h-[44px] appearance-none"
+                    >
+                      <option value="">Sem Atividade</option>
+                      {dataStore.activities
+                        .filter(a => !noteProjectId || a.project_id === noteProjectId)
+                        .map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Anotação</label>
-                <textarea
-                  placeholder="Algo importante que não pode esquecer?"
-                  autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleAddNote();
-                    }
-                  }}
-                  className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
-                  value={noteContent}
-                  onChange={e => setNoteContent(e.target.value)}
-                />
+                <div className="text-left py-2">
+                   <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest flex items-center gap-2">
+                     📅 {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                   </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Anotação</label>
+                  <textarea
+                    placeholder="O que precisa registrar agora?"
+                    autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddNote();
+                      }
+                    }}
+                    className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
+                    value={noteContent}
+                    onChange={e => setNoteContent(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-4">

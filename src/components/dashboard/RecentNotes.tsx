@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { StickyNote, X, Trash2, ArrowLeft } from 'lucide-react';
+import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const RecentNotes = () => {
@@ -10,49 +10,52 @@ export const RecentNotes = () => {
   const [showAllNotes, setShowAllNotes] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
   const [filterProject, setFilterProject] = useState('');
-  const [filterActivity, setFilterActivity] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // Reset activity filter when project filter changes
+  // Handle external trigger to open history modal
   useEffect(() => {
-    if (filterProject && filterActivity) {
-      const activity = dataStore.activities.find(a => a.id === filterActivity);
-      if (activity && activity.project_id !== filterProject) {
-        setFilterActivity('');
-      }
-    }
-  }, [filterProject, filterActivity, dataStore.activities]);
-  
+    const handleOpenHistory = () => setShowAllNotes(true);
+    window.addEventListener('open-notes-history', handleOpenHistory);
+    return () => window.removeEventListener('open-notes-history', handleOpenHistory);
+  }, []);
+
   // Note Creation State
   const [noteContent, setNoteContent] = useState('');
   const [noteProjectId, setNoteProjectId] = useState('');
   const [noteActivityId, setNoteActivityId] = useState('');
-  const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
 
   const latestNotes = dataStore.notes.slice(0, 3);
 
   const filteredAllNotes = dataStore.notes.filter(note => {
     const matchesProject = filterProject ? note.project_id === filterProject : true;
     const noteDateStr = note.target_date || note.created_at.split('T')[0];
-    const matchesDate = filterActivity ? noteDateStr === filterActivity : true; // Using filterActivity variable for date filter in modal
+    const matchesDate = filterDate ? noteDateStr === filterDate : true;
     return matchesProject && matchesDate;
   });
 
   const handleAddNote = async () => {
     if (!user || !noteContent) return;
     
-    await dataStore.addNote(
+    const result = await dataStore.addNote(
       user.id, 
-      null, 
       noteContent, 
       noteProjectId || undefined, 
-      noteActivityId || undefined, 
-      noteDate
+      noteActivityId || undefined
     );
-    setNoteContent('');
-    setNoteProjectId('');
-    setNoteActivityId('');
-    setNoteDate(new Date().toISOString().split('T')[0]);
-    setShowAddNote(false);
+
+    if (result) {
+      setSuccessMessage('✅ Anotação salva!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      setNoteContent('');
+      setNoteProjectId('');
+      setNoteActivityId('');
+      // Delay closing to show success message if not in a modal, 
+      // but here we are in a modal for "Anota Agora"
+      setTimeout(() => setShowAddNote(false), 1500);
+    } else {
+      alert('Erro ao salvar anotação. Tente novamente.');
+    }
   };
 
   const handleDeleteConfirm = async (id: string, content: string) => {
@@ -61,7 +64,8 @@ export const RecentNotes = () => {
     }
   };
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string | null) => {
+    if (!date) return '';
     return new Date(date).toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'short',
@@ -81,7 +85,7 @@ export const RecentNotes = () => {
 
         <div className="w-full max-w-4xl space-y-4">
           {latestNotes.length > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center mb-6">Últimas Anotações</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center mb-6">Anotações Recentes</span>
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -137,7 +141,7 @@ export const RecentNotes = () => {
         </div>
       </div>
 
-      {/* Add Note Modal */}
+      {/* Add Note Modal - Forma 1 */}
       <AnimatePresence>
         {showAddNote && (
           <motion.div
@@ -160,65 +164,77 @@ export const RecentNotes = () => {
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto (opcional)</label>
-                    <select 
-                      className="w-full bg-transparent border-b border-border-white py-2 text-sm text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px]"
-                      value={noteProjectId}
-                      onChange={e => setNoteProjectId(e.target.value)}
-                    >
-                      <option value="">Sem Projeto</option>
-                      {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+              {successMessage ? (
+                <div className="py-20 text-center space-y-4">
+                  <div className="w-16 h-16 bg-primary-green/10 text-primary-green rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 size={32} />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade (opcional)</label>
-                    <select 
-                      className="w-full bg-transparent border-b border-border-white py-2 text-sm text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px]"
-                      value={noteActivityId}
-                      onChange={e => setNoteActivityId(e.target.value)}
-                    >
-                      <option value="">Sem Atividade</option>
-                      {(noteProjectId ? dataStore.activities.filter(a => a.project_id === noteProjectId) : dataStore.activities).map(act => (
-                        <option key={act.id} value={act.id}>{act.name}</option>
-                      ))}
-                    </select>
+                  <p className="text-xl font-bold text-primary-green">{successMessage}</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto (opcional)</label>
+                      <select 
+                        className="w-full bg-transparent border-b border-border-white py-2 text-sm text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px] appearance-none"
+                        value={noteProjectId}
+                        onChange={e => {
+                          setNoteProjectId(e.target.value);
+                          setNoteActivityId('');
+                        }}
+                      >
+                        <option value="">Sem Projeto</option>
+                        {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade (opcional)</label>
+                      <select 
+                        className="w-full bg-transparent border-b border-border-white py-2 text-sm text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px] appearance-none"
+                        value={noteActivityId}
+                        onChange={e => setNoteActivityId(e.target.value)}
+                      >
+                        <option value="">Sem Atividade</option>
+                        {(noteProjectId ? dataStore.activities.filter(a => a.project_id === noteProjectId) : dataStore.activities).map(act => (
+                          <option key={act.id} value={act.id}>{act.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Conteúdo</label>
-                  <textarea
-                    placeholder="O que está na sua mente agora?"
-                    autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddNote();
-                      }
-                    }}
-                    className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green transition-all resize-none h-40 touch-manipulation min-h-[44px]"
-                    value={noteContent}
-                    onChange={e => setNoteContent(e.target.value)}
-                  />
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">O que não pode esquecer?</label>
+                    <textarea
+                      placeholder="Algo importante que não pode esquecer?"
+                      autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAddNote();
+                        }
+                      }}
+                      className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green transition-all resize-none h-40 touch-manipulation min-h-[44px]"
+                      value={noteContent}
+                      onChange={e => setNoteContent(e.target.value)}
+                    />
+                  </div>
 
-              <button
-                onClick={handleAddNote}
-                disabled={!noteContent}
-                className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px]"
-              >
-                Salvar Anotação
-              </button>
+                  <button
+                    onClick={handleAddNote}
+                    disabled={!noteContent}
+                    className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px]"
+                  >
+                    Salvar Anotação
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* All Notes Modal */}
+      {/* All Notes Modal - Histórico */}
       <AnimatePresence>
         {showAllNotes && (
           <motion.div
@@ -238,13 +254,13 @@ export const RecentNotes = () => {
                   </button>
                   <div className="flex items-center gap-3">
                     <StickyNote className="text-primary-green" />
-                    <h2 className="text-2xl md:text-4xl font-semibold tracking-tight text-text-primary">Todas as Anotações</h2>
+                    <h2 className="text-2xl md:text-4xl font-semibold tracking-tight text-text-primary">Anotações</h2>
                   </div>
                 </div>
                 
                 <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                    <select 
-                    className="w-full md:w-auto bg-surface/40 border border-border-white rounded-full px-6 py-2 text-xs text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px]"
+                    className="w-full md:w-auto bg-white/5 border border-white/10 rounded-full px-6 py-2 text-xs text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px] appearance-none"
                     value={filterProject}
                     onChange={e => setFilterProject(e.target.value)}
                   >
@@ -253,9 +269,9 @@ export const RecentNotes = () => {
                   </select>
                   <input
                     type="date"
-                    className="w-full md:w-auto bg-surface/40 border border-border-white rounded-full px-6 py-2 text-xs text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px]"
-                    value={filterActivity} // Use this as date filter in modal
-                    onChange={e => setFilterActivity(e.target.value)}
+                    className="w-full md:w-auto bg-white/5 border border-white/10 rounded-full px-6 py-2 text-xs text-text-primary outline-none focus:border-primary-green touch-manipulation min-h-[44px]"
+                    value={filterDate}
+                    onChange={e => setFilterDate(e.target.value)}
                   />
                   <button
                     onClick={() => setShowAllNotes(false)}
@@ -301,6 +317,11 @@ export const RecentNotes = () => {
                     </div>
                   );
                 })}
+                {filteredAllNotes.length === 0 && (
+                  <div className="col-span-full py-20 text-center text-text-secondary/20 italic">
+                    Nenhuma anotação encontrada com os filtros selecionados.
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

@@ -18,7 +18,7 @@ interface DataState {
   
   addProject: (userId: string, name: string) => Promise<void>;
   addHabit: (userId: string, name: string) => Promise<void>;
-  addNote: (userId: string, title: string | null, content: string, projectId?: string, activityId?: string, targetDate?: string) => Promise<void>;
+  addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<void>;
   addActivity: (userId: string, name: string, projectId?: string) => Promise<void>;
   
@@ -106,20 +106,33 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  addNote: async (userId, title, content, projectId, activityId, targetDate) => {
+  addNote: async (userId, content, projectId, activityId) => {
     try {
-      const { data, error } = await supabase.from('notes').insert({ 
-        user_id: userId, 
-        title: title || null, 
-        content, 
-        project_id: projectId || null,
-        activity_id: activityId || null,
-        target_date: targetDate || new Date().toISOString().split('T')[0]
-      }).select().single();
-      if (error) throw error;
-      if (data) set({ notes: [data, ...get().notes] });
+      const { data, error } = await supabase
+        .from('notes')
+        .insert({
+          user_id: userId,
+          title: '',
+          content: content,
+          project_id: projectId || null,
+          activity_id: activityId || null,
+          target_date: new Date().toISOString().split('T')[0]
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Erro ao salvar anotação:', error);
+        return null;
+      }
+      if (data) {
+        set({ notes: [data, ...get().notes] });
+        return data;
+      }
+      return null;
     } catch (err) {
-      console.error('Error adding note:', err);
+      console.error('Erro crítico ao salvar anotação:', err);
+      return null;
     }
   },
 
@@ -198,7 +211,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (error) throw error;
       set({ notes: get().notes.filter(n => n.id !== id) });
     } catch (err) {
-      console.error('Error deleting note:', err);
+      console.error('Erro ao deletar anotação:', err);
     }
   },
 
