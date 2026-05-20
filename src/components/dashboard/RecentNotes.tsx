@@ -76,6 +76,17 @@ export const RecentNotes = () => {
 
   return (
     <section className="w-full max-w-5xl space-y-12 pb-20">
+      <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-border-white pb-8 gap-4">
+        <div className="space-y-4">
+          <span className="text-text-secondary uppercase tracking-[0.4em] text-[10px] font-bold flex items-center gap-3">
+            <StickyNote size={14} className="text-primary-green" />
+            Memória Cognitiva
+          </span>
+          <h3 className="text-4xl md:text-5xl font-semibold tracking-tight text-text-primary">Anotações</h3>
+        </div>
+        <span className="text-[10px] text-text-secondary/40 font-mono tracking-[0.1em] mb-2 font-bold">REGISTRO DE CONSCIÊNCIA</span>
+      </div>
+
       <div className="flex flex-col items-center gap-8">
         <button 
           onClick={() => setShowAddNote(true)}
@@ -85,9 +96,6 @@ export const RecentNotes = () => {
         </button>
 
         <div className="w-full max-w-4xl space-y-4">
-          {latestNotes.length > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center mb-6">Anotações Recentes</span>
-          )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {latestNotes.map(note => {

@@ -43,7 +43,7 @@ export const RecentHistory = () => {
       <div className="flex items-center justify-between border-b border-border-white pb-4">
         <span className="text-text-secondary uppercase tracking-[0.3em] text-[10px] font-bold flex items-center gap-2">
           <History size={12} className="text-primary-green" />
-          Histórico Recente
+          HISTÓRICO RECENTE DAS ÚLTIMAS SESSÕES PROFUNDAS
         </span>
         <span className="text-[10px] text-text-secondary/40 font-mono tracking-[0.2em]">ARQUIVO OPERACIONAL</span>
       </div>

@@ -3,7 +3,6 @@ import { Target, X, AlertTriangle } from 'lucide-react';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
-import { DailyAwareness } from './components/dashboard/DailyAwareness';
 import { HabitsSection } from './components/dashboard/HabitsSection';
 import { RecentNotes } from './components/dashboard/RecentNotes';
 import { RecentHistory } from './components/dashboard/RecentHistory';
@@ -119,31 +118,51 @@ export default function App() {
           </motion.nav>
         </header>
 
-        <main className="min-h-screen pb-40">
+        <main className="min-h-screen pb-40 flex flex-col items-center">
           <HeroSection />
 
-          <div className="max-w-6xl mx-auto px-6 space-y-4 md:space-y-28">
-            <section id="operational-zone">
-            </section>
-
-            <DailyAwareness />
-            
-            <div className="flex flex-col space-y-12 md:space-y-28">
-              <div className="flex justify-center">
-                <button 
-                  onClick={() => setShowStats(true)}
-                  className="px-16 py-5 bg-primary-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
-                >
-                  <span className="text-background text-xl font-bold tracking-tight">Ver Meu Progresso</span>
-                  <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Evolução e Métricas Históricas</span>
-                </button>
-              </div>
-
-              <HabitsSection />
-              <RecentNotes />
-              <RecentHistory />
-              <InspirationalFootnote />
+          <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-24 flex flex-col items-center">
+            {/* 5. Headlines com opacity-40 */}
+            <div id="middle-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none py-6">
+              <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
+                Tenha Controle Total Sobre Seu Tempo
+              </h3>
+              <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
+                Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+              </p>
             </div>
+
+            {/* 6. Botão "VER MEU PROGRESSO" */}
+            <div className="flex justify-center w-full">
+              <button 
+                onClick={() => setShowStats(true)}
+                className="px-16 py-5 bg-primary-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
+              >
+                <span className="text-background text-xl font-bold tracking-tight">Ver Meu Progresso</span>
+                <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Evolução e Métricas Históricas</span>
+              </button>
+            </div>
+
+            {/* 7. Seção Hábitos Atômicos */}
+            <HabitsSection />
+
+            {/* 8. Seção Anotações */}
+            <RecentNotes />
+
+            {/* 9. Seção Histórico Recente */}
+            <RecentHistory />
+
+            {/* 10. Headlines com opacity-40 novamente no rodapé */}
+            <div id="footer-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none pt-12 border-t border-white/5">
+              <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
+                Tenha Controle Total Sobre Seu Tempo
+              </h3>
+              <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
+                Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+              </p>
+            </div>
+
+            <InspirationalFootnote />
           </div>
         </main>
 
