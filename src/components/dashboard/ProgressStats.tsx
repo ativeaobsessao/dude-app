@@ -9,16 +9,44 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   // Last 7 days activity
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
-  }).reverse();
+    d.setDate(d.getDate() - (6 - i));
+    // Usar horário local, não UTC
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
 
   const dailyMinutes = last7Days.map(date => {
-    const daySessions = sessions.filter(s => s.started_at.startsWith(date));
+    const daySessions = sessions.filter(s => {
+      // Converter started_at para data local
+      const sessionDate = new Date(s.started_at);
+      const year = sessionDate.getFullYear();
+      const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
+      const day = String(sessionDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}` === date;
+    });
     return daySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
   });
 
   const maxMinutes = Math.max(...dailyMinutes, 1);
+
+  // Calcular projeto mais trabalhado
+  const projectMinutes = projects.map(p => ({
+    name: p.name,
+    minutes: sessions
+      .filter(s => s.project_id === p.id)
+      .reduce((acc, s) => acc + s.duration_minutes, 0)
+  })).filter(p => p.minutes > 0)
+     .sort((a, b) => b.minutes - a.minutes);
+
+  const topProject = projectMinutes[0];
+
+  // Calcular média diária
+  const avgMinutes = Math.round(
+    dailyMinutes.reduce((a, b) => a + b, 0) / 
+    dailyMinutes.filter(m => m > 0).length || 1
+  );
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-background/95 backdrop-blur-xl">
@@ -98,7 +126,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 <div className="space-y-1">
                    <h4 className="text-sm font-bold text-primary-green uppercase tracking-widest">Foco Principal</h4>
                    <p className="text-xs text-text-secondary font-light leading-relaxed">
-                     Seu maior engajamento recente foi em <span className="text-text-primary font-medium">Projetos Operacionais</span>.
+                     Seu maior engajamento foi em{' '}
+                     <span className="text-text-primary font-medium">
+                       {topProject ? topProject.name : 'nenhum projeto ainda'}
+                     </span>
+                     {topProject && ` com ${formatHumanTime(topProject.minutes)} focados`}.
                    </p>
                 </div>
              </div>
@@ -109,7 +141,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 <div className="space-y-1">
                    <h4 className="text-sm font-bold text-primary-green uppercase tracking-widest">Consistência</h4>
                    <p className="text-xs text-text-secondary font-light leading-relaxed">
-                     Você manteve uma média de <span className="text-text-primary font-medium">{Math.round(dailyMinutes.reduce((a,b)=>a+b,0)/7)}m</span> por dia esta semana.
+                     Você manteve uma média de{' '}
+                     <span className="text-text-primary font-medium">
+                       {formatHumanTime(avgMinutes)}
+                     </span>{' '}
+                     por dia nos últimos 7 dias.
                    </p>
                 </div>
              </div>

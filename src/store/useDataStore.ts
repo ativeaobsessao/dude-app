@@ -178,8 +178,60 @@ export const useDataStore = create<DataState>((set, get) => ({
         const currentProfile = get().profile;
         if (currentProfile) {
           const newTotal = Number(currentProfile.total_focus_minutes) + session.duration_minutes;
-          await supabase.from('profiles').update({ total_focus_minutes: newTotal }).eq('id', session.user_id);
-          set({ profile: { ...currentProfile, total_focus_minutes: newTotal } });
+          
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          
+          // Buscar todas as sessões para calcular streak
+          const allSessions = get().sessions;
+          
+          // Verificar se já tinha sessão hoje antes dessa
+          const hadSessionToday = allSessions
+            .filter(s => s.id !== data.id) // excluir a que acabou de salvar
+            .some(s => s.started_at.startsWith(today));
+          
+          // Verificar se tinha sessão ontem
+          const hadSessionYesterday = allSessions
+            .some(s => s.started_at.startsWith(yesterday));
+          
+          let newStreak = currentProfile.current_streak;
+          
+          if (!hadSessionToday) {
+            // Primeira sessão do dia
+            if (hadSessionYesterday || currentProfile.current_streak === 0) {
+              // Tinha ontem ou é o primeiro dia → incrementa
+              newStreak = currentProfile.current_streak + 1;
+            } else {
+              // Não tinha ontem → zera e começa do 1
+              newStreak = 1;
+            }
+            
+            // Salvar no Supabase
+            await supabase
+              .from('profiles')
+              .update({ 
+                total_focus_minutes: newTotal,
+                current_streak: newStreak 
+              })
+              .eq('id', session.user_id);
+              
+            set({ profile: { 
+              ...currentProfile, 
+              total_focus_minutes: newTotal,
+              current_streak: newStreak 
+            }});
+          } else {
+            // Já tinha sessão hoje — só atualiza o total de minutos
+            await supabase
+              .from('profiles')
+              .update({ total_focus_minutes: newTotal })
+              .eq('id', session.user_id);
+              
+            set({ profile: { 
+              ...currentProfile, 
+              total_focus_minutes: newTotal 
+            }});
+          }
         }
       }
     } catch (err) {
