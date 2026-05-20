@@ -118,7 +118,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/5">
+          <div id="stats-summary-grid" className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-white/5">
              <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/20">
                    <Target size={18} className="text-primary-green" />
@@ -150,6 +150,37 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 </div>
              </div>
           </div>
+
+          {habits.length > 0 && (
+            <div className="pt-6 border-t border-white/5 space-y-4">
+              <h4 className="text-xs font-bold text-text-secondary/40 uppercase tracking-[0.2em] mb-3">Hábitos Atômicos esta semana</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {habits.map(h => {
+                  const pct = Math.min(100, Math.round((h.sessions_this_week / h.sessions_per_week) * 100));
+                  return (
+                    <div key={h.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex flex-col justify-between space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">Hábito</p>
+                          <h5 className="text-sm font-medium text-text-primary">{h.name}</h5>
+                        </div>
+                        <span className="text-xs font-mono text-primary-green font-bold">🔥 {h.weekly_streak} sem</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-text-secondary font-mono">
+                          <span>Progresso: {h.sessions_this_week}/{h.sessions_per_week} sessões</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-primary-green h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

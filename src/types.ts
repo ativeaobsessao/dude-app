@@ -21,9 +21,22 @@ export type Habit = {
   name: string;
   total_minutes: number;
   deep_sessions_count: number;
-  current_streak: number;
-  completed_today: boolean;
+  weekly_streak: number;
+  sessions_per_week: number;
+  minutes_per_session: number;
+  preferred_time: 'morning' | 'afternoon' | 'evening';
+  sessions_this_week: number;
+  week_start_date: string;
   created_at: string;
+};
+
+export type HabitCompletion = {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_at: string;
+  duration_minutes: number;
+  focus_session_id: string | null;
 };
 
 export type FocusSession = {

@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion } from '../types';
 
 interface DataState {
   profile: Profile | null;
   projects: Project[];
   habits: Habit[];
+  habitCompletions: HabitCompletion[];
   sessions: FocusSession[];
   notes: Note[];
   activities: Activity[];
@@ -15,14 +16,15 @@ interface DataState {
   fetchProfile: (userId: string) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
+  fetchHabitCompletions: (userId: string) => Promise<void>;
   
   addProject: (userId: string, name: string) => Promise<void>;
-  addHabit: (userId: string, name: string) => Promise<void>;
+  addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<void>;
   addActivity: (userId: string, name: string, projectId?: string) => Promise<void>;
   
-  toggleHabitComplete: (habit: Habit) => Promise<void>;
+  completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -35,6 +37,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   profile: null,
   projects: [],
   habits: [],
+  habitCompletions: [],
   sessions: [],
   notes: [],
   activities: [],
@@ -54,12 +57,13 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a] = await Promise.all([
+      const [p, h, s, n, a, hc] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('habit_completions').select('*').eq('user_id', userId).order('completed_at', { ascending: false }),
       ]);
 
       set({ 
@@ -68,11 +72,25 @@ export const useDataStore = create<DataState>((set, get) => ({
         sessions: s.data || [], 
         notes: n.data || [],
         activities: a.data || [],
+        habitCompletions: hc.data || [],
         loading: false 
       });
     } catch (err) {
       console.error('Error fetching data:', err);
       set({ loading: false });
+    }
+  },
+
+  fetchHabitCompletions: async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('habit_completions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false });
+      if (data) set({ habitCompletions: data });
+    } catch (err) {
+      console.error('Error fetching habit completions:', err);
     }
   },
 
@@ -96,9 +114,24 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  addHabit: async (userId, name) => {
+  addHabit: async (userId, name, sessionsPerWeek, minutesPerSession, preferredTime) => {
     try {
-      const { data, error } = await supabase.from('habits').insert({ user_id: userId, name }).select().single();
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const weekStart = monday.toISOString().split('T')[0];
+
+      const { data, error } = await supabase.from('habits').insert({
+        user_id: userId,
+        name,
+        sessions_per_week: sessionsPerWeek,
+        minutes_per_session: minutesPerSession,
+        preferred_time: preferredTime,
+        weekly_streak: 0,
+        sessions_this_week: 0,
+        week_start_date: weekStart
+      }).select().single();
       if (error) throw error;
       if (data) set({ habits: [data, ...get().habits] });
     } catch (err) {
@@ -158,21 +191,13 @@ export const useDataStore = create<DataState>((set, get) => ({
         set({ sessions: [data, ...get().sessions] });
         
         // Update habit stats if habit_id exists
-        if (session.habit_id) {
-          const habit = get().habits.find(h => h.id === session.habit_id);
-          if (habit) {
-            await supabase.from('habits').update({
-              total_minutes: habit.total_minutes + session.duration_minutes,
-              deep_sessions_count: habit.deep_sessions_count + 1
-            }).eq('id', habit.id);
-            set({
-              habits: get().habits.map(h => h.id === habit.id ? {
-                ...h,
-                total_minutes: h.total_minutes + session.duration_minutes,
-                deep_sessions_count: h.deep_sessions_count + 1
-              } : h)
-            });
-          }
+        if (session.habit_id && session.user_id) {
+          await get().completeHabitSession(
+            session.habit_id,
+            session.user_id,
+            session.duration_minutes,
+            data.id
+          );
         }
 
         const currentProfile = get().profile;
@@ -239,21 +264,65 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  toggleHabitComplete: async (habit) => {
+  completeHabitSession: async (habitId, userId, durationMinutes, focusSessionId?) => {
     try {
-      const newValue = !habit.completed_today;
-      const streakMod = newValue ? 1 : -1;
-      const { data, error } = await supabase.from('habits').update({ 
-        completed_today: newValue,
-        current_streak: Math.max(0, habit.current_streak + streakMod)
-      }).eq('id', habit.id).select().single();
+      const habit = get().habits.find(h => h.id === habitId);
+      if (!habit) return;
+
+      // Verificar se precisa resetar a semana
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const currentWeekStart = monday.toISOString().split('T')[0];
       
+      let sessionsThisWeek = habit.sessions_this_week;
+      let weeklyStreak = habit.weekly_streak;
+      
+      // Se é uma nova semana, verificar se semana anterior foi invicta
+      if (habit.week_start_date !== currentWeekStart) {
+        const wasInvicta = habit.sessions_this_week >= habit.sessions_per_week;
+        weeklyStreak = wasInvicta ? habit.weekly_streak + 1 : 0;
+        sessionsThisWeek = 0;
+      }
+
+      // Registrar completion
+      const { data: hcData, error: hcError } = await supabase.from('habit_completions').insert({
+        habit_id: habitId,
+        user_id: userId,
+        duration_minutes: durationMinutes,
+        focus_session_id: focusSessionId || null
+      }).select().single();
+
+      if (hcData) {
+        set({ habitCompletions: [hcData, ...get().habitCompletions] });
+      }
+
+      // Incrementar sessões da semana
+      sessionsThisWeek += 1;
+      const newTotal = habit.total_minutes + durationMinutes;
+      const newSessions = habit.deep_sessions_count + 1;
+
+      // Verificar se completou a meta desta semana
+      const completedWeekGoal = sessionsThisWeek >= habit.sessions_per_week;
+      if (completedWeekGoal && sessionsThisWeek === habit.sessions_per_week) {
+        weeklyStreak = weeklyStreak + 1;
+      }
+
+      const { data, error } = await supabase.from('habits').update({
+        total_minutes: newTotal,
+        deep_sessions_count: newSessions,
+        sessions_this_week: sessionsThisWeek,
+        week_start_date: currentWeekStart,
+        weekly_streak: weeklyStreak
+      }).eq('id', habitId).select().single();
+
       if (error) throw error;
       if (data) {
-        set({ habits: get().habits.map(h => h.id === habit.id ? data : h) });
+        set({ habits: get().habits.map(h => h.id === habitId ? data : h) });
       }
     } catch (err) {
-      console.error('Error toggling habit:', err);
+      console.error('Error completing habit session:', err);
     }
   },
 

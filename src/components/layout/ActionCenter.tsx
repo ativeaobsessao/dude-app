@@ -67,6 +67,11 @@ export const ActionCenter = () => {
   // Project/Habit/Note States
   const [newProjectName, setNewProjectName] = useState('');
   const [newHabitName, setNewHabitName] = useState('');
+  const [newHabitFrequency, setNewHabitFrequency] = useState<number>(3);
+  const [newHabitDuration, setNewHabitDuration] = useState<number>(30);
+  const [newHabitTime, setNewHabitTime] = useState<string>('morning');
+  const [registeringHabit, setRegisteringHabit] = useState<string | null>(null);
+  const [manualSessionDuration, setManualSessionDuration] = useState<number>(30);
   const [noteText, setNoteText] = useState('');
   const [noteProject, setNoteProject] = useState('');
   const [noteActivityId, setNoteActivityId] = useState('');
@@ -138,9 +143,18 @@ export const ActionCenter = () => {
 
   const handleAddHabit = async () => {
     if (!newHabitName || !user) return;
-    await dataStore.addHabit(user.id, newHabitName);
+    await dataStore.addHabit(
+      user.id, 
+      newHabitName, 
+      newHabitFrequency, 
+      newHabitDuration, 
+      newHabitTime as 'morning' | 'afternoon' | 'evening'
+    );
     setNewHabitName('');
-    showSuccess('Hábito salvo com sucesso!');
+    setNewHabitFrequency(3);
+    setNewHabitDuration(30);
+    setNewHabitTime('morning');
+    showSuccess('✅ Hábito criado com sucesso!');
   };
 
   const handleAddNote = async () => {
@@ -335,6 +349,21 @@ export const ActionCenter = () => {
                             className={inputClasses}
                             value={sessionData.activityManual}
                             onChange={e => setSessionData({...sessionData, activityManual: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1 text-left">
+                          <label className={labelClasses}>Vincular Hábito (opcional)</label>
+                          <CustomSelect
+                            value={sessionData.habit}
+                            onChange={val => setSessionData({...sessionData, habit: val})}
+                            placeholder="Nenhum"
+                            options={[
+                              { value: '', label: 'Nenhum' },
+                              ...dataStore.habits.map(h => ({ 
+                                value: h.id, 
+                                label: `${h.name} (${h.sessions_this_week}/${h.sessions_per_week} esta semana)`
+                              }))
+                            ]}
                           />
                         </div>
                         <div className="space-y-1 text-left">
@@ -647,33 +676,147 @@ export const ActionCenter = () => {
                   </div>
                 )}
 
-                {currentScreen === 'habits' && (
-                  <div className="w-full max-w-2xl space-y-10">
-                    <h3 className="text-3xl font-bold tracking-tight text-text-primary">Hábitos Atômicos</h3>
-                    <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+                                {currentScreen === 'habits' && (
+                  <div className="w-full max-w-2xl space-y-10 flex flex-col items-stretch">
+                    <button
+                      onClick={() => setCurrentScreen(null)}
+                      className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px] self-start"
+                    >
+                      ← Voltar
+                    </button>
+
+                    {/* SEÇÃO 1 — Criar novo hábito */}
+                    <div className="space-y-4 text-left">
                       <div>
-                        <label className={labelClasses}>Nome do Hábito</label>
-                        <input
-                          autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
-                          placeholder="Novo Hábito..."
-                          className={inputClasses}
-                          value={newHabitName}
-                          onChange={e => setNewHabitName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
-                        />
+                        <h3 className="text-3xl font-bold tracking-tight text-text-primary">Novo Hábito</h3>
+                        <p className="text-xs text-text-secondary/60 mt-1">Configure sua prática e construa consistência.</p>
                       </div>
-                      <button onClick={handleAddHabit} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all">Salvar Hábito</button>
+                      
+                      <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+                        <div className="space-y-1">
+                          <label className={labelClasses}>NOME DO HÁBITO</label>
+                          <input
+                            autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
+                            placeholder="Ex: Leitura, Exercício, Meditação..."
+                            className={inputClasses}
+                            value={newHabitName}
+                            onChange={e => setNewHabitName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className={labelClasses}>QUANTAS VEZES POR SEMANA?</label>
+                          <CustomSelect
+                            value={String(newHabitFrequency)}
+                            onChange={(val) => setNewHabitFrequency(Number(val))}
+                            placeholder="Vezes por semana"
+                            options={[
+                              { value: '1', label: '1x' },
+                              { value: '2', label: '2x' },
+                              { value: '3', label: '3x' },
+                              { value: '4', label: '4x' },
+                              { value: '5', label: '5x' },
+                              { value: '6', label: '6x' },
+                              { value: '7', label: '7x por semana' }
+                            ]}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className={labelClasses}>DURAÇÃO POR SESSÃO</label>
+                          <CustomSelect
+                            value={String(newHabitDuration)}
+                            onChange={(val) => setNewHabitDuration(Number(val))}
+                            placeholder="Duração por sessão"
+                            options={[
+                              { value: '15', label: '15 minutos' },
+                              { value: '30', label: '30 minutos' },
+                              { value: '45', label: '45 minutos' },
+                              { value: '60', label: '60 minutos' },
+                              { value: '90', label: '90 minutos' },
+                              { value: '120', label: '120 minutos' }
+                            ]}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className={labelClasses}>MELHOR HORÁRIO</label>
+                          <CustomSelect
+                            value={newHabitTime}
+                            onChange={(val) => setNewHabitTime(val)}
+                            placeholder="Melhor horário"
+                            options={[
+                              { value: 'morning', label: '🌅 Manhã' },
+                              { value: 'afternoon', label: '☀️ Tarde' },
+                              { value: 'evening', label: '🌙 Noite' }
+                            ]}
+                          />
+                        </div>
+                        <button onClick={handleAddHabit} className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)]">SALVAR HÁBITO</button>
+                      </div>
                     </div>
-                    <div className="space-y-4 pt-8">
-                       {dataStore.habits.map(h => (
-                         <div key={h.id} className="flex justify-between items-center p-6 bg-surface/5 border border-white/5 rounded-2xl group">
-                           <div>
-                             <h4 className="text-lg font-light text-text-primary">{h.name}</h4>
-                             <p className="text-[10px] font-bold text-primary-green uppercase tracking-widest">{h.current_streak} dias invictos</p>
-                           </div>
-                           <button onClick={() => setDeleteConfirm({ id: h.id, type: 'habit', name: h.name })} className="p-3 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
-                         </div>
-                       ))}
+
+                    {/* Divisor */}
+                    <div className="border-t border-white/10 pt-4" />
+
+                    {/* SEÇÃO 2 — Seus hábitos ativos */}
+                    <div className="space-y-6 text-left">
+                      <h3 className="text-2xl font-bold tracking-tight text-text-primary uppercase">SEUS HÁBITOS</h3>
+                      
+                      <div className="space-y-4">
+                        {dataStore.habits.length === 0 ? (
+                          <p className="text-text-secondary/40 font-light italic">Nenhum hábito ativo.</p>
+                        ) : (
+                          dataStore.habits.map(h => {
+                            const total = h.sessions_per_week || 3;
+                            const current = h.sessions_this_week || 0;
+                            const dots = Array.from({ length: total }, (_, i) => i < current ? '●' : '○').join(' ');
+
+                            return (
+                              <div key={h.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-surface/5 border border-white/5 rounded-3xl gap-4">
+                                <div className="space-y-1.5 text-left">
+                                  <h4 className="text-lg font-semibold text-text-primary">{h.name}</h4>
+                                  <div className="text-xs text-text-secondary/60">
+                                    {{
+                                      morning: '🌅 Manhã',
+                                      afternoon: '☀️ Tarde',
+                                      evening: '🌙 Noite'
+                                    }[h.preferred_time] || h.preferred_time} · {h.minutes_per_session}min por sessão
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-primary-green text-sm tracking-widest font-bold">
+                                      {dots}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
+                                      {current}/{total} esta semana
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-3 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
+                                  <span className="text-xs font-bold text-primary-green font-mono">
+                                    🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invictas
+                                  </span>
+                                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                    <button
+                                      onClick={() => {
+                                        setRegisteringHabit(h.id);
+                                        setManualSessionDuration(h.minutes_per_session);
+                                      }}
+                                      className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all"
+                                    >
+                                      + Registrar sessão
+                                    </button>
+                                    <button 
+                                      onClick={() => setDeleteConfirm({ id: h.id, type: 'habit', name: h.name })} 
+                                      className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -723,8 +866,12 @@ export const ActionCenter = () => {
             <div className="w-full max-w-sm bg-surface border border-border-white/20 p-10 rounded-[2.5rem] text-center space-y-6">
               <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto"><AlertTriangle size={32} /></div>
               <div className="space-y-2">
-                <h4 className="text-xl font-bold text-text-primary">Deseja excluir {deleteConfirm.name}?</h4>
-                <p className="text-text-secondary text-sm font-light">Esta ação não pode ser desfeita.</p>
+                <h4 className="text-xl font-bold text-text-primary">
+                  {deleteConfirm.type === 'habit' ? `Deseja excluir o hábito ${deleteConfirm.name}?` : `Deseja excluir ${deleteConfirm.name}?`}
+                </h4>
+                <p className="text-text-secondary text-sm font-light">
+                  {deleteConfirm.type === 'habit' ? 'Todo o histórico será perdido.' : 'Esta ação não pode ser desfeita.'}
+                </p>
               </div>
               <div className="flex flex-col gap-3">
                 <button onClick={handleDelete} className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px]">Sim, excluir</button>
@@ -752,6 +899,61 @@ export const ActionCenter = () => {
             </div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Manual Habit Session Registration */}
+      <AnimatePresence>
+        {registeringHabit && (() => {
+          const habit = dataStore.habits.find(h => h.id === registeringHabit);
+          if (!habit) return null;
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[600] bg-background/80 backdrop-blur-sm flex items-center justify-center p-6">
+              <div className="w-full max-w-sm bg-surface border border-border-white/20 p-10 rounded-[2.5rem] text-center space-y-6">
+                <div className="w-16 h-16 bg-primary-green/10 text-primary-green rounded-full flex items-center justify-center mx-auto">
+                  <Clock size={32} />
+                </div>
+                <div className="space-y-4">
+                  <h4 className="text-xl font-bold text-text-primary text-center">Registrar sessão — {habit.name}</h4>
+                </div>
+                <div className="space-y-2 text-left">
+                  <label className={labelClasses}>DURAÇÃO</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Minutos"
+                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green text-center text-xl font-bold"
+                    value={manualSessionDuration || ''}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value) || 0;
+                      setManualSessionDuration(num);
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={async () => {
+                      if (user && manualSessionDuration > 0) {
+                        await dataStore.completeHabitSession(habit.id, user.id, manualSessionDuration);
+                        setRegisteringHabit(null);
+                        showSuccess('✅ Sessão registrada com sucesso!');
+                      }
+                    }} 
+                    className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_20px_rgba(110,231,168,0.2)] hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    CONFIRMAR
+                  </button>
+                  <button 
+                    onClick={() => setRegisteringHabit(null)} 
+                    className="w-full py-4 bg-white/5 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all"
+                  >
+                    CANCELAR
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </>
   );
