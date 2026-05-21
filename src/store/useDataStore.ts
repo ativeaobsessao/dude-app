@@ -116,6 +116,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addHabit: async (userId, name, sessionsPerWeek, minutesPerSession, preferredTime) => {
     try {
+      if (!name || !sessionsPerWeek || !minutesPerSession || !preferredTime) {
+        console.error('addHabit: parâmetros inválidos', { name, sessionsPerWeek, minutesPerSession, preferredTime });
+        return;
+      }
+
       const today = new Date();
       const dayOfWeek = today.getDay();
       const monday = new Date(today);
@@ -124,7 +129,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       const { data, error } = await supabase.from('habits').insert({
         user_id: userId,
-        name,
+        name: name.trim(),
         sessions_per_week: sessionsPerWeek,
         minutes_per_session: minutesPerSession,
         preferred_time: preferredTime,
@@ -132,10 +137,17 @@ export const useDataStore = create<DataState>((set, get) => ({
         sessions_this_week: 0,
         week_start_date: weekStart
       }).select().single();
-      if (error) throw error;
-      if (data) set({ habits: [data, ...get().habits] });
+
+      if (error) {
+        console.error('Supabase error ao salvar hábito:', error);
+        return;
+      }
+      if (data) {
+        set({ habits: [data, ...get().habits] });
+        console.log('Hábito salvo com sucesso:', data);
+      }
     } catch (err) {
-      console.error('Error adding habit:', err);
+      console.error('Erro crítico ao salvar hábito:', err);
     }
   },
 

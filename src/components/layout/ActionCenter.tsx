@@ -67,9 +67,10 @@ export const ActionCenter = () => {
   // Project/Habit/Note States
   const [newProjectName, setNewProjectName] = useState('');
   const [newHabitName, setNewHabitName] = useState('');
-  const [newHabitFrequency, setNewHabitFrequency] = useState<number>(3);
-  const [newHabitDuration, setNewHabitDuration] = useState<number>(30);
-  const [newHabitTime, setNewHabitTime] = useState<string>('morning');
+  const [newHabitFrequency, setNewHabitFrequency] = useState(3);
+  const [newHabitDuration, setNewHabitDuration] = useState(0);
+  const [newHabitTime, setNewHabitTime] = useState('morning');
+  const [showHabitsModal, setShowHabitsModal] = useState(false);
   const [registeringHabit, setRegisteringHabit] = useState<string | null>(null);
   const [manualSessionDuration, setManualSessionDuration] = useState<number>(30);
   const [noteText, setNoteText] = useState('');
@@ -142,17 +143,34 @@ export const ActionCenter = () => {
   };
 
   const handleAddHabit = async () => {
-    if (!newHabitName || !user) return;
+    if (!newHabitName.trim() || !user) {
+      showSuccess('Por favor, insira o nome do hábito.');
+      return;
+    }
+    if (!newHabitFrequency || newHabitFrequency < 1) {
+      showSuccess('Por favor, selecione a frequência semanal.');
+      return;
+    }
+    if (!newHabitDuration || newHabitDuration < 1) {
+      showSuccess('Por favor, insira a duração por sessão.');
+      return;
+    }
+    if (!newHabitTime) {
+      showSuccess('Por favor, selecione o melhor horário.');
+      return;
+    }
+
     await dataStore.addHabit(
-      user.id, 
-      newHabitName, 
-      newHabitFrequency, 
-      newHabitDuration, 
+      user.id,
+      newHabitName.trim(),
+      newHabitFrequency,
+      newHabitDuration,
       newHabitTime as 'morning' | 'afternoon' | 'evening'
     );
+
     setNewHabitName('');
     setNewHabitFrequency(3);
-    setNewHabitDuration(30);
+    setNewHabitDuration(0);
     setNewHabitTime('morning');
     showSuccess('✅ Hábito criado com sucesso!');
   };
@@ -696,12 +714,24 @@ export const ActionCenter = () => {
                         <div className="space-y-1">
                           <label className={labelClasses}>NOME DO HÁBITO</label>
                           <input
-                            autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
+                            type="text"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            enterKeyHint="done"
+                            inputMode="text"
                             placeholder="Ex: Leitura, Exercício, Meditação..."
                             className={inputClasses}
                             value={newHabitName}
                             onChange={e => setNewHabitName(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            onBlur={() => {
+                              // Não salva ao sair do campo — apenas fecha o teclado
+                            }}
                           />
                         </div>
                         <div className="space-y-1">
@@ -722,19 +752,27 @@ export const ActionCenter = () => {
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className={labelClasses}>DURAÇÃO POR SESSÃO</label>
-                          <CustomSelect
-                            value={String(newHabitDuration)}
-                            onChange={(val) => setNewHabitDuration(Number(val))}
-                            placeholder="Duração por sessão"
-                            options={[
-                              { value: '15', label: '15 minutos' },
-                              { value: '30', label: '30 minutos' },
-                              { value: '45', label: '45 minutos' },
-                              { value: '60', label: '60 minutos' },
-                              { value: '90', label: '90 minutos' },
-                              { value: '120', label: '120 minutos' }
-                            ]}
+                          <label className={labelClasses}>DURAÇÃO POR SESSÃO (minutos)</label>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={3}
+                            enterKeyHint="done"
+                            placeholder="Ex: 45"
+                            className={`${inputClasses} text-center text-2xl font-bold`}
+                            value={newHabitDuration === 0 ? '' : newHabitDuration}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setNewHabitDuration(parseInt(val) || 0);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
                           />
                         </div>
                         <div className="space-y-1">
@@ -756,6 +794,15 @@ export const ActionCenter = () => {
 
                     {/* Divisor */}
                     <div className="border-t border-white/10 pt-4" />
+
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => setShowHabitsModal(true)}
+                        className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1 hover:border-primary-green transition-all"
+                      >
+                        Ver Todos os Hábitos
+                      </button>
+                    </div>
 
                     {/* SEÇÃO 2 — Seus hábitos ativos */}
                     <div className="space-y-6 text-left">
@@ -819,6 +866,116 @@ export const ActionCenter = () => {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* List Modals */}
+      <AnimatePresence>
+        {showHabitsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
+          >
+            <div className="w-full max-w-2xl space-y-10">
+              <header className="flex justify-between items-center border-b border-white/5 pb-8">
+                <button
+                  onClick={() => setShowHabitsModal(false)}
+                  className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"
+                >
+                  ← Voltar
+                </button>
+                <h3 className="text-2xl font-bold text-text-primary tracking-tight">
+                  Todos os Hábitos
+                </h3>
+                <button
+                  onClick={() => setShowHabitsModal(false)}
+                  className="w-10 h-10 rounded-full border border-border-white flex items-center justify-center text-text-secondary hover:text-white transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </header>
+
+              <div className="space-y-4 pb-20">
+                {dataStore.habits.length === 0 ? (
+                  <p className="text-text-secondary/40 italic text-center py-20">
+                    Nenhum hábito cadastrado ainda.
+                  </p>
+                ) : (
+                  dataStore.habits.map(h => {
+                    const total = h.sessions_per_week || 3;
+                    const current = h.sessions_this_week || 0;
+                    const preferredTimeLabel = {
+                      morning: '🌅 Manhã',
+                      afternoon: '☀️ Tarde',
+                      evening: '🌙 Noite'
+                    }[h.preferred_time] || h.preferred_time;
+
+                    return (
+                      <div key={h.id} className="p-6 bg-surface/10 border border-white/10 rounded-3xl space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <h4 className="text-lg font-bold text-text-primary">{h.name}</h4>
+                            <p className="text-xs text-text-secondary/60">
+                              {preferredTimeLabel} · {h.minutes_per_session}min por sessão
+                            </p>
+                          </div>
+                          <span className="text-sm font-bold text-primary-green">
+                            🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invicta{h.weekly_streak !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* Bolinhas de progresso */}
+                        <div className="flex items-center gap-2">
+                          {Array.from({ length: total }, (_, i) => (
+                            <div
+                              key={i}
+                              className={`w-3 h-3 rounded-full transition-all ${
+                                i < current
+                                  ? 'bg-primary-green shadow-[0_0_8px_rgba(110,231,168,0.5)]'
+                                  : 'bg-white/10'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest ml-2">
+                            {current}/{total} esta semana
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                          <p className="text-[10px] text-text-secondary/40 uppercase tracking-widest font-bold">
+                            Criado em {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setRegisteringHabit(h.id);
+                                setManualSessionDuration(h.minutes_per_session);
+                                setShowHabitsModal(false);
+                              }}
+                              className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all"
+                            >
+                              + Registrar sessão
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeleteConfirm({ id: h.id, type: 'habit', name: h.name });
+                                setShowHabitsModal(false);
+                              }}
+                              className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

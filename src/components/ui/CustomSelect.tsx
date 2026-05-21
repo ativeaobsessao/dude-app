@@ -34,7 +34,10 @@ export const CustomSelect = ({ options, value, onChange, placeholder = 'Selecion
     <div ref={ref} className={`relative ${className}`}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsOpen(!isOpen);
+        }}
         className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-left text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px] flex items-center justify-between gap-2"
       >
         <span className={selected ? 'text-text-primary' : 'text-text-secondary/50'}>

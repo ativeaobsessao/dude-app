@@ -18,7 +18,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession } = useDataStore();
+  const { hasCompletedFirstSession, profile } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
@@ -112,8 +112,19 @@ export default function App() {
             >
               Sair
             </button>
-            <div className="w-10 h-10 rounded-full border border-border-white flex items-center justify-center overflow-hidden bg-surface hover:border-primary-green transition-colors cursor-pointer">
-              <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)]" />
+            <div className="w-10 h-10 rounded-full border border-border-white overflow-hidden hover:border-primary-green transition-colors cursor-pointer">
+              {profile?.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)] flex items-center justify-center text-primary-green font-bold text-sm">
+                  {profile?.full_name?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
             </div>
           </motion.nav>
         </header>
