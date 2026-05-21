@@ -23,6 +23,12 @@ export const ActiveSession = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showLateConfig, setShowLateConfig] = useState(false);
+  const [showTasksOverlay, setShowTasksOverlay] = useState(false);
+  const [sessionTasksLocal, setSessionTasksLocal] = useState<string[]>([]);
+  const [completedTasksLocal, setCompletedTasksLocal] = useState<string[]>([]);
+  const [showAllTasksDonePopup, setShowAllTasksDonePopup] = useState(false);
+  const [allTasksCompletedTime, setAllTasksCompletedTime] = useState<number | null>(null);
+  const [actualDurationMinutes, setActualDurationMinutes] = useState<number | null>(null);
   
   // Late session config state
   const [lateProjectId, setLateProjectId] = useState(timer.projectId || '');
@@ -174,31 +180,63 @@ export const ActiveSession = () => {
     return () => clearInterval(interval);
   }, [timer.isActive, timer.startTime, timer.totalDurationMs, timer.getRemainingMs, timer.isPaused]);
 
+  useEffect(() => {
+    if (timer.isActive && timer.pendingTasks.length > 0 && sessionTasksLocal.length === 0) {
+      setSessionTasksLocal(timer.pendingTasks);
+      timer.clearPendingTasks();
+    }
+  }, [timer.isActive, timer.pendingTasks]);
+
+  useEffect(() => {
+    if (
+      sessionTasksLocal.length > 0 &&
+      completedTasksLocal.length === sessionTasksLocal.length &&
+      !showAllTasksDonePopup &&
+      !allTasksCompletedTime
+    ) {
+      setAllTasksCompletedTime(Date.now());
+      setShowAllTasksDonePopup(true);
+    }
+  }, [completedTasksLocal, sessionTasksLocal]);
+
   const handleSave = async () => {
     if (!user || !timer.totalDurationMs) return;
 
-    // Synchronous state update for instant UI feedback (Form 10)
+    const allDone = completedTasksLocal.length === sessionTasksLocal.length && sessionTasksLocal.length > 0;
+    const realDuration = actualDurationMinutes || Math.round((timer.totalDurationMs || 0) / 60000);
+
     const sessionToSave = {
       user_id: user.id,
-      project_id: timer.projectId,
-      habit_id: timer.habitId,
+      project_id: timer.projectId || null,
+      habit_id: timer.habitId || null,
       activity_name: timer.activityName,
       description: timer.description,
-      duration_minutes: Math.round(timer.totalDurationMs / 60000),
-      started_at: new Date(timer.startTime!).toISOString(),
+      duration_minutes: realDuration,
+      started_at: new Date(timer.startTime || Date.now()).toISOString(),
       completed_at: new Date().toISOString(),
-      completed: true
+      completed: true,
+      all_tasks_completed: allDone,
+      actual_duration_minutes: actualDurationMinutes || null,
     };
+
     const noteDescription = timer.description.trim();
     const noteProjectIdFix = timer.projectId || undefined;
 
-    // Reset UI state immediately
-    timer.reset();
     setShowCompleteModal(false);
 
     try {
-      // Save focus session
-      await dataStore.addSession(sessionToSave);
+      const savedSession = await dataStore.addSession(sessionToSave);
+
+      if (savedSession?.id && sessionTasksLocal.length > 0) {
+        for (const task of sessionTasksLocal) {
+          await dataStore.addSessionTask(
+            savedSession.id,
+            user.id,
+            task,
+            completedTasksLocal.includes(task)
+          );
+        }
+      }
 
       // Save auto-note if present
       if (noteDescription) {
@@ -215,6 +253,12 @@ export const ActiveSession = () => {
       }
     } catch (err) {
       console.error("Erro ao salvar sessão:", err);
+    } finally {
+      setSessionTasksLocal([]);
+      setCompletedTasksLocal([]);
+      setActualDurationMinutes(null);
+      setAllTasksCompletedTime(null);
+      timer.reset();
     }
   };
 
@@ -250,6 +294,12 @@ export const ActiveSession = () => {
   const handleUpdateLateConfig = () => {
     timer.updateConfig(lateProjectId, undefined, lateActivityName);
     setShowLateConfig(false);
+  };
+
+  const handleEarlyComplete = () => {
+    const actualMinutes = Math.round((Date.now() - (timer.startTime || 0)) / 60000);
+    setActualDurationMinutes(actualMinutes);
+    setShowCompleteModal(true); // abre popup normal de confirmação
   };
 
   const handleRequestPermission = () => {
@@ -320,6 +370,21 @@ export const ActiveSession = () => {
                 )}
               </div>
             </div>
+
+            {sessionTasksLocal.length > 0 && (
+              <button
+                onClick={() => setShowTasksOverlay(true)}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-text-secondary/50 hover:text-primary-green transition-colors mx-auto"
+              >
+                <span className={completedTasksLocal.length === sessionTasksLocal.length ? 'text-primary-green' : 'text-white/30'}>
+                  {completedTasksLocal.length === sessionTasksLocal.length ? '✅' : '○'}
+                </span>
+                VER LISTA DE TAREFAS
+                <span className="text-primary-green/60">
+                  ({completedTasksLocal.length}/{sessionTasksLocal.length})
+                </span>
+              </button>
+            )}
 
             {/* 2. Central Timer Display */}
             <div className="relative flex flex-col items-center justify-center w-full max-w-5xl">
@@ -597,6 +662,41 @@ export const ActiveSession = () => {
                    {currentProjectName}
                 </p>
               </div>
+
+              {sessionTasksLocal.length > 0 && (
+                <div className="space-y-3 text-left border-t border-white/5 pt-6">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block mb-1">
+                    Tarefas da Sessão
+                  </label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {sessionTasksLocal.map((task, i) => {
+                      const isDone = completedTasksLocal.includes(task);
+                      return (
+                        <label
+                          key={i}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() => {
+                              if (isDone) {
+                                setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
+                              } else {
+                                setCompletedTasksLocal([...completedTasksLocal, task]);
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-white/10 text-primary-green bg-transparent focus:ring-0 cursor-pointer"
+                          />
+                          <span className={`text-xs ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
+                            {task}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               
               <div className="flex flex-col gap-4">
                 <button
@@ -698,6 +798,108 @@ export const ActiveSession = () => {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Task Checklist Overlay during session */}
+      <AnimatePresence>
+        {showTasksOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/98 backdrop-blur-3xl flex flex-col items-center justify-center p-6"
+          >
+            <div className="w-full max-w-md bg-surface border border-border-white p-8 rounded-[2rem] space-y-8 shadow-[0_0_80px_rgba(110,231,168,0.1)]">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold tracking-tight text-text-primary">Mantenha o foco</h3>
+                <button
+                  onClick={() => setShowTasksOverlay(false)}
+                  className="text-text-secondary hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {sessionTasksLocal.map((task, i) => {
+                  const isDone = completedTasksLocal.includes(task);
+                  return (
+                    <label
+                      key={i}
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-primary-green/30 cursor-pointer transition-all"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        onChange={() => {
+                          if (isDone) {
+                            setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
+                          } else {
+                            setCompletedTasksLocal([...completedTasksLocal, task]);
+                          }
+                        }}
+                        className="w-5 h-5 rounded-md border-white/20 text-primary-green bg-transparent focus:ring-0 cursor-pointer checked:bg-primary-green checked:border-primary-green transition-all"
+                      />
+                      <span className={`text-sm ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
+                        {task}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowTasksOverlay(false)}
+                  className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-glow-green transition-all"
+                >
+                  Continuar Sessão
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* All Tasks Done Popup */}
+      <AnimatePresence>
+        {showAllTasksDonePopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1150] bg-background/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <div className="w-full max-w-sm bg-surface border border-border-white p-8 rounded-[2rem] text-center space-y-6 shadow-[0_0_80px_rgba(110,231,168,0.2)]">
+              <div className="w-16 h-16 bg-primary-green/10 text-primary-green rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle size={32} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xl font-semibold tracking-tight text-text-primary">Meta Cumprida!</h4>
+                <p className="text-text-secondary font-light text-sm">
+                  Parabéns, todas as tarefas foram marcadas como concluídas! Deseja finalizar a sessão agora?
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowAllTasksDonePopup(false);
+                    handleEarlyComplete();
+                  }}
+                  className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all"
+                >
+                  Ir para Conclusão
+                </button>
+                <button
+                  onClick={() => setShowAllTasksDonePopup(false)}
+                  className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-white/10 transition-all"
+                >
+                  Continuar Sessão
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

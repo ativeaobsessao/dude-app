@@ -154,23 +154,45 @@ interface HistoryRowProps {
   onDelete: (id: string) => void;
 }
 
-const HistoryRow: React.FC<HistoryRowProps> = ({ id, title, project, duration, date, onDelete }) => (
-  <div className="flex justify-between items-center py-6 border-b border-border-white/5 group">
-    <div className="space-y-1">
-      <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors">{title}</span>
-      <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">{project}</p>
-    </div>
-    <div className="flex items-center gap-6 text-right">
-      <div className="space-y-1">
-        <p className="text-xs font-semibold text-text-primary tracking-tight">{duration}</p>
-        <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest leading-none">{date}</p>
+const HistoryRow: React.FC<HistoryRowProps> = ({ id, title, project, duration, date, onDelete }) => {
+  const dataStore = useDataStore();
+  const sessionTasks = dataStore.sessionTasks.filter(t => t.session_id === id);
+
+  return (
+    <div className="py-6 border-b border-border-white/5 group">
+      <div className="flex justify-between items-center">
+        <div className="space-y-1">
+          <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors">{title}</span>
+          <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">{project}</p>
+        </div>
+        <div className="flex items-center gap-6 text-right">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-text-primary tracking-tight">{duration}</p>
+            <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest leading-none">{date}</p>
+          </div>
+          <button 
+            onClick={() => onDelete(id)}
+            className="p-2 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
-      <button 
-        onClick={() => onDelete(id)}
-        className="p-2 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-      >
-        <Trash2 size={16} />
-      </button>
+
+      {sessionTasks.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {sessionTasks.map((t) => (
+            <div key={t.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] rounded-full">
+              <span className={t.completed ? 'text-primary-green' : 'text-text-secondary/30'}>
+                {t.completed ? '✓' : '○'}
+              </span>
+              <span className={`text-[9px] ${t.completed ? 'line-through text-text-secondary/40' : 'text-text-secondary/70'}`}>
+                {t.description}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};

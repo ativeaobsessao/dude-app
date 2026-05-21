@@ -51,6 +51,8 @@ export type FocusSession = {
   completed_at: string | null;
   completed: boolean;
   created_at: string;
+  all_tasks_completed: boolean;
+  actual_duration_minutes: number | null;
 };
 
 export type Note = {
@@ -69,6 +71,15 @@ export type Activity = {
   user_id: string;
   project_id: string | null;
   name: string;
+  completed: boolean;
+  created_at: string;
+};
+
+export type SessionTask = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  description: string;
   completed: boolean;
   created_at: string;
 };

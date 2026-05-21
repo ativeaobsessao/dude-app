@@ -13,6 +13,7 @@ interface TimerState {
   habitId: string | null;
   description: string;
   targetDate: string;
+  pendingTasks: string[];
   
   start: (durationMinutes: number, activity: string, projId?: string, habId?: string, desc?: string, date?: string) => void;
   pause: () => void;
@@ -20,6 +21,8 @@ interface TimerState {
   stop: () => void;
   reset: () => void;
   updateConfig: (projId?: string, habId?: string, activity?: string) => void;
+  setPendingTasks: (tasks: string[]) => void;
+  clearPendingTasks: () => void;
   
   // Computed values
   getRemainingMs: () => number;
@@ -39,6 +42,10 @@ export const useTimerStore = create<TimerState>()(
       habitId: null,
       description: '',
       targetDate: '',
+      pendingTasks: [] as string[],
+
+      setPendingTasks: (tasks) => set({ pendingTasks: tasks }),
+      clearPendingTasks: () => set({ pendingTasks: [] }),
 
       start: (durationMinutes, activity, projId, habId, desc, date) => {
         set({
@@ -95,6 +102,7 @@ export const useTimerStore = create<TimerState>()(
           habitId: null,
           description: '',
           targetDate: '',
+          pendingTasks: [],
         });
       },
 

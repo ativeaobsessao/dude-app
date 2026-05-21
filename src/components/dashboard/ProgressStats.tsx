@@ -4,7 +4,7 @@ import { X, Trophy, Target, Clock, Zap } from 'lucide-react';
 import { formatHumanTime } from '../../lib/utils';
 
 export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
-  const { sessions, projects, habits, profile } = useDataStore();
+  const { sessions, projects, habits, profile, sessionTasks } = useDataStore();
 
   // Last 7 days activity
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -48,6 +48,32 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     dailyMinutes.filter(m => m > 0).length || 1
   );
 
+  // CÁLCULOS TAREFAS SESSÃO:
+  const sessionsWithTasks = sessions.filter(s => {
+    return sessionTasks.some(t => t.session_id === s.id);
+  });
+
+  const completedSessionsWithAllTasks = sessionsWithTasks.filter(s => s.all_tasks_completed);
+
+  // 1. Índice de Execução
+  const executionIndex = sessionsWithTasks.length > 0
+    ? Math.round((completedSessionsWithAllTasks.length / sessionsWithTasks.length) * 100)
+    : 0;
+
+  // 2. Eficiência de Execução
+  // Média matemática de (tempo_real_gasto / tempo_planejado) * 100 dos focos concluídos
+  const sessionsWithActualDuration = sessions.filter(s => s.actual_duration_minutes !== null);
+  const sumEfficiencies = sessionsWithActualDuration.reduce((acc, s) => {
+    const planned = s.duration_minutes;
+    const actual = s.actual_duration_minutes || 1;
+    const ratio = planned > 0 ? (actual / planned) * 100 : 100;
+    return acc + Math.min(100, ratio); // limita eficiência a 100% por sessão
+  }, 0);
+
+  const executionEfficiency = sessionsWithActualDuration.length > 0
+    ? Math.round(sumEfficiencies / sessionsWithActualDuration.length)
+    : 0;
+
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-background/95 backdrop-blur-xl">
       <motion.div
@@ -72,7 +98,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             <h2 className="text-4xl font-semibold tracking-tight text-text-primary">Métrica da sua Evolução</h2>
           </header>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">Total Focado</span>
               <p className="text-2xl font-light text-text-primary">{formatHumanTime(profile?.total_focus_minutes || 0)}</p>
@@ -86,6 +112,14 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               <p className="text-2xl font-light text-text-primary">{projects.length}</p>
             </div>
             <div className="space-y-1">
+              <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">ÍNDICE EXECUÇÃO</span>
+              <p className="text-2xl font-light text-primary-green">{executionIndex}%</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">EFICIÊNCIA</span>
+              <p className="text-2xl font-light text-primary-green">{executionEfficiency}%</p>
+            </div>
+            <div className="space-y-1">
               <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">DIAS INVICTOS</span>
               <p className="text-2xl font-light text-primary-green">🔥 {profile?.current_streak || 0} dias</p>
             </div>
@@ -94,7 +128,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           <div className="space-y-6">
             <div className="flex justify-between items-end">
               <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">Atividade nos últimos 7 dias</span>
-              <span className="text-[10px] font-mono text-primary-green/60">Minutos por dia</span>
             </div>
             <div className="h-32 flex items-end gap-2 md:gap-4 px-2">
               {dailyMinutes.map((mins, i) => (

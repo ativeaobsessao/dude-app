@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask } from '../types';
 
 interface DataState {
   profile: Profile | null;
@@ -10,6 +10,7 @@ interface DataState {
   sessions: FocusSession[];
   notes: Note[];
   activities: Activity[];
+  sessionTasks: SessionTask[];
   loading: boolean;
   hasCompletedFirstSession: boolean;
   
@@ -17,12 +18,15 @@ interface DataState {
   fetchData: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
   fetchHabitCompletions: (userId: string) => Promise<void>;
+  fetchSessionTasks: (userId: string) => Promise<void>;
   
   addProject: (userId: string, name: string) => Promise<void>;
   addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
-  addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<void>;
+  addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
   addActivity: (userId: string, name: string, projectId?: string) => Promise<void>;
+  addSessionTask: (sessionId: string, userId: string, description: string, completed?: boolean) => Promise<SessionTask | null>;
+  toggleSessionTask: (taskId: string) => Promise<void>;
   
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
@@ -41,6 +45,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   sessions: [],
   notes: [],
   activities: [],
+  sessionTasks: [] as SessionTask[],
   loading: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
 
@@ -75,6 +80,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         habitCompletions: hc.data || [],
         loading: false 
       });
+
+      await get().fetchSessionTasks(userId);
     } catch (err) {
       console.error('Error fetching data:', err);
       set({ loading: false });
@@ -101,6 +108,20 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (data) set({ activities: data });
     } catch (err) {
       console.error('Error fetching activities:', err);
+    }
+  },
+
+  fetchSessionTasks: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('session_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      if (data) set({ sessionTasks: data });
+    } catch (err) {
+      console.error('Error fetching session tasks:', err);
     }
   },
 
@@ -195,6 +216,39 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
+  addSessionTask: async (sessionId, userId, description, completed = false) => {
+    try {
+      const { data, error } = await supabase
+        .from('session_tasks')
+        .insert({ session_id: sessionId, user_id: userId, description, completed })
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) set({ sessionTasks: [...get().sessionTasks, data] });
+      return data;
+    } catch (err) {
+      console.error('Erro ao adicionar tarefa:', err);
+      return null;
+    }
+  },
+
+  toggleSessionTask: async (taskId) => {
+    try {
+      const task = get().sessionTasks.find(t => t.id === taskId);
+      if (!task) return;
+      const { data, error } = await supabase
+        .from('session_tasks')
+        .update({ completed: !task.completed })
+        .eq('id', taskId)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) set({ sessionTasks: get().sessionTasks.map(t => t.id === taskId ? data : t) });
+    } catch (err) {
+      console.error('Erro ao atualizar tarefa:', err);
+    }
+  },
+
   addSession: async (session) => {
     try {
       const { data, error } = await supabase.from('focus_sessions').insert(session).select().single();
@@ -270,9 +324,12 @@ export const useDataStore = create<DataState>((set, get) => ({
             }});
           }
         }
+        return data;
       }
+      return null;
     } catch (err) {
       console.error('Error adding session:', err);
+      return null;
     }
   },
 

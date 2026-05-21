@@ -71,6 +71,8 @@ export const ActionCenter = () => {
   const [newHabitDuration, setNewHabitDuration] = useState(0);
   const [newHabitTime, setNewHabitTime] = useState('morning');
   const [showHabitsModal, setShowHabitsModal] = useState(false);
+  const [newTaskInput, setNewTaskInput] = useState('');
+  const [pendingTasks, setPendingTasks] = useState<string[]>([]);
   const [registeringHabit, setRegisteringHabit] = useState<string | null>(null);
   const [manualSessionDuration, setManualSessionDuration] = useState<number>(30);
   const [noteText, setNoteText] = useState('');
@@ -124,6 +126,9 @@ export const ActionCenter = () => {
       sessionData.description,
       sessionData.date
     );
+    timer.setPendingTasks(pendingTasks);
+    setPendingTasks([]);
+    setNewTaskInput('');
     setIsOpen(false);
   };
 
@@ -384,21 +389,68 @@ export const ActionCenter = () => {
                             ]}
                           />
                         </div>
-                        <div className="space-y-1 text-left">
-                          <label className={labelClasses}>ANOTAÇÃO</label>
-                          <textarea
-                            autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
+                        <div className="space-y-3 text-left">
+                          <label className={labelClasses}>TAREFAS DA SESSÃO (opcional)</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              enterKeyHint="done"
+                              inputMode="text"
+                              placeholder="O que você vai executar nessa sessão?"
+                              className={`${inputClasses} flex-1`}
+                              value={newTaskInput}
+                              onChange={e => setNewTaskInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && newTaskInput.trim()) {
+                                  e.preventDefault();
+                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setNewTaskInput('');
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              onBlur={() => {
+                                if (newTaskInput.trim()) {
+                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setNewTaskInput('');
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onMouseDown={(e) => {
                                 e.preventDefault();
-                                handleStartSession(e as unknown as FormEvent);
-                              }
-                            }}
-                            placeholder="Precisa realizar alguma anotação para se lembrar durante a Sessão Profunda?"
-                            className={`${inputClasses} h-32 resize-none`}
-                            value={sessionData.description}
-                            onChange={e => setSessionData({...sessionData, description: e.target.value})}
-                          />
+                                if (newTaskInput.trim()) {
+                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setNewTaskInput('');
+                                }
+                              }}
+                              className="w-12 h-12 bg-primary-green/20 hover:bg-primary-green/30 border border-primary-green/30 rounded-2xl flex items-center justify-center text-primary-green transition-all"
+                            >
+                              <Plus size={18} />
+                            </button>
+                          </div>
+
+                          {pendingTasks.length > 0 && (
+                            <div className="space-y-2 mt-2">
+                              {pendingTasks.map((task, i) => (
+                                <div key={i} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                                  <div className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                                  <span className="text-sm text-text-primary flex-1 font-light">{task}</span>
+                                  <button
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      setPendingTasks(pendingTasks.filter((_, idx) => idx !== i));
+                                    }}
+                                    className="text-red-500/40 hover:text-red-500 transition-colors"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-3 gap-6 items-end">
                            <div className="col-span-2 grid grid-cols-2 gap-4">
