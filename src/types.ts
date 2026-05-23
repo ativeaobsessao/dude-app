@@ -53,6 +53,7 @@ export type FocusSession = {
   created_at: string;
   all_tasks_completed: boolean;
   actual_duration_minutes: number | null;
+  parcial?: boolean | null;
 };
 
 export type Note = {

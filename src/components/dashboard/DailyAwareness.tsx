@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, Activity } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
-import { formatHumanTime } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
 export const DailyAwareness = () => {
   const dataStore = useDataStore();
@@ -11,7 +11,10 @@ export const DailyAwareness = () => {
     new Date(s.started_at).toDateString() === today
   );
 
-  const totalMinutesToday = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
+  const totalMinutesToday = todaySessions.reduce((acc, s) => {
+    const min = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+    return acc + min;
+  }, 0);
   const deepSessionsCountToday = todaySessions.length;
   const currentStreak = dataStore.profile?.current_streak || 0;
 
@@ -35,18 +38,27 @@ export const DailyAwareness = () => {
           </span>
           <span className="text-[10px] text-text-secondary/40 font-mono">HOJE</span>
         </div>
-        <div className="space-y-6">
+        <div className="space-y-6 text-left">
           {todaySessions.length === 0 ? (
-            <p className="text-text-secondary/40 font-light italic">Nenhuma sessão realizada hoje.</p>
+            <p className="text-text-secondary/40 font-light italic text-center md:text-left">Nenhuma sessão realizada hoje.</p>
           ) : (
-            todaySessions.map(session => (
-              <HistoryItem 
-                key={session.id} 
-                title={session.activity_name} 
-                project={dataStore.projects.find(p => p.id === session.project_id)?.name || 'Geral'} 
-                duration={formatHumanTime(session.duration_minutes)} 
-              />
-            ))
+            todaySessions.map(session => {
+              const resolved = resolverNomeSessao(session, dataStore.habits, dataStore.projects);
+              const isPartial = session.parcial === true || 
+                               (session.actual_duration_minutes !== null && 
+                                session.actual_duration_minutes !== undefined && 
+                                session.actual_duration_minutes < session.duration_minutes);
+              return (
+                <HistoryItem 
+                  key={session.id} 
+                  title={resolved.titulo} 
+                  project={resolved.projeto} 
+                  duration={formatSessionDuration(isPartial ? (session.actual_duration_minutes || 0) : session.duration_minutes)} 
+                  isPartial={isPartial}
+                  session={session}
+                />
+              );
+            })
           )}
         </div>
       </div>
@@ -65,22 +77,70 @@ interface HistoryItemProps {
   title: string;
   project: string;
   duration: string;
+  isPartial: boolean;
+  session: any;
 }
 
-const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration }) => (
-  <div className="flex flex-col gap-1 text-text-primary/80 group cursor-default">
-    <div className="flex items-center gap-5">
-      <div className="w-8 h-8 rounded-xl border border-border-white flex items-center justify-center text-primary-green group-hover:bg-primary-green/10 group-hover:border-primary-green/20 transition-all">
-        <Check size={16} />
+const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration, isPartial, session }) => {
+  const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+  return (
+    <div className="flex flex-col gap-1 text-text-primary/80 group cursor-default">
+      <div className="flex items-center gap-5">
+        <div 
+          className="w-8 h-8 rounded-xl border flex items-center justify-center transition-all"
+          style={{
+            color: isPartial ? '#fbbf24' : '#6ee7b7',
+            borderColor: isPartial ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.06)'
+          }}
+        >
+          <Check size={16} />
+        </div>
+        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
+          <span className="text-xl font-light tracking-tight flex items-center gap-2 flex-wrap">
+            {title} 
+            <span className="text-text-secondary/20 hidden md:inline">—</span> 
+            <span className="text-text-secondary uppercase tracking-widest text-xs font-bold">{project}</span>
+            {isPartial && (
+              <span 
+                className="inline-flex items-center ml-1 font-bold"
+                style={{
+                  backgroundColor: 'rgba(251, 191, 36, 0.12)',
+                  border: '0.5px solid rgba(251, 191, 36, 0.25)',
+                  color: '#fbbf24',
+                  fontSize: '9px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  padding: '2px 6px',
+                  borderRadius: '999px',
+                  lineHeight: '1'
+                }}
+              >
+                PARCIAL
+              </span>
+            )}
+          </span>
+        </div>
       </div>
-      <span className="text-xl font-light tracking-tight">
-        {title} 
-        <span className="text-text-secondary/20 mx-3">—</span> 
-        <span className="text-text-secondary uppercase tracking-widest text-xs font-bold">{project}</span>
-      </span>
+      <div className="pl-13 text-sm text-[#6a7570] font-normal flex items-center gap-1.5 mt-0.5 flex-wrap">
+        <span>{timeRange}</span>
+        <span className="text-[#3a4540]">·</span>
+        <span>{duration}</span>
+        {isPartial && (
+          <>
+            <span className="text-[#3a4540]">·</span>
+            <span 
+              className="font-medium"
+              style={{
+                color: '#fbbf24',
+                fontSize: '10px',
+                opacity: 0.8
+              }}
+            >
+              {session.actual_duration_minutes || 0} / {session.duration_minutes} min programados
+            </span>
+          </>
+        )}
+      </div>
     </div>
-    <div className="pl-13 text-sm text-text-secondary/60 font-medium">
-      {duration}
-    </div>
-  </div>
-);
+  );
+};

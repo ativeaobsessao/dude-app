@@ -7,6 +7,7 @@ import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target } from 'lucide-react';
+import { resolverNomeSessao } from '../../lib/utils';
 
 export const ActiveSession = () => {
   const timer = useTimerStore();
@@ -19,6 +20,7 @@ export const ActiveSession = () => {
   );
   const [showNotificationRequest, setShowNotificationRequest] = useState(true);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showEarlyCompleteConfirm, setShowEarlyCompleteConfirm] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -266,6 +268,7 @@ export const ActiveSession = () => {
     sendToServiceWorker('CANCEL_TIMER');
     timer.reset();
     setShowCancelConfirm(false);
+    setShowEarlyCompleteConfirm(false);
     setShowDiscardConfirm(false);
     setShowCompleteModal(false);
     setShowNoteModal(false);
@@ -297,8 +300,10 @@ export const ActiveSession = () => {
   };
 
   const handleEarlyComplete = () => {
-    const actualMinutes = Math.round((Date.now() - (timer.startTime || 0)) / 60000);
+    const elapsedMs = (timer.totalDurationMs || 0) - timer.getRemainingMs();
+    const actualMinutes = Math.max(1, Math.round(elapsedMs / 60000));
     setActualDurationMinutes(actualMinutes);
+    setShowEarlyCompleteConfirm(false);
     setShowCompleteModal(true); // abre popup normal de confirmação
   };
 
@@ -356,20 +361,33 @@ export const ActiveSession = () => {
             )}
 
             {/* 1. Header Activity Info */}
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl md:text-5xl font-semibold tracking-tight text-text-primary">{timer.activityName}</h2>
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-primary-green text-sm md:text-lg font-medium tracking-wide uppercase opacity-80">
-                  {currentProjectName}
+            {timer.habitId ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary-green/60 flex items-center gap-1">
+                  ⚡ Sessão Hábito Atômico
                 </span>
-                {currentHabitName && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-border-white" />
-                    <span className="text-text-secondary text-xs uppercase tracking-widest">{currentHabitName}</span>
-                  </>
+                <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
+                  {dataStore.habits.find(h => h.id === timer.habitId)?.name || 'Hábito'}
+                </h2>
+                {timer.projectId && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">
+                    {dataStore.projects.find(p => p.id === timer.projectId)?.name}
+                  </span>
                 )}
               </div>
-            </div>
+            ) : (
+              // Mantém o layout atual para sessões sem hábito
+              <div className="flex flex-col items-center gap-1">
+                <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
+                  {timer.activityName || 'Sessão Sem Título'}
+                </h2>
+                {timer.projectId && (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">
+                    {dataStore.projects.find(p => p.id === timer.projectId)?.name}
+                  </span>
+                )}
+              </div>
+            )}
 
             {sessionTasksLocal.length > 0 && (
               <button
@@ -422,10 +440,10 @@ export const ActiveSession = () => {
             </div>
 
             {/* 4. Action Buttons */}
-            <div className="grid grid-cols-2 md:flex items-center gap-4 md:gap-8 w-full max-w-lg">
+            <div className="grid grid-cols-2 md:grid-cols-4 items-center gap-4 md:gap-6 w-full max-w-2xl px-4">
               <button 
                 onClick={() => setShowNoteModal(true)}
-                className="flex items-center justify-center gap-2 px-8 py-5 bg-surface/40 border border-border-white rounded-2xl text-text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface/60 transition-all min-h-[44px] touch-manipulation"
+                className="flex items-center justify-center gap-2 px-4 py-5 bg-surface/40 border border-border-white rounded-2xl text-text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface/60 transition-all min-h-[44px] touch-manipulation col-span-1"
               >
                 <StickyNote size={14} className="text-primary-green" />
                 Anotar
@@ -441,7 +459,7 @@ export const ActiveSession = () => {
                     sendToServiceWorker('PAUSE_TIMER');
                   }
                 }}
-                className={`flex items-center justify-center gap-2 px-8 py-5 border rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation ${
+                className={`flex items-center justify-center gap-2 px-4 py-5 border rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation col-span-1 ${
                   timer.isPaused 
                     ? "bg-primary-green text-background border-primary-green hover:bg-glow-green" 
                     : "bg-surface/40 border-border-white text-text-primary hover:bg-surface/60"
@@ -452,16 +470,24 @@ export const ActiveSession = () => {
               </button>
 
               <button 
+                onClick={() => setShowEarlyCompleteConfirm(true)}
+                className="flex items-center justify-center gap-2 px-4 py-5 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-widest hover:bg-amber-500/10 transition-all min-h-[44px] touch-manipulation col-span-1"
+              >
+                <CheckCircle size={14} />
+                Encerrar
+              </button>
+
+              <button 
                 onClick={() => setShowCancelConfirm(true)}
-                className="col-span-2 md:flex-none flex items-center justify-center gap-2 px-8 py-5 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 transition-all min-h-[44px] touch-manipulation"
+                className="flex items-center justify-center gap-2 px-4 py-5 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 transition-all min-h-[44px] touch-manipulation col-span-1"
               >
                 <X size={14} />
-                Cancelar Sessão
+                Cancelar
               </button>
 
               <button
                 onClick={() => setShowLateConfig(true)}
-                className="col-span-2 text-[9px] text-text-secondary/30 hover:text-text-secondary/60 transition-colors underline underline-offset-2 mt-2 touch-manipulation pb-4"
+                className="col-span-2 md:col-span-4 text-[9px] text-text-secondary/30 hover:text-text-secondary/60 transition-colors underline underline-offset-2 mt-2 touch-manipulation pb-4 text-center"
               >
                 Esqueceu de configurar Projeto e Atividade? Configura aqui!
               </button>
@@ -656,12 +682,35 @@ export const ActiveSession = () => {
                 <p className="text-text-secondary font-light text-base md:text-lg">Excelente progresso. Deseja registrar esta sessão no seu histórico?</p>
               </div>
 
-              <div className="p-4 md:p-6 bg-white/5 rounded-3xl space-y-2 text-center">
-                <p className="text-xl md:text-2xl font-light text-text-primary tracking-tight">{timer.activityName}</p>
-                <p className="text-[9px] md:text-[10px] font-bold text-primary-green uppercase tracking-[0.3em]">
-                   {currentProjectName}
-                </p>
-              </div>
+              {(() => {
+                const resolved = resolverNomeSessao(
+                  {
+                    habit_id: timer.habitId,
+                    project_id: timer.projectId,
+                    activity_name: timer.activityName
+                  },
+                  dataStore.habits,
+                  dataStore.projects
+                );
+                return (
+                  <div className="p-4 md:p-6 bg-white/5 rounded-3xl space-y-2 text-center">
+                    <p className="text-xl md:text-2xl font-light text-text-primary tracking-tight">{resolved.titulo}</p>
+                    <p className="text-[9px] md:text-[10px] font-bold text-primary-green uppercase tracking-[0.3em]">
+                       {resolved.projeto}
+                    </p>
+                    {timer.habitId && (() => {
+                      const habit = dataStore.habits.find(h => h.id === timer.habitId);
+                      const minutesRealized = actualDurationMinutes !== null ? actualDurationMinutes : Math.round((timer.totalDurationMs || 0) / 60000);
+                      const targetMinutes = habit?.minutes_per_session || 0;
+                      return (
+                        <p className={`text-xs font-bold uppercase mt-2 tracking-widest ${minutesRealized >= targetMinutes ? 'text-primary-green' : 'text-amber-400'}`}>
+                          Progresso de Hoje: {minutesRealized} / {targetMinutes} min
+                        </p>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
 
               {sessionTasksLocal.length > 0 && (
                 <div className="space-y-3 text-left border-t border-white/5 pt-6">
@@ -752,6 +801,51 @@ export const ActiveSession = () => {
                   className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs transition-all"
                 >
                   Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Early Completion Confirmation Modal */}
+      <AnimatePresence>
+        {showEarlyCompleteConfirm && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-surface border border-border-white p-10 rounded-[2.5rem] max-w-md w-full text-center space-y-8 shadow-[0_0_80px_rgba(0,0,0,0.5)]"
+            >
+              <div className="w-20 h-20 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle size={32} />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Encerrar com segurança?</h3>
+                <p className="text-text-secondary font-light">
+                  Deseja encerrar o foco agora? Isso registrará uma sessão parcial de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleEarlyComplete}
+                  className="w-full py-4 bg-amber-400 text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Sim, encerrar foco
+                </button>
+                <button
+                  onClick={() => setShowEarlyCompleteConfirm(false)}
+                  className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs transition-all hover:bg-white/10"
+                >
+                  Continuar Focado
                 </button>
               </div>
             </motion.div>

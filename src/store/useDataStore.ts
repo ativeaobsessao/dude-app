@@ -251,24 +251,113 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addSession: async (session) => {
     try {
-      const { data, error } = await supabase.from('focus_sessions').insert(session).select().single();
+      const isPartial = session.actual_duration_minutes !== null ? (session.actual_duration_minutes < session.duration_minutes) : false;
+      const activityNameLimpo = (session.activity_name === "Sessão Sem Título" || !session.activity_name?.trim()) 
+        ? null 
+        : session.activity_name.trim();
+
+      const sessionToSave = {
+        ...session,
+        activity_name: activityNameLimpo,
+        parcial: isPartial
+      };
+
+      const { data, error } = await supabase.from('focus_sessions').insert(sessionToSave).select().single();
       if (error) throw error;
       if (data) {
         set({ sessions: [data, ...get().sessions] });
         
         // Update habit stats if habit_id exists
         if (session.habit_id && session.user_id) {
-          await get().completeHabitSession(
-            session.habit_id,
-            session.user_id,
-            session.duration_minutes,
-            data.id
-          );
+          const habitId = session.habit_id;
+          const userId = session.user_id;
+          const habit = get().habits.find(h => h.id === habitId);
+          if (habit) {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const startOfWeek = new Date(habit.week_start_date);
+            startOfWeek.setHours(0,0,0,0);
+
+            // Fetch all sessions of this week for this habit, including the newly saved one
+            const habitSessionsThisWeek = get().sessions.filter(s => 
+              s.habit_id === habitId && 
+              new Date(s.started_at) >= startOfWeek && 
+              s.completed
+            );
+
+            // Group and sum minutes by day local string YYYY-MM-DD
+            const minutesByDay: { [dateStr: string]: number } = {};
+            habitSessionsThisWeek.forEach(s => {
+              const dStr = new Date(s.started_at).toLocaleDateString('en-CA');
+              const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+              minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
+            });
+
+            // Recalculate completed sessions this week
+            const completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
+              minutesByDay[dStr] >= habit.minutes_per_session
+            ).length;
+
+            // Recalculate stats
+            const totalMinutesAllTime = get().sessions
+              .filter(s => s.habit_id === habitId && s.completed)
+              .reduce((acc, s) => acc + (s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes), 0);
+
+            const totalDeepSessionsAllTime = get().sessions
+              .filter(s => s.habit_id === habitId && s.completed).length;
+
+            const minutesToday = minutesByDay[todayStr] || 0;
+
+            // Insert habit_completion if meta achieved today and no completion exists yet
+            if (minutesToday >= habit.minutes_per_session) {
+              const hasCompletionToday = get().habitCompletions.some(hc => 
+                hc.habit_id === habitId && 
+                hc.completed_at.startsWith(todayStr)
+              );
+
+              if (!hasCompletionToday) {
+                const { data: hcData } = await supabase.from('habit_completions').insert({
+                  habit_id: habitId,
+                  user_id: userId,
+                  duration_minutes: minutesToday,
+                  focus_session_id: data.id,
+                  completed_at: new Date().toISOString()
+                }).select().single();
+
+                if (hcData) {
+                  set({ habitCompletions: [hcData, ...get().habitCompletions] });
+                }
+              }
+            }
+
+            // Streak tracking: if completedDaysThisWeek reaches or exceeds target, update weekly streak if not already updated
+            let weeklyStreak = habit.weekly_streak;
+            if (completedDaysThisWeek >= habit.sessions_per_week && habit.sessions_this_week < habit.sessions_per_week) {
+              weeklyStreak += 1;
+            }
+
+            // Update habit record dynamically in Supabase
+            const { data: updatedHabit } = await supabase
+              .from('habits')
+              .update({
+                sessions_this_week: completedDaysThisWeek,
+                total_minutes: totalMinutesAllTime,
+                deep_sessions_count: totalDeepSessionsAllTime,
+                weekly_streak: weeklyStreak
+              })
+              .eq('id', habitId)
+              .select()
+              .single();
+
+            if (updatedHabit) {
+              set({ habits: get().habits.map(h => h.id === habitId ? updatedHabit : h) });
+            }
+          }
         }
 
         const currentProfile = get().profile;
         if (currentProfile) {
-          const newTotal = Number(currentProfile.total_focus_minutes) + session.duration_minutes;
+          const addedMinutes = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+          const newTotal = Number(currentProfile.total_focus_minutes) + addedMinutes;
           
           const today = new Date().toISOString().split('T')[0];
           const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -338,51 +427,67 @@ export const useDataStore = create<DataState>((set, get) => ({
       const habit = get().habits.find(h => h.id === habitId);
       if (!habit) return;
 
-      // Verificar se precisa resetar a semana
       const today = new Date();
-      const dayOfWeek = today.getDay();
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      const currentWeekStart = monday.toISOString().split('T')[0];
-      
-      let sessionsThisWeek = habit.sessions_this_week;
-      let weeklyStreak = habit.weekly_streak;
-      
-      // Se é uma nova semana, verificar se semana anterior foi invicta
-      if (habit.week_start_date !== currentWeekStart) {
-        const wasInvicta = habit.sessions_this_week >= habit.sessions_per_week;
-        weeklyStreak = wasInvicta ? habit.weekly_streak + 1 : 0;
-        sessionsThisWeek = 0;
-      }
+      const todayStr = today.toLocaleDateString('en-CA');
+      const startOfWeek = new Date(habit.week_start_date);
+      startOfWeek.setHours(0,0,0,0);
 
       // Registrar completion
-      const { data: hcData, error: hcError } = await supabase.from('habit_completions').insert({
+      const { data: hcData } = await supabase.from('habit_completions').insert({
         habit_id: habitId,
         user_id: userId,
         duration_minutes: durationMinutes,
-        focus_session_id: focusSessionId || null
+        focus_session_id: focusSessionId || null,
+        completed_at: new Date().toISOString()
       }).select().single();
 
       if (hcData) {
         set({ habitCompletions: [hcData, ...get().habitCompletions] });
       }
 
-      // Incrementar sessões da semana
-      sessionsThisWeek += 1;
+      // Re-sum all weekly focus sessions + completions for this week to calculate sessions_this_week
+      const habitSessionsThisWeek = get().sessions.filter(s => 
+        s.habit_id === habitId && 
+        new Date(s.started_at) >= startOfWeek && 
+        s.completed
+      );
+
+      const minutesByDay: { [dateStr: string]: number } = {};
+      habitSessionsThisWeek.forEach(s => {
+        const dStr = new Date(s.started_at).toLocaleDateString('en-CA');
+        const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+        minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
+      });
+
+      // Also add any custom manual completions for this week that aren't tied to active focus sessions
+      const manualCompletionsThisWeek = get().habitCompletions.filter(hc => 
+        hc.habit_id === habitId && 
+        new Date(hc.completed_at) >= startOfWeek && 
+        !hc.focus_session_id
+      );
+      manualCompletionsThisWeek.forEach(hc => {
+        const dStr = new Date(hc.completed_at).toLocaleDateString('en-CA');
+        minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
+      });
+
+      // Recalculate completed sessions this week
+      const completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
+        minutesByDay[dStr] >= habit.minutes_per_session
+      ).length;
+
       const newTotal = habit.total_minutes + durationMinutes;
       const newSessions = habit.deep_sessions_count + 1;
 
-      // Verificar se completou a meta desta semana
-      const completedWeekGoal = sessionsThisWeek >= habit.sessions_per_week;
-      if (completedWeekGoal && sessionsThisWeek === habit.sessions_per_week) {
-        weeklyStreak = weeklyStreak + 1;
+      // Streak tracking: if completedDaysThisWeek reaches or exceeds target, update weekly streak if not already updated
+      let weeklyStreak = habit.weekly_streak;
+      if (completedDaysThisWeek >= habit.sessions_per_week && habit.sessions_this_week < habit.sessions_per_week) {
+        weeklyStreak += 1;
       }
 
       const { data, error } = await supabase.from('habits').update({
         total_minutes: newTotal,
         deep_sessions_count: newSessions,
-        sessions_this_week: sessionsThisWeek,
-        week_start_date: currentWeekStart,
+        sessions_this_week: completedDaysThisWeek,
         weekly_streak: weeklyStreak
       }).eq('id', habitId).select().single();
 

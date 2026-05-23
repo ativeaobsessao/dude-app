@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { CheckCircle } from 'lucide-react';
+import { resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
 export const HeroSection = () => {
   const timer = useTimerStore();
@@ -124,27 +125,82 @@ export const HeroSection = () => {
             </div>
 
             {/* Bloco 3 — Tarefas do Dia */}
-            <div className="space-y-4 max-w-md mx-auto w-full">
-              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block">Tarefas realizadas no dia</span>
-              <div className="space-y-3">
+            <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md">
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center">Tarefas realizadas no dia</span>
+              <div className="space-y-4 text-left">
                 {todaySessions.length > 0 ? (
                   todaySessions.slice(0, 5).map(session => {
-                    const project = dataStore.projects.find(p => p.id === session.project_id);
+                    const resolved = resolverNomeSessao(session, dataStore.habits, dataStore.projects);
+                    const isPartial = session.parcial === true || 
+                                     (session.actual_duration_minutes !== null && 
+                                      session.actual_duration_minutes !== undefined && 
+                                      session.actual_duration_minutes < session.duration_minutes);
+                    const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                    const formattedDuration = formatSessionDuration(durationToUse);
+                    const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+
                     return (
-                      <div key={session.id} className="flex items-center gap-3 text-left">
-                        <CheckCircle size={14} className="text-primary-green shrink-0" />
-                        <span className="text-sm md:text-base text-text-primary font-medium truncate">
-                          {session.activity_name}
-                        </span>
-                        <span className="text-text-secondary/30 hidden md:inline">—</span>
-                        <span className="text-xs text-text-secondary/60 truncate font-light">
-                          {project?.name || 'Geral'}
-                        </span>
+                      <div key={session.id} className="flex gap-3 text-left items-start">
+                        <CheckCircle 
+                          size={14} 
+                          className="shrink-0 mt-1" 
+                          style={{ color: isPartial ? '#fbbf24' : '#6ee7b7' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm md:text-base text-text-primary font-medium truncate">
+                              {resolved.titulo}
+                            </span>
+                            <span className="text-text-secondary/30 hidden md:inline">—</span>
+                            <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest">
+                              {resolved.projeto}
+                            </span>
+                            {isPartial && (
+                              <span 
+                                className="inline-flex items-center font-bold"
+                                style={{
+                                  backgroundColor: 'rgba(251, 191, 36, 0.12)',
+                                  border: '0.5px solid rgba(251, 191, 36, 0.25)',
+                                  color: '#fbbf24',
+                                  fontSize: '9px',
+                                  letterSpacing: '0.12em',
+                                  textTransform: 'uppercase',
+                                  padding: '2px 6px',
+                                  borderRadius: '999px',
+                                  lineHeight: '1'
+                                }}
+                              >
+                                PARCIAL
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Segunda linha */}
+                          <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
+                            <span>{timeRange}</span>
+                            <span className="text-[#3a4540]">·</span>
+                            <span>{formattedDuration}</span>
+                          </div>
+
+                          {/* Terceira linha */}
+                          {isPartial && (
+                            <div 
+                              className="font-medium mt-[2px]"
+                              style={{
+                                color: '#fbbf24',
+                                fontSize: '10px',
+                                opacity: 0.8
+                              }}
+                            >
+                              {session.actual_duration_minutes || 0} / {session.duration_minutes} min programados
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })
                 ) : (
-                  <p className="text-sm text-text-secondary/40 italic font-light pt-2">
+                  <p className="text-sm text-text-secondary/40 italic font-light pt-2 text-center">
                     Nenhuma sessão realizada hoje — que tal começar agora?
                   </p>
                 )}

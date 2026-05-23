@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
-import { History, X, Search, Filter, Trash2, ArrowLeft } from 'lucide-react';
+import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatHumanTime } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
 export const RecentHistory = () => {
   const dataStore = useDataStore();
@@ -55,11 +55,7 @@ export const RecentHistory = () => {
           latestHistory.map(session => (
             <HistoryRow 
               key={session.id} 
-              id={session.id}
-              title={session.activity_name} 
-              project={dataStore.projects.find(p => p.id === session.project_id)?.name || 'Geral'}
-              duration={formatHumanTime(session.duration_minutes)} 
-              date={formatDateShort(session.started_at)}
+              session={session}
               onDelete={handleDeleteSession}
             />
           ))
@@ -127,11 +123,7 @@ export const RecentHistory = () => {
                   filteredHistory.map(session => (
                     <HistoryRow 
                       key={session.id} 
-                      id={session.id}
-                      title={session.activity_name} 
-                      project={dataStore.projects.find(p => p.id === session.project_id)?.name || 'Geral'}
-                      duration={formatHumanTime(session.duration_minutes)} 
-                      date={formatDateShort(session.started_at)}
+                      session={session}
                       onDelete={handleDeleteSession}
                     />
                   ))
@@ -145,54 +137,134 @@ export const RecentHistory = () => {
   );
 };
 
-interface HistoryRowProps {
-  id: string;
-  title: string;
-  project: string;
-  duration: string;
-  date: string;
-  onDelete: (id: string) => void;
-}
-
-const HistoryRow: React.FC<HistoryRowProps> = ({ id, title, project, duration, date, onDelete }) => {
+const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void }> = ({ session, onDelete }) => {
   const dataStore = useDataStore();
-  const sessionTasks = dataStore.sessionTasks.filter(t => t.session_id === id);
+  const resolved = resolverNomeSessao(session, dataStore.habits, dataStore.projects);
+  const isPartial = session.parcial === true || 
+                   session.parcial === 'true' || 
+                   (session.actual_duration_minutes !== null && 
+                    session.actual_duration_minutes !== undefined && 
+                    session.actual_duration_minutes < session.duration_minutes);
+  const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+  const formattedDuration = formatSessionDuration(durationToUse);
+  const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
 
   return (
-    <div className="py-6 border-b border-border-white/5 group">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
-          <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors">{title}</span>
-          <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">{project}</p>
-        </div>
-        <div className="flex items-center gap-6 text-right">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-text-primary tracking-tight">{duration}</p>
-            <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest leading-none">{date}</p>
+    <div
+      key={session.id}
+      className={`relative flex justify-between items-start py-6 border-b border-white/5 group ${
+        session.habit_id 
+          ? 'pl-4 border-l-2 border-l-primary-green' 
+          : ''
+      }`}
+    >
+      <div className="flex gap-3 items-start flex-1 min-w-0">
+        <CheckCircle 
+          size={16} 
+          className="shrink-0 mt-1" 
+          style={{ color: isPartial ? '#fbbf24' : '#6ee7b7' }}
+        />
+        <div className="space-y-1 flex-1 min-w-0">
+          {/* Badge de hábito */}
+          {session.habit_id && (
+            <span className="text-[9px] font-bold uppercase tracking-widest text-primary-green/60 flex items-center gap-1 mb-1">
+              ⚡ Hábito Atômico
+            </span>
+          )}
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors">
+              {resolved.titulo}
+            </span>
+            <span className="text-text-secondary/30 hidden md:inline">—</span>
+            <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest leading-none mt-0.5">
+              {resolved.projeto}
+            </span>
+            {isPartial && (
+              <span 
+                className="inline-flex items-center ml-1 font-bold"
+                style={{
+                  backgroundColor: 'rgba(251, 191, 36, 0.12)',
+                  border: '0.5px solid rgba(251, 191, 36, 0.25)',
+                  color: '#fbbf24',
+                  fontSize: '9px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  padding: '2px 6px',
+                  borderRadius: '999px',
+                  lineHeight: '1'
+                }}
+              >
+                PARCIAL
+              </span>
+            )}
           </div>
-          <button 
-            onClick={() => onDelete(id)}
-            className="p-2 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-          >
-            <Trash2 size={16} />
-          </button>
+
+          {/* Segunda linha: horário início → fim + duração */}
+          <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
+            <span>{timeRange}</span>
+            <span className="text-[#3a4540]">·</span>
+            <span>{formattedDuration}</span>
+          </div>
+
+          {/* Terceira linha se for parcial */}
+          {isPartial && (
+            <div 
+              className="font-medium mt-[2px]"
+              style={{
+                color: '#fbbf24',
+                fontSize: '10px',
+                opacity: 0.8
+              }}
+            >
+              {session.actual_duration_minutes || 0} / {session.duration_minutes} min programados
+            </div>
+          )}
+
+          {/* Tarefas da sessão */}
+          {(() => {
+            const tasks = dataStore.sessionTasks.filter(t => t.session_id === session.id);
+            return tasks.length > 0 ? (
+              <div className="mt-2 space-y-1">
+                {tasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-2 text-[10px] text-text-secondary/50">
+                    <span>{task.completed ? '✅' : '○'}</span>
+                    <span className={task.completed ? '' : 'opacity-50'}>{task.description}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
+
+          {/* Badge de conclusão antecipada */}
+          {session.all_tasks_completed && session.actual_duration_minutes && (
+            <p className="text-[9px] text-primary-green/60 font-bold uppercase tracking-widest mt-1">
+              ⚡ Concluiu {session.duration_minutes - session.actual_duration_minutes}min antes do prazo
+            </p>
+          )}
         </div>
       </div>
 
-      {sessionTasks.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {sessionTasks.map((t) => (
-            <div key={t.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] rounded-full">
-              <span className={t.completed ? 'text-primary-green' : 'text-text-secondary/30'}>
-                {t.completed ? '✓' : '○'}
-              </span>
-              <span className={`text-[9px] ${t.completed ? 'line-through text-text-secondary/40' : 'text-text-secondary/70'}`}>
-                {t.description}
-              </span>
-            </div>
-          ))}
+      <div className="flex items-center gap-4 text-right shrink-0 ml-4">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-text-primary">
+            {formattedDuration}
+          </p>
+          <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest">
+            {(() => {
+              const d = new Date(session.started_at);
+              const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+              return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+            })()}
+          </p>
         </div>
-      )}
+        <button
+          onClick={() => onDelete(session.id)}
+          className="p-2 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 };
