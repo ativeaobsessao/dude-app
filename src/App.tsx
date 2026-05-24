@@ -16,11 +16,46 @@ import { useDataStore } from './store/useDataStore';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+// Agenda Integration
+import { AgendaHoje } from './components/agenda/AgendaHoje';
+import { ProximasAtividades } from './components/agenda/ProximasAtividades';
+import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
+
 export default function App() {
   const { signOut, user } = useAuthStore();
   const { hasCompletedFirstSession, profile } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showFullAgenda, setShowFullAgenda] = useState(false);
+
+  const handleStartSessionFromAgenda = (activity: any) => {
+    // Send event to open ActionCenter prefilled
+    window.dispatchEvent(new CustomEvent('open-action-center', {
+      detail: {
+        screen: 'session',
+        prefill: {
+          projectId: activity.project_id,
+          activityId: activity.activity_id,
+          activityManual: activity.atividade_avulsa,
+          habitId: activity.habit_id,
+          notes: activity.notes,
+          hours: Math.floor(activity.duration_minutes / 60),
+          minutes: activity.duration_minutes % 60,
+          tasks: activity.tasks,
+          scheduledActivityId: activity.id
+        }
+      }
+    }));
+  };
+
+  const handleOpenNewSchedule = () => {
+    // Open action center directly on agenda screen
+    window.dispatchEvent(new CustomEvent('open-action-center', {
+      detail: {
+        screen: 'agenda'
+      }
+    }));
+  };
 
   useEffect(() => {
     if (user && 'Notification' in window) {
@@ -129,12 +164,35 @@ export default function App() {
           </motion.nav>
         </header>
 
-        <main className="min-h-screen pb-40 flex flex-col items-center">
-          <HeroSection />
+        {showFullAgenda ? (
+          <div className="pt-24 min-h-screen">
+            <AgendaCompletaPage
+              onBack={() => setShowFullAgenda(false)}
+              onStartSession={handleStartSessionFromAgenda}
+              onOpenNewSchedule={handleOpenNewSchedule}
+            />
+          </div>
+        ) : (
+          <main className="min-h-screen pb-40 flex flex-col items-center">
+            <HeroSection />
 
-          <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-24 flex flex-col items-center">
-            {/* 5. Headlines com opacity-40 */}
-            <div id="middle-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none py-6">
+            <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-24 flex flex-col items-center">
+              
+              {/* AGENDA HOJE & ATIVIDADES PROGRAMADAS */}
+              <div className="w-full space-y-12">
+                <AgendaHoje 
+                  onStartSession={handleStartSessionFromAgenda}
+                  onOpenNewSchedule={handleOpenNewSchedule}
+                />
+                <ProximasAtividades
+                  onStartSession={handleStartSessionFromAgenda}
+                  onOpenNewSchedule={handleOpenNewSchedule}
+                  onNavigateToFullAgenda={() => setShowFullAgenda(true)}
+                />
+              </div>
+
+              {/* 5. Headlines com opacity-40 */}
+              <div id="middle-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none py-6">
               <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
                 Tenha Controle Total Sobre Seu Tempo
               </h3>
@@ -176,6 +234,7 @@ export default function App() {
             <InspirationalFootnote />
           </div>
         </main>
+      )}
 
         <footer className="w-full py-12 border-t border-border-white/5 flex flex-col items-center gap-4">
           <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary">

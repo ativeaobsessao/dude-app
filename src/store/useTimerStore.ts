@@ -11,16 +11,18 @@ interface TimerState {
   activityName: string;
   projectId: string | null;
   habitId: string | null;
+  activityId: string | null;
   description: string;
   targetDate: string;
   pendingTasks: string[];
+  scheduledActivityId: string | null;
   
-  start: (durationMinutes: number, activity: string, projId?: string, habId?: string, desc?: string, date?: string) => void;
+  start: (durationMinutes: number, activity: string, projId?: string, habId?: string, desc?: string, date?: string, actId?: string, scheduledActId?: string) => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
   reset: () => void;
-  updateConfig: (projId?: string, habId?: string, activity?: string) => void;
+  updateConfig: (projId?: string, habId?: string, activity?: string, actId?: string, scheduledActId?: string) => void;
   setPendingTasks: (tasks: string[]) => void;
   clearPendingTasks: () => void;
   
@@ -40,14 +42,16 @@ export const useTimerStore = create<TimerState>()(
       activityName: '',
       projectId: null,
       habitId: null,
+      activityId: null,
       description: '',
       targetDate: '',
       pendingTasks: [] as string[],
+      scheduledActivityId: null,
 
       setPendingTasks: (tasks) => set({ pendingTasks: tasks }),
       clearPendingTasks: () => set({ pendingTasks: [] }),
 
-      start: (durationMinutes, activity, projId, habId, desc, date) => {
+      start: (durationMinutes, activity, projId, habId, desc, date, actId, scheduledActId) => {
         set({
           isActive: true,
           isPaused: false,
@@ -58,8 +62,10 @@ export const useTimerStore = create<TimerState>()(
           activityName: activity || '',
           projectId: projId || null,
           habitId: habId || null,
+          activityId: actId || null,
           description: desc || '',
           targetDate: date || new Date().toISOString().split('T')[0],
+          scheduledActivityId: scheduledActId || null,
         });
       },
 
@@ -100,17 +106,21 @@ export const useTimerStore = create<TimerState>()(
           activityName: '',
           projectId: null,
           habitId: null,
+          activityId: null,
           description: '',
           targetDate: '',
           pendingTasks: [],
+          scheduledActivityId: null,
         });
       },
 
-      updateConfig: (projId, habId, activity) => {
+      updateConfig: (projId, habId, activity, actId, scheduledActId) => {
         set({
           projectId: projId !== undefined ? projId : get().projectId,
           habitId: habId !== undefined ? habId : get().habitId,
           activityName: activity !== undefined ? activity : get().activityName,
+          activityId: actId !== undefined ? actId : get().activityId,
+          scheduledActivityId: scheduledActId !== undefined ? scheduledActId : get().scheduledActivityId,
         });
       },
 

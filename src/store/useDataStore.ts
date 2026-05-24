@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity } from '../types';
 import { useTimerStore } from './useTimerStore';
 
 interface DataState {
@@ -12,6 +12,8 @@ interface DataState {
   notes: Note[];
   activities: Activity[];
   sessionTasks: SessionTask[];
+  pendingTasks: PendingTask[];
+  scheduledActivities: ScheduledActivity[];
   loading: boolean;
   hasCompletedFirstSession: boolean;
   
@@ -20,6 +22,8 @@ interface DataState {
   fetchActivities: (userId: string) => Promise<void>;
   fetchHabitCompletions: (userId: string) => Promise<void>;
   fetchSessionTasks: (userId: string) => Promise<void>;
+  fetchPendingTasks: (userId: string) => Promise<void>;
+  fetchScheduledActivities: (userId: string) => Promise<void>;
   
   addProject: (userId: string, name: string) => Promise<void>;
   addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<void>;
@@ -28,6 +32,12 @@ interface DataState {
   addActivity: (userId: string, name: string, projectId?: string) => Promise<void>;
   addSessionTask: (sessionId: string, userId: string, description: string, completed?: boolean) => Promise<SessionTask | null>;
   toggleSessionTask: (taskId: string) => Promise<void>;
+  addPendingTask: (task: Omit<PendingTask, 'id' | 'created_at'>) => Promise<PendingTask | null>;
+  deletePendingTask: (id: string) => Promise<void>;
+  deletePendingTasksByDescription: (descriptions: string[], context: { habit_id?: string | null; activity_id?: string | null; atividade_avulsa?: string | null }) => Promise<void>;
+  addScheduledActivity: (activity: Omit<ScheduledActivity, 'id' | 'status' | 'created_at'>) => Promise<ScheduledActivity | null>;
+  updateScheduledActivity: (id: string, updates: Partial<ScheduledActivity>) => Promise<void>;
+  deleteScheduledActivity: (id: string) => Promise<void>;
   
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
@@ -47,6 +57,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   notes: [],
   activities: [],
   sessionTasks: [] as SessionTask[],
+  pendingTasks: [],
+  scheduledActivities: [],
   loading: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
 
@@ -63,13 +75,15 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habit_completions').select('*').eq('user_id', userId).order('completed_at', { ascending: false }),
+        supabase.from('pending_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+        supabase.from('scheduled_activities').select('*').eq('user_id', userId).order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true }),
       ]);
 
       set({ 
@@ -79,6 +93,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         notes: n.data || [],
         activities: a.data || [],
         habitCompletions: hc.data || [],
+        pendingTasks: pt.data || [],
+        scheduledActivities: sa.data || [],
         loading: false 
       });
 
@@ -123,6 +139,164 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (data) set({ sessionTasks: data });
     } catch (err) {
       console.error('Error fetching session tasks:', err);
+    }
+  },
+
+  fetchPendingTasks: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('pending_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      if (data) set({ pendingTasks: data });
+    } catch (err) {
+      console.error('Error fetching pending tasks:', err);
+    }
+  },
+
+  fetchScheduledActivities: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('scheduled_activities')
+        .select('*')
+        .eq('user_id', userId)
+        .order('scheduled_date', { ascending: true })
+        .order('scheduled_time', { ascending: true });
+      if (error) throw error;
+      if (data) set({ scheduledActivities: data });
+    } catch (err) {
+      console.error('Error fetching scheduled activities:', err);
+    }
+  },
+
+  addPendingTask: async (task) => {
+    try {
+      const { data, error } = await supabase
+        .from('pending_tasks')
+        .insert(task)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({ pendingTasks: [...get().pendingTasks, data] });
+        return data;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error adding pending task:', err);
+      return null;
+    }
+  },
+
+  deletePendingTask: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('pending_tasks')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      set({ pendingTasks: get().pendingTasks.filter(item => item.id !== id) });
+    } catch (err) {
+      console.error('Error deleting pending task:', err);
+    }
+  },
+
+  deletePendingTasksByDescription: async (descriptions, context) => {
+    try {
+      if (descriptions.length === 0) return;
+      
+      let query = supabase.from('pending_tasks').delete().in('description', descriptions);
+      
+      if (context.habit_id) {
+        query = query.eq('habit_id', context.habit_id);
+      } else if (context.activity_id) {
+        query = query.eq('activity_id', context.activity_id);
+      } else if (context.atividade_avulsa) {
+        query = query.eq('atividade_avulsa', context.atividade_avulsa);
+      } else {
+        return;
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      set({
+        pendingTasks: get().pendingTasks.filter(item => {
+          const matchedDesc = descriptions.includes(item.description);
+          if (!matchedDesc) return true;
+          
+          if (context.habit_id) {
+            return item.habit_id !== context.habit_id;
+          }
+          if (context.activity_id) {
+            return item.activity_id !== context.activity_id;
+          }
+          if (context.atividade_avulsa) {
+            return item.atividade_avulsa !== context.atividade_avulsa;
+          }
+          return true;
+        })
+      });
+    } catch (err) {
+      console.error('Error deleting pending tasks by description:', err);
+    }
+  },
+
+  addScheduledActivity: async (activity) => {
+    try {
+      const { data, error } = await supabase
+        .from('scheduled_activities')
+        .insert({
+          ...activity,
+          status: 'pending'
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({ scheduledActivities: [...get().scheduledActivities, data] });
+        return data;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error adding scheduled activity:', err);
+      return null;
+    }
+  },
+
+  updateScheduledActivity: async (id, updates) => {
+    try {
+      const { data, error } = await supabase
+        .from('scheduled_activities')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({
+          scheduledActivities: get().scheduledActivities.map(sa => sa.id === id ? data : sa)
+        });
+      }
+    } catch (err) {
+      console.error('Error updating scheduled activity:', err);
+    }
+  },
+
+  deleteScheduledActivity: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('scheduled_activities')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      set({
+        scheduledActivities: get().scheduledActivities.filter(sa => sa.id !== id)
+      });
+    } catch (err) {
+      console.error('Error deleting scheduled activity:', err);
     }
   },
 

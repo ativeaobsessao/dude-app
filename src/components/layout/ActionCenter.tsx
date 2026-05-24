@@ -6,14 +6,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, X, ArrowLeft, ArrowRight, Layers, Target, Clock, 
   StickyNote, History, FolderKanban, Search, Trash2,
-  CircleX, AlertTriangle, CheckCircle2, CheckCircle, Pause
+  CircleX, AlertTriangle, CheckCircle2, CheckCircle, Pause, Info
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
-type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history';
+type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda';
 
 import { CustomSelect } from '../ui/CustomSelect';
+import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
 
 export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,6 +43,34 @@ export const ActionCenter = () => {
         setCurrentScreen(e.detail.screen);
       } else {
         setCurrentScreen(null);
+      }
+
+      // Se houver dados de pré-preenchimento (ex: de um agendamento)
+      if (e.detail?.prefill) {
+        const p = e.detail.prefill;
+        setSessionData({
+          project: p.projectId || '',
+          activityId: p.activityId || '',
+          activityManual: p.activityManual || '',
+          habit: p.habitId || '',
+          description: p.notes || '',
+          hours: p.hours !== undefined ? p.hours : 0,
+          minutes: p.minutes !== undefined ? p.minutes : 25,
+          date: new Date().toISOString().split('T')[0]
+        });
+        if (p.tasks) {
+          setCustomUserTasks(p.tasks);
+          setRestoredTasks([]);
+        }
+        if (p.scheduledActivityId) {
+          timer.updateConfig(
+            p.projectId || undefined,
+            p.habitId || undefined,
+            p.activityManual || undefined,
+            p.activityId || undefined,
+            p.scheduledActivityId
+          );
+        }
       }
     };
     window.addEventListener('open-action-center', handleOpen);
@@ -72,7 +101,50 @@ export const ActionCenter = () => {
   const [newHabitTime, setNewHabitTime] = useState('morning');
   const [showHabitsModal, setShowHabitsModal] = useState(false);
   const [newTaskInput, setNewTaskInput] = useState('');
-  const [pendingTasks, setPendingTasks] = useState<string[]>([]);
+  
+  const [restoredTasks, setRestoredTasks] = useState<{ id: string; description: string }[]>([]);
+  const [customUserTasks, setCustomUserTasks] = useState<string[]>([]);
+
+  const currentContext = useMemo(() => {
+    if (sessionData.habit) {
+      return { type: 'habit', value: sessionData.habit };
+    }
+    if (sessionData.activityId) {
+      return { type: 'activity', value: sessionData.activityId };
+    }
+    const cleanManual = sessionData.activityManual.trim();
+    if (cleanManual) {
+      return { type: 'manual', value: cleanManual };
+    }
+    return null;
+  }, [sessionData.habit, sessionData.activityId, sessionData.activityManual]);
+
+  useEffect(() => {
+    if (!currentContext) {
+      setRestoredTasks([]);
+      return;
+    }
+
+    const matches = dataStore.pendingTasks.filter(task => {
+      if (currentContext.type === 'habit') {
+        return task.habit_id === currentContext.value;
+      }
+      if (currentContext.type === 'activity') {
+        return task.activity_id === currentContext.value;
+      }
+      if (currentContext.type === 'manual') {
+        return task.atividade_avulsa?.trim() === currentContext.value;
+      }
+      return false;
+    });
+
+    setRestoredTasks(matches.map(m => ({ id: m.id, description: m.description })));
+  }, [currentContext, dataStore.pendingTasks]);
+
+  const pendingTasks = useMemo(() => {
+    return [...restoredTasks.map(t => t.description), ...customUserTasks];
+  }, [restoredTasks, customUserTasks]);
+
   const [registeringHabit, setRegisteringHabit] = useState<string | null>(null);
   const [manualSessionDuration, setManualSessionDuration] = useState<number>(30);
   const [noteText, setNoteText] = useState('');
@@ -124,10 +196,12 @@ export const ActionCenter = () => {
       sessionData.project || undefined, 
       sessionData.habit || undefined,
       sessionData.description,
-      sessionData.date
+      sessionData.date,
+      sessionData.activityId || undefined
     );
     timer.setPendingTasks(pendingTasks);
-    setPendingTasks([]);
+    setRestoredTasks([]);
+    setCustomUserTasks([]);
     setNewTaskInput('');
     setIsOpen(false);
   };
@@ -235,6 +309,11 @@ export const ActionCenter = () => {
         id: 'habits',
         label: 'HÁBITOS ATÔMICOS',
         subtitle: 'Tudo aquilo que você pratica repetidamente, se torna um hábito.'
+      },
+      {
+        id: 'agenda',
+        label: 'AGENDAMENTOS',
+        subtitle: 'Defina quando vai executar suas próximas atividades.'
       },
       {
         id: 'history',
@@ -405,14 +484,14 @@ export const ActionCenter = () => {
                               onKeyDown={e => {
                                 if (e.key === 'Enter' && newTaskInput.trim()) {
                                   e.preventDefault();
-                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setCustomUserTasks([...customUserTasks, newTaskInput.trim()]);
                                   setNewTaskInput('');
                                   (e.target as HTMLInputElement).blur();
                                 }
                               }}
                               onBlur={() => {
                                 if (newTaskInput.trim()) {
-                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setCustomUserTasks([...customUserTasks, newTaskInput.trim()]);
                                   setNewTaskInput('');
                                 }
                               }}
@@ -422,7 +501,7 @@ export const ActionCenter = () => {
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 if (newTaskInput.trim()) {
-                                  setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+                                  setCustomUserTasks([...customUserTasks, newTaskInput.trim()]);
                                   setNewTaskInput('');
                                 }
                               }}
@@ -431,6 +510,20 @@ export const ActionCenter = () => {
                               <Plus size={18} />
                             </button>
                           </div>
+
+                          {restoredTasks.length > 0 && (
+                            <div 
+                              id="pending-tasks-banner"
+                              className="bg-[#fbbf24]/[0.06] border border-[#fbbf24]/20 rounded-[6px] py-2 px-3 flex items-center gap-2 text-[#fbbf24] text-[11px] tracking-[0.04em] mb-2 font-medium"
+                            >
+                              <Info size={14} className="shrink-0 text-[#fbbf24]" id="pending-tasks-info-icon" />
+                              <span>
+                                {restoredTasks.length === 1 
+                                  ? '1 tarefa pendente de sessão anterior' 
+                                  : `${restoredTasks.length} tarefas pendentes de sessão anterior`}
+                              </span>
+                            </div>
+                          )}
 
                           {pendingTasks.length > 0 && (
                             <div className="space-y-2 mt-2">
@@ -441,7 +534,12 @@ export const ActionCenter = () => {
                                   <button
                                     onMouseDown={(e) => {
                                       e.preventDefault();
-                                      setPendingTasks(pendingTasks.filter((_, idx) => idx !== i));
+                                      if (i < restoredTasks.length) {
+                                        setRestoredTasks(restoredTasks.filter((_, idx) => idx !== i));
+                                      } else {
+                                        const customIdx = i - restoredTasks.length;
+                                        setCustomUserTasks(customUserTasks.filter((_, idx) => idx !== customIdx));
+                                      }
                                     }}
                                     className="text-red-500/40 hover:text-red-500 transition-colors"
                                   >
@@ -1028,6 +1126,13 @@ export const ActionCenter = () => {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {currentScreen === 'agenda' && (
+                  <CriarAgendamentoScreen
+                    onBack={() => setCurrentScreen(null)}
+                    onClose={() => setIsOpen(false)}
+                  />
                 )}
               </div>
             </div>

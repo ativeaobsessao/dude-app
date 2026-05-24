@@ -54,6 +54,37 @@ export type FocusSession = {
   all_tasks_completed: boolean;
   actual_duration_minutes: number | null;
   parcial?: boolean | null;
+  activity_id?: string | null;
+  scheduled_activity_id?: string | null;
+};
+
+export type ScheduledActivity = {
+  id: string;
+  user_id: string;
+  title: string;
+  project_id: string | null;
+  activity_id: string | null;
+  atividade_avulsa: string | null;
+  habit_id: string | null;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  tasks: string[];
+  notes: string | null;
+  created_at: string;
+  completed_session_id?: string | null;
+};
+
+export type PendingTask = {
+  id: string;
+  user_id: string;
+  habit_id: string | null;
+  activity_id: string | null;
+  atividade_avulsa: string | null;
+  description: string;
+  created_at: string;
+  origin_session_id: string | null;
 };
 
 export type Note = {

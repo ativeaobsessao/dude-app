@@ -238,6 +238,8 @@ export const ActiveSession = () => {
       completed: true,
       all_tasks_completed: allDone,
       actual_duration_minutes: actualMinutes,
+      activity_id: timer.activityId || null,
+      scheduled_activity_id: timer.scheduledActivityId || null,
     };
 
     const noteDescription = timer.description.trim();
@@ -248,14 +250,66 @@ export const ActiveSession = () => {
     try {
       const savedSession = await dataStore.addSession(sessionToSave);
 
-      if (savedSession?.id && sessionTasksLocal.length > 0) {
-        for (const task of sessionTasksLocal) {
-          await dataStore.addSessionTask(
-            savedSession.id,
-            user.id,
-            task,
-            completedTasksLocal.includes(task)
-          );
+      if (savedSession?.id) {
+        // Se houver uma atividade agendada vinculada, marcá-la como concluída
+        if (timer.scheduledActivityId) {
+          await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+            status: 'completed',
+            completed_session_id: savedSession.id
+          });
+        }
+        if (sessionTasksLocal.length > 0) {
+          for (const task of sessionTasksLocal) {
+            await dataStore.addSessionTask(
+              savedSession.id,
+              user.id,
+              task,
+              completedTasksLocal.includes(task)
+            );
+          }
+        }
+
+        // Determine context for pending tasks
+        let contextHabitId: string | null = null;
+        let contextActivityId: string | null = null;
+        let contextAvulsa: string | null = null;
+
+        const currentHabitId = editedHabitId !== null ? editedHabitId : (timer.habitId || null);
+        if (currentHabitId) {
+          contextHabitId = currentHabitId;
+        } else if (timer.activityId) {
+          contextActivityId = timer.activityId;
+        } else {
+          contextAvulsa = sessionToSave.activity_name;
+        }
+
+        const isPartial = actualMinutes < targetMinutes;
+        const hasContext = !!(contextHabitId || contextActivityId || (contextAvulsa && contextAvulsa.trim().length > 0 && contextAvulsa.trim() !== 'Sessão Sem Título'));
+
+        // REGRA 1 — Se incompleta (parcial: true), salvar não concluídas em pending_tasks
+        if (isPartial && hasContext) {
+          const uncompletedTasks = sessionTasksLocal.filter(task => !completedTasksLocal.includes(task));
+          for (const taskText of uncompletedTasks) {
+            await dataStore.addPendingTask({
+              user_id: user.id,
+              habit_id: contextHabitId,
+              activity_id: contextActivityId,
+              atividade_avulsa: contextAvulsa ? contextAvulsa.trim() : null,
+              description: taskText,
+              origin_session_id: savedSession.id
+            });
+          }
+        } else if (isPartial && !hasContext) {
+          console.warn('Sessão incompleta sem contexto identificável. Tarefas pendentes não serão persistidas.');
+        }
+
+        // REGRA 2 — Se houver tarefas concluídas, deletá-las de pending_tasks
+        if (completedTasksLocal.length > 0 && hasContext) {
+          await dataStore.deletePendingTasksByDescription(completedTasksLocal, {
+            habit_id: contextHabitId,
+            activity_id: contextActivityId,
+            atividade_avulsa: contextAvulsa ? contextAvulsa.trim() : null
+          });
         }
       }
 
