@@ -6,8 +6,10 @@ import { sendToServiceWorker, listenToServiceWorker } from '../../hooks/useServi
 import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
-import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target } from 'lucide-react';
+import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil } from 'lucide-react';
 import { resolverNomeSessao } from '../../lib/utils';
+import { SessionTasksModal } from '../session/SessionTasksModal';
+import { SessionEditPanel } from '../session/SessionEditPanel';
 
 export const ActiveSession = () => {
   const timer = useTimerStore();
@@ -31,6 +33,22 @@ export const ActiveSession = () => {
   const [showAllTasksDonePopup, setShowAllTasksDonePopup] = useState(false);
   const [allTasksCompletedTime, setAllTasksCompletedTime] = useState<number | null>(null);
   const [actualDurationMinutes, setActualDurationMinutes] = useState<number | null>(null);
+
+  // Inline edit state in completion modal
+  const [isEditingConclusao, setIsEditingConclusao] = useState(false);
+  const [editedProjectId, setEditedProjectId] = useState<string | null>(null);
+  const [editedActivityName, setEditedActivityName] = useState<string>('');
+  const [editedHabitId, setEditedHabitId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showCompleteModal) {
+      setEditedProjectId(timer.projectId);
+      setEditedActivityName(timer.activityName);
+      setEditedHabitId(timer.habitId);
+    } else {
+      setIsEditingConclusao(false);
+    }
+  }, [showCompleteModal, timer.projectId, timer.activityName, timer.habitId]);
   
   // Late session config state
   const [lateProjectId, setLateProjectId] = useState(timer.projectId || '');
@@ -205,24 +223,25 @@ export const ActiveSession = () => {
     if (!user || !timer.totalDurationMs) return;
 
     const allDone = completedTasksLocal.length === sessionTasksLocal.length && sessionTasksLocal.length > 0;
-    const realDuration = actualDurationMinutes || Math.round((timer.totalDurationMs || 0) / 60000);
+    const targetMinutes = Math.round((timer.totalDurationMs || 0) / 60000);
+    const actualMinutes = actualDurationMinutes !== null ? actualDurationMinutes : targetMinutes;
 
     const sessionToSave = {
       user_id: user.id,
-      project_id: timer.projectId || null,
-      habit_id: timer.habitId || null,
-      activity_name: timer.activityName,
+      project_id: editedProjectId !== null ? editedProjectId : (timer.projectId || null),
+      habit_id: editedHabitId !== null ? editedHabitId : (timer.habitId || null),
+      activity_name: editedActivityName || timer.activityName || 'Sessão Sem Título',
       description: timer.description,
-      duration_minutes: realDuration,
+      duration_minutes: targetMinutes,
       started_at: new Date(timer.startTime || Date.now()).toISOString(),
       completed_at: new Date().toISOString(),
       completed: true,
       all_tasks_completed: allDone,
-      actual_duration_minutes: actualDurationMinutes || null,
+      actual_duration_minutes: actualMinutes,
     };
 
     const noteDescription = timer.description.trim();
-    const noteProjectIdFix = timer.projectId || undefined;
+    const noteProjectIdFix = (editedProjectId !== null ? editedProjectId : timer.projectId) || undefined;
 
     setShowCompleteModal(false);
 
@@ -260,6 +279,10 @@ export const ActiveSession = () => {
       setCompletedTasksLocal([]);
       setActualDurationMinutes(null);
       setAllTasksCompletedTime(null);
+      setIsEditingConclusao(false);
+      setEditedProjectId(null);
+      setEditedActivityName('');
+      setEditedHabitId(null);
       timer.reset();
     }
   };
@@ -389,20 +412,37 @@ export const ActiveSession = () => {
               </div>
             )}
 
-            {sessionTasksLocal.length > 0 && (
+            {/* Botão VER TAREFAS ou + ADICIONAR TAREFA */}
+            <div className="flex justify-center mt-4 mb-2">
               <button
                 onClick={() => setShowTasksOverlay(true)}
-                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-text-secondary/50 hover:text-primary-green transition-colors mx-auto"
+                className="flex items-center gap-2 px-4 py-2 hover:bg-primary-green/15 transition-all duration-200 cursor-pointer text-[#6ee7b7]"
+                style={{
+                  borderRadius: '999px',
+                  backgroundColor: 'rgba(110, 231, 183, 0.08)',
+                  border: '0.5px solid rgba(110, 231, 183, 0.25)',
+                  fontSize: '10px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: 500,
+                }}
               >
-                <span className={completedTasksLocal.length === sessionTasksLocal.length ? 'text-primary-green' : 'text-white/30'}>
-                  {completedTasksLocal.length === sessionTasksLocal.length ? '✅' : '○'}
-                </span>
-                VER LISTA DE TAREFAS
-                <span className="text-primary-green/60">
-                  ({completedTasksLocal.length}/{sessionTasksLocal.length})
-                </span>
+                <ListTodo size={12} className="shrink-0" />
+                <span>{sessionTasksLocal.length > 0 ? 'VER TAREFAS' : '+ ADICIONAR TAREFA'}</span>
+                {sessionTasksLocal.length > 0 && (
+                  <span
+                    className="ml-1 text-[9px] font-bold text-[#6ee7b7]"
+                    style={{
+                      backgroundColor: 'rgba(110, 231, 168, 0.2)',
+                      padding: '2px 6px',
+                      borderRadius: '999px',
+                    }}
+                  >
+                    {completedTasksLocal.length}/{sessionTasksLocal.length}
+                  </span>
+                )}
               </button>
-            )}
+            </div>
 
             {/* 2. Central Timer Display */}
             <div className="relative flex flex-col items-center justify-center w-full max-w-5xl">
@@ -682,69 +722,104 @@ export const ActiveSession = () => {
                 <p className="text-text-secondary font-light text-base md:text-lg">Excelente progresso. Deseja registrar esta sessão no seu histórico?</p>
               </div>
 
-              {(() => {
-                const resolved = resolverNomeSessao(
-                  {
-                    habit_id: timer.habitId,
-                    project_id: timer.projectId,
-                    activity_name: timer.activityName
-                  },
-                  dataStore.habits,
-                  dataStore.projects
-                );
-                return (
-                  <div className="p-4 md:p-6 bg-white/5 rounded-3xl space-y-2 text-center">
-                    <p className="text-xl md:text-2xl font-light text-text-primary tracking-tight">{resolved.titulo}</p>
-                    <p className="text-[9px] md:text-[10px] font-bold text-primary-green uppercase tracking-[0.3em]">
-                       {resolved.projeto}
-                    </p>
-                    {timer.habitId && (() => {
-                      const habit = dataStore.habits.find(h => h.id === timer.habitId);
-                      const minutesRealized = actualDurationMinutes !== null ? actualDurationMinutes : Math.round((timer.totalDurationMs || 0) / 60000);
-                      const targetMinutes = habit?.minutes_per_session || 0;
-                      return (
-                        <p className={`text-xs font-bold uppercase mt-2 tracking-widest ${minutesRealized >= targetMinutes ? 'text-primary-green' : 'text-amber-400'}`}>
-                          Progresso de Hoje: {minutesRealized} / {targetMinutes} min
-                        </p>
-                      );
-                    })()}
-                  </div>
-                );
-              })()}
-
-              {sessionTasksLocal.length > 0 && (
-                <div className="space-y-3 text-left border-t border-white/5 pt-6">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block mb-1">
-                    Tarefas da Sessão
-                  </label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {sessionTasksLocal.map((task, i) => {
-                      const isDone = completedTasksLocal.includes(task);
-                      return (
-                        <label
-                          key={i}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 cursor-pointer transition-colors"
+              {isEditingConclusao ? (
+                <SessionEditPanel
+                  initialProjectId={editedProjectId}
+                  initialActivityName={editedActivityName}
+                  initialHabitId={editedHabitId}
+                  initialTasks={sessionTasksLocal}
+                  initialCompletedTasks={completedTasksLocal}
+                  projects={dataStore.projects}
+                  habits={dataStore.habits}
+                  activities={dataStore.activities}
+                  onSave={(proj, act, hab, tsks, comps) => {
+                    setEditedProjectId(proj);
+                    setEditedActivityName(act);
+                    setEditedHabitId(hab);
+                    setSessionTasksLocal(tsks);
+                    setCompletedTasksLocal(comps);
+                    setIsEditingConclusao(false);
+                  }}
+                  onCancel={() => {
+                    setIsEditingConclusao(false);
+                  }}
+                />
+              ) : (
+                <>
+                  {(() => {
+                    const resolved = resolverNomeSessao(
+                      {
+                        habit_id: editedHabitId !== null ? editedHabitId : timer.habitId,
+                        project_id: editedProjectId !== null ? editedProjectId : timer.projectId,
+                        activity_name: editedActivityName || timer.activityName
+                      },
+                      dataStore.habits,
+                      dataStore.projects
+                    );
+                    return (
+                      <div className="relative p-4 md:p-6 bg-white/5 rounded-3xl space-y-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingConclusao(true)}
+                          className="absolute top-[10px] right-[10px] text-[#6a7570] hover:text-white transition-colors cursor-pointer p-1"
+                          title="Editar Detalhes"
                         >
-                          <input
-                            type="checkbox"
-                            checked={isDone}
-                            onChange={() => {
-                              if (isDone) {
-                                setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
-                              } else {
-                                setCompletedTasksLocal([...completedTasksLocal, task]);
-                              }
-                            }}
-                            className="w-4 h-4 rounded border-white/10 text-primary-green bg-transparent focus:ring-0 cursor-pointer"
-                          />
-                          <span className={`text-xs ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
-                            {task}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
+                          <Pencil size={14} />
+                        </button>
+
+                        <p className="text-xl md:text-2xl font-light text-text-primary tracking-tight">{resolved.titulo}</p>
+                        <p className="text-[9px] md:text-[10px] font-bold text-primary-green uppercase tracking-[0.3em]">
+                           {resolved.projeto}
+                        </p>
+                        {(editedHabitId !== null ? editedHabitId : timer.habitId) && (() => {
+                          const habit = dataStore.habits.find(h => h.id === (editedHabitId !== null ? editedHabitId : timer.habitId));
+                          const minutesRealized = actualDurationMinutes !== null ? actualDurationMinutes : Math.round((timer.totalDurationMs || 0) / 60000);
+                          const targetMinutes = habit?.minutes_per_session || 0;
+                          return (
+                            <p className={`text-xs font-bold uppercase mt-2 tracking-widest ${minutesRealized >= targetMinutes ? 'text-primary-green' : 'text-amber-400'}`}>
+                              Progresso de Hoje: {minutesRealized} / {targetMinutes} min
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+
+                  {sessionTasksLocal.length > 0 && (
+                    <div className="space-y-3 text-left border-t border-white/5 pt-6">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block mb-1">
+                        Tarefas da Sessão
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {sessionTasksLocal.map((task, i) => {
+                          const isDone = completedTasksLocal.includes(task);
+                          return (
+                            <label
+                              key={i}
+                              className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={() => {
+                                  if (isDone) {
+                                    setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
+                                  } else {
+                                    setCompletedTasksLocal([...completedTasksLocal, task]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-white/10 text-primary-green bg-transparent focus:ring-0 cursor-pointer"
+                              />
+                              <span className={`text-xs ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
+                                {task}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               
               <div className="flex flex-col gap-4">
@@ -830,7 +905,7 @@ export const ActiveSession = () => {
               <div className="space-y-4">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Encerrar com segurança?</h3>
                 <p className="text-text-secondary font-light">
-                  Deseja encerrar o foco agora? Isso registrará uma sessão parcial de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
+                  Deseja encerrar o foco agora? Isso registrará uma sessão incompleta de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
                 </p>
               </div>
               
@@ -899,61 +974,14 @@ export const ActiveSession = () => {
       {/* Task Checklist Overlay during session */}
       <AnimatePresence>
         {showTasksOverlay && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1100] bg-background/98 backdrop-blur-3xl flex flex-col items-center justify-center p-6"
-          >
-            <div className="w-full max-w-md bg-surface border border-border-white p-8 rounded-[2rem] space-y-8 shadow-[0_0_80px_rgba(110,231,168,0.1)]">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold tracking-tight text-text-primary">Mantenha o foco</h3>
-                <button
-                  onClick={() => setShowTasksOverlay(false)}
-                  className="text-text-secondary hover:text-white transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {sessionTasksLocal.map((task, i) => {
-                  const isDone = completedTasksLocal.includes(task);
-                  return (
-                    <label
-                      key={i}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-primary-green/30 cursor-pointer transition-all"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isDone}
-                        onChange={() => {
-                          if (isDone) {
-                            setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
-                          } else {
-                            setCompletedTasksLocal([...completedTasksLocal, task]);
-                          }
-                        }}
-                        className="w-5 h-5 rounded-md border-white/20 text-primary-green bg-transparent focus:ring-0 cursor-pointer checked:bg-primary-green checked:border-primary-green transition-all"
-                      />
-                      <span className={`text-sm ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
-                        {task}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2">
-                <button
-                  onClick={() => setShowTasksOverlay(false)}
-                  className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-glow-green transition-all"
-                >
-                  Continuar Sessão
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <SessionTasksModal
+            isOpen={showTasksOverlay}
+            onClose={() => setShowTasksOverlay(false)}
+            tasks={sessionTasksLocal}
+            completedTasks={completedTasksLocal}
+            onChangeTasks={setSessionTasksLocal}
+            onChangeCompleted={setCompletedTasksLocal}
+          />
         )}
       </AnimatePresence>
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask } from '../types';
+import { useTimerStore } from './useTimerStore';
 
 interface DataState {
   profile: Profile | null;
@@ -251,13 +252,34 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addSession: async (session) => {
     try {
-      const isPartial = session.actual_duration_minutes !== null ? (session.actual_duration_minutes < session.duration_minutes) : false;
+      const timer = useTimerStore.getState();
+
+      // Meta original configurada pelo usuário ao iniciar a sessão
+      const duration_minutes = timer.totalDurationMs
+        ? Math.round(timer.totalDurationMs / 60000)
+        : session.duration_minutes;
+
+      // Tempo real cronometrado até encerrar
+      let actual_duration_minutes = session.actual_duration_minutes;
+      if (actual_duration_minutes === null && timer.totalDurationMs) {
+        const elapsedMs = timer.totalDurationMs - timer.getRemainingMs();
+        actual_duration_minutes = Math.max(1, Math.round(elapsedMs / 60000));
+      } else if (actual_duration_minutes !== null) {
+        actual_duration_minutes = Math.max(1, Math.round(actual_duration_minutes));
+      } else {
+        actual_duration_minutes = duration_minutes;
+      }
+
+      // Uma sessão é marcada como parcial/incompleta se o tempo real realizado for menor que o planejado
+      const isPartial = actual_duration_minutes < duration_minutes;
       const activityNameLimpo = (session.activity_name === "Sessão Sem Título" || !session.activity_name?.trim()) 
         ? null 
         : session.activity_name.trim();
 
       const sessionToSave = {
         ...session,
+        duration_minutes,
+        actual_duration_minutes,
         activity_name: activityNameLimpo,
         parcial: isPartial
       };
@@ -356,7 +378,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
         const currentProfile = get().profile;
         if (currentProfile) {
-          const addedMinutes = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+          const addedMinutes = data.actual_duration_minutes !== null ? data.actual_duration_minutes : data.duration_minutes;
           const newTotal = Number(currentProfile.total_focus_minutes) + addedMinutes;
           
           const today = new Date().toISOString().split('T')[0];

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
-import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
@@ -195,7 +195,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void }> = (
                   lineHeight: '1'
                 }}
               >
-                PARCIAL
+                INCOMPLETA
               </span>
             )}
           </div>
@@ -207,18 +207,29 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void }> = (
             <span>{formattedDuration}</span>
           </div>
 
-          {/* Terceira linha se for parcial */}
+          {/* Linha tracejada e ícone de pause */}
           {isPartial && (
-            <div 
-              className="font-medium mt-[2px]"
-              style={{
-                color: '#fbbf24',
-                fontSize: '10px',
-                opacity: 0.8
-              }}
-            >
-              {session.actual_duration_minutes || 0} / {session.duration_minutes} min programados
-            </div>
+            <>
+              <div 
+                style={{
+                  width: '100%',
+                  borderTop: '1px dashed rgba(251, 191, 36, 0.3)',
+                  marginTop: '6px',
+                  marginBottom: '4px'
+                }}
+              />
+              <div 
+                className="font-medium flex items-center"
+                style={{
+                  color: '#fbbf24',
+                  fontSize: '10px',
+                  opacity: 0.8
+                }}
+              >
+                <Pause size={10} className="shrink-0 mr-1.5" style={{ color: '#fbbf24' }} />
+                <span>{session.actual_duration_minutes || 0} / {session.duration_minutes} min programados</span>
+              </div>
+            </>
           )}
 
           {/* Tarefas da sessão */}

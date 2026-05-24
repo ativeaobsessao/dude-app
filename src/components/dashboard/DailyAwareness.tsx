@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Activity } from 'lucide-react';
+import { Check, Activity, Pause } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 
@@ -115,7 +115,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration, isP
                   lineHeight: '1'
                 }}
               >
-                PARCIAL
+                INCOMPLETA
               </span>
             )}
           </span>
@@ -125,22 +125,30 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration, isP
         <span>{timeRange}</span>
         <span className="text-[#3a4540]">·</span>
         <span>{duration}</span>
-        {isPartial && (
-          <>
-            <span className="text-[#3a4540]">·</span>
-            <span 
-              className="font-medium"
-              style={{
-                color: '#fbbf24',
-                fontSize: '10px',
-                opacity: 0.8
-              }}
-            >
-              {session.actual_duration_minutes || 0} / {session.duration_minutes} min programados
-            </span>
-          </>
-        )}
       </div>
+      {isPartial && (
+        <div className="pl-13">
+          <div 
+            style={{
+              width: '100%',
+              borderTop: '1px dashed rgba(251, 191, 36, 0.3)',
+              marginTop: '6px',
+              marginBottom: '4px'
+            }}
+          />
+          <div 
+            className="font-medium flex items-center"
+            style={{
+              color: '#fbbf24',
+              fontSize: '10px',
+              opacity: 0.8
+            }}
+          >
+            <Pause size={10} className="shrink-0 mr-1.5" style={{ color: '#fbbf24' }} />
+            <span>{session.actual_duration_minutes || 0} / {session.duration_minutes} min programados</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
