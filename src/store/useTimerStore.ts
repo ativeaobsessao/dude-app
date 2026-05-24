@@ -16,6 +16,7 @@ interface TimerState {
   targetDate: string;
   pendingTasks: string[];
   scheduledActivityId: string | null;
+  setScheduledActivityId: (id: string | null) => void;
   
   start: (durationMinutes: number, activity: string, projId?: string, habId?: string, desc?: string, date?: string, actId?: string, scheduledActId?: string) => void;
   pause: () => void;
@@ -48,6 +49,7 @@ export const useTimerStore = create<TimerState>()(
       pendingTasks: [] as string[],
       scheduledActivityId: null,
 
+      setScheduledActivityId: (id) => set({ scheduledActivityId: id }),
       setPendingTasks: (tasks) => set({ pendingTasks: tasks }),
       clearPendingTasks: () => set({ pendingTasks: [] }),
 
@@ -65,7 +67,7 @@ export const useTimerStore = create<TimerState>()(
           activityId: actId || null,
           description: desc || '',
           targetDate: date || new Date().toISOString().split('T')[0],
-          scheduledActivityId: scheduledActId || null,
+          scheduledActivityId: scheduledActId || get().scheduledActivityId || null,
         });
       },
 

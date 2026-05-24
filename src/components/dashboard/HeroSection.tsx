@@ -155,6 +155,24 @@ export const HeroSection = () => {
                             <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest">
                               {resolved.projeto}
                             </span>
+                            {session.scheduled_activity_id && (
+                              <span 
+                                className="inline-flex items-center font-bold"
+                                style={{
+                                  backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                                  border: '0.5px solid rgba(139, 92, 246, 0.25)',
+                                  color: '#8b5cf6',
+                                  fontSize: '9px',
+                                  letterSpacing: '0.12em',
+                                  textTransform: 'uppercase',
+                                  padding: '2px 6px',
+                                  borderRadius: '999px',
+                                  lineHeight: '1'
+                                }}
+                              >
+                                AGENDADA
+                              </span>
+                            )}
                             {isPartial && (
                               <span 
                                 className="inline-flex items-center font-bold"

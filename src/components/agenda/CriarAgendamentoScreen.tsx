@@ -516,6 +516,21 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
           >
             CONFIRMAR AGENDAMENTO
           </button>
+
+          {/* Divisor */}
+          <div className="border-t border-white/10 mt-8 mb-6" />
+
+          <div className="flex justify-center">
+            <button
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('navigate-to-agenda'));
+              }}
+              className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1 hover:border-primary-green transition-all"
+            >
+              VER TODAS ATIVIDADES PROGRAMADAS
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { ProgressStats } from './components/dashboard/ProgressStats';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
+import { useTimerStore } from './store/useTimerStore';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -29,6 +30,7 @@ export default function App() {
   const [showFullAgenda, setShowFullAgenda] = useState(false);
 
   const handleStartSessionFromAgenda = (activity: any) => {
+    useTimerStore.getState().setScheduledActivityId(activity.id);
     // Send event to open ActionCenter prefilled
     window.dispatchEvent(new CustomEvent('open-action-center', {
       detail: {
@@ -56,6 +58,14 @@ export default function App() {
       }
     }));
   };
+
+  useEffect(() => {
+    const handleNavigate = () => {
+      setShowFullAgenda(true);
+    };
+    window.addEventListener('navigate-to-agenda', handleNavigate);
+    return () => window.removeEventListener('navigate-to-agenda', handleNavigate);
+  }, []);
 
   useEffect(() => {
     if (user && 'Notification' in window) {

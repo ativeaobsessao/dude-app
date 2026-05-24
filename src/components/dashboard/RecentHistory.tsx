@@ -180,6 +180,24 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void }> = (
             <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest leading-none mt-0.5">
               {resolved.projeto}
             </span>
+            {session.scheduled_activity_id && (
+              <span 
+                className="inline-flex items-center font-bold"
+                style={{
+                  backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                  border: '0.5px solid rgba(139, 92, 246, 0.25)',
+                  color: '#8b5cf6',
+                  fontSize: '9px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  padding: '2px 6px',
+                  borderRadius: '999px',
+                  lineHeight: '1'
+                }}
+              >
+                AGENDADA
+              </span>
+            )}
             {isPartial && (
               <span 
                 className="inline-flex items-center ml-1 font-bold"
