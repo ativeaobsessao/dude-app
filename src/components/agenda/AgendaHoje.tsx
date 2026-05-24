@@ -18,7 +18,7 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
 
   const todayActivities = useMemo(() => {
     return dataStore.scheduledActivities.filter(item => {
-      return item.scheduled_date === todayStr && item.status !== 'cancelled';
+      return item.scheduled_date === todayStr && item.status === 'pending';
     });
   }, [dataStore.scheduledActivities, todayStr]);
 
@@ -72,6 +72,15 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
           ))}
         </div>
       )}
+
+      <button 
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('navigate-to-agenda'));
+        }}
+        className="w-full py-4 mt-4 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-primary-green hover:border-primary-green/30 transition-all"
+      >
+        VER TODAS ATIVIDADES PROGRAMADAS
+      </button>
     </div>
   );
 };
