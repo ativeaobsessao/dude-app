@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 
@@ -25,6 +25,21 @@ export const RecentNotes = () => {
   const [noteContent, setNoteContent] = useState('');
   const [noteProjectId, setNoteProjectId] = useState('');
   const [noteActivityId, setNoteActivityId] = useState('');
+
+  // Note Editing State
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState('');
+
+  const handleUpdateNote = async (id: string) => {
+    if (!editingNoteContent.trim()) return;
+    const success = await dataStore.updateNote(id, editingNoteContent.trim());
+    if (success) {
+      setEditingNoteId(null);
+      setEditingNoteContent('');
+    } else {
+      alert('Erro ao atualizar anotação.');
+    }
+  };
 
   const latestNotes = dataStore.notes.slice(0, 3);
 
@@ -108,16 +123,54 @@ export const RecentNotes = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/30 transition-all flex flex-col group relative overflow-hidden"
                 >
-                  <button 
-                    onClick={() => handleDeleteConfirm(note.id, note.content)}
-                    className="absolute top-4 right-4 p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded-lg transition-all"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {editingNoteId !== note.id && (
+                    <>
+                      <button 
+                        onClick={() => {
+                          setEditingNoteId(note.id);
+                          setEditingNoteContent(note.content);
+                        }}
+                        className="absolute top-4 right-12 p-2 text-primary-green opacity-0 group-hover:opacity-100 hover:bg-primary-green/10 rounded-lg transition-all"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteConfirm(note.id, note.content)}
+                        className="absolute top-4 right-4 p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded-lg transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
 
-                  <p className="text-text-primary font-light text-sm line-clamp-2 leading-relaxed mb-4 flex-1">
-                    {note.content}
-                  </p>
+                  {editingNoteId === note.id ? (
+                    <div className="space-y-4 flex-1 mb-4">
+                      <textarea
+                        className="w-full bg-surface/60 border border-primary-green/40 p-3 rounded-xl text-text-primary text-sm font-light outline-none resize-none h-24 focus:border-primary-green"
+                        value={editingNoteContent}
+                        onChange={e => setEditingNoteContent(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingNoteId(null)}
+                          className="px-3 py-1.5 border border-white/10 rounded-lg text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => handleUpdateNote(note.id)}
+                          className="px-3 py-1.5 bg-primary-green text-background rounded-lg text-[9px] font-bold uppercase tracking-widest transition-colors animate-pulse"
+                        >
+                          Salvar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-text-primary font-light text-sm line-clamp-2 leading-relaxed mb-4 flex-1">
+                      {note.content}
+                    </p>
+                  )}
 
                   <div className="space-y-2 mt-auto">
                     <div className="flex flex-wrap items-center gap-2 text-[8px] font-bold text-text-secondary/60 uppercase tracking-widest">
@@ -299,16 +352,54 @@ export const RecentNotes = () => {
                   const activity = dataStore.activities.find(a => a.id === note.activity_id);
                   return (
                     <div key={note.id} className="group p-8 rounded-[2rem] bg-surface/10 border border-white/5 hover:border-primary-green/20 transition-all flex flex-col relative">
-                      <button 
-                        onClick={() => handleDeleteConfirm(note.id, note.content)}
-                        className="absolute top-6 right-6 p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                      >
-                        <Trash2 size={20} />
-                      </button>
+                      {editingNoteId !== note.id && (
+                        <>
+                          <button 
+                            onClick={() => {
+                              setEditingNoteId(note.id);
+                              setEditingNoteContent(note.content);
+                            }}
+                            className="absolute top-6 right-16 p-3 text-primary-green/40 hover:text-primary-green hover:bg-primary-green/10 rounded-xl transition-all"
+                          >
+                            <Pencil size={20} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteConfirm(note.id, note.content)}
+                            className="absolute top-6 right-6 p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </>
+                      )}
                       
-                      <p className="text-text-primary/90 font-light text-base leading-relaxed whitespace-pre-wrap flex-1 mb-8">
-                        {note.content}
-                      </p>
+                      {editingNoteId === note.id ? (
+                        <div className="space-y-4 flex-1 mb-6">
+                          <textarea
+                            className="w-full bg-surface/60 border border-primary-green/40 p-4 rounded-[1.5rem] text-text-primary text-base font-light outline-none resize-none h-32 focus:border-primary-green"
+                            value={editingNoteContent}
+                            onChange={e => setEditingNoteContent(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => setEditingNoteId(null)}
+                              className="px-4 py-2 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors min-h-[44px]"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => handleUpdateNote(note.id)}
+                              className="px-4 py-2 bg-primary-green text-background rounded-xl text-xs font-bold uppercase tracking-widest transition-colors min-h-[44px] animate-pulse"
+                            >
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-text-primary/90 font-light text-base leading-relaxed whitespace-pre-wrap flex-1 mb-8">
+                          {note.content}
+                        </p>
+                      )}
                       
                       <div className="flex flex-wrap items-center gap-3 text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest pt-6 border-t border-white/5">
                         <span className="text-primary-green/60">{formatDate(note.target_date || note.created_at)}</span>

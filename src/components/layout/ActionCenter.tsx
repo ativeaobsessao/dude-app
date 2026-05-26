@@ -1,4 +1,4 @@
-import { useState, type FormEvent, useMemo, useEffect } from 'react';
+import { useState, type FormEvent, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -108,6 +108,39 @@ export const ActionCenter = () => {
   const [restoredTasks, setRestoredTasks] = useState<{ id: string; description: string }[]>([]);
   const [customUserTasks, setCustomUserTasks] = useState<string[]>([]);
 
+  const [registrationMode, setRegistrationMode] = useState<'timer' | 'manual'>('timer');
+
+  const resetSPState = () => {
+    setSessionData({
+      activityId: '',
+      activityManual: '',
+      project: '',
+      habit: '',
+      description: '',
+      hours: 0,
+      minutes: 25,
+      date: new Date().toISOString().split('T')[0]
+    });
+    setCustomUserTasks([]);
+    setRestoredTasks([]);
+    setNewTaskInput('');
+    setRegistrationMode('timer');
+  };
+
+  const prevIsActive = useRef(timer.isActive);
+  useEffect(() => {
+    if (prevIsActive.current && !timer.isActive) {
+      resetSPState();
+    }
+    prevIsActive.current = timer.isActive;
+  }, [timer.isActive]);
+
+  useEffect(() => {
+    if (!isOpen && !timer.isActive) {
+      resetSPState();
+    }
+  }, [isOpen, timer.isActive]);
+
   const currentContext = useMemo(() => {
     if (sessionData.habit) {
       return { type: 'habit', value: sessionData.habit };
@@ -181,6 +214,78 @@ export const ActionCenter = () => {
     
     const totalMinutes = (Number(sessionData.hours) * 60) + Number(sessionData.minutes);
     if (totalMinutes < 1) return; // Validation: 1 min minimum
+
+    if (registrationMode === 'manual') {
+      if (!user) return;
+      
+      const now = new Date();
+      const startedAt = new Date(now.getTime() - totalMinutes * 60 * 1000).toISOString();
+      const completedAt = now.toISOString();
+
+      const sessionToSave = {
+        user_id: user.id,
+        project_id: sessionData.project || null,
+        habit_id: sessionData.habit || null,
+        activity_name: activityName,
+        description: sessionData.description || '',
+        duration_minutes: totalMinutes,
+        started_at: startedAt,
+        completed_at: completedAt,
+        completed: true,
+        all_tasks_completed: true,
+        actual_duration_minutes: totalMinutes,
+        activity_id: sessionData.activityId || null,
+        scheduled_activity_id: timer.scheduledActivityId || null,
+      };
+
+      try {
+        useTimerStore.setState({ totalDurationMs: null });
+        
+        const savedSession = await dataStore.addSession(sessionToSave);
+
+        if (savedSession?.id) {
+          if (timer.scheduledActivityId) {
+            await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+              status: 'completed',
+              completed_session_id: savedSession.id
+            });
+          }
+
+          if (pendingTasks.length > 0) {
+            for (const task of pendingTasks) {
+              await dataStore.addSessionTask(
+                savedSession.id,
+                user.id,
+                task,
+                true // Mark as completed
+              );
+            }
+          }
+
+          // Auto-save note if description exists
+          if (sessionData.description.trim()) {
+            await dataStore.addNote(
+              user.id,
+              sessionData.description,
+              sessionData.project || undefined,
+              sessionData.activityId || undefined
+            );
+          }
+
+          if (!dataStore.hasCompletedFirstSession) {
+            dataStore.completeFirstSession();
+          }
+
+          showSuccess('✅ Sessão registrada com sucesso!');
+          resetSPState();
+          setIsOpen(false);
+        }
+      } catch (err) {
+        console.error('Erro ao registrar sessão manual:', err);
+        showSuccess('Erro ao registrar sessão manualmente.');
+      }
+      return;
+    }
     
     // Auto-save note if description exists (Form 2)
     if (sessionData.description.trim() && user) {
@@ -357,6 +462,11 @@ export const ActionCenter = () => {
         subtitle: 'Vai usar seu tempo para qual finalidade? Controle seu tempo agora!'
       },
       {
+        id: 'agenda',
+        label: 'AGENDAMENTOS',
+        subtitle: 'Defina quando vai executar suas próximas atividades.'
+      },
+      {
         id: 'projects',
         label: 'PROJETOS',
         subtitle: 'Liste todos os projetos que você precisa executar.'
@@ -367,19 +477,14 @@ export const ActionCenter = () => {
         subtitle: 'Defina as tarefas padrões que seus projetos demandam.'
       },
       {
-        id: 'notes',
-        label: 'ANOTAÇÕES',
-        subtitle: 'Seu espaço para registrar o que não pode ser esquecido.'
-      },
-      {
         id: 'habits',
         label: 'HÁBITOS ATÔMICOS',
         subtitle: 'Tudo aquilo que você pratica repetidamente, se torna um hábito.'
       },
       {
-        id: 'agenda',
-        label: 'AGENDAMENTOS',
-        subtitle: 'Defina quando vai executar suas próximas atividades.'
+        id: 'notes',
+        label: 'ANOTAÇÕES',
+        subtitle: 'Seu espaço para registrar o que não pode ser esquecido.'
       },
       {
         id: 'history',
@@ -610,81 +715,112 @@ export const ActionCenter = () => {
                             </div>
                           )}
                         </div>
-                        <div className="grid grid-cols-3 gap-6 items-end">
-                           <div className="col-span-2 grid grid-cols-2 gap-4">
-                              {/* HORAS */}
-                              <div className="space-y-1 text-left">
-                                <label className={labelClasses}>Horas</label>
-                                <input
-                                  type="tel"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  maxLength={2}
-                                  enterKeyHint="done"
-                                  placeholder="0"
-                                  className={`${inputClasses} text-center text-2xl font-bold`}
-                                  value={sessionData.hours === 0 ? '' : sessionData.hours}
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '');
-                                    const num = parseInt(val) || 0;
-                                    setSessionData({...sessionData, hours: Math.min(12, num)});
-                                  }}
-                                  onBlur={(e) => {
-                                    if (!e.target.value) {
-                                      setSessionData({...sessionData, hours: 0});
-                                    }
-                                    e.target.blur();
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      (e.target as HTMLInputElement).blur();
-                                    }
-                                  }}
-                                />
-                              </div>
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                             {/* HORAS */}
+                             <div className="space-y-1 text-left">
+                               <label className={labelClasses}>Horas</label>
+                               <input
+                                 type="tel"
+                                 inputMode="numeric"
+                                 pattern="[0-9]*"
+                                 maxLength={2}
+                                 enterKeyHint="done"
+                                 placeholder="0"
+                                 className={`${inputClasses} text-center text-2xl font-bold`}
+                                 value={sessionData.hours === 0 ? '' : sessionData.hours}
+                                 onFocus={(e) => e.target.select()}
+                                 onChange={(e) => {
+                                   const val = e.target.value.replace(/\D/g, '');
+                                   const num = parseInt(val) || 0;
+                                   setSessionData({...sessionData, hours: Math.min(12, num)});
+                                 }}
+                                 onBlur={(e) => {
+                                   if (!e.target.value) {
+                                     setSessionData({...sessionData, hours: 0});
+                                   }
+                                   e.target.blur();
+                                 }}
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Enter') {
+                                     e.preventDefault();
+                                     (e.target as HTMLInputElement).blur();
+                                   }
+                                 }}
+                               />
+                             </div>
 
-                              {/* MINUTOS */}
-                              <div className="space-y-1 text-left">
-                                <label className={labelClasses}>Minutos</label>
-                                <input
-                                  type="tel"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  maxLength={2}
-                                  enterKeyHint="done"
-                                  placeholder="25"
-                                  className={`${inputClasses} text-center text-2xl font-bold`}
-                                  value={sessionData.minutes === 0 ? '' : sessionData.minutes}
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '');
-                                    const num = parseInt(val) || 0;
-                                    setSessionData({...sessionData, minutes: Math.min(59, num)});
-                                  }}
-                                  onBlur={(e) => {
-                                    if (!e.target.value) {
-                                      setSessionData({...sessionData, minutes: 0});
-                                    }
-                                    e.target.blur();
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      (e.target as HTMLInputElement).blur();
-                                    }
-                                  }}
-                                />
-                              </div>
-                           </div>
-                           <button
-                             onClick={handleStartSession}
-                             disabled={(sessionData.hours === 0 && sessionData.minutes === 0)}
-                             className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] disabled:opacity-20 transition-all flex items-center justify-center gap-2 min-h-[44px]"
-                           >
-                             INICIAR <ArrowRight size={14} />
-                           </button>
+                             {/* MINUTOS */}
+                             <div className="space-y-1 text-left">
+                               <label className={labelClasses}>Minutos</label>
+                               <input
+                                 type="tel"
+                                 inputMode="numeric"
+                                 pattern="[0-9]*"
+                                 maxLength={2}
+                                 enterKeyHint="done"
+                                 placeholder="25"
+                                 className={`${inputClasses} text-center text-2xl font-bold`}
+                                 value={sessionData.minutes === 0 ? '' : sessionData.minutes}
+                                 onFocus={(e) => e.target.select()}
+                                 onChange={(e) => {
+                                   const val = e.target.value.replace(/\D/g, '');
+                                   const num = parseInt(val) || 0;
+                                   setSessionData({...sessionData, minutes: Math.min(59, num)});
+                                 }}
+                                 onBlur={(e) => {
+                                   if (!e.target.value) {
+                                     setSessionData({...sessionData, minutes: 0});
+                                   }
+                                   e.target.blur();
+                                 }}
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Enter') {
+                                     e.preventDefault();
+                                     (e.target as HTMLInputElement).blur();
+                                   }
+                                 }}
+                               />
+                             </div>
+                          </div>
+
+                          {/* COMO DESEJA REGISTRAR */}
+                          <div className="space-y-3 pt-4 border-t border-white/5 text-left">
+                            <label className={labelClasses}>Como deseja registrar?</label>
+                            <div className="flex gap-4">
+                              <button
+                                type="button"
+                                onClick={() => setRegistrationMode('timer')}
+                                className={`flex-grow md:flex-1 py-3.5 px-4 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all duration-200 min-h-[44px] ${
+                                  registrationMode === 'timer'
+                                    ? 'bg-primary-green/10 border-primary-green/40 text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
+                                    : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                                }`}
+                              >
+                                Sessão com Timer
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRegistrationMode('manual')}
+                                className={`flex-grow md:flex-1 py-3.5 px-4 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all duration-200 min-h-[44px] ${
+                                  registrationMode === 'manual'
+                                    ? 'bg-white/5 border-white/30 text-text-primary'
+                                    : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                                }`}
+                              >
+                                Registrar Manualmente
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleStartSession}
+                            disabled={(sessionData.hours === 0 && sessionData.minutes === 0)}
+                            className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] disabled:opacity-20 transition-all duration-200 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
+                          >
+                            {registrationMode === 'timer' ? 'INICIAR' : 'REGISTRAR'}
+                            {registrationMode === 'timer' && <ArrowRight size={14} />}
+                          </button>
                         </div>
                       </div>
                     )}

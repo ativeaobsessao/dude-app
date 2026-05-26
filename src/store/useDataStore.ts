@@ -41,6 +41,7 @@ interface DataState {
   
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  updateNote: (id: string, content: string) => Promise<boolean>;
   deleteSession: (id: string) => Promise<void>;
   updateSession: (id: string, updates: Partial<FocusSession>) => Promise<void>;
   updateSessionTaskDescription: (taskId: string, description: string) => Promise<void>;
@@ -742,6 +743,23 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({ notes: get().notes.filter(n => n.id !== id) });
     } catch (err) {
       console.error('Erro ao deletar anotação:', err);
+    }
+  },
+
+  updateNote: async (id, content) => {
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({ content })
+        .eq('id', id);
+      if (error) throw error;
+      set({
+        notes: get().notes.map(n => n.id === id ? { ...n, content } : n)
+      });
+      return true;
+    } catch (err) {
+      console.error('Erro ao atualizar anotação:', err);
+      return false;
     }
   },
 
