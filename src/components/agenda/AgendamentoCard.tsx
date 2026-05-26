@@ -1,6 +1,6 @@
 import { useDataStore } from '../../store/useDataStore';
 import { ScheduledActivity } from '../../types';
-import { Play, Calendar, Clock, BookOpen, Trash2, CheckCircle, Ban } from 'lucide-react';
+import { Play, Calendar, Clock, BookOpen, Trash2, CheckCircle, Ban, Pencil } from 'lucide-react';
 
 interface AgendamentoCardProps {
   activity: ScheduledActivity;
@@ -37,6 +37,15 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
     }
   };
 
+  const handleEdit = () => {
+    window.dispatchEvent(new CustomEvent('open-action-center', { 
+      detail: { 
+        screen: 'agenda',
+        editingActivity: activity 
+      } 
+    }));
+  };
+
   const formattedDate = new Date(activity.scheduled_date + 'T00:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric',
     month: 'short'
@@ -65,9 +74,9 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
     >
       <div className="space-y-3">
         {/* Header with tags and status */}
-        <div className="flex justify-between items-center whitespace-nowrap">
-          <div className="flex gap-1.5 items-center">
-            <span className={`text-[9px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full ${
+        <div className="flex flex-wrap md:flex-nowrap gap-2 justify-between items-center">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className={`text-[9px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shrink-0 ${
               isHabit 
                 ? 'bg-purple-500/10 text-purple-400 border border-purple-500/10' 
                 : 'bg-primary-green/10 text-primary-green border border-primary-green/10'
@@ -75,13 +84,13 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
               {contextLabel}
             </span>
             {project && (
-              <span className="text-[9px] font-bold tracking-widest uppercase bg-white/5 text-text-secondary px-2.5 py-1 rounded-full border border-white/5">
+              <span className="text-[9px] font-bold tracking-widest uppercase bg-white/5 text-text-secondary px-2.5 py-1 rounded-full border border-white/5 truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
                 📁 {project.name}
               </span>
             )}
           </div>
 
-          <div>
+          <div className="shrink-0">
             {activity.status === 'completed' && (
               <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/10">
                 <CheckCircle size={10} /> Concluída
@@ -136,7 +145,14 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
         </div>
 
         {activity.status === 'pending' && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleEdit}
+              className="px-2.5 py-1.5 text-[9px] font-bold tracking-widest uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] border border-[#6ee7a8]/10 hover:border-[#6ee7a8]/20 rounded-full transition-all flex items-center gap-1"
+              title="Editar Agendamento"
+            >
+              <Pencil size={10} /> Editar
+            </button>
             <button
               onClick={handleCancel}
               className="px-3 py-1.5 text-[9px] font-bold tracking-widest uppercase text-red-500/60 hover:text-red-500 border border-red-500/10 hover:border-red-500/20 rounded-full transition-all"

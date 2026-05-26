@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Target, X, AlertTriangle, Check } from 'lucide-react';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
@@ -28,6 +28,69 @@ export default function App() {
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
+
+  const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
+
+  // Observe approaching scheduled activities every 30 seconds
+  useEffect(() => {
+    if (!user) return;
+
+    const checkSchedules = () => {
+      // Check if deep task is active in timer
+      const isTimerActive = useTimerStore.getState().isActive;
+      if (isTimerActive) return; // Suppress reminders during deep focus sessions
+
+      // Get current date/time
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      // Find pending scheduled activities for today
+      const todayPending = useDataStore.getState().scheduledActivities.filter(item => {
+        return item.scheduled_date === todayStr && item.status === 'pending';
+      });
+
+      todayPending.forEach(activity => {
+        if (notifiedActivityIdsRef.current.has(activity.id)) return;
+
+        // Convert scheduled_time "HH:MM" to minutes from start of day
+        const [h, m] = activity.scheduled_time.split(':').map(Number);
+        const scheduledMinutes = h * 60 + m;
+
+        // Notify 5 minutes before, or up to the starting minutes
+        const diffMinutes = scheduledMinutes - currentMinutes;
+
+        // Trigger warning if within range [0, 5] minutes before start
+        if (diffMinutes >= 0 && diffMinutes <= 5) {
+          notifiedActivityIdsRef.current.add(activity.id);
+
+          const title = activity.title || 'Seu bloco de foco programado';
+          const notificationBody = `Sua atividade "${title}" começará em ${diffMinutes > 0 ? `${diffMinutes} minutos` : 'instantes'}. Prepare-se!`;
+
+          // Show native Web Notification if allowed
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`⏰ Foco Aproximando!`, {
+                body: notificationBody,
+                icon: '/icon.png'
+              });
+            } catch (err) {
+              console.warn('Erro ao disparar notificação nativa:', err);
+            }
+          }
+
+          // Also show elegant internal ActionCenter toast notification
+          useDataStore.getState().showNotification(`⏰ ${notificationBody}`, 'success');
+        }
+      });
+    };
+
+    // Run immediately and then every 30 seconds
+    checkSchedules();
+    const intervalId = setInterval(checkSchedules, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   const handleStartSessionFromAgenda = (activity: any) => {
     useTimerStore.getState().setScheduledActivityId(activity.id);

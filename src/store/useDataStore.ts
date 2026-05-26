@@ -36,7 +36,7 @@ interface DataState {
   deletePendingTask: (id: string) => Promise<void>;
   deletePendingTasksByDescription: (descriptions: string[], context: { habit_id?: string | null; activity_id?: string | null; atividade_avulsa?: string | null }) => Promise<void>;
   addScheduledActivity: (activity: Omit<ScheduledActivity, 'id' | 'status' | 'created_at'>) => Promise<ScheduledActivity | null>;
-  updateScheduledActivity: (id: string, updates: Partial<ScheduledActivity>) => Promise<void>;
+  updateScheduledActivity: (id: string, updates: Partial<ScheduledActivity>) => Promise<boolean>;
   deleteScheduledActivity: (id: string) => Promise<void>;
   
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
@@ -304,9 +304,12 @@ export const useDataStore = create<DataState>((set, get) => ({
         set({
           scheduledActivities: get().scheduledActivities.map(sa => sa.id === id ? data : sa)
         });
+        return true;
       }
+      return false;
     } catch (err) {
       console.error('Error updating scheduled activity:', err);
+      return false;
     }
   },
 

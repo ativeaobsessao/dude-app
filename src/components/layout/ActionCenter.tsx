@@ -3,6 +3,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion, AnimatePresence } from 'motion/react';
+import { ScheduledActivity } from '../../types';
 import { 
   Plus, X, ArrowLeft, ArrowRight, Layers, Target, Clock, 
   StickyNote, History, FolderKanban, Search, Trash2,
@@ -22,6 +23,7 @@ export const ActionCenter = () => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'project' | 'activity' | 'habit' | 'note' | 'session', name: string } | null>(null);
   const [showListModal, setShowListModal] = useState<'projects' | 'activities' | null>(null);
+  const [editingActivity, setEditingActivity] = useState<ScheduledActivity | undefined>(undefined);
 
   const timer = useTimerStore();
   const dataStore = useDataStore();
@@ -42,6 +44,12 @@ export const ActionCenter = () => {
         setCurrentScreen(e.detail.screen);
       } else {
         setCurrentScreen(null);
+      }
+
+      if (e.detail?.editingActivity) {
+        setEditingActivity(e.detail.editingActivity);
+      } else {
+        setEditingActivity(undefined);
       }
 
       // Se houver dados de pré-preenchimento (ex: de um agendamento)
@@ -1429,8 +1437,15 @@ export const ActionCenter = () => {
 
                 {currentScreen === 'agenda' && (
                   <CriarAgendamentoScreen
-                    onBack={() => setCurrentScreen(null)}
-                    onClose={() => setIsOpen(false)}
+                    onBack={() => {
+                      setCurrentScreen(null);
+                      setEditingActivity(undefined);
+                    }}
+                    onClose={() => {
+                      setIsOpen(false);
+                      setEditingActivity(undefined);
+                    }}
+                    editingActivity={editingActivity}
                   />
                 )}
               </div>

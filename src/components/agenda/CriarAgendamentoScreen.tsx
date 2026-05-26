@@ -2,114 +2,255 @@ import { useState, useMemo } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomSelect } from '../ui/CustomSelect';
-import { Plus, Trash2, Calendar, Clock, BookOpen, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, AlertTriangle, X } from 'lucide-react';
+import { ScheduledActivity } from '../../types';
 
 interface CriarAgendamentoScreenProps {
   onBack: () => void;
   onClose: () => void;
+  editingActivity?: ScheduledActivity;
 }
 
-export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScreenProps) => {
+export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: CriarAgendamentoScreenProps) => {
   const dataStore = useDataStore();
   const { user } = useAuthStore();
 
-  const [projectId, setProjectId] = useState('');
-  const [habitId, setHabitId] = useState('');
-  const [activityId, setActivityId] = useState('');
-  const [activityManual, setActivityManual] = useState('');
-  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
-  const [scheduledTime, setScheduledTime] = useState('09:00');
-  const [endTime, setEndTime] = useState<string>('');
-  const [durationMinutes, setDurationMinutes] = useState<number | ''>(30);
-  const [notes, setNotes] = useState('');
-  
-  // Custom tasks for the scheduled activity
-  const [tasks, setTasks] = useState<string[]>([]);
+  // Primary Input States
+  const [projectId, setProjectId] = useState(editingActivity?.project_id || '');
+  const [activityId, setActivityId] = useState(editingActivity?.activity_id || '');
+  const [activityManual, setActivityManual] = useState(editingActivity?.atividade_avulsa || '');
+  const [habitId, setHabitId] = useState(editingActivity?.habit_id || '');
+
+  // Scheduled Date / Defaults to today
+  const [scheduledDate, setScheduledDate] = useState(
+    editingActivity?.scheduled_date || new Date().toISOString().split('T')[0]
+  );
+
+  // Scheduled Start Time
+  const [scheduledTime, setScheduledTime] = useState(editingActivity?.scheduled_time || '09:00');
+  const [timeInput, setTimeInput] = useState(editingActivity?.scheduled_time || '09:00');
+
+  // Checklist Integrated
+  const [tasks, setTasks] = useState<string[]>(editingActivity?.tasks || []);
   const [newTaskInput, setNewTaskInput] = useState('');
+
+  // Additional fields
+  const [notes, setNotes] = useState(editingActivity?.notes || '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [conflictWarning, setConflictWarning] = useState<{ name: string; time: string; end: string; payload: any } | null>(null);
 
-  // Converte "HH:MM" para minutos desde 00:00
-  function timeToMinutes(time: string): number {
-    if (!time) return 0;
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
+  // Duration in minutes
+  const [durationMinutes, setDurationMinutes] = useState<number>(
+    editingActivity?.duration_minutes ?? 30
+  );
+
+  // Helper utility converters
+  function timeToMinutes(timeStr: string): number {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
   }
 
-  // Converte minutos desde 00:00 para "HH:MM"  
   function minutesToTime(totalMinutes: number): string {
-    // Normaliza pra não passar de 23:59
     const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
     const h = Math.floor(normalized / 60);
     const m = normalized % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
-  // Calcula duração em minutos entre dois horários
-  function calculateDurationMinutes(start: string, end: string): number {
-    if (!start || !end) return 0;
-    return timeToMinutes(end) - timeToMinutes(start);
-  }
+  // End Time variables, reactive to start time + duration
+  const [endTime, setEndTime] = useState<string>(
+    editingActivity
+      ? minutesToTime(timeToMinutes(editingActivity.scheduled_time) + editingActivity.duration_minutes)
+      : '09:30'
+  );
+  const [endTimeInput, setEndTimeInput] = useState<string>(
+    editingActivity
+      ? minutesToTime(timeToMinutes(editingActivity.scheduled_time) + editingActivity.duration_minutes)
+      : '09:30'
+  );
 
-  const isEndTimeInvalid = useMemo(() => {
-    if (!endTime || !scheduledTime) return false;
-    return timeToMinutes(endTime) <= timeToMinutes(scheduledTime);
-  }, [endTime, scheduledTime]);
+  // Duration inputs split in state (HH:MM)
+  const initialDuration = editingActivity?.duration_minutes ?? 30;
+  const initialHours = Math.floor(initialDuration / 60);
+  const initialMins = initialDuration % 60;
 
-  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setEndTime(val);
-    if (val && scheduledTime) {
-      const dur = calculateDurationMinutes(scheduledTime, val);
-      if (dur > 0) {
-        setDurationMinutes(dur);
-      }
+  const [durationHours, setDurationHours] = useState<string>(
+    String(initialHours).padStart(2, '0')
+  );
+  const [durationMinsState, setDurationMinsState] = useState<string>(
+    String(initialMins).padStart(2, '0')
+  );
+
+  // Sync changes to duration with main variables and end times
+  const updateDurationMinutesVal = (hrsStr: string, minsStr: string) => {
+    const h = parseInt(hrsStr, 10) || 0;
+    const m = parseInt(minsStr, 10) || 0;
+    const total = h * 60 + m;
+    setDurationMinutes(total);
+
+    if (scheduledTime) {
+      const calculatedEnd = minutesToTime(timeToMinutes(scheduledTime) + total);
+      setEndTime(calculatedEnd);
+      setEndTimeInput(calculatedEnd);
     }
   };
 
+  // ----------------- START TIME HANDLERS -----------------
   const handleStartTimeChange = (val: string) => {
     setScheduledTime(val);
-    if (endTime && val) {
-      const dur = calculateDurationMinutes(val, endTime);
-      if (dur > 0) {
-        setDurationMinutes(dur);
+    const calculatedEnd = minutesToTime(timeToMinutes(val) + durationMinutes);
+    setEndTime(calculatedEnd);
+    setEndTimeInput(calculatedEnd);
+  };
+
+  const handleTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+
+    let formatted = '';
+    if (digits.length > 2) {
+      formatted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    } else {
+      formatted = digits;
+    }
+
+    setTimeInput(formatted);
+
+    // Apply update if valid full format is reached
+    if (formatted.length === 5) {
+      const [h, m] = formatted.split(':').map(Number);
+      if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+        handleStartTimeChange(formatted);
+      }
+    }
+  };
+
+  const handleTimeInputBlur = () => {
+    const [hStr, mStr] = timeInput.split(':');
+    const h = parseInt(hStr || '', 10);
+    const m = parseInt(mStr || '', 10);
+
+    if (timeInput.length === 5 && !isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
+      handleStartTimeChange(timeInput);
+    } else {
+      setTimeInput(scheduledTime);
+    }
+  };
+
+  // ----------------- DURATION HANDLERS -----------------
+  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2);
+    setDurationHours(raw);
+
+    const hNum = parseInt(raw, 10) || 0;
+    if (hNum <= 23) {
+      updateDurationMinutesVal(raw, durationMinsState);
+    }
+  };
+
+  const handleHoursBlur = () => {
+    let hNum = parseInt(durationHours, 10) || 0;
+    if (hNum > 23) hNum = 23;
+    const formatted = String(hNum).padStart(2, '0');
+    setDurationHours(formatted);
+    updateDurationMinutesVal(formatted, durationMinsState);
+  };
+
+  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2);
+    setDurationMinsState(raw);
+
+    const mNum = parseInt(raw, 10) || 0;
+    if (mNum <= 59) {
+      updateDurationMinutesVal(durationHours, raw);
+    }
+  };
+
+  const handleMinutesBlur = () => {
+    let mNum = parseInt(durationMinsState, 10) || 0;
+    if (mNum > 59) mNum = 59;
+    
+    // Safety check: duration cannot be 0 minutes
+    const hNum = parseInt(durationHours, 10) || 0;
+    let finalMinsStr = String(mNum).padStart(2, '0');
+    if (hNum === 0 && mNum === 0) {
+      finalMinsStr = '30';
+      setDurationMinsState('30');
+    } else {
+      setDurationMinsState(finalMinsStr);
+    }
+    updateDurationMinutesVal(durationHours, finalMinsStr);
+  };
+
+  // ----------------- END TIME HANDLERS -----------------
+  const handleEndTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 4);
+
+    let formatted = '';
+    if (digits.length > 2) {
+      formatted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
+    } else {
+      formatted = digits;
+    }
+
+    setEndTimeInput(formatted);
+
+    if (formatted.length === 5) {
+      const [h, m] = formatted.split(':').map(Number);
+      if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+        setEndTime(formatted);
+        // Calculate the difference in minutes to determine duration
+        const startMin = timeToMinutes(scheduledTime);
+        const endMin = timeToMinutes(formatted);
+        let diff = endMin - startMin;
+        if (diff < 0) diff += 24 * 60; // crossover safety
+
+        setDurationMinutes(diff);
+        const newH = Math.floor(diff / 60);
+        const newM = diff % 60;
+        setDurationHours(String(newH).padStart(2, '0'));
+        setDurationMinsState(String(newM).padStart(2, '0'));
+      }
+    }
+  };
+
+  const handleEndTimeInputBlur = () => {
+    const [hStr, mStr] = endTimeInput.split(':');
+    const h = parseInt(hStr || '', 10);
+    const m = parseInt(mStr || '', 10);
+
+    if (endTimeInput.length === 5 && !isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
+      const startMin = timeToMinutes(scheduledTime);
+      const endMin = timeToMinutes(endTimeInput);
+      let diff = endMin - startMin;
+      if (diff <= 0) {
+        // Fallback to auto calculated time if equal/earlier
+        const fallbackEnd = minutesToTime(timeToMinutes(scheduledTime) + durationMinutes);
+        setEndTimeInput(fallbackEnd);
+        setEndTime(fallbackEnd);
       } else {
-        setEndTime('');
+        setEndTime(endTimeInput);
+        setDurationMinutes(diff);
+        const newH = Math.floor(diff / 60);
+        const newM = diff % 60;
+        setDurationHours(String(newH).padStart(2, '0'));
+        setDurationMinsState(String(newM).padStart(2, '0'));
       }
+    } else {
+      setEndTimeInput(endTime);
     }
   };
 
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === '') {
-      setDurationMinutes('');
-      return;
-    }
-    const num = parseInt(val, 10);
-    if (!isNaN(num) && num >= 0) {
-      setDurationMinutes(num);
-      if (scheduledTime) {
-        setEndTime(minutesToTime(timeToMinutes(scheduledTime) + num));
-      }
-    }
-  };
-
-  const handleDurationBlur = () => {
-    if (durationMinutes === '' || (typeof durationMinutes === 'number' && durationMinutes < 1)) {
-      setDurationMinutes(1);
-      if (scheduledTime) {
-        setEndTime(minutesToTime(timeToMinutes(scheduledTime) + 1));
-      }
-    }
-  };
-
-  // Filter activities by selected project
+  // Filter activities by currently selected project
   const filteredActivities = useMemo(() => {
     if (!projectId) return dataStore.activities;
     return dataStore.activities.filter(a => a.project_id === projectId);
   }, [dataStore.activities, projectId]);
 
+  // Checklist utilities matching SessionDeep exactly
   const handleAddTask = () => {
     if (!newTaskInput.trim()) return;
     setTasks([...tasks, newTaskInput.trim()]);
@@ -122,29 +263,26 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
 
   // Conflict Overlap Check
   const checkConflict = () => {
-    const currentDur = typeof durationMinutes === 'number' ? durationMinutes : 0;
-    if (!scheduledDate || !scheduledTime || !currentDur) return null;
+    if (!scheduledDate || !scheduledTime || !durationMinutes) return null;
 
-    const [candH, candM] = scheduledTime.split(':').map(Number);
-    const startCandidate = candH * 60 + candM;
-    const endCandidate = startCandidate + currentDur;
+    const startCandidate = timeToMinutes(scheduledTime);
+    const endCandidate = startCandidate + durationMinutes;
 
-    // Search existing scheduled activities (excluding canceled) for overlaps
     const conflict = dataStore.scheduledActivities.find(item => {
+      if (editingActivity && item.id === editingActivity.id) return false;
       if (item.scheduled_date !== scheduledDate) return false;
       if (item.status === 'cancelled') return false;
 
-      const [extH, extM] = item.scheduled_time.split(':').map(Number);
-      const startExisting = extH * 60 + extM;
+      const startExisting = timeToMinutes(item.scheduled_time);
       const endExisting = startExisting + item.duration_minutes;
 
-      // Overlap calculation
       return startCandidate < endExisting && endCandidate > startExisting;
     });
 
     return conflict || null;
   };
 
+  // Save the scheduled activity
   const handleSave = async (bypass = false) => {
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -154,18 +292,18 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
       return;
     }
 
-    // Resolve name of the scheduled activity
+    // Resolve name of the scheduled activity according to prioritization
     let resolvedTitle = '';
-    if (habitId) {
-      resolvedTitle = dataStore.habits.find(h => h.id === habitId)?.name || 'Hábito';
+    if (activityManual.trim()) {
+      resolvedTitle = activityManual.trim();
     } else if (activityId) {
       resolvedTitle = dataStore.activities.find(a => a.id === activityId)?.name || 'Atividade';
-    } else {
-      resolvedTitle = activityManual.trim();
+    } else if (habitId) {
+      resolvedTitle = dataStore.habits.find(h => h.id === habitId)?.name || 'Hábito';
     }
 
     if (!resolvedTitle) {
-      setErrorMsg('Por favor, informe uma Atividade, um Hábito ou digite um título avulso.');
+      setErrorMsg('Por favor, informe uma Atividade, um Hábito ou digite uma Atividade Avulsa.');
       return;
     }
 
@@ -179,15 +317,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
       return;
     }
 
-    if (endTime) {
-      const dur = calculateDurationMinutes(scheduledTime, endTime);
-      if (dur <= 0) {
-        setErrorMsg('O horário final deve ser maior que o horário de início.');
-        return;
-      }
-    }
-
-    if (typeof durationMinutes !== 'number' || durationMinutes < 1) {
+    if (durationMinutes < 1) {
       setErrorMsg('A duração deve ser de pelo menos 1 minuto.');
       return;
     }
@@ -198,20 +328,19 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
       project_id: projectId || null,
       habit_id: habitId || null,
       activity_id: activityId || null,
-      atividade_avulsa: habitId || activityId ? null : activityManual.trim(),
+      atividade_avulsa: activityManual.trim() || null,
       scheduled_date: scheduledDate,
       scheduled_time: scheduledTime,
       duration_minutes: durationMinutes,
       notes: notes.trim() || null,
       tasks: tasks,
-      completed_session_id: null
+      completed_session_id: editingActivity ? editingActivity.completed_session_id : null
     };
 
     if (!bypass) {
-      // Checking for scheduling conflicts
       const conflictingActivity = checkConflict();
       if (conflictingActivity) {
-        let conflictName = conflictingActivity.atividade_avulsa || 'Sessão Sem Título';
+        let conflictName = conflictingActivity.atividade_avulsa || 'Atividade Sem Título';
         if (conflictingActivity.habit_id) {
           conflictName = dataStore.habits.find(h => h.id === conflictingActivity.habit_id)?.name || conflictName;
         } else if (conflictingActivity.activity_id) {
@@ -220,39 +349,67 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
         setConflictWarning({
           name: conflictName,
           time: conflictingActivity.scheduled_time,
-          end: addMinutesToTime(conflictingActivity.scheduled_time, conflictingActivity.duration_minutes),
+          end: minutesToTime(timeToMinutes(conflictingActivity.scheduled_time) + conflictingActivity.duration_minutes),
           payload
         });
         return;
       }
     }
 
-    const saved = await dataStore.addScheduledActivity(payload);
-    if (saved) {
-      setConflictWarning(null);
-      setSuccessMsg('✅ Atividade agendada com sucesso!');
-      setTimeout(() => {
-        onBack();
-      }, 1500);
+    if (editingActivity) {
+      const success = await dataStore.updateScheduledActivity(editingActivity.id, payload);
+      if (success) {
+        setConflictWarning(null);
+        setSuccessMsg('✅ Agendamento atualizado com sucesso!');
+        setTimeout(() => {
+          onBack();
+        }, 1500);
+      } else {
+        setErrorMsg('Erro interno ao atualizar no banco de dados.');
+      }
     } else {
-      setErrorMsg('Erro interno ao salvar no banco de dados.');
+      const saved = await dataStore.addScheduledActivity(payload);
+      if (saved) {
+        setConflictWarning(null);
+        setSuccessMsg('✅ Atividade agendada com sucesso!');
+        setTimeout(() => {
+          onBack();
+        }, 1500);
+      } else {
+        setErrorMsg('Erro interno ao salvar no banco de dados.');
+      }
     }
   };
 
-  const addMinutesToTime = (timeStr: string, minutes: number) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const totalMinutes = h * 60 + m + minutes;
-    const finalH = Math.floor(totalMinutes / 60) % 24;
-    const finalM = totalMinutes % 60;
-    return `${String(finalH).padStart(2, '0')}:${String(finalM).padStart(2, '0')}`;
-  };
+  // Custom visual capitalizing date label (e.g. "HOJE • 26/05/2026")
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const dataFormatadaLabel = useMemo(() => {
+    if (!scheduledDate) return '';
+    const isToday = scheduledDate === todayStr;
+    const parts = scheduledDate.split('-');
+    const yyyy = parts[0];
+    const mm = parts[1];
+    const dd = parts[2];
 
-  // Custom styling classes replicates habits styling
+    if (isToday) {
+      return `HOJE • ${dd}/${mm}/${yyyy}`;
+    } else {
+      try {
+        const dateObj = new Date(scheduledDate + 'T00:00:00');
+        const weekday = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' });
+        const capitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1).replace('.', '');
+        return `${capitalized} • ${dd}/${mm}/${yyyy}`;
+      } catch (e) {
+        return `${dd}/${mm}/${yyyy}`;
+      }
+    }
+  }, [scheduledDate, todayStr]);
+
   const labelClasses = "text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-70 mb-2 block";
   const inputClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px]";
 
   return (
-    <div className="w-full max-w-2xl space-y-8 flex flex-col items-stretch">
+    <div className="w-full max-w-2xl space-y-8 flex flex-col items-stretch px-1">
       <button
         onClick={onBack}
         className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px] self-start"
@@ -262,8 +419,14 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
 
       <div className="space-y-4 text-left">
         <div>
-          <h3 className="text-3xl font-bold tracking-tight text-text-primary">Novo Agendamento</h3>
-          <p className="text-xs text-text-secondary/60 mt-1">Configure o dia e horário para a sua atividade inteligente.</p>
+          <h3 className="text-3xl font-bold tracking-tight text-text-primary">
+            {editingActivity ? 'Editar Agendamento' : 'Novo Agendamento'}
+          </h3>
+          <p className="text-xs text-text-secondary/60 mt-1">
+            {editingActivity 
+              ? 'Atualize as configurações e o horário do seu foco planejado.' 
+              : 'Configure o dia e horário para a sua atividade inteligente.'}
+          </p>
         </div>
 
         {errorMsg && (
@@ -313,18 +476,19 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
           </div>
         )}
 
-        <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+        <div className="bg-surface/10 p-6 md:p-8 rounded-[2.5rem] border border-white/5 space-y-6">
           
-          {/* Tipo de atividade / Contexto */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* SEÇÕES DE INPUT UNIFICADAS VERTICALMENTE */}
+          <div className="space-y-5">
+            
+            {/* 1. VINCULAR PROJETO (OPCIONAL) */}
             <div className="space-y-1">
-              <label className={labelClasses}>VINCULAR PROJETO (OPCIONAL)</label>
+              <label className={labelClasses}>1. VINCULAR PROJETO (OPCIONAL)</label>
               <CustomSelect
                 value={projectId}
                 onChange={(val) => {
                   setProjectId(val);
                   setActivityId('');
-                  setHabitId('');
                 }}
                 placeholder="Selecione o Projeto"
                 options={[
@@ -334,18 +498,38 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
               />
             </div>
 
+            {/* 2. ATIVIDADE CATALOGADA (OPCIONAL) */}
             <div className="space-y-1">
-              <label className={labelClasses}>VINCULAR HÁBITO (OPCIONAL)</label>
+              <label className={labelClasses}>2. SELECIONAR ATIVIDADE CATALOGADA (OPCIONAL)</label>
+              <CustomSelect
+                value={activityId}
+                onChange={(val) => setActivityId(val)}
+                placeholder="Atividades do Projeto Selecionado"
+                options={[
+                  { value: '', label: 'Nenhuma Selecionada' },
+                  ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                ]}
+              />
+            </div>
+
+            {/* 3. ATIVIDADE AVULSA (CAMPO TEXTO) */}
+            <div className="space-y-1">
+              <label className={labelClasses}>3. ATIVIDADE AVULSA (TEXTO OPCIONAL)</label>
+              <input
+                type="text"
+                placeholder="Ex: Enviar relatório do trimestre"
+                className={inputClasses}
+                value={activityManual}
+                onChange={(e) => setActivityManual(e.target.value)}
+              />
+            </div>
+
+            {/* 4. VINCULAR HÁBITO (OPCIONAL) */}
+            <div className="space-y-1">
+              <label className={labelClasses}>4. VINCULAR HÁBITO (OPCIONAL)</label>
               <CustomSelect
                 value={habitId}
-                onChange={(val) => {
-                  setHabitId(val);
-                  if (val) {
-                    setActivityId('');
-                    setActivityManual('');
-                    setProjectId('');
-                  }
-                }}
+                onChange={(val) => setHabitId(val)}
                 placeholder="Selecione o Hábito"
                 options={[
                   { value: '', label: 'Nenhum Hábito' },
@@ -353,168 +537,202 @@ export const CriarAgendamentoScreen = ({ onBack, onClose }: CriarAgendamentoScre
                 ]}
               />
             </div>
-          </div>
 
-          {!habitId && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className={labelClasses}>SELECIONAR ATIVIDADE CATALOGADA</label>
-                <CustomSelect
-                  value={activityId}
-                  onChange={(val) => {
-                    setActivityId(val);
-                    if (val) setActivityManual('');
-                  }}
-                  placeholder="Atividades do Projeto"
-                  options={[
-                    { value: '', label: 'Nenhuma Selecionada' },
-                    ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
-                  ]}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className={labelClasses}>OU DIGITE ATIVIDADE AVULSA</label>
+            {/* 5. TAREFAS INTEGRADAS (CHECKLIST PREMIUM COMPATIVEL SESSÃO PROFUNDA) */}
+            <div className="space-y-3 pt-2">
+              <label className={labelClasses}>5. CHECKLIST INTEGRADO (TAREFAS DA SESSÃO)</label>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  disabled={!!activityId}
-                  placeholder={activityId ? "Desativado (atividade selecionada)" : "Ex: Enviar relatório do trimestre..."}
-                  className={`${inputClasses} ${activityId ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  value={activityManual}
-                  onChange={(e) => setActivityManual(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  enterKeyHint="done"
+                  inputMode="text"
+                  placeholder="O que você vai executar nessa sessão?"
+                  className={`${inputClasses} flex-1`}
+                  value={newTaskInput}
+                  onChange={e => setNewTaskInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newTaskInput.trim()) {
+                      e.preventDefault();
+                      setTasks([...tasks, newTaskInput.trim()]);
+                      setNewTaskInput('');
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  onBlur={() => {
+                    if (newTaskInput.trim()) {
+                      setTasks([...tasks, newTaskInput.trim()]);
+                      setNewTaskInput('');
+                    }
+                  }}
                 />
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (newTaskInput.trim()) {
+                      setTasks([...tasks, newTaskInput.trim()]);
+                      setNewTaskInput('');
+                    }
+                  }}
+                  className="w-12 h-12 bg-primary-green/20 hover:bg-primary-green/30 border border-primary-green/30 rounded-2xl flex items-center justify-center text-primary-green transition-all shrink-0"
+                >
+                  <Plus size={18} />
+                </button>
               </div>
-            </div>
-          )}
 
-          <div className="border-t border-white/5 pt-4" />
-
-          {/* Data e Hora */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <label className={labelClasses}>DATA</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  className={`${inputClasses} pl-10`}
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                />
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40" size={16} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className={labelClasses}>HORÁRIO DE INÍCIO</label>
-              <div className="relative">
-                <input
-                  type="time"
-                  className={`${inputClasses} pl-10`}
-                  value={scheduledTime}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                />
-                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40" size={16} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className={labelClasses}>HORÁRIO FINAL (OPCIONAL)</label>
-              <div className="relative">
-                <input
-                  type="time"
-                  className={`${inputClasses} pl-10 ${
-                    isEndTimeInvalid ? 'border-amber-500/40' : ''
-                  }`}
-                  style={isEndTimeInvalid ? { borderColor: 'rgba(251, 191, 36, 0.4)' } : undefined}
-                  value={endTime}
-                  onChange={handleEndTimeChange}
-                />
-                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40" size={16} />
-              </div>
-              {isEndTimeInvalid && (
-                <span className="text-[10px] text-[#fbbf24] mt-1 block leading-tight">
-                  Horário final deve ser maior que o início
-                </span>
+              {/* Lista compacta de tarefas */}
+              {tasks.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {tasks.map((task, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                      <div className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                      <span className="text-xs sm:text-sm text-text-primary flex-1 font-light break-all text-left">{task}</span>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setTasks(tasks.filter((_, idx) => idx !== i));
+                        }}
+                        className="text-red-500/40 hover:text-red-500 transition-colors p-1"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            <div className="space-y-1">
-              <label className={labelClasses}>DURAÇÃO (MINUTOS)</label>
-              <input
-                type="number"
-                min="1"
-                placeholder="Ex: 45"
-                className={`${inputClasses} text-center font-bold text-lg`}
-                value={durationMinutes}
-                onChange={handleDurationChange}
-                onBlur={handleDurationBlur}
+            {/* NOTAS / REQUISITOS (OPCIONAL) */}
+            <div className="space-y-1 pt-2">
+              <label className={labelClasses}>NOTAS / REQUISITOS ADICIONAIS (OPCIONAL)</label>
+              <textarea
+                placeholder="Ex: Pegar protótipo no Figma e separar café forte antes do início..."
+                className={`${inputClasses} min-h-[80px] resize-none py-3`}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               />
             </div>
+
           </div>
 
-          {/* Notas descritivas */}
-          <div className="space-y-1">
-            <label className={labelClasses}>NOTAS / REQUISITOS (OPCIONAL)</label>
-            <textarea
-              placeholder="Ex: Pegar protótipo no Figma e separar café forte antes do início..."
-              className={`${inputClasses} min-h-[80px] resize-none py-3`}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+          <div className="border-t border-white/5 pt-6" />
 
-          <div className="border-t border-white/5 pt-4" />
-
-          {/* Checklist / Tarefas pré-configuradas */}
-          <div className="space-y-3">
-            <label className={labelClasses}>CHECKLIST INTEGRADO (PÓS-SESSÃO)</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Adicionar tarefa pré-configurada para esta sessão..."
-                className={`${inputClasses} flex-1 py-3`}
-                value={newTaskInput}
-                onChange={(e) => setNewTaskInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTask();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddTask}
-                className="p-4 bg-primary-green/10 hover:bg-primary-green/20 text-primary-green rounded-2xl transition-all"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-
-            {/* Renderizar tarefas listadas */}
-            {tasks.length > 0 && (
-              <div className="space-y-2 mt-2 bg-surface/5 p-4 rounded-3xl border border-white/5 max-h-[200px] overflow-y-auto">
-                {tasks.map((task, index) => (
-                  <div key={index} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-white/5">
-                    <span className="text-xs text-text-primary text-left font-mono">{task}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTask(index)}
-                      className="p-1.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+          {/* BLOCO DE AGENDAMENTO — RECONSTRUÇÃO COMPLETA */}
+          <div className="space-y-4">
+            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6ee7a8] block text-left">
+              Configurações de Agenda
+            </span>
+            
+            {/* GRID QUE EMPILHA VERTICAL NO MOBILE E EXPANDE EM 4 COLUNAS NO DESKTOP */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              
+              {/* DATE BLOCK */}
+              <div className="space-y-1 text-left w-full min-w-0">
+                <div className="flex justify-between items-center mb-1">
+                  <label className={labelClasses}>DATA</label>
+                  {dataFormatadaLabel && (
+                    <span className="text-[8px] font-extrabold text-[#6ee7a8] uppercase tracking-widest bg-[#6ee7a8]/10 px-2.5 py-1 rounded-full shrink-0">
+                      {dataFormatadaLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary text-sm outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                  />
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                </div>
               </div>
-            )}
+
+              {/* HORÁRIO DE INÍCIO */}
+              <div className="space-y-1 text-left w-full min-w-0">
+                <label className={labelClasses}>HORÁRIO DE INÍCIO</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="09:00"
+                    maxLength={5}
+                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                    value={timeInput}
+                    onChange={handleTimeInputChange}
+                    onBlur={handleTimeInputBlur}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                </div>
+              </div>
+
+              {/* DURAÇÃO (DUAL CONTAINER) */}
+              <div className="space-y-1 text-left w-full min-w-0">
+                <label className={labelClasses}>DURAÇÃO</label>
+                <div className="flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                  <div className="flex-1 flex flex-col items-center">
+                    <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                      maxLength={2}
+                      value={durationHours}
+                      onChange={handleHoursChange}
+                      onBlur={handleHoursBlur}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </div>
+                  <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                  <div className="flex-1 flex flex-col items-center">
+                    <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                      maxLength={2}
+                      value={durationMinsState}
+                      onChange={handleMinutesChange}
+                      onBlur={handleMinutesBlur}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* HORÁRIO DE ENCERRAMENTO (AUTO-CALCULADO / EDITA SÓ SE QUISER) */}
+              <div className="space-y-1 text-left w-full min-w-0">
+                <label className={labelClasses}>HORÁRIO DE ENCERRAMENTO</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="09:30"
+                    maxLength={5}
+                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                    value={endTimeInput}
+                    onChange={handleEndTimeInputChange}
+                    onBlur={handleEndTimeInputBlur}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                </div>
+              </div>
+
+            </div>
           </div>
 
+          <div className="border-t border-white/5 pt-6" />
+
+          {/* BOTÃO PRINCIPAL DE SALVAR/AGENDAR */}
           <button
             onClick={() => handleSave()}
             className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)]"
           >
-            CONFIRMAR AGENDAMENTO
+            {editingActivity ? 'SALVAR ALTERAÇÕES' : 'CONFIRMAR AGENDAMENTO'}
           </button>
 
           {/* Divisor */}

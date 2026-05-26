@@ -40,7 +40,7 @@ export const HeroSection = () => {
   };
 
   return (
-    <section className="relative pt-24 pb-4 md:pt-32 md:pb-12 px-6 flex flex-col items-center text-center max-w-5xl mx-auto">
+    <section className="relative pt-20 pb-4 md:pt-32 md:pb-12 px-4 sm:px-6 flex flex-col items-center text-center w-full max-w-5xl mx-auto overflow-hidden">
       <AnimatePresence mode="wait">
         {!dataStore.hasCompletedFirstSession ? (
           <motion.div
@@ -50,7 +50,7 @@ export const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.6 }}
-            className="flex flex-col items-center"
+            className="flex flex-col items-center w-full"
           >
             {/* 1. MAIN HEADLINE - Impacto Máximo */}
             <motion.div
@@ -58,10 +58,11 @@ export const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
+              className="w-full"
             >
               <h1 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-6 w-full text-center">
-                <span className="block text-[32px] md:text-[clamp(52px,6vw,84px)]">Tenha Controle Total</span>
-                <span className="block text-[32px] md:text-[clamp(52px,6vw,84px)] text-white/20">Sobre Seu Tempo</span>
+                <span className="block text-[28px] sm:text-[32px] md:text-[clamp(52px,6vw,84px)]">Tenha Controle Total</span>
+                <span className="block text-[28px] sm:text-[32px] md:text-[clamp(52px,6vw,84px)] text-white/20">Sobre Seu Tempo</span>
               </h1>
             </motion.div>
 
@@ -71,7 +72,7 @@ export const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              className="text-sm md:text-lg text-text-secondary font-light max-w-2xl leading-snug mb-4"
+              className="text-xs sm:text-sm md:text-lg text-text-secondary font-light max-w-2xl leading-snug mb-4 px-2"
             >
               Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
             </motion.p>
@@ -82,7 +83,7 @@ export const HeroSection = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
-              className="text-sm md:text-base text-primary-green italic font-medium opacity-60"
+              className="text-xs sm:text-sm md:text-base text-primary-green italic font-medium opacity-60"
             >
               Se organize para passar mais tempo com as pessoas que importam ❤️
             </motion.p>
@@ -95,38 +96,38 @@ export const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
-            className="w-full max-w-3xl space-y-12 py-8"
+            className="w-full max-w-3xl space-y-8 md:space-y-12 py-4 md:py-8"
           >
             {/* Bloco 1 — Saudação */}
             <div className="space-y-1">
-              <div className="flex flex-col md:flex-row md:items-baseline md:justify-center gap-2 md:gap-4">
-                <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-text-primary">
+              <div className="flex flex-col md:flex-row md:items-baseline md:justify-center gap-1 md:gap-4">
+                <h2 className="text-2xl md:text-4xl font-semibold tracking-tight text-text-primary">
                   {greeting}, {firstName}
                 </h2>
-                <span className="text-text-secondary/40 font-light text-lg md:text-xl">
+                <span className="text-text-secondary/40 font-light text-sm md:text-xl">
                   {capitalizedDate}
                 </span>
               </div>
-              <p className="text-xs md:text-sm text-primary-green italic font-medium opacity-60">
+              <p className="text-[11px] md:text-sm text-primary-green italic font-medium opacity-60">
                 Se organize para passar mais tempo com as pessoas que importam ❤️
               </p>
             </div>
 
             {/* Bloco 2 — Métricas do Dia */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40">Hoje</span>
-              <div className="flex items-center gap-3 text-lg md:text-2xl font-light text-text-primary">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary/40">Hoje</span>
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm md:text-2xl font-light text-text-primary px-2 max-w-full">
                 <span>{hours}h {minutes}min focados</span>
                 <span className="text-border-white/20 select-none">·</span>
                 <span>{todaySessions.length} sessões</span>
                 <span className="text-border-white/20 select-none">·</span>
-                <span className="flex items-center gap-2">🔥 {streak} dias</span>
+                <span className="flex items-center gap-1">🔥 {streak} dias</span>
               </div>
             </div>
 
             {/* Bloco 3 — Tarefas do Dia */}
-            <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md">
-              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center">Tarefas realizadas no dia</span>
+            <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
+              <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary/40 block text-center">Tarefas realizadas no dia</span>
               <div className="space-y-4 text-left">
                 {todaySessions.length > 0 ? (
                   todaySessions.slice(0, 5).map(session => {
@@ -242,14 +243,14 @@ export const HeroSection = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="pt-4"
+              className="pt-2"
             >
               <button 
                 onClick={openDeepSession}
-                className="group relative px-10 py-5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-95 flex items-center gap-3 mx-auto shadow-[0_20px_40px_rgba(110,231,168,0.2)] touch-manipulation min-h-[44px]"
+                className="group relative px-6 md:px-10 py-4 md:py-5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-95 flex items-center justify-center gap-3 mx-auto shadow-[0_20px_40px_rgba(110,231,168,0.2)] touch-manipulation min-h-[44px] w-full max-w-[340px] md:w-auto"
               >
-                <div className="w-2 h-2 rounded-full bg-background animate-pulse" />
-                <span className="font-bold text-xs uppercase tracking-[0.2em]">
+                <div className="w-2 h-2 rounded-full bg-background animate-pulse shrink-0" />
+                <span className="font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] truncate">
                   Iniciar Nova Sessão Profunda
                 </span>
               </button>
@@ -258,11 +259,9 @@ export const HeroSection = () => {
         )}
       </AnimatePresence>
 
-
-
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary-green/5 blur-[120px] rounded-full" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[280px] h-[200px] md:w-[800px] md:h-[400px] bg-primary-green/5 blur-[80px] md:blur-[120px] rounded-full" />
       </div>
     </section>
   );
