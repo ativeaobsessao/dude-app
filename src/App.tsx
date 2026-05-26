@@ -31,7 +31,7 @@ export default function App() {
 
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
 
-  // Observe approaching scheduled activities every 30 seconds
+  // Observe approaching scheduled activities every 10 seconds
   useEffect(() => {
     if (!user) return;
 
@@ -50,44 +50,61 @@ export default function App() {
         return item.scheduled_date === todayStr && item.status === 'pending';
       });
 
-      todayPending.forEach(activity => {
-        if (notifiedActivityIdsRef.current.has(activity.id)) return;
+      const triggerNotification = (alertTitle: string, alertBody: string) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(alertTitle, {
+              body: alertBody,
+              icon: '/icon.png'
+            });
+          } catch (err) {
+            console.warn('Erro ao disparar notificação nativa:', err);
+          }
+        }
+        // Also show elegant internal ActionCenter toast notification
+        useDataStore.getState().showNotification(`⏰ ${alertBody}`, 'success');
+      };
 
+      todayPending.forEach(activity => {
         // Convert scheduled_time "HH:MM" to minutes from start of day
         const [h, m] = activity.scheduled_time.split(':').map(Number);
         const scheduledMinutes = h * 60 + m;
 
-        // Notify 5 minutes before, or up to the starting minutes
         const diffMinutes = scheduledMinutes - currentMinutes;
+        const title = activity.title || 'Seu bloco de foco programado';
 
-        // Trigger warning if within range [0, 5] minutes before start
-        if (diffMinutes >= 0 && diffMinutes <= 5) {
-          notifiedActivityIdsRef.current.add(activity.id);
-
-          const title = activity.title || 'Seu bloco de foco programado';
-          const notificationBody = `Sua atividade "${title}" começará em ${diffMinutes > 0 ? `${diffMinutes} minutos` : 'instantes'}. Prepare-se!`;
-
-          // Show native Web Notification if allowed
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(`⏰ Foco Aproximando!`, {
-                body: notificationBody,
-                icon: '/icon.png'
-              });
-            } catch (err) {
-              console.warn('Erro ao disparar notificação nativa:', err);
-            }
+        // ALERTA 1: 5 minutos antes
+        if (diffMinutes === 5) {
+          const key = `${activity.id}-5min`;
+          if (!notifiedActivityIdsRef.current.has(key)) {
+            notifiedActivityIdsRef.current.add(key);
+            triggerNotification(`⏰ Foco aproximando!`, `Sua atividade começará em 5 minutos.`);
           }
+        }
 
-          // Also show elegant internal ActionCenter toast notification
-          useDataStore.getState().showNotification(`⏰ ${notificationBody}`, 'success');
+        // ALERTA 2: 1 minuto antes
+        if (diffMinutes === 1) {
+          const key = `${activity.id}-1min`;
+          if (!notifiedActivityIdsRef.current.has(key)) {
+            notifiedActivityIdsRef.current.add(key);
+            triggerNotification(`⏰ Quase na hora!`, `Prepare-se. Sua atividade começará em instantes.`);
+          }
+        }
+
+        // ALERTA 3: Hora exata (0 minutos)
+        if (diffMinutes === 0) {
+          const key = `${activity.id}-now`;
+          if (!notifiedActivityIdsRef.current.has(key)) {
+            notifiedActivityIdsRef.current.add(key);
+            triggerNotification(`⚡ Atividade iniciada!`, `Está na hora de iniciar sua atividade.`);
+          }
         }
       });
     };
 
-    // Run immediately and then every 30 seconds
+    // Run immediately and then every 10 seconds for high precision
     checkSchedules();
-    const intervalId = setInterval(checkSchedules, 30000);
+    const intervalId = setInterval(checkSchedules, 10000);
 
     return () => clearInterval(intervalId);
   }, [user]);

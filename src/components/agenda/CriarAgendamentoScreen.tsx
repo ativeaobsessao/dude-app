@@ -39,6 +39,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [conflictWarning, setConflictWarning] = useState<{ name: string; time: string; end: string; payload: any } | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Duration in minutes
   const [durationMinutes, setDurationMinutes] = useState<number>(
@@ -513,15 +514,36 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
             </div>
 
             {/* 3. ATIVIDADE AVULSA (CAMPO TEXTO) */}
-            <div className="space-y-1">
+            <div className="space-y-1 text-left">
               <label className={labelClasses}>3. ATIVIDADE AVULSA (TEXTO OPCIONAL)</label>
-              <input
-                type="text"
-                placeholder="Ex: Enviar relatório do trimestre"
-                className={inputClasses}
-                value={activityManual}
-                onChange={(e) => setActivityManual(e.target.value)}
-              />
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Ex: Enviar relatório do trimestre"
+                  className={`${inputClasses} flex-1`}
+                  value={activityManual}
+                  onChange={(e) => setActivityManual(e.target.value)}
+                  onFocus={() => setFocusedField('atividade_avulsa')}
+                  onBlur={() => {
+                    setTimeout(() => setFocusedField(curr => curr === 'atividade_avulsa' ? null : curr), 200);
+                  }}
+                />
+                {focusedField === 'atividade_avulsa' && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setFocusedField(null);
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                      }
+                    }}
+                    className="px-5 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 h-[58px]"
+                  >
+                    OK
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 4. VINCULAR HÁBITO (OPCIONAL) */}
@@ -606,14 +628,35 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
             </div>
 
             {/* NOTAS / REQUISITOS (OPCIONAL) */}
-            <div className="space-y-1 pt-2">
+            <div className="space-y-1 pt-2 text-left">
               <label className={labelClasses}>NOTAS / REQUISITOS ADICIONAIS (OPCIONAL)</label>
-              <textarea
-                placeholder="Ex: Pegar protótipo no Figma e separar café forte antes do início..."
-                className={`${inputClasses} min-h-[80px] resize-none py-3`}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
+              <div className="flex gap-2 items-stretch">
+                <textarea
+                  placeholder="Ex: Pegar protótipo no Figma e separar café forte antes do início..."
+                  className={`${inputClasses} min-h-[80px] resize-none py-3 flex-1`}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onFocus={() => setFocusedField('notes')}
+                  onBlur={() => {
+                    setTimeout(() => setFocusedField(curr => curr === 'notes' ? null : curr), 200);
+                  }}
+                />
+                {focusedField === 'notes' && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setFocusedField(null);
+                      if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                      }
+                    }}
+                    className="px-5 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 flex items-center justify-center min-h-[80px]"
+                  >
+                    OK
+                  </button>
+                )}
+              </div>
             </div>
 
           </div>
@@ -639,86 +682,174 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                     </span>
                   )}
                 </div>
-                <div className="relative">
-                  <input
-                    type="date"
-                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary text-sm outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                  />
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                <div className="flex gap-2 items-center relative">
+                  <div className="relative flex-1">
+                    <input
+                      type="date"
+                      className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary text-sm outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      onFocus={() => setFocusedField('data')}
+                      onBlur={() => {
+                        setTimeout(() => setFocusedField(curr => curr === 'data' ? null : curr), 200);
+                      }}
+                    />
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                  </div>
+                  {focusedField === 'data' && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFocusedField(null);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                      }}
+                      className="px-4 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 min-h-[58px]"
+                    >
+                      OK
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* HORÁRIO DE INÍCIO */}
               <div className="space-y-1 text-left w-full min-w-0">
                 <label className={labelClasses}>HORÁRIO DE INÍCIO</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="09:00"
-                    maxLength={5}
-                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
-                    value={timeInput}
-                    onChange={handleTimeInputChange}
-                    onBlur={handleTimeInputBlur}
-                    onFocus={(e) => e.target.select()}
-                  />
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="09:00"
+                      maxLength={5}
+                      className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                      value={timeInput}
+                      onChange={handleTimeInputChange}
+                      onBlur={handleTimeInputBlur}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setFocusedField('inicio');
+                      }}
+                    />
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                  </div>
+                  {focusedField === 'inicio' && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleTimeInputBlur();
+                        setFocusedField(null);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                      }}
+                      className="px-4 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 min-h-[58px]"
+                    >
+                      OK
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* DURAÇÃO (DUAL CONTAINER) */}
               <div className="space-y-1 text-left w-full min-w-0">
                 <label className={labelClasses}>DURAÇÃO</label>
-                <div className="flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
-                  <div className="flex-1 flex flex-col items-center">
-                    <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
-                      maxLength={2}
-                      value={durationHours}
-                      onChange={handleHoursChange}
-                      onBlur={handleHoursBlur}
-                      onFocus={(e) => e.target.select()}
-                    />
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                        maxLength={2}
+                        value={durationHours}
+                        onChange={handleHoursChange}
+                        onBlur={handleHoursBlur}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedField('duracao');
+                        }}
+                      />
+                    </div>
+                    <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                        maxLength={2}
+                        value={durationMinsState}
+                        onChange={handleMinutesChange}
+                        onBlur={handleMinutesBlur}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedField('duracao');
+                        }}
+                      />
+                    </div>
                   </div>
-                  <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
-                  <div className="flex-1 flex flex-col items-center">
-                    <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
-                      maxLength={2}
-                      value={durationMinsState}
-                      onChange={handleMinutesChange}
-                      onBlur={handleMinutesBlur}
-                      onFocus={(e) => e.target.select()}
-                    />
-                  </div>
+                  {focusedField === 'duracao' && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleHoursBlur();
+                        handleMinutesBlur();
+                        setFocusedField(null);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                      }}
+                      className="px-4 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 min-h-[58px]"
+                    >
+                      OK
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* HORÁRIO DE ENCERRAMENTO (AUTO-CALCULADO / EDITA SÓ SE QUISER) */}
               <div className="space-y-1 text-left w-full min-w-0">
                 <label className={labelClasses}>HORÁRIO DE ENCERRAMENTO</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="09:30"
-                    maxLength={5}
-                    className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
-                    value={endTimeInput}
-                    onChange={handleEndTimeInputChange}
-                    onBlur={handleEndTimeInputBlur}
-                    onFocus={(e) => e.target.select()}
-                  />
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="09:30"
+                      maxLength={5}
+                      className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                      value={endTimeInput}
+                      onChange={handleEndTimeInputChange}
+                      onBlur={handleEndTimeInputBlur}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setFocusedField('fim');
+                      }}
+                    />
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                  </div>
+                  {focusedField === 'fim' && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleEndTimeInputBlur();
+                        setFocusedField(null);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
+                      }}
+                      className="px-4 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 min-h-[58px]"
+                    >
+                      OK
+                    </button>
+                  )}
                 </div>
               </div>
 

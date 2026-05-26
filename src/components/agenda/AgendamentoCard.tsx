@@ -1,6 +1,6 @@
 import { useDataStore } from '../../store/useDataStore';
 import { ScheduledActivity } from '../../types';
-import { Play, Calendar, Clock, BookOpen, Trash2, CheckCircle, Ban, Pencil } from 'lucide-react';
+import { Play, CheckCircle, Ban } from 'lucide-react';
 
 interface AgendamentoCardProps {
   activity: ScheduledActivity;
@@ -10,7 +10,7 @@ interface AgendamentoCardProps {
 export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardProps) => {
   const dataStore = useDataStore();
 
-  // Resolve title
+  // Resolve title prioritizing cataloged activities, then manual text
   let title = activity.atividade_avulsa || 'Sessão Sem Título';
   let contextLabel = 'Atividade avulsa';
   let isHabit = false;
@@ -46,12 +46,26 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
     }));
   };
 
-  const formattedDate = new Date(activity.scheduled_date + 'T00:00:00').toLocaleDateString('pt-BR', {
-    day: 'numeric',
-    month: 'short'
-  });
+  // Convert date format to dd/mm
+  const formattedDate = (() => {
+    if (!activity.scheduled_date) return '';
+    const parts = activity.scheduled_date.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}`;
+    }
+    return activity.scheduled_date;
+  })();
 
-  // Calculate times
+  // Helper clock format HHhMMmin
+  function formatClockTime(timeStr: string): string {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':').map(Number);
+    const hourPart = String(h || 0).padStart(2, '0');
+    const minPart = String(m || 0).padStart(2, '0');
+    return `${hourPart}h${minPart}min`;
+  }
+
+  // Calculate end times
   const startTime = activity.scheduled_time;
   const [h, m] = startTime.split(':').map(Number);
   const totalMin = h * 60 + m + activity.duration_minutes;
@@ -73,49 +87,49 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
       }`}
     >
       <div className="space-y-3">
-        {/* Header with tags and status */}
-        <div className="flex flex-wrap md:flex-nowrap gap-2 justify-between items-center">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span className={`text-[9px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shrink-0 ${
-              isHabit 
-                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/10' 
-                : 'bg-primary-green/10 text-primary-green border border-primary-green/10'
-            }`}>
-              {contextLabel}
-            </span>
-            {project && (
-              <span className="text-[9px] font-bold tracking-widest uppercase bg-white/5 text-text-secondary px-2.5 py-1 rounded-full border border-white/5 truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
-                📁 {project.name}
-              </span>
-            )}
-          </div>
+        {/* LINHA 1: Tags/Status */}
+        <div className="flex justify-between items-center bg-transparent">
+          <span className={`text-[8px] font-bold tracking-[0.15em] uppercase px-2.5 py-1 rounded-full shrink-0 ${
+            isHabit 
+              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/10' 
+              : 'bg-primary-green/10 text-primary-green border border-primary-green/10'
+          }`}>
+            {contextLabel}
+          </span>
 
           <div className="shrink-0">
             {activity.status === 'completed' && (
-              <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/10">
-                <CheckCircle size={10} /> Concluída
+              <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/10">
+                <CheckCircle size={9} /> Concluída
               </span>
             )}
             {activity.status === 'cancelled' && (
-              <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
-                <Ban size={10} /> Cancelada
+              <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+                <Ban size={9} /> Cancelada
               </span>
             )}
             {activity.status === 'pending' && (
-              <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/10">
+              <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/10">
                 Agendada
               </span>
             )}
           </div>
         </div>
 
-        {/* Title and notes */}
+        {/* LINHA 2: Nome da atividade + projeto inline discreto */}
         <div className="text-left space-y-1">
-          <h4 className={`text-base font-semibold text-text-primary tracking-tight leading-snug ${
-            activity.status === 'cancelled' ? 'line-through text-text-secondary/60' : ''
-          }`}>
-            {title}
-          </h4>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h4 className={`text-base font-semibold text-text-primary tracking-tight leading-snug ${
+              activity.status === 'cancelled' ? 'line-through text-text-secondary/60' : ''
+            }`}>
+              {title}
+            </h4>
+            {project && (
+              <span className="text-[10px] text-text-secondary/40 font-medium tracking-wide">
+                {project.name}
+              </span>
+            )}
+          </div>
           
           {activity.notes && (
             <p className="text-xs text-text-secondary/60 line-clamp-2 italic font-serif">
@@ -124,52 +138,54 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
           )}
 
           {hasTasks && (
-            <span className="inline-block text-[10px] font-mono font-medium text-text-secondary/40">
-              📋 {activity.tasks.length} {activity.tasks.length === 1 ? 'tarefa pré-configurada' : 'tarefas pré-configuradas'}
+            <span className="inline-block text-[9px] font-mono font-medium text-text-secondary/30">
+              📋 {activity.tasks.length} {activity.tasks.length === 1 ? 'tarefa configurada' : 'tarefas configuradas'}
             </span>
           )}
         </div>
       </div>
 
-      {/* Footer info & interactive buttons */}
-      <div className="flex justify-between items-center pt-2 border-t border-white/5">
-        <div className="flex items-center gap-2.5 text-xs text-text-secondary/60">
-          <div className="flex items-center gap-1">
-            <Calendar size={13} className="text-text-secondary/40" />
-            <span>{formattedDate}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock size={13} className="text-text-secondary/40" />
-            <span className="font-mono">{startTime} - {endTime} <span className="opacity-40 text-[10px]">({activity.duration_minutes}m)</span></span>
-          </div>
+      {/* LINHA 3: Unificação dos elementos responsivos (data, início, fim, ações) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/5 text-xs text-text-secondary/60">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] sm:text-xs">
+          <span className="text-text-primary/70">{formattedDate}</span>
+          <span className="opacity-30">•</span>
+          <span>{formatClockTime(startTime)}</span>
+          <span className="opacity-30">•</span>
+          <span>{formatClockTime(endTime)}</span>
         </div>
 
         {activity.status === 'pending' && (
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={handleEdit}
-              className="px-2.5 py-1.5 text-[9px] font-bold tracking-widest uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] border border-[#6ee7a8]/10 hover:border-[#6ee7a8]/20 rounded-full transition-all flex items-center gap-1"
+              className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
               title="Editar Agendamento"
             >
-              <Pencil size={10} /> Editar
+              Editar
             </button>
             <button
               onClick={handleCancel}
-              className="px-3 py-1.5 text-[9px] font-bold tracking-widest uppercase text-red-500/60 hover:text-red-500 border border-red-500/10 hover:border-red-500/20 rounded-full transition-all"
+              className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
             >
               Cancelar
             </button>
-            {onStartSession && (
-              <button
-                onClick={() => onStartSession(activity)}
-                className="flex items-center gap-1 px-4 py-1.5 text-[9px] font-bold tracking-widest uppercase bg-primary-green hover:bg-primary-green/90 text-background rounded-full transition-all duration-150"
-              >
-                <Play size={10} fill="currentColor" /> Iniciar ►
-              </button>
-            )}
           </div>
         )}
       </div>
+
+      {/* LINHA 4: Botão INICIAR em linha exclusiva inferior */}
+      {activity.status === 'pending' && onStartSession && (
+        <div className="pt-2 w-full flex justify-center border-t border-white/5">
+          <button
+            onClick={() => onStartSession(activity)}
+            className="group flex items-center justify-center gap-2 w-full py-3 px-5 text-[10px] font-bold tracking-[0.15em] uppercase bg-primary-green hover:bg-glow-green text-background rounded-2xl transition-all duration-150 active:scale-95 touch-manipulation min-h-[44px]"
+          >
+            <Play size={10} fill="currentColor" className="shrink-0" />
+            <span>Iniciar Sessão</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
