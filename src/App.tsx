@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Target, X, AlertTriangle } from 'lucide-react';
+import { Target, X, AlertTriangle, Check } from 'lucide-react';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
@@ -24,7 +24,7 @@ import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession, profile } = useDataStore();
+  const { hasCompletedFirstSession, profile, notification } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
@@ -87,6 +87,32 @@ export default function App() {
         <CinematicBackground />
         <ActiveSession />
         <ActionCenter />
+
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              layout={false}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 pointer-events-none z-[9999] flex items-center justify-center p-6 md:items-start md:pt-[100px] md:justify-center"
+            >
+              <div className="mx-auto px-6 py-4 rounded-2xl bg-surface/90 border border-white/15 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-3 text-text-primary pointer-events-auto max-w-sm md:max-w-md">
+                {notification.type === 'success' ? (
+                  <div className="w-5 h-5 rounded-full bg-primary-green/20 flex items-center justify-center text-primary-green flex-shrink-0 animate-pulse">
+                    <Check size={12} strokeWidth={3} />
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-red-400/20 flex items-center justify-center text-red-100 flex-shrink-0 animate-pulse">
+                    <AlertTriangle size={12} strokeWidth={3} />
+                  </div>
+                )}
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E2E8F0]">{notification.message}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showStats && <ProgressStats onClose={() => setShowStats(false)} />}

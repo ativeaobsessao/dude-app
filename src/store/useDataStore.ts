@@ -26,10 +26,10 @@ interface DataState {
   fetchScheduledActivities: (userId: string) => Promise<void>;
   
   addProject: (userId: string, name: string) => Promise<void>;
-  addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<void>;
+  addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<Habit | null>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
-  addActivity: (userId: string, name: string, projectId?: string) => Promise<void>;
+  addActivity: (userId: string, name: string, projectId?: string, habitId?: string | null) => Promise<Activity | null>;
   addSessionTask: (sessionId: string, userId: string, description: string, completed?: boolean) => Promise<SessionTask | null>;
   toggleSessionTask: (taskId: string) => Promise<void>;
   addPendingTask: (task: Omit<PendingTask, 'id' | 'created_at'>) => Promise<PendingTask | null>;
@@ -49,6 +49,8 @@ interface DataState {
   deleteActivity: (id: string) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   completeFirstSession: () => void;
+  notification: { message: string; type: 'success' | 'error' } | null;
+  showNotification: (message: string, type?: 'success' | 'error') => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -64,6 +66,15 @@ export const useDataStore = create<DataState>((set, get) => ({
   scheduledActivities: [],
   loading: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
+  notification: null,
+  showNotification: (message, type = 'success') => {
+    set({ notification: { message, type } });
+    setTimeout(() => {
+      if (get().notification?.message === message) {
+        set({ notification: null });
+      }
+    }, 3000);
+  },
 
   fetchProfile: async (userId) => {
     try {
@@ -125,7 +136,17 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const { data, error } = await supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       if (error) throw error;
-      if (data) set({ activities: data });
+      if (data) {
+        const parsed = data.map(act => {
+          const parts = act.name.split(' #habit:');
+          return {
+            ...act,
+            name: parts[0],
+            habit_id: parts[1] || null
+          };
+        });
+        set({ activities: parsed });
+      }
     } catch (err) {
       console.error('Error fetching activities:', err);
     }
@@ -317,7 +338,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       if (!name || !sessionsPerWeek || !minutesPerSession || !preferredTime) {
         console.error('addHabit: parâmetros inválidos', { name, sessionsPerWeek, minutesPerSession, preferredTime });
-        return;
+        return null;
       }
 
       const today = new Date();
@@ -339,14 +360,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) {
         console.error('Supabase error ao salvar hábito:', error);
-        return;
+        return null;
       }
       if (data) {
         set({ habits: [data, ...get().habits] });
         console.log('Hábito salvo com sucesso:', data);
+        return data;
       }
+      return null;
     } catch (err) {
       console.error('Erro crítico ao salvar hábito:', err);
+      return null;
     }
   },
 
@@ -380,17 +404,29 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  addActivity: async (userId, name, projectId) => {
+  addActivity: async (userId, name, projectId, habitId) => {
     try {
+      const nameWithHabit = habitId ? `${name.trim()} #habit:${habitId}` : name.trim();
       const { data, error } = await supabase.from('activities').insert({ 
         user_id: userId, 
-        name, 
+        name: nameWithHabit, 
         project_id: projectId || null 
       }).select().single();
       if (error) throw error;
-      if (data) set({ activities: [data, ...get().activities] });
+      if (data) {
+        const parts = data.name.split(' #habit:');
+        const parsedData = {
+          ...data,
+          name: parts[0],
+          habit_id: parts[1] || null
+        };
+        set({ activities: [parsedData, ...get().activities] });
+        return parsedData;
+      }
+      return null;
     } catch (err) {
       console.error('Error adding activity:', err);
+      return null;
     }
   },
 

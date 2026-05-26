@@ -105,6 +105,7 @@ export type Activity = {
   name: string;
   completed: boolean;
   created_at: string;
+  habit_id?: string | null;
 };
 
 export type SessionTask = {

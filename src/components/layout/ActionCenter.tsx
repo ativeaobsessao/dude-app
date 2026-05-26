@@ -20,7 +20,6 @@ export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'project' | 'activity' | 'habit' | 'note' | 'session', name: string } | null>(null);
   const [showListModal, setShowListModal] = useState<'projects' | 'activities' | null>(null);
 
@@ -92,6 +91,10 @@ export const ActionCenter = () => {
   // Activity States
   const [newActivityName, setNewActivityName] = useState('');
   const [newActivityProject, setNewActivityProject] = useState('');
+  const [linkToHabit, setLinkToHabit] = useState<'sim' | 'nao'>('nao');
+  const [newActivityHabitFrequency, setNewActivityHabitFrequency] = useState(3);
+  const [newActivityHabitDuration, setNewActivityHabitDuration] = useState(0);
+  const [newActivityHabitTime, setNewActivityHabitTime] = useState('morning');
 
   // Project/Habit/Note States
   const [newProjectName, setNewProjectName] = useState('');
@@ -161,8 +164,7 @@ export const ActionCenter = () => {
   }, [dataStore.activities, sessionData.project]);
 
   const showSuccess = (msg: string) => {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(''), 3000);
+    dataStore.showNotification(msg, 'success');
   };
 
   const handleStartSession = async (e: FormEvent) => {
@@ -208,11 +210,74 @@ export const ActionCenter = () => {
   };
 
   const handleAddActivity = async () => {
-    if (!newActivityName || !user) return;
-    await dataStore.addActivity(user.id, newActivityName, newActivityProject || undefined);
-    setNewActivityName('');
-    setNewActivityProject('');
-    showSuccess('Atividade salva com sucesso!');
+    if (!newActivityName.trim() || !user) {
+      showSuccess('Por favor, insira o nome da atividade.');
+      return;
+    }
+
+    let createdHabit: any = null;
+    try {
+      if (linkToHabit === 'sim') {
+        if (!newActivityHabitFrequency || newActivityHabitFrequency < 1) {
+          showSuccess('Por favor, selecione a frequência semanal.');
+          return;
+        }
+        if (!newActivityHabitDuration || newActivityHabitDuration < 1) {
+          showSuccess('Por favor, insira a duração por sessão.');
+          return;
+        }
+        if (!newActivityHabitTime) {
+          showSuccess('Por favor, selecione o melhor horário.');
+          return;
+        }
+
+        createdHabit = await dataStore.addHabit(
+          user.id,
+          newActivityName.trim(),
+          newActivityHabitFrequency,
+          newActivityHabitDuration,
+          newActivityHabitTime as 'morning' | 'afternoon' | 'evening'
+        );
+
+        if (!createdHabit) {
+          showSuccess('Erro ao criar hábito configurado.');
+          return;
+        }
+      }
+
+      const activityAdded = await dataStore.addActivity(
+        user.id,
+        newActivityName.trim(),
+        newActivityProject || undefined,
+        createdHabit?.id || null
+      );
+
+      if (!activityAdded && createdHabit) {
+        // Clean up the created habit if activity creation failed
+        await dataStore.deleteHabit(createdHabit.id);
+        showSuccess('Erro ao criar atividade. Hábito revertido.');
+        return;
+      }
+
+      if (!activityAdded) {
+        showSuccess('Erro ao processar criação da atividade.');
+        return;
+      }
+
+      setNewActivityName('');
+      setNewActivityProject('');
+      setLinkToHabit('nao');
+      setNewActivityHabitFrequency(3);
+      setNewActivityHabitDuration(0);
+      setNewActivityHabitTime('morning');
+      showSuccess('Atividade salva com sucesso!');
+    } catch (err) {
+      console.error('Erro crítico ao salvar atividade:', err);
+      if (createdHabit) {
+        await dataStore.deleteHabit(createdHabit.id);
+      }
+      showSuccess('Erro crítico ao processar criação.');
+    }
   };
 
   const handleAddProject = async () => {
@@ -395,12 +460,6 @@ export const ActionCenter = () => {
                   <X size={18} />
                 </button>
               </header>
-
-              {successMessage && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-primary-green/10 border border-primary-green/20 p-4 rounded-xl flex items-center gap-3 text-primary-green text-xs font-bold uppercase tracking-widest">
-                  <CheckCircle2 size={16} /> {successMessage}
-                </motion.div>
-              )}
 
               <div className="flex flex-col items-center">
                 {currentScreen === null && renderMenu()}
@@ -681,6 +740,91 @@ export const ActionCenter = () => {
                           ]}
                         />
                       </div>
+
+                      {/* Vincular a um Hábito? */}
+                      <div className="space-y-3 pt-4 border-t border-white/5 text-left">
+                        <label className={labelClasses}>Vincular a um Hábito?</label>
+                        <div className="flex gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setLinkToHabit('sim')}
+                            className={`flex-1 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all ${
+                              linkToHabit === 'sim'
+                                ? 'bg-primary-green/10 border-primary-green text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
+                                : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                            }`}
+                          >
+                            Sim
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLinkToHabit('nao')}
+                            className={`flex-1 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all ${
+                              linkToHabit === 'nao'
+                                ? 'bg-white/5 border-white/30 text-text-primary'
+                                : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                            }`}
+                          >
+                            Não
+                          </button>
+                        </div>
+                      </div>
+
+                      {linkToHabit === 'sim' && (
+                        <div className="space-y-4 pt-4 border-t border-white/5 text-left transition-all">
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Quantas vezes por semana?</label>
+                            <CustomSelect
+                              value={String(newActivityHabitFrequency)}
+                              onChange={(val) => setNewActivityHabitFrequency(Number(val))}
+                              placeholder="Vezes por semana"
+                              options={[
+                                { value: '1', label: '1x por semana' },
+                                { value: '2', label: '2x por semana' },
+                                { value: '3', label: '3x por semana' },
+                                { value: '4', label: '4x por semana' },
+                                { value: '5', label: '5x por semana' },
+                                { value: '6', label: '6x por semana' },
+                                { value: '7', label: '7x por semana' }
+                              ]}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Duração média por sessão (minutos)</label>
+                            <input
+                              type="tel"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={3}
+                              enterKeyHint="done"
+                              placeholder="Ex: 45"
+                              className={`${inputClasses} text-center text-lg font-bold`}
+                              value={newActivityHabitDuration === 0 ? '' : newActivityHabitDuration}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                setNewActivityHabitDuration(parseInt(val) || 0);
+                              }}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Período do dia</label>
+                            <CustomSelect
+                              value={newActivityHabitTime}
+                              onChange={(val) => setNewActivityHabitTime(val)}
+                              placeholder="Melhor horário"
+                              options={[
+                                { value: 'morning', label: '🌅 Manhã' },
+                                { value: 'afternoon', label: '☀️ Tarde' },
+                                { value: 'evening', label: '🌙 Noite' }
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <button onClick={handleAddActivity} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Salvar Atividade</button>
                     </div>
                     <div className="flex justify-center">
