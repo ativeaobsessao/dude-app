@@ -42,6 +42,9 @@ interface DataState {
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
+  updateSession: (id: string, updates: Partial<FocusSession>) => Promise<void>;
+  updateSessionTaskDescription: (taskId: string, description: string) => Promise<void>;
+  deleteSessionTask: (taskId: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   deleteActivity: (id: string) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
@@ -713,6 +716,59 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({ sessions: get().sessions.filter(s => s.id !== id) });
     } catch (err) {
       console.error('Error deleting session:', err);
+    }
+  },
+
+  updateSession: async (id, updates) => {
+    try {
+      const { data, error } = await supabase
+        .from('focus_sessions')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({ 
+          sessions: get().sessions.map(s => s.id === id ? data : s) 
+        });
+      }
+    } catch (err) {
+      console.error('Error updating session:', err);
+    }
+  },
+
+  updateSessionTaskDescription: async (taskId, description) => {
+    try {
+      const { data, error } = await supabase
+        .from('session_tasks')
+        .update({ description })
+        .eq('id', taskId)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({
+          sessionTasks: get().sessionTasks.map(t => t.id === taskId ? data : t)
+        });
+      }
+    } catch (err) {
+      console.error('Error updating session task description:', err);
+    }
+  },
+
+  deleteSessionTask: async (taskId) => {
+    try {
+      const { error } = await supabase
+        .from('session_tasks')
+        .delete()
+        .eq('id', taskId);
+      if (error) throw error;
+      set({
+        sessionTasks: get().sessionTasks.filter(t => t.id !== taskId)
+      });
+    } catch (err) {
+      console.error('Error deleting session task:', err);
     }
   },
 
