@@ -28,6 +28,10 @@ export type Habit = {
   sessions_this_week: number;
   week_start_date: string;
   created_at: string;
+  is_recurring?: boolean;
+  recurrence_days?: string[];
+  recurrence_time?: string;
+  last_generated_week?: string;
 };
 
 export type HabitCompletion = {

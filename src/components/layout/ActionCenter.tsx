@@ -7,7 +7,8 @@ import { ScheduledActivity } from '../../types';
 import { 
   Plus, X, ArrowLeft, ArrowRight, Layers, Target, Clock, 
   StickyNote, History, FolderKanban, Search, Trash2,
-  CircleX, AlertTriangle, CheckCircle2, CheckCircle, Pause, Info
+  CircleX, AlertTriangle, CheckCircle2, CheckCircle, Pause, Info,
+  Pencil, Calendar
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
@@ -111,6 +112,10 @@ export const ActionCenter = () => {
   const [newHabitDuration, setNewHabitDuration] = useState(0);
   const [newHabitTime, setNewHabitTime] = useState('morning');
   const [showHabitsModal, setShowHabitsModal] = useState(false);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
+  const [recurrenceTime, setRecurrenceTime] = useState('09:00');
   const [newTaskInput, setNewTaskInput] = useState('');
   
   const [restoredTasks, setRestoredTasks] = useState<{ id: string; description: string }[]>([]);
@@ -400,6 +405,23 @@ export const ActionCenter = () => {
     showSuccess('Projeto salvo com sucesso!');
   };
 
+  const handleEditHabitClick = (habit: any) => {
+    setEditingHabitId(habit.id);
+    setNewHabitName(habit.name);
+    setNewHabitFrequency(habit.sessions_per_week || 3);
+    setNewHabitDuration(habit.minutes_per_session || 0);
+    setNewHabitTime(habit.preferred_time || 'morning');
+    setIsRecurring(!!habit.is_recurring);
+    setRecurrenceDays(habit.recurrence_days || []);
+    setRecurrenceTime(habit.recurrence_time || '09:00');
+    
+    // Smoothly scroll the container to the top so fields are visible
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleAddHabit = async () => {
     if (!newHabitName.trim() || !user) {
       showSuccess('Por favor, insira o nome do hábito.');
@@ -417,20 +439,48 @@ export const ActionCenter = () => {
       showSuccess('Por favor, selecione o melhor horário.');
       return;
     }
+    if (isRecurring && recurrenceDays.length === 0) {
+      showSuccess('Por favor, escolha pelo menos um dia fixo da semana para a recorrência.');
+      return;
+    }
 
-    await dataStore.addHabit(
-      user.id,
-      newHabitName.trim(),
-      newHabitFrequency,
-      newHabitDuration,
-      newHabitTime as 'morning' | 'afternoon' | 'evening'
-    );
+    if (editingHabitId) {
+      const success = await dataStore.updateHabit(editingHabitId, {
+        name: newHabitName.trim(),
+        sessions_per_week: newHabitFrequency,
+        minutes_per_session: newHabitDuration,
+        preferred_time: newHabitTime as 'morning' | 'afternoon' | 'evening',
+        is_recurring: isRecurring,
+        recurrence_days: isRecurring ? recurrenceDays : [],
+        recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null
+      });
+      if (success) {
+        showSuccess('✅ Hábito atualizado com sucesso!');
+        setEditingHabitId(null);
+      } else {
+        showSuccess('Erro ao atualizar hábito.');
+      }
+    } else {
+      await dataStore.addHabit(
+        user.id,
+        newHabitName.trim(),
+        newHabitFrequency,
+        newHabitDuration,
+        newHabitTime as 'morning' | 'afternoon' | 'evening',
+        isRecurring,
+        isRecurring ? recurrenceDays : [],
+        isRecurring ? (recurrenceTime || '09:00') : ''
+      );
+      showSuccess('✅ Hábito criado com sucesso!');
+    }
 
     setNewHabitName('');
     setNewHabitFrequency(3);
     setNewHabitDuration(0);
     setNewHabitTime('morning');
-    showSuccess('✅ Hábito criado com sucesso!');
+    setIsRecurring(false);
+    setRecurrenceDays([]);
+    setRecurrenceTime('09:00');
   };
 
   const handleAddNote = async () => {
@@ -1272,9 +1322,32 @@ export const ActionCenter = () => {
 
                     {/* SEÇÃO 1 — Criar novo hábito */}
                     <div className="space-y-4 text-left">
-                      <div>
-                        <h3 className="text-3xl font-bold tracking-tight text-text-primary">Novo Hábito</h3>
-                        <p className="text-xs text-text-secondary/60 mt-1">Configure sua prática e construa consistência.</p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-3xl font-bold tracking-tight text-text-primary">
+                            {editingHabitId ? 'Editar Hábito' : 'Novo Hábito'}
+                          </h3>
+                          <p className="text-xs text-text-secondary/60 mt-1">
+                            {editingHabitId ? 'Ajuste os detalhes do seu hábito e recorrência.' : 'Configure sua prática e construa consistência.'}
+                          </p>
+                        </div>
+                        {editingHabitId && (
+                          <button
+                            onClick={() => {
+                              setEditingHabitId(null);
+                              setNewHabitName('');
+                              setNewHabitFrequency(3);
+                              setNewHabitDuration(0);
+                              setNewHabitTime('morning');
+                              setIsRecurring(false);
+                              setRecurrenceDays([]);
+                              setRecurrenceTime('09:00');
+                            }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full transition-all cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        )}
                       </div>
                       
                       <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
@@ -1355,7 +1428,131 @@ export const ActionCenter = () => {
                             ]}
                           />
                         </div>
-                        <button onClick={handleAddHabit} className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)]">SALVAR HÁBITO</button>
+
+                        {/* NOVO BLOCO OPCIONAL PREMIUM PARA RECORRÊNCIA */}
+                        <div className="pt-2">
+                          <label className="flex items-center gap-3 cursor-pointer select-none py-2 text-text-primary">
+                            <input
+                              type="checkbox"
+                              checked={isRecurring}
+                              onChange={(e) => {
+                                setIsRecurring(e.target.checked);
+                                if (e.target.checked && recurrenceDays.length === 0) {
+                                  // Auto preselect 3 days for comfortable UX
+                                  setRecurrenceDays(['1', '3', '5']);
+                                }
+                              }}
+                              className="w-5 h-5 rounded border border-white/20 bg-white/5 text-primary-green focus:ring-0 focus:ring-offset-0 cursor-pointer accent-primary-green"
+                            />
+                            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                              Definir dias e horários fixos
+                            </span>
+                          </label>
+
+                          <AnimatePresence>
+                            {isRecurring && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.25 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="space-y-5 pt-4 border-t border-white/5 mt-3 text-left">
+                                  {/* Days select */}
+                                  <div>
+                                    <label className={labelClasses}>Dias Fixos da Semana</label>
+                                    <div className="grid grid-cols-7 gap-1.5 pt-1">
+                                      {[
+                                        { value: '1', label: 'Seg' },
+                                        { value: '2', label: 'Ter' },
+                                        { value: '3', label: 'Qua' },
+                                        { value: '4', label: 'Qui' },
+                                        { value: '5', label: 'Sex' },
+                                        { value: '6', label: 'Sáb' },
+                                        { value: '7', label: 'Dom' }
+                                      ].map((day) => {
+                                        const isSelected = recurrenceDays.includes(day.value);
+                                        return (
+                                          <button
+                                            key={day.value}
+                                            type="button"
+                                            onClick={() => {
+                                              if (isSelected) {
+                                                setRecurrenceDays(recurrenceDays.filter(d => d !== day.value));
+                                              } else {
+                                                setRecurrenceDays([...recurrenceDays, day.value]);
+                                              }
+                                            }}
+                                            className={`h-11 rounded-xl text-xs font-bold transition-all transition-colors flex items-center justify-center border cursor-pointer ${
+                                              isSelected
+                                                ? 'bg-primary-green text-background border-primary-green shadow-[0_0_12px_rgba(110,231,168,0.2)]'
+                                                : 'bg-white/5 text-text-secondary border-white/10 hover:bg-white/10'
+                                            }`}
+                                          >
+                                            {day.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Time Input */}
+                                  <div className="space-y-1">
+                                    <label className={labelClasses}>Horário Fixo de Execução</label>
+                                    <div className="flex gap-2 items-center">
+                                      <div className="relative flex-1">
+                                        <input
+                                          type="text"
+                                          placeholder="09:00"
+                                          maxLength={5}
+                                          value={recurrenceTime}
+                                          onClick={(e) => (e.target as HTMLInputElement).select()}
+                                          onChange={(e) => {
+                                            let val = e.target.value.replace(/\D/g, '');
+                                            if (val.length > 4) val = val.slice(0, 4);
+                                            if (val.length > 2) {
+                                              val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                                            }
+                                            setRecurrenceTime(val);
+                                          }}
+                                          onBlur={() => {
+                                            // Handle validation & autocorrect on Blur
+                                            let clean = recurrenceTime.replace(/\D/g, '');
+                                            if (clean.length === 0) {
+                                              setRecurrenceTime('09:00');
+                                              return;
+                                            }
+                                            if (clean.length < 4) {
+                                              clean = clean.padStart(4, '0');
+                                            }
+                                            let hours = parseInt(clean.slice(0, 2), 10);
+                                            let minutes = parseInt(clean.slice(2, 4), 10);
+
+                                            if (isNaN(hours) || hours > 23) hours = 9;
+                                            if (isNaN(minutes) || minutes > 59) minutes = 0;
+
+                                            const hs = String(hours).padStart(2, '0');
+                                            const ms = String(minutes).padStart(2, '0');
+                                            setRecurrenceTime(`${hs}:${ms}`);
+                                          }}
+                                          className={`${inputClasses} font-mono tracking-widest text-center text-lg`}
+                                        />
+                                      </div>
+                                    </div>
+                                    <p className="text-[10px] text-text-secondary/40 font-medium italic mt-1">
+                                      * Ao salvar, agendamentos automáticos serão atualizados para este horário.
+                                    </p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        <button onClick={handleAddHabit} className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)] cursor-pointer">
+                          {editingHabitId ? 'SALVAR ALTERAÇÕES' : 'SALVAR HÁBITO'}
+                        </button>
                       </div>
                     </div>
 
@@ -1388,12 +1585,20 @@ export const ActionCenter = () => {
                               <div key={h.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-surface/5 border border-white/5 rounded-3xl gap-4">
                                 <div className="space-y-1.5 text-left">
                                   <h4 className="text-lg font-semibold text-text-primary">{h.name}</h4>
-                                  <div className="text-xs text-text-secondary/60">
-                                    {{
-                                      morning: '🌅 Manhã',
-                                      afternoon: '☀️ Tarde',
-                                      evening: '🌙 Noite'
-                                    }[h.preferred_time] || h.preferred_time} · {h.minutes_per_session}min por sessão
+                                  <div className="text-xs text-text-secondary/60 flex flex-wrap items-center gap-x-1.5">
+                                    <span>
+                                      {{
+                                        morning: '🌅 Manhã',
+                                        afternoon: '☀️ Tarde',
+                                        evening: '🌙 Noite'
+                                      }[h.preferred_time] || h.preferred_time} · {h.minutes_per_session}min por sessão
+                                    </span>
+                                    {h.is_recurring && (
+                                      <span className="flex items-center gap-1 text-[10px] font-bold text-primary-green uppercase tracking-widest bg-primary-green/10 px-2 py-0.5 rounded-full">
+                                        <Calendar size={10} />
+                                        Fixo: {h.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {h.recurrence_time || '09:00'}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className="text-primary-green text-sm tracking-widest font-bold">
@@ -1408,21 +1613,29 @@ export const ActionCenter = () => {
                                   <span className="text-xs font-bold text-primary-green font-mono">
                                     🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invictas
                                   </span>
-                                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                  <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                                     <button
                                       onClick={() => {
                                         setRegisteringHabit(h.id);
                                         setManualSessionDuration(h.minutes_per_session);
                                       }}
-                                      className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all"
+                                      className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all cursor-pointer"
                                     >
                                       + Registrar sessão
                                     </button>
+                                    <button
+                                      onClick={() => handleEditHabitClick(h)}
+                                      className="p-2.5 text-primary-green/40 hover:text-primary-green hover:bg-primary-green/10 rounded-full transition-all cursor-pointer"
+                                      title="Editar hábito"
+                                    >
+                                      <Pencil size={15} />
+                                    </button>
                                     <button 
                                       onClick={() => setDeleteConfirm({ id: h.id, type: 'habit', name: h.name })} 
-                                      className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                                      className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all cursor-pointer"
+                                      title="Excluir hábito"
                                     >
-                                      <Trash2 size={16} />
+                                      <Trash2 size={15} />
                                     </button>
                                   </div>
                                 </div>
@@ -1502,9 +1715,17 @@ export const ActionCenter = () => {
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
                             <h4 className="text-lg font-bold text-text-primary">{h.name}</h4>
-                            <p className="text-xs text-text-secondary/60">
-                              {preferredTimeLabel} · {h.minutes_per_session}min por sessão
-                            </p>
+                            <div className="text-xs text-text-secondary/60 flex flex-wrap items-center gap-x-1.5">
+                              <span>
+                                {preferredTimeLabel} · {h.minutes_per_session}min por sessão
+                              </span>
+                              {h.is_recurring && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-primary-green uppercase tracking-widest bg-primary-green/10 px-2 py-0.5 rounded-full mt-0.5">
+                                  <Calendar size={10} />
+                                  Fixo: {h.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {h.recurrence_time || '09:00'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <span className="text-sm font-bold text-primary-green">
                             🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invicta{h.weekly_streak !== 1 ? 's' : ''}
@@ -1532,25 +1753,36 @@ export const ActionCenter = () => {
                           <p className="text-[10px] text-text-secondary/40 uppercase tracking-widest font-bold">
                             Criado em {new Date(h.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => {
                                 setRegisteringHabit(h.id);
                                 setManualSessionDuration(h.minutes_per_session);
                                 setShowHabitsModal(false);
                               }}
-                              className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all"
+                              className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all cursor-pointer"
                             >
                               + Registrar sessão
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleEditHabitClick(h);
+                                setShowHabitsModal(false);
+                              }}
+                              className="p-2 text-primary-green/40 hover:text-primary-green hover:bg-primary-green/10 rounded-full transition-all cursor-pointer"
+                              title="Editar hábito"
+                            >
+                              <Pencil size={15} />
                             </button>
                             <button
                               onClick={() => {
                                 setDeleteConfirm({ id: h.id, type: 'habit', name: h.name });
                                 setShowHabitsModal(false);
                               }}
-                              className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                              className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all cursor-pointer"
+                              title="Excluir hábito"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </div>

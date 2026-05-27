@@ -3,6 +3,23 @@ import { supabase } from '../lib/supabase';
 import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity } from '../types';
 import { useTimerStore } from './useTimerStore';
 
+function getLocalMondayStr(): string {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  
+  const year = monday.getFullYear();
+  const month = String(monday.getMonth() + 1).padStart(2, '0');
+  const day = String(monday.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
 interface DataState {
   profile: Profile | null;
   projects: Project[];
@@ -19,6 +36,7 @@ interface DataState {
   
   fetchProfile: (userId: string) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
+  syncHabitsRollover: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
   fetchHabitCompletions: (userId: string) => Promise<void>;
   fetchSessionTasks: (userId: string) => Promise<void>;
@@ -26,7 +44,18 @@ interface DataState {
   fetchScheduledActivities: (userId: string) => Promise<void>;
   
   addProject: (userId: string, name: string) => Promise<void>;
-  addHabit: (userId: string, name: string, sessionsPerWeek: number, minutesPerSession: number, preferredTime: 'morning' | 'afternoon' | 'evening') => Promise<Habit | null>;
+  addHabit: (
+    userId: string,
+    name: string,
+    sessionsPerWeek: number,
+    minutesPerSession: number,
+    preferredTime: 'morning' | 'afternoon' | 'evening',
+    isRecurring?: boolean,
+    recurrenceDays?: string[],
+    recurrenceTime?: string
+  ) => Promise<Habit | null>;
+  updateHabit: (id: string, updates: Partial<Habit>) => Promise<boolean>;
+  generateRecurringHabitInstances: (userId: string) => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
   addActivity: (userId: string, name: string, projectId?: string, habitId?: string | null) => Promise<Activity | null>;
@@ -114,9 +143,72 @@ export const useDataStore = create<DataState>((set, get) => ({
       });
 
       await get().fetchSessionTasks(userId);
+      await get().syncHabitsRollover(userId);
     } catch (err) {
       console.error('Error fetching data:', err);
       set({ loading: false });
+    }
+  },
+
+  syncHabitsRollover: async (userId) => {
+    try {
+      const currentMondayStr = getLocalMondayStr();
+      const updatedHabits = [...get().habits];
+      let hasChanges = false;
+
+      for (let i = 0; i < updatedHabits.length; i++) {
+        const habit = updatedHabits[i];
+        if (!habit.week_start_date) {
+          habit.week_start_date = currentMondayStr;
+          habit.sessions_this_week = 0;
+          await supabase
+            .from('habits')
+            .update({ week_start_date: currentMondayStr, sessions_this_week: 0 })
+            .eq('id', habit.id);
+          hasChanges = true;
+          continue;
+        }
+
+        const storedMonday = parseLocalDate(habit.week_start_date);
+        const currentMonday = parseLocalDate(currentMondayStr);
+        const diffMs = currentMonday.getTime() - storedMonday.getTime();
+        const weeksPassed = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+
+        if (weeksPassed > 0) {
+          let updatedWeeklyStreak = habit.weekly_streak;
+          if (weeksPassed === 1) {
+            if (habit.sessions_this_week < habit.sessions_per_week) {
+              updatedWeeklyStreak = 0;
+            }
+          } else {
+            updatedWeeklyStreak = 0;
+          }
+
+          habit.week_start_date = currentMondayStr;
+          habit.sessions_this_week = 0;
+          habit.weekly_streak = updatedWeeklyStreak;
+
+          await supabase
+            .from('habits')
+            .update({
+              week_start_date: currentMondayStr,
+              sessions_this_week: 0,
+              weekly_streak: updatedWeeklyStreak
+            })
+            .eq('id', habit.id);
+
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        set({ habits: updatedHabits });
+      }
+
+      // Automatically generate missing instances for is_recurring habits for this week
+      await get().generateRecurringHabitInstances(userId);
+    } catch (err) {
+      console.error('Error syncing habits rollover:', err);
     }
   },
 
@@ -338,18 +430,23 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  addHabit: async (userId, name, sessionsPerWeek, minutesPerSession, preferredTime) => {
+  addHabit: async (
+    userId,
+    name,
+    sessionsPerWeek,
+    minutesPerSession,
+    preferredTime,
+    isRecurring = false,
+    recurrenceDays = [],
+    recurrenceTime = ''
+  ) => {
     try {
       if (!name || !sessionsPerWeek || !minutesPerSession || !preferredTime) {
         console.error('addHabit: parâmetros inválidos', { name, sessionsPerWeek, minutesPerSession, preferredTime });
         return null;
       }
 
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      const weekStart = monday.toISOString().split('T')[0];
+      const weekStart = getLocalMondayStr();
 
       const { data, error } = await supabase.from('habits').insert({
         user_id: userId,
@@ -359,7 +456,11 @@ export const useDataStore = create<DataState>((set, get) => ({
         preferred_time: preferredTime,
         weekly_streak: 0,
         sessions_this_week: 0,
-        week_start_date: weekStart
+        week_start_date: weekStart,
+        is_recurring: isRecurring,
+        recurrence_days: recurrenceDays,
+        recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
+        last_generated_week: null
       }).select().single();
 
       if (error) {
@@ -369,12 +470,245 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (data) {
         set({ habits: [data, ...get().habits] });
         console.log('Hábito salvo com sucesso:', data);
+        
+        // Trigger generation instantly if it is clean and recurring
+        if (data.is_recurring) {
+          await get().generateRecurringHabitInstances(userId);
+        }
+        
         return data;
       }
       return null;
     } catch (err) {
       console.error('Erro crítico ao salvar hábito:', err);
       return null;
+    }
+  },
+
+  updateHabit: async (id, updates) => {
+    try {
+      const oldHabit = get().habits.find(h => h.id === id);
+      if (!oldHabit) return false;
+
+      const { data, error } = await supabase
+        .from('habits')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error ao atualizar hábito:', error);
+        throw error;
+      }
+
+      if (data) {
+        // Apply changes to store habits array
+        const updatedHabits = get().habits.map(h => h.id === id ? data : h);
+        set({ habits: updatedHabits });
+
+        const todayStr = new Date().toLocaleDateString('en-CA');
+
+        // Handle scheduled_activities sync for this habit editing
+        if (!data.is_recurring) {
+          // 1. Turned off recurrence: delete future pending ones
+          const pToDel = get().scheduledActivities.filter(sa => 
+            sa.habit_id === id && sa.status === 'pending' && sa.scheduled_date >= todayStr
+          );
+          if (pToDel.length > 0) {
+            const ids = pToDel.map(sa => sa.id);
+            await supabase.from('scheduled_activities').delete().in('id', ids);
+            set({
+              scheduledActivities: get().scheduledActivities.filter(sa => !ids.includes(sa.id))
+            });
+          }
+        } else {
+          // 2. Recurrence is active: we adjust future pending schedules
+          const oldScheduled = get().scheduledActivities;
+          
+          // Delete future pending ones
+          const pendingFuture = oldScheduled.filter(sa => 
+            sa.habit_id === id && sa.status === 'pending' && sa.scheduled_date >= todayStr
+          );
+          const idsToDelete = pendingFuture.map(sa => sa.id);
+          if (idsToDelete.length > 0) {
+            await supabase.from('scheduled_activities').delete().in('id', idsToDelete);
+          }
+
+          let updatedScheduled = oldScheduled.filter(sa => !idsToDelete.includes(sa.id));
+
+          // Generate new future pending ones for the current week starting from "today"
+          const currentMondayStr = getLocalMondayStr();
+          const monday = parseLocalDate(currentMondayStr);
+          const days = data.recurrence_days || [];
+
+          const activity = get().activities.find(act => act.habit_id === id);
+          const projectId = activity?.project_id || null;
+          const activityId = activity?.id || null;
+
+          for (const dayStr of days) {
+            const d = parseInt(dayStr, 10);
+            if (isNaN(d)) continue;
+
+            const offset = d === 0 ? 6 : d - 1;
+            const targetDay = new Date(monday);
+            targetDay.setDate(monday.getDate() + offset);
+
+            const year = targetDay.getFullYear();
+            const month = String(targetDay.getMonth() + 1).padStart(2, '0');
+            const dateVal = String(targetDay.getDate()).padStart(2, '0');
+            const scheduledDate = `${year}-${month}-${dateVal}`;
+
+            // Only generate if scheduled date is !== past!
+            if (scheduledDate >= todayStr) {
+              const newActivityObj = {
+                user_id: data.user_id,
+                title: data.name,
+                project_id: projectId,
+                activity_id: activityId,
+                atividade_avulsa: null,
+                habit_id: data.id,
+                scheduled_date: scheduledDate,
+                scheduled_time: data.recurrence_time || '09:00',
+                duration_minutes: data.minutes_per_session || 30,
+                status: 'pending' as const,
+                tasks: [],
+                notes: `Gerado automaticamente para o hábito recorrente: ${data.name}`
+              };
+
+              const { data: inserted } = await supabase
+                .from('scheduled_activities')
+                .insert(newActivityObj)
+                .select()
+                .single();
+
+              if (inserted) {
+                updatedScheduled.push(inserted);
+              }
+            }
+          }
+
+          set({ scheduledActivities: updatedScheduled });
+        }
+
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error updating habit:', err);
+      return false;
+    }
+  },
+
+  generateRecurringHabitInstances: async (userId) => {
+    try {
+      const currentMondayStr = getLocalMondayStr();
+      const habits = get().habits;
+      const recurringHabits = habits.filter(h => h.is_recurring);
+      
+      if (recurringHabits.length === 0) return;
+      
+      let createdAny = false;
+      const newScheduledActivities = [...get().scheduledActivities];
+      const updatedHabits = [...get().habits];
+
+      for (const habit of recurringHabits) {
+        // If it was already generated for this week, skip
+        if (habit.last_generated_week === currentMondayStr) {
+          continue;
+        }
+
+        const days = habit.recurrence_days || [];
+        if (days.length === 0) continue;
+
+        const monday = parseLocalDate(currentMondayStr);
+        let createdForThisHabit = false;
+
+        for (const dayStr of days) {
+          const d = parseInt(dayStr, 10);
+          if (isNaN(d)) continue;
+          
+          const offset = d === 0 ? 6 : d - 1;
+          const targetDay = new Date(monday);
+          targetDay.setDate(monday.getDate() + offset);
+          
+          const year = targetDay.getFullYear();
+          const month = String(targetDay.getMonth() + 1).padStart(2, '0');
+          const dateVal = String(targetDay.getDate()).padStart(2, '0');
+          const scheduledDate = `${year}-${month}-${dateVal}`;
+
+          // Double gate: check local state
+          const localExists = newScheduledActivities.some(sa => 
+            sa.habit_id === habit.id && sa.scheduled_date === scheduledDate
+          );
+          if (localExists) continue;
+
+          // Double gate: query Supabase select
+          const { data: dbExists } = await supabase
+            .from('scheduled_activities')
+            .select('id')
+            .eq('habit_id', habit.id)
+            .eq('scheduled_date', scheduledDate)
+            .limit(1);
+
+          if (dbExists && dbExists.length > 0) {
+            continue;
+          }
+
+          // Generate
+          const activity = get().activities.find(act => act.habit_id === habit.id);
+          const projectId = activity?.project_id || null;
+          const activityId = activity?.id || null;
+
+          const newActivityObj = {
+            user_id: userId,
+            title: habit.name,
+            project_id: projectId,
+            activity_id: activityId,
+            atividade_avulsa: null,
+            habit_id: habit.id,
+            scheduled_date: scheduledDate,
+            scheduled_time: habit.recurrence_time || '09:00',
+            duration_minutes: habit.minutes_per_session || 30,
+            status: 'pending' as const,
+            tasks: [],
+            notes: `Gerado automaticamente para o hábito recorrente: ${habit.name}`
+          };
+
+          const { data: inserted, error: insertErr } = await supabase
+            .from('scheduled_activities')
+            .insert(newActivityObj)
+            .select()
+            .single();
+
+          if (insertErr) {
+            console.error('Error auto-generating scheduled activity for habit:', insertErr);
+            continue;
+          }
+
+          if (inserted) {
+            newScheduledActivities.push(inserted);
+            createdAny = true;
+            createdForThisHabit = true;
+          }
+        }
+
+        // Lock habit so we don't try to generate again for this week
+        habit.last_generated_week = currentMondayStr;
+        await supabase
+          .from('habits')
+          .update({ last_generated_week: currentMondayStr })
+          .eq('id', habit.id);
+      }
+
+      if (createdAny) {
+        set({ 
+          scheduledActivities: newScheduledActivities,
+          habits: updatedHabits
+        });
+      }
+    } catch (err) {
+      console.error('Error generating recurring habit instances:', err);
     }
   },
 
@@ -510,6 +844,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         if (session.habit_id && session.user_id) {
           const habitId = session.habit_id;
           const userId = session.user_id;
+          
+          await get().syncHabitsRollover(userId);
+          
           const habit = get().habits.find(h => h.id === habitId);
           if (habit) {
             const todayStr = new Date().toLocaleDateString('en-CA');
@@ -663,6 +1000,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   completeHabitSession: async (habitId, userId, durationMinutes, focusSessionId?) => {
     try {
+      await get().syncHabitsRollover(userId);
+
       const habit = get().habits.find(h => h.id === habitId);
       if (!habit) return;
 
@@ -851,9 +1190,26 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteHabit: async (id) => {
     try {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      
+      // Selectively find future pending scheduled activities for this habit
+      const futurePendingToDel = get().scheduledActivities.filter(sa => 
+        sa.habit_id === id && sa.status === 'pending' && sa.scheduled_date >= todayStr
+      );
+      
+      const idsToDelete = futurePendingToDel.map(sa => sa.id);
+      if (idsToDelete.length > 0) {
+        await supabase.from('scheduled_activities').delete().in('id', idsToDelete);
+      }
+
+      // Delete the habit in Supabase (foreign keys on delete set null will handle history)
       const { error } = await supabase.from('habits').delete().eq('id', id);
       if (error) throw error;
-      set({ habits: get().habits.filter(h => h.id !== id) });
+
+      set({ 
+        habits: get().habits.filter(h => h.id !== id),
+        scheduledActivities: get().scheduledActivities.filter(sa => !idsToDelete.includes(sa.id))
+      });
     } catch (err) {
       console.error('Error deleting habit:', err);
     }

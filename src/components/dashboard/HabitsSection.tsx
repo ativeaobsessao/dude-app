@@ -1,5 +1,5 @@
 import { useDataStore } from '../../store/useDataStore';
-import { Layers } from 'lucide-react';
+import { Layers, Calendar } from 'lucide-react';
 import { formatHumanTime } from '../../lib/utils';
 import { Habit } from '../../types';
 
@@ -68,12 +68,20 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
   return (
     <div id={`habit-card-${habit.id}`} className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/20 transition-all flex flex-col justify-between">
       <div>
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-2">
           <h4 className="text-lg font-semibold text-text-primary">{habit.name}</h4>
           <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-widest">
             {preferredTimeLabel}
           </span>
         </div>
+        {habit.is_recurring && (
+          <div className="mb-4 flex items-center gap-1.5 text-[10px] font-bold text-primary-green/80 uppercase tracking-widest bg-primary-green/5 border border-primary-green/10 py-1 px-2.5 rounded-full w-fit">
+            <Calendar size={11} className="text-primary-green" />
+            <span>
+              Fixo: {habit.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {habit.recurrence_time || '09:00'}
+            </span>
+          </div>
+        )}
         
         {/* Bolinhas de progresso */}
         <div className="flex items-center gap-2 mb-6">
