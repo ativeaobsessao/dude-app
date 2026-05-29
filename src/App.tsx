@@ -7,7 +7,6 @@ import { HabitsSection } from './components/dashboard/HabitsSection';
 import { AvoidanceSection } from './components/dashboard/AvoidanceSection';
 import { RecentNotes } from './components/dashboard/RecentNotes';
 import { RecentHistory } from './components/dashboard/RecentHistory';
-import { InspirationalFootnote } from './components/dashboard/InspirationalFootnote';
 import { ActionCenter } from './components/layout/ActionCenter';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -310,16 +309,6 @@ export default function App() {
                 />
               </div>
 
-              {/* 5. Headlines com opacity-40 */}
-              <div id="middle-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none py-6">
-              <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
-                Tenha Controle Total Sobre Seu Tempo
-              </h3>
-              <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
-                Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
-              </p>
-            </div>
-
             {/* 6. Botão "CENTRO DE INTELIGÊNCIA" */}
             <div className="flex justify-center w-full">
               <button 
@@ -342,18 +331,6 @@ export default function App() {
 
             {/* 9. Seção Histórico Recente */}
             <RecentHistory />
-
-            {/* 10. Headlines com opacity-40 novamente no rodapé */}
-            <div id="footer-headlines" className="w-full max-w-4xl mx-auto text-center opacity-40 select-none pt-12 border-t border-white/5">
-              <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
-                Tenha Controle Total Sobre Seu Tempo
-              </h3>
-              <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
-                Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
-              </p>
-            </div>
-
-            <InspirationalFootnote />
           </div>
         </main>
       )}
