@@ -281,7 +281,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         return {
           label: daysShort[d.getDay()],
           mins,
-          displayValue: mins > 0 ? `${mins}m` : '0'
+          displayValue: mins > 0 ? formatCompactDuration(mins) : '0'
         };
       });
     }
@@ -299,7 +299,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         weeksData.push({
           label: `Sem ${5 - w}`,
           mins,
-          displayValue: mins > 0 ? (mins >= 60 ? `${Math.floor(mins / 60)}h` : `${mins}m`) : '0'
+          displayValue: mins > 0 ? formatCompactDuration(mins) : '0'
         });
       }
       return weeksData;
@@ -325,7 +325,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       monthsData.push({
         label: monthsNames[mMonth],
         mins,
-        displayValue: mins > 0 ? `${Math.floor(mins / 60)}h` : '0'
+        displayValue: mins > 0 ? formatCompactDuration(mins) : '0'
       });
     }
     return monthsData;
@@ -441,12 +441,20 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       const sched = new Date(`${sa.scheduled_date}T${sa.scheduled_time || '00:00'}`);
       return sched.getTime() < new Date().getTime();
     });
-
     const lost = lostList.length;
+
+    // Check pending schedules: pending and in the FUTURE datetime
+    const pendentesList = scheduledActivities.filter(sa => {
+      if (sa.status !== 'pending') return false;
+      const sched = new Date(`${sa.scheduled_date}T${sa.scheduled_time || '00:00'}`);
+      return sched.getTime() >= new Date().getTime();
+    });
+    const pendentes = pendentesList.length;
+
     const denominator = completed + lost;
     const rate = denominator > 0 ? Math.round((completed / denominator) * 100) : 100;
 
-    return { completed, lost, cancelled, rate, total: scheduledActivities.length };
+    return { completed, lost, cancelled, pendentes, rate, total: scheduledActivities.length };
   }, [scheduledActivities]);
 
   // ----------------------------------------------------
@@ -502,13 +510,13 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         <header className="space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
             <Sparkles size={13} className="animate-pulse" />
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] font-mono">Decision Engine</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider font-sans">Decision Engine</span>
           </div>
           <div className="space-y-1">
             <h2 className="text-2xl md:text-3.5xl font-black tracking-tight text-text-primary uppercase font-sans">
               Centro de Inteligência Pessoal
             </h2>
-            <p className="text-xs text-text-secondary/60 font-light max-w-2xl leading-normal">
+            <p className="text-xs md:text-sm text-text-secondary/70 font-medium max-w-2xl leading-normal">
               Uma visão completa de como você está utilizando seu tempo e construindo consistência.
             </p>
           </div>
@@ -518,7 +526,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10">
               <Sparkles size={11} className="text-primary-green" />
             </div>
-            <p className="text-sm font-semibold tracking-tight text-text-primary">
+            <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary">
               "{interpretiveHeadline}"
             </p>
           </div>
@@ -548,23 +556,23 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           {/* Subtle decoration background glow */}
           <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-primary-green/5 blur-3xl rounded-full pointer-events-none" />
 
-          <div className="space-y-1">
-            <span className="text-[10px] font-black tracking-[0.25em] text-text-secondary/50 uppercase font-mono block">
+          <div className="space-y-1 select-none cursor-default">
+            <span className="text-[13px] md:text-sm font-semibold tracking-wide text-text-secondary/75 uppercase block">
               Foco Acumulado Total {period !== 'all' && `(${period === 'week' ? 'Semana' : 'Mês'})`}
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl md:text-5.5xl font-extrabold tracking-tighter text-text-primary select-none whitespace-nowrap inline-block" style={{ fontSize: 'clamp(2.2rem, 6.5vw, 4rem)' }}>
+              <span className="text-fallback font-extrabold tracking-tight text-text-primary whitespace-nowrap inline-block" style={{ fontSize: 'clamp(2.75rem, 8vw, 4rem)', fontWeight: 800 }}>
                 {formatCompactDuration(period === 'all' ? totalFocusAllTimeMins : currentPeriodMins)}
               </span>
             </div>
-            <p className={`text-xs font-mono font-bold tracking-wide mt-1.5 ${
-              deltaType === 'positive' ? 'text-primary-green' : deltaType === 'negative' ? 'text-amber-500' : 'text-text-secondary/40'
+            <p className={`text-xs md:text-[13px] font-medium tracking-wide mt-1.5 ${
+              deltaType === 'positive' ? 'text-primary-green' : deltaType === 'negative' ? 'text-amber-500' : 'text-text-secondary/70'
             }`}>
               {deltaText}
             </p>
           </div>
 
-          <div className="pt-4 border-t border-white/5 flex flex-wrap gap-x-6 gap-y-2 text-[10px] uppercase font-bold text-text-secondary/50 font-mono tracking-widest">
+          <div className="pt-4 border-t border-white/5 flex flex-wrap gap-x-6 gap-y-2 text-[11px] md:text-xs uppercase font-semibold text-text-secondary/75 tracking-wider select-none cursor-default">
             <span>{supportingStats.sessionCount} {supportingStats.sessionCount === 1 ? 'Sessão' : 'Sessões'}</span>
             <span>·</span>
             <span>{supportingStats.projectsCount} {supportingStats.projectsCount === 1 ? 'Projeto' : 'Projetos'}</span>
@@ -579,23 +587,23 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           {/* BLOCK 2: PARA ONDE SEU TEMPO FOI */}
-          <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5">
-            <h3 className="text-[11px] font-black text-text-secondary/40 uppercase tracking-[0.2em] flex items-center gap-1.5 font-mono">
+          <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
               <Target size={12} className="text-primary-green" /> Onde seu tempo foi
             </h3>
 
             <div className="space-y-4">
               {projectDistribution.length === 0 ? (
                 <div className="py-8 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-2xl">
-                  <p className="text-xs text-text-secondary/40 font-mono italic">Sem sessões de foco neste período.</p>
+                  <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans">Sem sessões de foco neste período.</p>
                 </div>
               ) : (
                 projectDistribution.map((item, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between items-baseline text-xs font-mono">
+                  <div key={idx} className="space-y-1.5 font-sans">
+                    <div className="flex justify-between items-baseline text-xs md:text-sm font-sans">
                       <span className="font-semibold text-text-primary max-w-[65%] truncate block">{item.name}</span>
                       <span className="text-text-secondary/80 text-right whitespace-nowrap block">
-                        {formatCompactDuration(item.mins)} · <strong className="text-primary-green">{item.percent}%</strong>
+                        {formatCompactDuration(item.mins)} · <strong className="text-primary-green font-bold">{item.percent}%</strong>
                       </span>
                     </div>
                     {/* Compact progress bar */}
@@ -612,22 +620,22 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           {/* BLOCK 4: CONSISTÊNCIA REAL */}
-          <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl flex flex-col justify-between space-y-5">
-            <h3 className="text-[11px] font-black text-text-secondary/40 uppercase tracking-[0.2em] flex items-center gap-1.5 font-mono">
+          <div className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl flex flex-col justify-between space-y-5 font-sans">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
               <Activity size={12} className="text-primary-green" /> Consistência de Ações
             </h3>
 
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 font-sans">
               <div className="space-y-1">
-                <span className="text-[9px] font-black text-text-secondary/40 uppercase tracking-widest block font-mono">Eficácia Geral</span>
-                <p className="text-xs text-text-secondary/60 leading-normal max-w-[190px]">
+                <span className="text-[10px] md:text-xs font-semibold text-text-secondary/75 uppercase tracking-wide block font-sans">Eficácia Geral</span>
+                <p className="text-xs text-text-secondary/70 leading-normal max-w-[190px] font-sans">
                   Você esteve ativo em <strong className="text-text-primary font-bold">{consistencyStats.activeDays}</strong> de <strong className="text-text-primary font-bold">{consistencyStats.totalDays} dias</strong>.
                 </p>
               </div>
 
               {/* Minimalist radial circle */}
-              <div className="relative w-18 h-18 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <div className="relative w-18 h-18 flex items-center justify-center shrink-0 font-sans">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36 font-sans">
                   <path
                     className="text-white/5"
                     strokeWidth="3.5"
@@ -646,12 +654,12 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-sm font-black font-mono text-primary-green">{consistencyStats.rate}%</span>
+                  <span className="text-sm font-bold font-sans text-primary-green">{consistencyStats.rate}%</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/5 flex justify-between items-center text-[10px] uppercase font-bold text-text-secondary/40 font-mono tracking-widest">
+            <div className="pt-3 border-t border-white/5 flex justify-between items-center text-[10px] md:text-xs uppercase font-semibold text-text-secondary/70 font-sans tracking-wide">
               <span>Atual: {currentStreak}D</span>
               <span>Histórico: {bestStreak}D</span>
             </div>
@@ -660,24 +668,24 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         {/* BLOCK 3: EVOLUÇÃO DISCIPLINADA (BARS HEIGHT BUG FIXED) */}
-        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-4">
-          <h3 className="text-[11px] font-black text-text-secondary/40 uppercase tracking-[0.2em] flex items-center gap-1.5 font-mono">
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-4 font-sans">
+          <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
             <BarChart2 size={12} className="text-primary-green" /> Evolução de Concentração
           </h3>
 
-          <div id="focus-evolution-chart-container" className="flex flex-col space-y-2">
+          <div id="focus-evolution-chart-container" className="flex flex-col space-y-2 font-sans">
             
             {/* The chart area */}
-            <div className="h-[120px] md:h-[150px] flex items-end gap-3 md:gap-4 px-2 pt-6 w-full relative">
+            <div className="h-[120px] md:h-[150px] flex items-end gap-3 md:gap-4 px-2 pt-6 w-full relative font-sans">
               {chartData.map((dataItem, idx) => {
                 const heightPercent = maxChartMins > 0 ? (dataItem.mins / maxChartMins) * 100 : 0;
                 // Guard style
                 const heightStyle = dataItem.mins > 0 ? `${Math.max(6, heightPercent)}%` : '3px';
 
                 return (
-                  <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full relative group">
+                  <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full relative group font-sans">
                     {/* Always visible label top of column to avoid hover requirements */}
-                    <span className="text-[9px] md:text-10px text-text-secondary/70 font-mono tracking-tighter mb-1 select-none">
+                    <span className="text-[10px] md:text-[11px] font-medium text-text-secondary/85 tracking-tight mb-1 select-none font-sans">
                       {dataItem.displayValue}
                     </span>
 
@@ -692,7 +700,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     />
 
                     {/* Below-label */}
-                    <span className="text-[9px] md:text-[10px] font-black text-text-secondary/50 font-mono mt-2 tracking-widest select-none">
+                    <span className="text-[10px] md:text-xs font-semibold text-text-secondary/70 mt-2 tracking-wide select-none font-sans">
                       {dataItem.label}
                     </span>
                   </div>
@@ -701,7 +709,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </div>
 
             {maxChartMins === 0 && (
-              <p className="text-xs text-text-secondary/40 italic font-mono text-center pt-2">
+              <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans text-center pt-2">
                 Sem foco registrado neste período.
               </p>
             )}
@@ -709,24 +717,24 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </section>
 
         {/* PILLARS COLLAPSIBLE SECTIONS */}
-        <section className="space-y-4">
-          <h3 className="text-[11px] font-black text-text-secondary/40 uppercase tracking-[0.25em] font-mono px-1">
+        <section className="space-y-4 font-sans">
+          <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide px-1 font-sans">
             Pilares do Desenvolvimento
           </h3>
 
-          <div className="space-y-3">
+          <div className="space-y-3 font-sans">
             
             {/* PILLAR 1: HABITS ATOMICOS */}
-            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300">
+            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300 font-sans">
               <button 
                 onClick={() => setExpandedPillar(expandedPillar === 'habits' ? null : 'habits')}
-                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01]"
+                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01] font-sans"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 font-sans">
                   <Activity size={16} className="text-primary-green" />
                   <div>
-                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary">Hábitos Atômicos</span>
-                    <span className="text-[9px] font-mono text-text-secondary/40 block uppercase tracking-wider mt-0.5">
+                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary font-sans">Hábitos Atômicos</span>
+                    <span className="text-[10px] text-text-secondary/60 block uppercase tracking-wide mt-0.5 font-sans font-sans">
                       {bestStreakHabit ? `🔥 melhor: ${bestStreakHabit.name} (${bestStreakHabit.weekly_streak} sem)` : 'Criar hábitos para ativar'}
                     </span>
                   </div>
@@ -740,21 +748,21 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4"
+                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4 font-sans"
                   >
                     {/* Warning reminder */}
                     {neglectedHabit && (
-                      <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center gap-2.5">
+                      <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center gap-2.5 font-sans">
                         <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                        <p className="text-xs text-amber-500/80 font-light">
-                          Atenção: o hábito <strong className="font-bold text-amber-500">{neglectedHabit.name}</strong> está com consistência abaixo do esperado nesta semana.
+                        <p className="text-xs text-amber-500/80 font-light font-sans">
+                          Atenção: o hábito <strong className="font-bold text-amber-500 font-sans">{neglectedHabit.name}</strong> está com consistência abaixo do esperado nesta semana.
                         </p>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
                       {buildHabitsList.length === 0 ? (
-                        <p className="text-xs text-text-secondary/40 italic font-mono col-span-2">Você ainda não possui hábitos em modo de construção.</p>
+                        <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans col-span-2">Você ainda não possui hábitos em modo de construção.</p>
                       ) : (
                         buildHabitsList.map((h) => {
                           const target = h.sessions_per_week || 1;
@@ -762,17 +770,17 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                           const pct = Math.min(100, Math.round((currentComp / target) * 100));
 
                           return (
-                            <div key={h.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-2">
-                              <div className="flex justify-between items-start gap-1">
-                                <span className="text-[11px] font-bold text-text-primary max-w-[70%] truncate block">{h.name}</span>
-                                <span className="text-[9px] font-black text-primary-green font-mono whitespace-nowrap">🔥 {h.weekly_streak === 1 ? '1 sem' : `${h.weekly_streak} sem`}</span>
+                            <div key={h.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-2 font-sans">
+                              <div className="flex justify-between items-start gap-1 font-sans">
+                                <span className="text-[11px] md:text-xs font-bold text-text-primary max-w-[70%] truncate block font-sans">{h.name}</span>
+                                <span className="text-[10px] font-bold text-primary-green whitespace-nowrap font-sans">🔥 {h.weekly_streak === 1 ? '1 sem' : `${h.weekly_streak} sem`}</span>
                               </div>
-                              <div id={`habit-detail-${h.id}`} className="space-y-1">
-                                <div className="flex justify-between text-[9px] text-text-secondary/50 font-mono tracking-tight">
+                              <div id={`habit-detail-${h.id}`} className="space-y-1 font-sans font-sans">
+                                <div className="flex justify-between text-[10px] text-text-secondary/60 tracking-tight font-sans">
                                   <span>Progresso: {currentComp}/{target} sessões</span>
                                   <span>{pct}%</span>
                                 </div>
-                                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden font-sans">
                                   <div className="bg-primary-green h-full rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
                                 </div>
                               </div>
@@ -786,17 +794,17 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               </AnimatePresence>
             </div>
 
-            {/* PILLAR 2: BLINDAGEM MENTAL */}
-            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300">
+            {/* PILLAR 2: ANTI-VÍCIO */}
+            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300 font-sans">
               <button 
                 onClick={() => setExpandedPillar(expandedPillar === 'avoidance' ? null : 'avoidance')}
-                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01]"
+                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01] font-sans"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 font-sans">
                   <Shield size={16} className="text-primary-green" />
                   <div>
-                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary">Blindagem Mental (Modular)</span>
-                    <span className="text-[9px] font-mono text-text-secondary/40 block uppercase tracking-wider mt-0.5">
+                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary font-sans">Anti-Vício</span>
+                    <span className="text-[10px] text-text-secondary/60 block uppercase tracking-wide mt-0.5 font-sans">
                       {bestAvoidanceStreak ? `🛡️ mais sólido: ${bestAvoidanceStreak.habit.name} (${bestAvoidanceStreak.streak} ${bestAvoidanceStreak.streak === 1 ? 'dia' : 'dias'})` : 'Evite distrações nos horários-chave'}
                     </span>
                   </div>
@@ -810,16 +818,16 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4"
+                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4 font-sans"
                   >
                     {avoidanceHabitsList.length === 0 ? (
-                      <div className="p-5 bg-white/[0.015] border border-dashed border-white/5 rounded-xl text-center space-y-2">
-                        <p className="text-xs text-text-secondary/60 leading-relaxed font-light max-w-md mx-auto">
+                      <div className="p-5 bg-white/[0.015] border border-dashed border-white/5 rounded-xl text-center space-y-2 font-sans">
+                        <p className="text-xs text-text-secondary/60 leading-relaxed font-light max-w-md mx-auto font-sans">
                           Você ainda não configurou nenhuma blindagem. Configure um vício no painel principal e o DUDE começará a mapear suas vitórias nos horários que você definir.
                         </p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
                         {avoidanceHabitsList.map((ah) => {
                           const streak = avoidanceStreaks[ah.id] || 0;
                           const checkinsList = avoidanceCheckins.filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'relapse'));
@@ -832,17 +840,17 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                           const hrsSaved = Math.round(wins * (ah.minutes_per_session || 150) / 60);
 
                           return (
-                            <div key={ah.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-3">
-                              <div className="flex justify-between items-baseline gap-1">
-                                <span className="text-[11px] font-bold text-text-primary truncate block max-w-[65%]">{ah.name}</span>
-                                <span className="text-[10px] font-black text-primary-green font-mono whitespace-nowrap">
+                            <div key={ah.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-3 font-sans">
+                              <div className="flex justify-between items-baseline gap-1 font-sans">
+                                <span className="text-[11px] md:text-xs font-bold text-text-primary truncate block max-w-[65%] font-sans">{ah.name}</span>
+                                <span className="text-[10px] font-bold text-primary-green whitespace-nowrap font-sans">
                                   {streak} {streak === 1 ? 'dia' : 'dias'} resistindo
                                 </span>
                               </div>
-                              <div className="text-[9.5px] font-mono text-text-secondary/50 space-y-1 block leading-normal">
-                                <p>{totalCheckins} {totalCheckins === 1 ? 'check-in respondido' : 'check-ins respondidos'} · <strong className="text-primary-green font-bold">{wins} resistidos</strong> · <strong className="text-amber-500 font-bold">{lapses} lapsos</strong></p>
-                                <p className="text-text-secondary/65">Eficácia: <strong className="text-text-primary">{rate}% de sucesso</strong></p>
-                                <p className="text-primary-green mt-1">≈ {hrsSaved}h que você recuperou do {ah.name}</p>
+                              <div className="text-[10px] text-text-secondary/65 space-y-1 block leading-normal font-sans">
+                                <p font-sans="true">{totalCheckins} {totalCheckins === 1 ? 'check-in respondido' : 'check-ins respondidos'} · <strong className="text-primary-green font-bold font-sans">{wins} resistidos</strong> · <strong className="text-amber-500 font-bold font-sans">{lapses} lapsos</strong></p>
+                                <p className="text-text-secondary/65 font-sans">Eficácia: <strong className="text-text-primary font-sans">{rate}% de sucesso</strong></p>
+                                <p className="text-primary-green mt-1 font-sans">≈ {hrsSaved}h que você recuperou do {ah.name}</p>
                               </div>
                             </div>
                           );
@@ -855,16 +863,16 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </div>
 
             {/* PILLAR 3: AGENDAMENTOS */}
-            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300">
+            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300 font-sans">
               <button 
                 onClick={() => setExpandedPillar(expandedPillar === 'schedule' ? null : 'schedule')}
-                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01]"
+                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.01] font-sans"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 font-sans">
                   <Calendar size={16} className="text-primary-green" />
                   <div>
-                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary">Compromissos e Acordos</span>
-                    <span className="text-[9px] font-mono text-text-secondary/40 block uppercase tracking-wider mt-0.5">
+                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary font-sans">Compromissos e Acordos</span>
+                    <span className="text-[10px] text-text-secondary/60 block uppercase tracking-wide mt-0.5 font-sans">
                       ✓ {scheduleCompliance.rate}% de palavra cumprida
                     </span>
                   </div>
@@ -878,35 +886,39 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4"
+                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4 font-sans"
                   >
                     {scheduleCompliance.total === 0 ? (
-                      <p className="text-xs text-text-secondary/40 italic font-mono">Nenhum compromisso marcado na sua agenda até o momento.</p>
+                      <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans">Nenhum compromisso marcado na sua agenda até o momento.</p>
                     ) : (
-                      <div className="space-y-3">
-                        <div className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-2">
-                          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block font-mono">Taxa de Palavra Cumprida</span>
-                          <span className="text-base font-bold text-text-primary block leading-tight">
+                      <div className="space-y-3 font-sans">
+                        <div className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-2 font-sans">
+                          <span className="text-[11px] md:text-xs font-semibold text-text-secondary/70 uppercase tracking-wide block font-sans">Taxa de Palavra Cumprida</span>
+                          <span className="text-base font-bold text-text-primary block leading-tight font-sans">
                             Você cumpriu {scheduleCompliance.completed} de {scheduleCompliance.completed + scheduleCompliance.lost} agendamentos elegíveis ({scheduleCompliance.rate}%).
                           </span>
-                          <p className="text-[10px] font-mono text-text-secondary/50 leading-snug">
+                          <p className="text-[10px] md:text-xs text-text-secondary/60 leading-snug font-sans font-sans">
                             Cancelamentos não reduzem sua pontuação, pois representam uma escolha consciente de recalibração de rota.
                           </p>
                         </div>
 
                         {/* Exact breakdown status blocks */}
-                        <div className="grid grid-cols-3 gap-3 text-center">
-                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5">
-                            <span className="text-[8px] font-mono text-text-secondary/40 uppercase tracking-wider block">Cumpridos</span>
-                            <span className="text-sm font-bold text-primary-green">{scheduleCompliance.completed}</span>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center font-sans">
+                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Cumpridos</span>
+                            <span className="text-base font-bold text-primary-green font-sans">{scheduleCompliance.completed}</span>
                           </div>
-                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5">
-                            <span className="text-[8px] font-mono text-text-secondary/40 uppercase tracking-wider block">Perdidos</span>
-                            <span className="text-sm font-bold text-amber-500">{scheduleCompliance.lost}</span>
+                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Não Cumpridos</span>
+                            <span className="text-base font-bold text-amber-500 font-sans">{scheduleCompliance.lost}</span>
                           </div>
-                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5">
-                            <span className="text-[8px] font-mono text-text-secondary/40 uppercase tracking-wider block">Cancelados</span>
-                            <span className="text-sm font-bold text-text-secondary/60">{scheduleCompliance.cancelled}</span>
+                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans font-sans">
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Pendentes</span>
+                            <span className="text-base font-bold text-sky-400 font-sans">{scheduleCompliance.pendentes}</span>
+                          </div>
+                          <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans">Cancelados</span>
+                            <span className="text-sm font-bold text-text-secondary/60 font-sans">{scheduleCompliance.cancelled}</span>
                           </div>
                         </div>
                       </div>
@@ -920,19 +932,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </section>
 
         {/* HEATMAP AT THE BOTTOM OF SCROLL (LAST 90 DAYS ONLY) */}
-        <section className="space-y-4 pt-4 border-t border-white/5">
-          <div className="flex flex-col space-y-1">
-            <h3 className="text-[11px] font-black text-text-secondary/40 uppercase tracking-[0.2em] flex items-center gap-1.5 font-mono">
+        <section className="space-y-4 pt-4 border-t border-white/5 font-sans font-sans">
+          <div className="flex flex-col space-y-1 font-sans">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
               <Calendar size={12} className="text-primary-green" /> Mapa do Foco Diário de 90 dias
             </h3>
-            <span className="text-[10px] text-text-secondary/40 font-mono font-light leading-normal block">
+            <span className="text-xs md:text-[13px] text-text-secondary/60 leading-normal block font-sans">
               Representação visual compacta da intensidade de foco diário nos últimos 90 dias.
             </span>
           </div>
 
-          <div id="90-days-focus-heatmap" className="bg-white/[0.01] border border-white/5 p-5 rounded-2.5xl space-y-4">
-            <div className="overflow-x-auto style-scrollbar select-none py-1 pr-1">
-              <div className="flex flex-wrap gap-[4px] min-w-[340px] md:max-w-none">
+          <div id="90-days-focus-heatmap" className="bg-white/[0.01] border border-white/5 p-5 rounded-2.5xl space-y-4 font-sans font-sans">
+            <div className="overflow-x-auto style-scrollbar select-none py-1 pr-1 font-sans">
+              <div className="flex flex-wrap gap-[4px] min-w-[340px] md:max-w-none font-sans">
                 {heatmapCells90.map((cell, idx) => {
                   const bgClass = {
                     0: 'bg-white/[0.01] border-white/[0.02]',
@@ -954,9 +966,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </div>
 
             {/* Scale legend */}
-            <div className="flex items-center justify-between text-[9px] text-text-secondary/40 font-mono pt-1">
+            <div className="flex items-center justify-between text-[10px] md:text-xs font-medium text-text-secondary/60 pt-1 font-sans font-sans">
               <span>Menos ativo</span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 font-sans">
                 <span className="w-2.5 h-2.5 bg-white/[0.01] border border-white/[0.02] rounded-[1.5px]" />
                 <span className="w-2.5 h-2.5 bg-primary-green/15 border border-primary-green/10 rounded-[1.5px]" />
                 <span className="w-2.5 h-2.5 bg-primary-green/45 border border-primary-green/35 rounded-[1.5px]" />
@@ -969,10 +981,10 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </section>
 
         {/* FOOTER BUTTON */}
-        <footer className="flex justify-end pt-4">
+        <footer className="flex justify-end pt-4 font-sans">
           <button
             onClick={onClose}
-            className="px-6 py-3 bg-white/[0.02] border border-border-white hover:bg-white/5 rounded-2xl text-[10px] uppercase font-bold tracking-[0.2em] transition-all cursor-pointer text-text-primary"
+            className="px-6 py-3 bg-white/[0.02] border border-border-white hover:bg-white/5 rounded-2xl text-[11px] uppercase font-bold tracking-wider transition-all cursor-pointer text-text-primary font-sans"
           >
             Fechar Centro de Inteligência
           </button>
