@@ -320,14 +320,14 @@ export default function App() {
               </p>
             </div>
 
-            {/* 6. Botão "VER MEU PROGRESSO" */}
+            {/* 6. Botão "CENTRO DE INTELIGÊNCIA" */}
             <div className="flex justify-center w-full">
               <button 
                 onClick={() => setShowStats(true)}
                 className="px-16 py-5 bg-primary-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
               >
-                <span className="text-background text-xl font-bold tracking-tight">Ver Meu Progresso</span>
-                <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Evolução e Métricas Históricas</span>
+                <span className="text-background text-xl font-bold tracking-tight">Centro de Inteligência</span>
+                <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Métricas de Foco, Hábitos e Autoevolução</span>
               </button>
             </div>
 
