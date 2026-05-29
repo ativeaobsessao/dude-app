@@ -905,11 +905,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                         {/* Exact breakdown status blocks */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center font-sans">
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
-                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Cumpridos</span>
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Concluídas</span>
                             <span className="text-base font-bold text-primary-green font-sans">{scheduleCompliance.completed}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
-                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Não Cumpridos</span>
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Não Cumpridas</span>
                             <span className="text-base font-bold text-amber-500 font-sans">{scheduleCompliance.lost}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans font-sans">
@@ -917,7 +917,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                             <span className="text-base font-bold text-sky-400 font-sans">{scheduleCompliance.pendentes}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
-                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans">Cancelados</span>
+                            <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans">Canceladas</span>
                             <span className="text-sm font-bold text-text-secondary/60 font-sans">{scheduleCompliance.cancelled}</span>
                           </div>
                         </div>
