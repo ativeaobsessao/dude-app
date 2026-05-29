@@ -35,14 +35,7 @@ export const HeroSection = () => {
   const minutes = totalMinutes % 60;
   const streak = dataStore.profile?.current_streak || 0;
 
-  // Reactive subheadline text
-  let subheadlineText = "Se organize para passar mais tempo com as pessoas que importam ❤️";
-  if (totalMinutes === 0) {
-    subheadlineText = "Seu dia está começando. Que tal a primeira sessão?";
-  } else if (totalMinutes > 0) {
-    const formattedHour = hours > 0 ? `${hours}h ` : '';
-    subheadlineText = `Você já focou [${formattedHour}${minutes}m] hoje — bom ritmo.`;
-  }
+  const hasSessions = dataStore.sessions && dataStore.sessions.length > 0;
 
   // Get upcoming/pending schedules
   const now = new Date();
@@ -70,16 +63,28 @@ export const HeroSection = () => {
         transition={{ duration: 0.5 }}
         className="w-full max-w-3xl space-y-8 md:space-y-12 py-4 md:py-8"
       >
+        {/* Block B — MARKETING (Only rendered here if user has ZERO SP recorded) */}
+        {!hasSessions && (
+          <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-b border-white/5 pb-8 mb-6">
+            <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
+              Tenha Controle Total Sobre Seu Tempo
+            </h3>
+            <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
+              Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+            </p>
+          </div>
+        )}
+
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center">
-          <h2 className="text-[clamp(1.75rem,6vw,3.5rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
+          <h2 className="text-[clamp(2.25rem,6.5vw,4.25rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
             {greeting}, {firstName}
           </h2>
           <span className="text-text-secondary/40 font-mono text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-bold">
             {capitalizedDate}
           </span>
-          <p className="text-sm md:text-base text-text-secondary font-medium max-w-xl text-center leading-relaxed">
-            {subheadlineText}
+          <p className="text-sm sm:text-base md:text-lg text-text-primary/95 font-medium max-w-xl text-center leading-relaxed">
+            Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
 
@@ -87,7 +92,7 @@ export const HeroSection = () => {
         {sortedUpcoming.length > 0 && (
           <div className="w-full max-w-sm mx-auto bg-surface/10 border border-white/5 rounded-2xl p-4 space-y-3 text-left font-sans shadow-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6ee7a8]/80">O que vem a seguir?</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6ee7a8]/80 animate-pulse">O que vem a seguir?</span>
               <span className="text-[8px] font-mono text-text-secondary/40 font-bold uppercase tracking-[0.1em]">PLANEJADO</span>
             </div>
             <div className="space-y-2">
@@ -121,15 +126,15 @@ export const HeroSection = () => {
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm md:text-2xl font-light text-text-primary px-2 max-w-full">
             <span>{hours}h {minutes}min focados</span>
             <span className="text-border-white/20 select-none">·</span>
-            <span>{todaySessions.length} sessões</span>
+            <span>{todaySessions.length === 1 ? '1 sessão' : `${todaySessions.length} sessões`}</span>
             <span className="text-border-white/20 select-none">·</span>
-            <span className="flex items-center gap-1">🔥 {streak} dias</span>
+            <span className="flex items-center gap-1 font-sans">🔥 {streak === 1 ? '1 dia' : `${streak} dias`}</span>
           </div>
         </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.25em] text-[#6ee7a8] block text-center">Tarefas Realizadas no Dia</span>
+          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-text-primary block text-center">Tarefas Realizadas no Dia</span>
           <div className="space-y-4 text-left">
             {todaySessions.length > 0 ? (
               todaySessions.slice(0, 5).map(session => {
@@ -145,37 +150,6 @@ export const HeroSection = () => {
                 const tasks = dataStore.sessionTasks.filter(t => t.session_id === session.id);
                 const completedTasks = tasks.filter(t => t.completed);
 
-                if (completedTasks.length > 0) {
-                  return (
-                    <div key={session.id} className="space-y-2 border-b border-white/5 pb-3">
-                      {completedTasks.map((task) => (
-                        <div key={task.id} className="flex gap-3 text-left items-start">
-                          <CheckCircle 
-                            size={14} 
-                            className="shrink-0 mt-1 text-[#6ee7b7]" 
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm md:text-base text-text-primary font-medium line-through decoration-white/20">
-                                {task.description}
-                              </span>
-                              <span className="text-text-secondary/30 hidden md:inline">—</span>
-                              <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest">
-                                {resolved.projeto}
-                              </span>
-                            </div>
-                            <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
-                              <span>{timeRange}</span>
-                              <span className="text-[#3a4540]">·</span>
-                              <span>Sessão: {resolved.titulo}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-
                 return (
                   <div key={session.id} className="flex gap-3 text-left items-start border-b border-white/5 pb-3">
                     <CheckCircle 
@@ -183,18 +157,19 @@ export const HeroSection = () => {
                       className="shrink-0 mt-1" 
                       style={{ color: isPartial ? '#fbbf24' : '#6ee7b7' }}
                     />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 font-sans">
+                      {/* Linha 1: [ATIVIDADE] — [Projeto] */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm md:text-base text-text-primary font-medium truncate">
+                        <span className="text-sm md:text-base text-text-primary font-semibold truncate">
                           {resolved.titulo}
                         </span>
-                        <span className="text-text-secondary/30 hidden md:inline">—</span>
-                        <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest">
+                        <span className="text-text-secondary/35">—</span>
+                        <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest font-mono">
                           {resolved.projeto}
                         </span>
                         {session.scheduled_activity_id && (
                           <span 
-                            className="inline-flex items-center font-bold"
+                            className="inline-flex items-center font-bold font-mono"
                             style={{
                               backgroundColor: 'rgba(139, 92, 246, 0.12)',
                               border: '0.5px solid rgba(139, 92, 246, 0.25)',
@@ -212,7 +187,7 @@ export const HeroSection = () => {
                         )}
                         {isPartial && (
                           <span 
-                            className="inline-flex items-center font-bold"
+                            className="inline-flex items-center font-bold font-mono"
                             style={{
                               backgroundColor: 'rgba(251, 191, 36, 0.12)',
                               border: '0.5px solid rgba(251, 191, 36, 0.25)',
@@ -230,12 +205,24 @@ export const HeroSection = () => {
                         )}
                       </div>
                       
-                      {/* Segunda linha */}
-                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
+                      {/* Linha 2: [HH:MM] → [HH:MM] · [duração] */}
+                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570] font-mono">
                         <span>{timeRange}</span>
                         <span className="text-[#3a4540]">·</span>
                         <span>{formattedDuration}</span>
                       </div>
+
+                      {/* Checklist: rendered BELOW the time range with checklist style checkboxes checkmarked */}
+                      {completedTasks.length > 0 && (
+                        <div className="mt-2 space-y-1 pl-1">
+                          {completedTasks.map(task => (
+                            <div key={task.id} className="flex items-center gap-2 text-xs text-text-primary/80">
+                              <span className="text-primary-green select-none text-[13px]">☑</span>
+                              <span className="line-through decoration-white/10 text-text-secondary/80">{task.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Linha tracejada e ícone de pausa */}
                       {isPartial && (

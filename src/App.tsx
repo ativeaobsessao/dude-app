@@ -25,7 +25,7 @@ import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession, profile, notification } = useDataStore();
+  const { hasCompletedFirstSession, profile, notification, sessions } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
@@ -331,6 +331,18 @@ export default function App() {
 
             {/* 9. Seção Histórico Recente */}
             <RecentHistory />
+
+            {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
+            {sessions && sessions.length > 0 && (
+              <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-t border-white/5 pt-12 mt-12">
+                <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
+                  Tenha Controle Total Sobre Seu Tempo
+                </h3>
+                <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
+                  Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+                </p>
+              </div>
+            )}
           </div>
         </main>
       )}
