@@ -680,7 +680,7 @@ export const ActionCenter = () => {
       },
       {
         id: 'anti-vicio',
-        label: '→ ANTI-VÍCIO',
+        label: 'ANTI-VÍCIO',
         subtitle: 'Centro para se livrar de vícios que impedem seu real desenvolvimento pessoal.'
       },
       {

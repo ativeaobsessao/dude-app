@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil } from 'lucide-react';
+import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { getLocalDateString } from '../../lib/utils';
@@ -90,28 +90,55 @@ export const RecentNotes = () => {
     }).replace('.', '');
   };
 
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
-    <section className="w-full max-w-5xl space-y-12 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-border-white pb-8 gap-4">
-        <div className="space-y-4">
-          <span className="text-text-secondary uppercase tracking-[0.4em] text-[10px] font-bold flex items-center gap-3">
-            <StickyNote size={14} className="text-primary-green" />
-            Memória Cognitiva
-          </span>
-          <h3 className="text-4xl md:text-5xl font-semibold tracking-tight text-text-primary">Anotações</h3>
+    <section className="w-full max-w-5xl space-y-4 font-sans">
+      {/* Header Collapsible Trigger */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-6 bg-surface/20 hover:bg-surface/35 border border-border-white rounded-3xl flex items-center justify-between cursor-pointer transition-all duration-300 group"
+      >
+        <div className="flex items-center gap-4 font-sans">
+          <div className="w-10 h-10 rounded-full bg-primary-green/5 flex items-center justify-center text-primary-green group-hover:bg-primary-green/10 transition-colors">
+            <StickyNote size={18} />
+          </div>
+          <div className="text-left font-sans">
+            <h3 className="text-lg font-semibold text-text-primary tracking-tight">Anotações</h3>
+            <p className="text-xs text-text-secondary/60 mt-0.5">
+              {dataStore.notes.length} {dataStore.notes.length === 1 ? 'anotação registrada' : 'anotações registradas'}
+            </p>
+          </div>
         </div>
-        <span className="text-[10px] text-text-secondary/40 font-mono tracking-[0.1em] mb-2 font-bold">REGISTRO DE CONSCIÊNCIA</span>
+        <div className={`text-text-secondary/40 group-hover:text-text-primary transition-colors transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+          <ChevronDown size={20} />
+        </div>
       </div>
 
-      <div className="flex flex-col items-center gap-8">
-        <button 
-          onClick={() => setShowAddNote(true)}
-          className="group px-12 py-6 bg-primary-green text-background rounded-2xl text-xs font-bold uppercase tracking-[0.3em] hover:bg-glow-green transition-all shadow-[0_20px_40px_rgba(110,231,168,0.2)] active:scale-95"
-        >
-          Anota Agora
-        </button>
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="p-1 pt-4 space-y-8 font-sans">
+              {/* Inner header & Action panel */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-surface/10 p-5 rounded-2xl border border-white/5 text-left font-sans">
+                <span className="text-xs text-text-secondary/60 font-light">
+                  Memória Cognitiva: Registre insights, ideias e notas operacionais de forma rápida.
+                </span>
+                <button
+                  onClick={() => setShowAddNote(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-[10px] uppercase font-bold tracking-widest text-[#6ee7a8] bg-[#6ee7a8]/10 hover:bg-[#6ee7a8]/20 border border-[#6ee7a8]/20 rounded-full transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto font-sans"
+                >
+                  Anota Agora
+                </button>
+              </div>
 
-        <div className="w-full max-w-4xl space-y-4">
+              <div className="w-full max-w-4xl space-y-4">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {latestNotes.map(note => {
@@ -197,12 +224,15 @@ export const RecentNotes = () => {
 
           <button 
             onClick={() => setShowAllNotes(true)}
-            className="w-full py-4 mt-4 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-primary-green hover:border-primary-green/30 transition-all"
+            className="w-full py-4 mt-4 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-primary-green hover:border-primary-green/30 transition-all font-sans"
           >
             Ver Todas as Anotações
           </button>
         </div>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add Note Modal - Forma 1 */}
       <AnimatePresence>
