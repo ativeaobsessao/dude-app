@@ -3,6 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { AgendamentoCard } from './AgendamentoCard';
 import { ScheduledActivity } from '../../types';
 import { Calendar, CheckCircle, Ban, Hourglass, ArrowLeft, Plus } from 'lucide-react';
+import { getLocalDateString, getLocalYesterdayDateString, getLocalTomorrowDateString } from '../../lib/utils';
 
 interface AgendaCompletaPageProps {
   onBack: () => void;
@@ -64,15 +65,9 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
   }, [dataStore.scheduledActivities]);
 
   const formatDateHeader = (dateStr: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    const tomorrowObj = new Date();
-    tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-    const tomorrow = tomorrowObj.toISOString().split('T')[0];
-
-    const yesterdayObj = new Date();
-    yesterdayObj.setDate(yesterdayObj.getDate() - 1);
-    const yesterday = yesterdayObj.toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
+    const tomorrow = getLocalTomorrowDateString(new Date());
+    const yesterday = getLocalYesterdayDateString(new Date());
 
     if (dateStr === today) return 'Hoje 📅';
     if (dateStr === tomorrow) return 'Amanhã 🌅';

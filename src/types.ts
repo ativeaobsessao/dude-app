@@ -32,6 +32,24 @@ export type Habit = {
   recurrence_days?: string[];
   recurrence_time?: string;
   last_generated_week?: string;
+  habit_mode?: 'build' | 'avoid';
+  avoidance_target?: string;
+  avoidance_scope?: 'full_day' | 'time_window';
+  avoidance_window_start?: string; // HH:MM
+  avoidance_window_end?: string;   // HH:MM
+  avoidance_checkin_intensity?: 'light' | 'balanced' | 'strong';
+  avoidance_notifications_enabled?: boolean;
+  avoidance_recovery_mode?: boolean;
+};
+
+export type AvoidanceCheckin = {
+  id: string;
+  user_id: string;
+  habit_id: string;
+  checkin_date: string;
+  checkin_period: 'morning' | 'afternoon' | 'evening' | 'window';
+  status: 'success' | 'relapse' | 'pending';
+  created_at: string;
 };
 
 export type HabitCompletion = {

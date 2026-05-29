@@ -87,3 +87,34 @@ export function formatTimeRange(startedAt: string, completedAt?: string | null, 
   
   return `${startStr} → ${endStr}`;
 }
+
+export function getLocalDateString(date_or_str?: Date | string): string {
+  const d = !date_or_str ? new Date() : (typeof date_or_str === 'string' ? new Date(date_or_str) : date_or_str);
+  // Guard against invalid Date parsing
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalYesterdayDateString(date_or_str?: Date | string): string {
+  const d = !date_or_str ? new Date() : (typeof date_or_str === 'string' ? new Date(date_or_str) : new Date(date_or_str.getTime()));
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() - 1);
+  return getLocalDateString(d);
+}
+
+export function getLocalTomorrowDateString(date_or_str?: Date | string): string {
+  const d = !date_or_str ? new Date() : (typeof date_or_str === 'string' ? new Date(date_or_str) : new Date(date_or_str.getTime()));
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + 1);
+  return getLocalDateString(d);
+}
+
+export function isSameLocalDay(date1: Date | string, date2: Date | string): boolean {
+  const str1 = getLocalDateString(date1);
+  const str2 = getLocalDateString(date2);
+  return str1 !== '' && str1 === str2;
+}
+

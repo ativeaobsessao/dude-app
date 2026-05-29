@@ -1,14 +1,14 @@
 import React from 'react';
 import { Check, Activity, Pause } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
-import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
 export const DailyAwareness = () => {
   const dataStore = useDataStore();
 
-  const today = new Date().toDateString();
+  const today = getLocalDateString(new Date());
   const todaySessions = dataStore.sessions.filter(s => 
-    new Date(s.started_at).toDateString() === today
+    getLocalDateString(new Date(s.started_at)) === today
   );
 
   const totalMinutesToday = todaySessions.reduce((acc, s) => {

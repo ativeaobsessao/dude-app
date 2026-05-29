@@ -3,6 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomSelect } from '../ui/CustomSelect';
 import { Plus, Trash2, Calendar, Clock, AlertTriangle, X } from 'lucide-react';
+import { getLocalDateString } from '../../lib/utils';
 import { ScheduledActivity } from '../../types';
 
 interface CriarAgendamentoScreenProps {
@@ -23,7 +24,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
 
   // Scheduled Date / Defaults to today
   const [scheduledDate, setScheduledDate] = useState(
-    editingActivity?.scheduled_date || new Date().toISOString().split('T')[0]
+    editingActivity?.scheduled_date || getLocalDateString(new Date())
   );
 
   // Scheduled Start Time
@@ -383,7 +384,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
   };
 
   // Custom visual capitalizing date label (e.g. "HOJE • 26/05/2026")
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
   const dataFormatadaLabel = useMemo(() => {
     if (!scheduledDate) return '';
     const isToday = scheduledDate === todayStr;

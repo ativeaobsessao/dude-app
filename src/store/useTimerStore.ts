@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getLocalDateString } from '../lib/utils';
 
 interface TimerState {
   isActive: boolean;
@@ -66,7 +67,7 @@ export const useTimerStore = create<TimerState>()(
           habitId: habId || null,
           activityId: actId || null,
           description: desc || '',
-          targetDate: date || new Date().toISOString().split('T')[0],
+          targetDate: date || getLocalDateString(new Date()),
           scheduledActivityId: scheduledActId || get().scheduledActivityId || null,
         });
       },

@@ -1,6 +1,6 @@
 import { useDataStore } from '../../store/useDataStore';
 import { Layers, Calendar } from 'lucide-react';
-import { formatHumanTime } from '../../lib/utils';
+import { formatHumanTime, getLocalDateString } from '../../lib/utils';
 import { Habit } from '../../types';
 
 const HabitCard = ({ habit }: { habit: Habit }) => {
@@ -14,7 +14,7 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
   }[habit.preferred_time];
 
   // Calculate today's local date details
-  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todayStr = getLocalDateString(new Date());
   const startOfWeek = new Date(habit.week_start_date);
   startOfWeek.setHours(0,0,0,0);
 
@@ -27,7 +27,7 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
 
   const minutesByDay: { [dateStr: string]: number } = {};
   habitSessionsThisWeek.forEach(s => {
-    const dStr = new Date(s.started_at).toLocaleDateString('en-CA');
+    const dStr = getLocalDateString(new Date(s.started_at));
     const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
     minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
   });
@@ -39,7 +39,7 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
     !hc.focus_session_id
   );
   manualCompletionsThisWeek.forEach(hc => {
-    const dStr = new Date(hc.completed_at).toLocaleDateString('en-CA');
+    const dStr = getLocalDateString(new Date(hc.completed_at));
     minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
   });
 
@@ -171,10 +171,10 @@ export const HabitsSection = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {dataStore.habits.length === 0 ? (
+        {dataStore.habits.filter(h => h.habit_mode !== 'avoid').length === 0 ? (
           <p className="text-text-secondary/40 font-light italic col-span-2">Nenhum hábito atômico cadastrado.</p>
         ) : (
-          dataStore.habits.map(habit => (
+          dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(habit => (
             <HabitCard key={habit.id} habit={habit} />
           ))
         )}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle, Pause, Edit2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
 export const RecentHistory = () => {
   const dataStore = useDataStore();
@@ -15,7 +15,7 @@ export const RecentHistory = () => {
 
   const filteredHistory = dataStore.sessions.filter(session => {
     const matchesProject = filterProject ? session.project_id === filterProject : true;
-    const sessionDateStr = new Date(session.started_at).toISOString().split('T')[0];
+    const sessionDateStr = getLocalDateString(new Date(session.started_at));
     const matchesDate = filterDate ? sessionDateStr === filterDate : true;
     return matchesProject && matchesDate;
   });

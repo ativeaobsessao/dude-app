@@ -3,6 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { AgendamentoCard } from './AgendamentoCard';
 import { ScheduledActivity } from '../../types';
 import { ExternalLink } from 'lucide-react';
+import { getLocalDateString } from '../../lib/utils';
 
 interface ProximasAtividadesProps {
   onStartSession: (activity: ScheduledActivity) => void;
@@ -14,7 +15,7 @@ export const ProximasAtividades = ({ onStartSession, onOpenNewSchedule, onNaviga
   const dataStore = useDataStore();
 
   const todayStr = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateString(new Date());
   }, []);
 
   const upcomingActivities = useMemo(() => {

@@ -2,5 +2,7 @@
   "name": "DUDE",
   "description": "Premium Personal Evolution System with cinematic focus cockpit and human-centric metrics.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -3,6 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { AgendamentoCard } from './AgendamentoCard';
 import { ScheduledActivity } from '../../types';
 import { Plus } from 'lucide-react';
+import { getLocalDateString } from '../../lib/utils';
 
 interface AgendaHojeProps {
   onStartSession: (activity: ScheduledActivity) => void;
@@ -13,7 +14,7 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
   const dataStore = useDataStore();
 
   const todayStr = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateString(new Date());
   }, []);
 
   const todayActivities = useMemo(() => {

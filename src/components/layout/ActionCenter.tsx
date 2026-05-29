@@ -11,9 +11,9 @@ import {
   Pencil, Calendar
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
-import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
-type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda';
+type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio';
 
 import { CustomSelect } from '../ui/CustomSelect';
 import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
@@ -53,6 +53,26 @@ export const ActionCenter = () => {
         setEditingActivity(undefined);
       }
 
+      // Prefill Anti-Vício editing/creation states
+      if (e.detail?.screen === 'anti-vicio' && e.detail?.editHabit) {
+        const h = e.detail.editHabit;
+        setEditingAvoidanceId(h.id);
+        setAvoidanceName(h.name);
+        setAvoidanceScope(h.avoidance_scope || 'full_day');
+        setAvoidanceStart(h.avoidance_window_start || '14:00');
+        setAvoidanceEnd(h.avoidance_window_end || '18:00');
+        setAvoidanceDays(h.recurrence_days || []);
+        setAvoidanceIntensity(h.avoidance_checkin_intensity || 'balanced');
+      } else if (e.detail?.screen === 'anti-vicio') {
+        setEditingAvoidanceId(null);
+        setAvoidanceName('');
+        setAvoidanceScope('full_day');
+        setAvoidanceStart('14:00');
+        setAvoidanceEnd('18:00');
+        setAvoidanceDays([]);
+        setAvoidanceIntensity('balanced');
+      }
+
       // Se houver dados de pré-preenchimento (ex: de um agendamento)
       if (e.detail?.prefill) {
         const p = e.detail.prefill;
@@ -64,7 +84,7 @@ export const ActionCenter = () => {
           description: p.notes || '',
           hours: p.hours !== undefined ? p.hours : 0,
           minutes: p.minutes !== undefined ? p.minutes : 25,
-          date: new Date().toISOString().split('T')[0]
+          date: getLocalDateString(new Date())
         });
         if (p.tasks) {
           setCustomUserTasks(p.tasks);
@@ -94,7 +114,7 @@ export const ActionCenter = () => {
     description: '',
     hours: 0,
     minutes: 25,
-    date: new Date().toISOString().split('T')[0]
+    date: getLocalDateString(new Date())
   });
 
   // Activity States
@@ -117,9 +137,19 @@ export const ActionCenter = () => {
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
   const [newTaskInput, setNewTaskInput] = useState('');
+
+  // Anti-Vício States
+  const [avoidanceName, setAvoidanceName] = useState('');
+  const [avoidanceScope, setAvoidanceScope] = useState<'full_day' | 'time_window'>('full_day');
+  const [avoidanceStart, setAvoidanceStart] = useState('14:00');
+  const [avoidanceEnd, setAvoidanceEnd] = useState('18:00');
+  const [avoidanceDays, setAvoidanceDays] = useState<string[]>([]);
+  const [avoidanceIntensity, setAvoidanceIntensity] = useState<'light' | 'balanced' | 'strong'>('balanced');
+  const [editingAvoidanceId, setEditingAvoidanceId] = useState<string | null>(null);
   
   const [restoredTasks, setRestoredTasks] = useState<{ id: string; description: string }[]>([]);
   const [customUserTasks, setCustomUserTasks] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [registrationMode, setRegistrationMode] = useState<'timer' | 'manual'>('timer');
 
@@ -132,7 +162,7 @@ export const ActionCenter = () => {
       description: '',
       hours: 0,
       minutes: 25,
-      date: new Date().toISOString().split('T')[0]
+      date: getLocalDateString(new Date())
     });
     setCustomUserTasks([]);
     setRestoredTasks([]);
@@ -199,7 +229,7 @@ export const ActionCenter = () => {
   const [noteText, setNoteText] = useState('');
   const [noteProject, setNoteProject] = useState('');
   const [noteActivityId, setNoteActivityId] = useState('');
-  const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
+  const [noteDate, setNoteDate] = useState(getLocalDateString(new Date()));
 
   const [filterProject, setFilterProject] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -328,11 +358,13 @@ export const ActionCenter = () => {
   };
 
   const handleAddActivity = async () => {
+    if (isSaving) return;
     if (!newActivityName.trim() || !user) {
       showSuccess('Por favor, insira o nome da atividade.');
       return;
     }
 
+    setIsSaving(true);
     let createdHabit: any = null;
     try {
       if (linkToHabit === 'sim') {
@@ -389,20 +421,34 @@ export const ActionCenter = () => {
       setNewActivityHabitDuration(0);
       setNewActivityHabitTime('morning');
       showSuccess('Atividade salva com sucesso!');
+      setCurrentScreen(null);
     } catch (err) {
       console.error('Erro crítico ao salvar atividade:', err);
       if (createdHabit) {
         await dataStore.deleteHabit(createdHabit.id);
       }
       showSuccess('Erro crítico ao processar criação.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleAddProject = async () => {
-    if (!newProjectName || !user) return;
-    await dataStore.addProject(user.id, newProjectName);
-    setNewProjectName('');
-    showSuccess('Projeto salvo com sucesso!');
+    if (isSaving) return;
+    const nameTrimmed = (newProjectName || '').trim();
+    if (!nameTrimmed || !user) return;
+    setIsSaving(true);
+    try {
+      await dataStore.addProject(user.id, nameTrimmed);
+      setNewProjectName('');
+      showSuccess('Projeto salvo com sucesso!');
+      setCurrentScreen(null);
+    } catch (err) {
+      console.error('Erro ao adicionar projeto:', err);
+      dataStore.showNotification('Erro ao criar projeto.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEditHabitClick = (habit: any) => {
@@ -423,6 +469,7 @@ export const ActionCenter = () => {
   };
 
   const handleAddHabit = async () => {
+    if (isSaving) return;
     if (!newHabitName.trim() || !user) {
       showSuccess('Por favor, insira o nome do hábito.');
       return;
@@ -444,57 +491,149 @@ export const ActionCenter = () => {
       return;
     }
 
-    if (editingHabitId) {
-      const success = await dataStore.updateHabit(editingHabitId, {
-        name: newHabitName.trim(),
-        sessions_per_week: newHabitFrequency,
-        minutes_per_session: newHabitDuration,
-        preferred_time: newHabitTime as 'morning' | 'afternoon' | 'evening',
-        is_recurring: isRecurring,
-        recurrence_days: isRecurring ? recurrenceDays : [],
-        recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null
-      });
-      if (success) {
-        showSuccess('✅ Hábito atualizado com sucesso!');
-        setEditingHabitId(null);
+    setIsSaving(true);
+    try {
+      if (editingHabitId) {
+        const success = await dataStore.updateHabit(editingHabitId, {
+          name: newHabitName.trim(),
+          sessions_per_week: newHabitFrequency,
+          minutes_per_session: newHabitDuration,
+          preferred_time: newHabitTime as 'morning' | 'afternoon' | 'evening',
+          is_recurring: isRecurring,
+          recurrence_days: isRecurring ? recurrenceDays : [],
+          recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null
+        });
+        if (success) {
+          showSuccess('✅ Hábito atualizado com sucesso!');
+          setEditingHabitId(null);
+          setCurrentScreen(null);
+        } else {
+          showSuccess('Erro ao atualizar hábito.');
+        }
       } else {
-        showSuccess('Erro ao atualizar hábito.');
+        await dataStore.addHabit(
+          user.id,
+          newHabitName.trim(),
+          newHabitFrequency,
+          newHabitDuration,
+          newHabitTime as 'morning' | 'afternoon' | 'evening',
+          isRecurring,
+          isRecurring ? recurrenceDays : [],
+          isRecurring ? (recurrenceTime || '09:00') : ''
+        );
+        showSuccess('✅ Hábito criado com sucesso!');
+        setCurrentScreen(null);
       }
-    } else {
-      await dataStore.addHabit(
-        user.id,
-        newHabitName.trim(),
-        newHabitFrequency,
-        newHabitDuration,
-        newHabitTime as 'morning' | 'afternoon' | 'evening',
-        isRecurring,
-        isRecurring ? recurrenceDays : [],
-        isRecurring ? (recurrenceTime || '09:00') : ''
-      );
-      showSuccess('✅ Hábito criado com sucesso!');
+
+      setNewHabitName('');
+      setNewHabitFrequency(3);
+      setNewHabitDuration(0);
+      setNewHabitTime('morning');
+      setIsRecurring(false);
+      setRecurrenceDays([]);
+      setRecurrenceTime('09:00');
+    } catch (err) {
+      console.error('Erro ao salvar hábito:', err);
+      showSuccess('Erro ao salvar hábito.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddAvoidance = async () => {
+    if (isSaving) return;
+    if (!avoidanceName || avoidanceName.trim() === '' || !user) {
+      dataStore.showNotification('Por favor, informe o vício ou comportamento que deseja controlar.', 'error');
+      return;
     }
 
-    setNewHabitName('');
-    setNewHabitFrequency(3);
-    setNewHabitDuration(0);
-    setNewHabitTime('morning');
-    setIsRecurring(false);
-    setRecurrenceDays([]);
-    setRecurrenceTime('09:00');
+    if (avoidanceScope === 'time_window') {
+      if (!avoidanceStart || !avoidanceEnd) {
+        dataStore.showNotification('Por favor, defina a janela de horários para o autocontrole.', 'error');
+        return;
+      }
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        habit_mode: 'avoid' as 'build' | 'avoid',
+        avoidance_target: avoidanceName.trim(),
+        avoidance_scope: avoidanceScope,
+        avoidance_window_start: avoidanceScope === 'time_window' ? avoidanceStart : null,
+        avoidance_window_end: avoidanceScope === 'time_window' ? avoidanceEnd : null,
+        avoidance_checkin_intensity: avoidanceIntensity,
+      };
+
+      if (editingAvoidanceId) {
+        const success = await dataStore.updateHabit(editingAvoidanceId, {
+          name: avoidanceName.trim(),
+          recurrence_days: avoidanceDays,
+          ...payload
+        });
+        if (success) {
+          dataStore.showNotification('Módulo Anti-Vício atualizado com sucesso.', 'success');
+          setCurrentScreen(null);
+        } else {
+          dataStore.showNotification('Não foi possível atualizar as configurações.', 'error');
+        }
+      } else {
+        const result = await dataStore.addHabit(
+          user.id,
+          avoidanceName.trim(),
+          7, // Dummy sessions_per_week
+          25, // Dummy minutes_per_session
+          'afternoon', // Dummy preferred_time
+          false, // is_recurring dummy
+          avoidanceDays,
+          null,
+          payload
+        );
+        if (result) {
+          dataStore.showNotification('Módulo Anti-Vício cadastrado com sucesso!', 'success');
+          setCurrentScreen(null);
+        } else {
+          dataStore.showNotification('Erro ao criar módulo Anti-Vício.', 'error');
+        }
+      }
+
+      setAvoidanceName('');
+      setAvoidanceScope('full_day');
+      setAvoidanceStart('14:00');
+      setAvoidanceEnd('18:00');
+      setAvoidanceDays([]);
+      setAvoidanceIntensity('balanced');
+      setEditingAvoidanceId(null);
+    } catch (err) {
+      console.error('Erro ao salvar autocontrole:', err);
+      dataStore.showNotification('Erro interno ao salvar autocontrole.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddNote = async () => {
+    if (isSaving) return;
     if (!noteText || !user) return;
-    await dataStore.addNote(
-      user.id, 
-      noteText, 
-      noteProject || undefined,
-      noteActivityId || undefined
-    );
-    setNoteText('');
-    setNoteProject('');
-    setNoteActivityId('');
-    showSuccess('✅ Anotação salva!');
+    setIsSaving(true);
+    try {
+      await dataStore.addNote(
+        user.id, 
+        noteText, 
+        noteProject || undefined,
+        noteActivityId || undefined
+      );
+      setNoteText('');
+      setNoteProject('');
+      setNoteActivityId('');
+      showSuccess('✅ Anotação salva!');
+      setCurrentScreen(null);
+    } catch (err) {
+      console.error('Erro ao salvar anotação:', err);
+      dataStore.showNotification('Erro ao criar anotação.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -538,6 +677,11 @@ export const ActionCenter = () => {
         id: 'habits',
         label: 'HÁBITOS ATÔMICOS',
         subtitle: 'Tudo aquilo que você pratica repetidamente, se torna um hábito.'
+      },
+      {
+        id: 'anti-vicio',
+        label: '→ ANTI-VÍCIO',
+        subtitle: 'Centro para se livrar de vícios que impedem seu real desenvolvimento pessoal.'
       },
       {
         id: 'notes',
@@ -1133,7 +1277,7 @@ export const ActionCenter = () => {
                         {dataStore.sessions
                           .filter(session => {
                             const matchesProject = filterProject ? session.project_id === filterProject : true;
-                            const sessionDateStr = new Date(session.started_at).toISOString().split('T')[0];
+                            const sessionDateStr = getLocalDateString(new Date(session.started_at));
                             const matchesDate = filterDate ? sessionDateStr === filterDate : true;
                             return matchesProject && matchesDate;
                           })
@@ -1143,7 +1287,7 @@ export const ActionCenter = () => {
                             dataStore.sessions
                               .filter(session => {
                                 const matchesProject = filterProject ? session.project_id === filterProject : true;
-                                const sessionDateStr = new Date(session.started_at).toISOString().split('T')[0];
+                                const sessionDateStr = getLocalDateString(new Date(session.started_at));
                                 const matchesDate = filterDate ? sessionDateStr === filterDate : true;
                                 return matchesProject && matchesDate;
                               })
@@ -1311,7 +1455,201 @@ export const ActionCenter = () => {
                   </div>
                 )}
 
-                                {currentScreen === 'habits' && (
+                {currentScreen === 'anti-vicio' && (
+                  <div className="w-full max-w-2xl space-y-10 flex flex-col items-stretch">
+                    <button
+                      onClick={() => setCurrentScreen(null)}
+                      className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px] self-start"
+                    >
+                      ← Voltar
+                    </button>
+
+                    <div className="space-y-4 text-left">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-3xl font-bold tracking-tight text-text-primary">
+                            {editingAvoidanceId ? 'Editar Módulo' : 'Novo Autocontrole'}
+                          </h3>
+                          <p className="text-xs text-text-secondary/60 mt-1">
+                            {editingAvoidanceId ? 'Ajuste os parâmetros de monitoramento mental.' : 'Defina o comportamento e restabeleça seu controle.'}
+                          </p>
+                        </div>
+                        {editingAvoidanceId && (
+                          <button
+                            onClick={() => {
+                              setEditingAvoidanceId(null);
+                              setAvoidanceName('');
+                              setAvoidanceScope('full_day');
+                              setAvoidanceDays([]);
+                              setAvoidanceIntensity('balanced');
+                              setCurrentScreen(null);
+                            }}
+                            className="text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-widest px-3 py-1 bg-red-400/10 rounded-full"
+                          >
+                            Cancelar Edição
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 text-left">
+                      {/* Name input */}
+                      <div className="flex flex-col">
+                        <label className={labelClasses}>O que você quer controlar?</label>
+                        <input
+                          type="text"
+                          value={avoidanceName}
+                          onChange={(e) => setAvoidanceName(e.target.value)}
+                          placeholder="Ex: Instagram, Café, Cigarro, Apostas, Compras..."
+                          className={inputClasses}
+                        />
+                      </div>
+
+                      {/* Control Scope / Type */}
+                      <div className="flex flex-col">
+                        <label className={labelClasses}>Escopo do Autocontrole</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={() => setAvoidanceScope('full_day')}
+                            className={`py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest border transition-all ${
+                              avoidanceScope === 'full_day'
+                                ? 'bg-primary-green/10 border-primary-green text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
+                                : 'bg-white/5 border-white/10 text-text-secondary/80 hover:border-white/20'
+                            }`}
+                          >
+                            🛡️ O dia todo
+                          </button>
+                          <button
+                            onClick={() => setAvoidanceScope('time_window')}
+                            className={`py-4 px-6 rounded-2xl font-bold text-xs uppercase tracking-widest border transition-all ${
+                              avoidanceScope === 'time_window'
+                                ? 'bg-primary-green/10 border-primary-green text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
+                                : 'bg-white/5 border-white/10 text-text-secondary/80 hover:border-white/20'
+                            }`}
+                          >
+                            ⏱️ Janela de Horário
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Time window inputs */}
+                      <AnimatePresence>
+                        {avoidanceScope === 'time_window' && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="grid grid-cols-2 gap-4 overflow-hidden"
+                          >
+                            <div className="flex flex-col">
+                              <label className={labelClasses}>Início da Janela</label>
+                              <input
+                                type="text"
+                                value={avoidanceStart}
+                                onChange={(e) => setAvoidanceStart(e.target.value)}
+                                placeholder="14:00"
+                                className={inputClasses}
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <label className={labelClasses}>Fim da Janela</label>
+                              <input
+                                type="text"
+                                value={avoidanceEnd}
+                                onChange={(e) => setAvoidanceEnd(e.target.value)}
+                                placeholder="18:00"
+                                className={inputClasses}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Intensity options */}
+                      <div className="flex flex-col">
+                        <label className={labelClasses}>Intensidade do Monitoramento (Check-ins Diários)</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {(['light', 'balanced', 'strong'] as const).map((level) => {
+                            const label = { light: 'Leve (1x)', balanced: 'Equilibrada (2x)', strong: 'Forte (3x)' }[level];
+                            return (
+                              <button
+                                key={level}
+                                onClick={() => setAvoidanceIntensity(level)}
+                                className={`py-3.5 px-3 rounded-xl font-bold text-[10px] uppercase tracking-wider border transition-all ${
+                                  avoidanceIntensity === level
+                                    ? 'bg-primary-green/15 border-primary-green text-primary-green'
+                                    : 'bg-white/5 border-white/10 text-text-secondary/60 hover:border-white/15'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-text-secondary/40 mt-2">
+                          * Sistema envia alertas proativos distribuídos de acordo com a intensidade escolhida.
+                        </p>
+                      </div>
+
+                      {/* Recurrence days */}
+                      <div className="flex flex-col">
+                        <label className={labelClasses}>Dias de Monitoramento</label>
+                        <div className="flex flex-wrap gap-2">
+                          {['1', '2', '3', '4', '5', '6', '7'].map((day) => {
+                            const name = { '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[day];
+                            const active = avoidanceDays.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                onClick={() => {
+                                  if (active) {
+                                    setAvoidanceDays(avoidanceDays.filter(d => d !== day));
+                                  } else {
+                                    setAvoidanceDays([...avoidanceDays, day]);
+                                  }
+                                }}
+                                className={`w-10 h-10 rounded-xl font-bold text-[10px] uppercase border transition-all ${
+                                  active
+                                    ? 'bg-primary-green text-background border-primary-green font-extrabold shadow-[0_0_10px_rgba(110,231,168,0.3)]'
+                                    : 'bg-white/5 border-white/10 text-text-secondary/60 hover:border-white/20'
+                                }`}
+                              >
+                                {name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-text-secondary/40 mt-2">
+                          * Deixe em branco para monitoramento diário irrestrito.
+                        </p>
+                      </div>
+
+                      {/* Action buttons */}
+                      <button
+                        onClick={handleAddAvoidance}
+                        className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)] cursor-pointer mt-4"
+                      >
+                        {editingAvoidanceId ? 'SALVAR ALTERAÇÕES' : 'SALVAR AUTOCONTROLE'}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          window.dispatchEvent(new CustomEvent('open-avoidance-history'));
+                          const el = document.getElementById('avoidance-section');
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth' });
+                          }
+                        }}
+                        className="w-full text-center text-[10px] font-bold text-primary-green hover:text-primary-green/80 uppercase tracking-[0.2em] transition-all cursor-pointer underline underline-offset-4 mt-6 block"
+                      >
+                        VER TODOS OS REGISTROS
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {currentScreen === 'habits' && (
                   <div className="w-full max-w-2xl space-y-10 flex flex-col items-stretch">
                     <button
                       onClick={() => setCurrentScreen(null)}

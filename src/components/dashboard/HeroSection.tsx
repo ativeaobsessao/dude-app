@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { CheckCircle, Pause } from 'lucide-react';
-import { resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
+import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
 export const HeroSection = () => {
   const timer = useTimerStore();
@@ -28,8 +28,8 @@ export const HeroSection = () => {
   const capitalizedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1).replace('.', '');
 
   // Daily Metrics
-  const today = new Date().toISOString().split('T')[0];
-  const todaySessions = dataStore.sessions.filter(s => s.started_at.startsWith(today));
+  const today = getLocalDateString(new Date());
+  const todaySessions = dataStore.sessions.filter(s => getLocalDateString(new Date(s.started_at)) === today);
   const totalMinutes = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;

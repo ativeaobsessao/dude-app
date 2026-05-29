@@ -4,6 +4,7 @@ import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
 import { HabitsSection } from './components/dashboard/HabitsSection';
+import { AvoidanceSection } from './components/dashboard/AvoidanceSection';
 import { RecentNotes } from './components/dashboard/RecentNotes';
 import { RecentHistory } from './components/dashboard/RecentHistory';
 import { InspirationalFootnote } from './components/dashboard/InspirationalFootnote';
@@ -14,6 +15,7 @@ import { ProgressStats } from './components/dashboard/ProgressStats';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
+import { getLocalDateString } from './lib/utils';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -42,7 +44,7 @@ export default function App() {
 
       // Get current date/time
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = getLocalDateString(now);
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
       // Find pending scheduled activities for today
@@ -172,13 +174,14 @@ export default function App() {
           {notification && (
             <motion.div
               layout={false}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.9, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 pointer-events-none z-[9999] flex items-center justify-center p-6 md:items-start md:pt-[100px] md:justify-center"
+              className="fixed inset-x-0 pointer-events-none z-[9999] flex justify-center p-6"
+              style={{ top: '30vh' }}
             >
-              <div className="mx-auto px-6 py-4 rounded-2xl bg-surface/90 border border-white/15 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center gap-3 text-text-primary pointer-events-auto max-w-sm md:max-w-md">
+              <div className="mx-auto px-6 py-4 rounded-2xl bg-[#0D1527]/85 border border-white/10 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex items-center gap-3 text-text-primary pointer-events-auto max-w-sm md:max-w-md">
                 {notification.type === 'success' ? (
                   <div className="w-5 h-5 rounded-full bg-primary-green/20 flex items-center justify-center text-primary-green flex-shrink-0 animate-pulse">
                     <Check size={12} strokeWidth={3} />
@@ -330,6 +333,9 @@ export default function App() {
 
             {/* 7. Seção Hábitos Atômicos */}
             <HabitsSection />
+
+            {/* Anti-Vício (Módulo Premium Separado) */}
+            <AvoidanceSection />
 
             {/* 8. Seção Anotações */}
             <RecentNotes />

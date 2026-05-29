@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin } from '../types';
 import { useTimerStore } from './useTimerStore';
+import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
 function getLocalMondayStr(): string {
   const today = new Date();
@@ -25,6 +26,7 @@ interface DataState {
   projects: Project[];
   habits: Habit[];
   habitCompletions: HabitCompletion[];
+  avoidanceCheckins: AvoidanceCheckin[];
   sessions: FocusSession[];
   notes: Note[];
   activities: Activity[];
@@ -39,6 +41,7 @@ interface DataState {
   syncHabitsRollover: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
   fetchHabitCompletions: (userId: string) => Promise<void>;
+  fetchAvoidanceCheckins: (userId: string) => Promise<void>;
   fetchSessionTasks: (userId: string) => Promise<void>;
   fetchPendingTasks: (userId: string) => Promise<void>;
   fetchScheduledActivities: (userId: string) => Promise<void>;
@@ -52,9 +55,11 @@ interface DataState {
     preferredTime: 'morning' | 'afternoon' | 'evening',
     isRecurring?: boolean,
     recurrenceDays?: string[],
-    recurrenceTime?: string
+    recurrenceTime?: string,
+    extraAvoidanceParams?: Partial<Habit>
   ) => Promise<Habit | null>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<boolean>;
+  addAvoidanceCheckin: (checkin: Omit<AvoidanceCheckin, 'id' | 'created_at'>) => Promise<AvoidanceCheckin | null>;
   generateRecurringHabitInstances: (userId: string) => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
@@ -88,6 +93,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   projects: [],
   habits: [],
   habitCompletions: [],
+  avoidanceCheckins: [],
   sessions: [],
   notes: [],
   activities: [],
@@ -103,7 +109,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (get().notification?.message === message) {
         set({ notification: null });
       }
-    }, 3000);
+    }, 1200);
   },
 
   fetchProfile: async (userId) => {
@@ -119,7 +125,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -128,6 +134,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         supabase.from('habit_completions').select('*').eq('user_id', userId).order('completed_at', { ascending: false }),
         supabase.from('pending_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
         supabase.from('scheduled_activities').select('*').eq('user_id', userId).order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true }),
+        supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       ]);
 
       set({ 
@@ -139,6 +146,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         habitCompletions: hc.data || [],
         pendingTasks: pt.data || [],
         scheduledActivities: sa.data || [],
+        avoidanceCheckins: ac.data || [],
         loading: false 
       });
 
@@ -222,6 +230,38 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (data) set({ habitCompletions: data });
     } catch (err) {
       console.error('Error fetching habit completions:', err);
+    }
+  },
+
+  fetchAvoidanceCheckins: async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('avoidance_checkins')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (data) set({ avoidanceCheckins: data || [] });
+    } catch (err) {
+      console.error('Error fetching avoidance checkins:', err);
+    }
+  },
+
+  addAvoidanceCheckin: async (checkin) => {
+    try {
+      const { data, error } = await supabase
+        .from('avoidance_checkins')
+        .insert(checkin)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({ avoidanceCheckins: [data, ...get().avoidanceCheckins] });
+        return data;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error adding avoidance checkin:', err);
+      return null;
     }
   },
 
@@ -438,7 +478,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     preferredTime,
     isRecurring = false,
     recurrenceDays = [],
-    recurrenceTime = ''
+    recurrenceTime = '',
+    extraAvoidanceParams = {}
   ) => {
     try {
       if (!name || !sessionsPerWeek || !minutesPerSession || !preferredTime) {
@@ -460,7 +501,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         is_recurring: isRecurring,
         recurrence_days: recurrenceDays,
         recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
-        last_generated_week: null
+        last_generated_week: null,
+        ...extraAvoidanceParams
       }).select().single();
 
       if (error) {
@@ -507,7 +549,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         const updatedHabits = get().habits.map(h => h.id === id ? data : h);
         set({ habits: updatedHabits });
 
-        const todayStr = new Date().toLocaleDateString('en-CA');
+        const todayStr = getLocalDateString(new Date());
 
         // Handle scheduled_activities sync for this habit editing
         if (!data.is_recurring) {
@@ -722,7 +764,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           content: content,
           project_id: projectId || null,
           activity_id: activityId || null,
-          target_date: new Date().toISOString().split('T')[0]
+          target_date: getLocalDateString(new Date())
         })
         .select()
         .single();
@@ -849,7 +891,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           
           const habit = get().habits.find(h => h.id === habitId);
           if (habit) {
-            const todayStr = new Date().toLocaleDateString('en-CA');
+            const todayStr = getLocalDateString(new Date());
             const startOfWeek = new Date(habit.week_start_date);
             startOfWeek.setHours(0,0,0,0);
 
@@ -863,7 +905,7 @@ export const useDataStore = create<DataState>((set, get) => ({
             // Group and sum minutes by day local string YYYY-MM-DD
             const minutesByDay: { [dateStr: string]: number } = {};
             habitSessionsThisWeek.forEach(s => {
-              const dStr = new Date(s.started_at).toLocaleDateString('en-CA');
+              const dStr = getLocalDateString(new Date(s.started_at));
               const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
               minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
             });
@@ -935,8 +977,8 @@ export const useDataStore = create<DataState>((set, get) => ({
           const addedMinutes = data.actual_duration_minutes !== null ? data.actual_duration_minutes : data.duration_minutes;
           const newTotal = Number(currentProfile.total_focus_minutes) + addedMinutes;
           
-          const today = new Date().toISOString().split('T')[0];
-          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const today = getLocalDateString(new Date());
+          const yesterday = getLocalYesterdayDateString(new Date());
           
           // Buscar todas as sessões para calcular streak
           const allSessions = get().sessions;
@@ -944,11 +986,11 @@ export const useDataStore = create<DataState>((set, get) => ({
           // Verificar se já tinha sessão hoje antes dessa
           const hadSessionToday = allSessions
             .filter(s => s.id !== data.id) // excluir a que acabou de salvar
-            .some(s => s.started_at.startsWith(today));
+            .some(s => getLocalDateString(new Date(s.started_at)) === today);
           
           // Verificar se tinha sessão ontem
           const hadSessionYesterday = allSessions
-            .some(s => s.started_at.startsWith(yesterday));
+            .some(s => getLocalDateString(new Date(s.started_at)) === yesterday);
           
           let newStreak = currentProfile.current_streak;
           
@@ -1006,16 +1048,53 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!habit) return;
 
       const today = new Date();
-      const todayStr = today.toLocaleDateString('en-CA');
+      const todayStr = getLocalDateString(today);
       const startOfWeek = new Date(habit.week_start_date);
       startOfWeek.setHours(0,0,0,0);
 
-      // Registrar completion
+      let finalFocusSessionId = focusSessionId || null;
+
+      // If registered manually (no focusSessionId provided), let's create a real focus_session record first!
+      if (!finalFocusSessionId) {
+        const now = new Date();
+        const startedAt = new Date(now.getTime() - durationMinutes * 60 * 1000).toISOString();
+        const completedAt = now.toISOString();
+
+        const sessionToSave = {
+          user_id: userId,
+          project_id: null,
+          habit_id: habitId,
+          activity_name: habit.name,
+          description: 'Sessão de hábito registrada manualmente',
+          duration_minutes: durationMinutes,
+          started_at: startedAt,
+          completed_at: completedAt,
+          completed: true,
+          all_tasks_completed: true,
+          actual_duration_minutes: durationMinutes,
+          parcial: false
+        };
+
+        const { data: sessionData, error: sErr } = await supabase
+          .from('focus_sessions')
+          .insert(sessionToSave)
+          .select()
+          .single();
+
+        if (sErr) throw sErr;
+        if (sessionData) {
+          finalFocusSessionId = sessionData.id;
+          // Add to local state immediately
+          set({ sessions: [sessionData, ...get().sessions] });
+        }
+      }
+
+      // Registrar completion using finalFocusSessionId
       const { data: hcData } = await supabase.from('habit_completions').insert({
         habit_id: habitId,
         user_id: userId,
         duration_minutes: durationMinutes,
-        focus_session_id: focusSessionId || null,
+        focus_session_id: finalFocusSessionId,
         completed_at: new Date().toISOString()
       }).select().single();
 
@@ -1032,7 +1111,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       const minutesByDay: { [dateStr: string]: number } = {};
       habitSessionsThisWeek.forEach(s => {
-        const dStr = new Date(s.started_at).toLocaleDateString('en-CA');
+        const dStr = getLocalDateString(new Date(s.started_at));
         const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
         minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
       });
@@ -1044,7 +1123,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         !hc.focus_session_id
       );
       manualCompletionsThisWeek.forEach(hc => {
-        const dStr = new Date(hc.completed_at).toLocaleDateString('en-CA');
+        const dStr = getLocalDateString(new Date(hc.completed_at));
         minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
       });
 
@@ -1190,7 +1269,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteHabit: async (id) => {
     try {
-      const todayStr = new Date().toLocaleDateString('en-CA');
+      const todayStr = getLocalDateString(new Date());
       
       // Selectively find future pending scheduled activities for this habit
       const futurePendingToDel = get().scheduledActivities.filter(sa => 

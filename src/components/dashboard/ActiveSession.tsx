@@ -25,6 +25,7 @@ export const ActiveSession = () => {
   const [showEarlyCompleteConfirm, setShowEarlyCompleteConfirm] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showLateConfig, setShowLateConfig] = useState(false);
   const [showTasksOverlay, setShowTasksOverlay] = useState(false);
@@ -220,7 +221,9 @@ export const ActiveSession = () => {
   }, [completedTasksLocal, sessionTasksLocal]);
 
   const handleSave = async () => {
-    if (!user || !timer.totalDurationMs) return;
+    if (!user || !timer.totalDurationMs || isSaving) return;
+
+    setIsSaving(true);
 
     const allDone = completedTasksLocal.length === sessionTasksLocal.length && sessionTasksLocal.length > 0;
     const targetMinutes = Math.round((timer.totalDurationMs || 0) / 60000);
@@ -244,8 +247,6 @@ export const ActiveSession = () => {
 
     const noteDescription = timer.description.trim();
     const noteProjectIdFix = (editedProjectId !== null ? editedProjectId : timer.projectId) || undefined;
-
-    setShowCompleteModal(false);
 
     try {
       const savedSession = await dataStore.addSession(sessionToSave);
@@ -337,7 +338,9 @@ export const ActiveSession = () => {
       setEditedProjectId(null);
       setEditedActivityName('');
       setEditedHabitId(null);
+      setShowCompleteModal(false);
       timer.reset();
+      setIsSaving(false);
     }
   };
 
@@ -399,6 +402,15 @@ export const ActiveSession = () => {
 
   return (
     <div className="fixed inset-0 z-[1000] bg-background/95 backdrop-blur-3xl flex flex-col overflow-hidden">
+      {isSaving && (
+        <div className="absolute inset-0 z-[1500] bg-background/90 backdrop-blur-3xl flex flex-col items-center justify-center space-y-4 pointer-events-auto">
+          <div className="w-12 h-12 rounded-full border-t-2 border-primary-green animate-spin" />
+          <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-primary-green animate-pulse">
+            Registrando Sessão Operacional...
+          </span>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {timer.isActive && (
           <motion.div

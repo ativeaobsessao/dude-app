@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
+import { getLocalDateString } from '../../lib/utils';
 
 export const RecentNotes = () => {
   const dataStore = useDataStore();
@@ -45,7 +46,7 @@ export const RecentNotes = () => {
 
   const filteredAllNotes = dataStore.notes.filter(note => {
     const matchesProject = filterProject ? note.project_id === filterProject : true;
-    const noteDateStr = note.target_date || note.created_at.split('T')[0];
+    const noteDateStr = note.target_date || getLocalDateString(new Date(note.created_at));
     const matchesDate = filterDate ? noteDateStr === filterDate : true;
     return matchesProject && matchesDate;
   });
