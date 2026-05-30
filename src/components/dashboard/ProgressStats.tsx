@@ -740,7 +740,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         <header className="space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
             <Sparkles size={13} className="animate-pulse" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider font-sans">Decision Engine</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider font-sans">Raio-X do seu Tempo</span>
           </div>
           <div className="space-y-1">
             <h2 className="text-2xl md:text-3.5xl font-black tracking-tight text-text-primary uppercase font-sans">
@@ -864,8 +864,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               </div>
 
               {/* Minimalist radial circle */}
-              <div className="relative w-18 h-18 flex items-center justify-center shrink-0 font-sans">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36 font-sans">
+              <div className="relative w-18 h-18 shrink-0 font-sans">
+                <svg className="w-full h-full transform -rotate-90 animate-fade-in" viewBox="0 0 36 36">
                   <path
                     className="text-white/5"
                     strokeWidth="3.5"
@@ -883,8 +883,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                 </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-sm font-bold font-sans text-primary-green">{consistencyStats.rate}%</span>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xs md:text-sm font-bold font-mono text-primary-green leading-none">{consistencyStats.rate}%</span>
                 </div>
               </div>
             </div>

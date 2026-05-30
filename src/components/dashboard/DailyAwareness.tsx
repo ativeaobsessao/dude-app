@@ -32,8 +32,11 @@ export const DailyAwareness = () => {
 
       <div className="space-y-4 md:space-y-8 pt-6 md:pt-8 border-t border-border-white">
         <div className="flex items-center justify-between">
-          <span className="text-text-secondary uppercase tracking-[0.3em] text-[10px] font-bold flex items-center gap-2">
-            <Activity size={12} className="text-primary-green" />
+          <span 
+            className="uppercase tracking-[0.3em] text-[10px] font-bold flex items-center gap-2"
+            style={{ color: '#2F8F6B' }}
+          >
+            <Activity size={12} className="text-primary-green animate-pulse" />
             Tarefas Realizadas no Dia
           </span>
           <span className="text-[10px] text-text-secondary/40 font-mono">HOJE</span>

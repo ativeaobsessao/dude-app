@@ -436,7 +436,12 @@ export const HeroSection = () => {
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-[#6a7570] block text-center">Tarefas Realizadas no Dia</span>
+          <span 
+            className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] block text-center"
+            style={{ color: '#2F8F6B' }}
+          >
+            Tarefas Realizadas no Dia
+          </span>
           <div className="space-y-4 text-left">
             {todaySessions.length > 0 ? (
               todaySessions.slice(0, 5).map(session => {
