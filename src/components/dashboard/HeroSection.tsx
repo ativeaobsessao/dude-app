@@ -56,21 +56,109 @@ export const HeroSection = () => {
   const totalPrevMinutes = Object.values(sessionsByDate).reduce((acc, mins) => acc + mins, 0);
   const dailyAverageMinutes = uniqueDaysCount > 0 ? totalPrevMinutes / uniqueDaysCount : 0;
 
-  // Now, determine reactive text line
+  // Let's find the maximum focus minutes in a single day across previous days to check for record day
+  const previousDaysMins = Object.values(sessionsByDate);
+  const allTimeBestMinutes = previousDaysMins.length > 0 ? Math.max(...previousDaysMins) : 0;
+
+  // Now, determine reactive text line (WAVE 1B living reactive line engine)
+  const currentHour = new Date().getHours();
+  const dayOfWeek = dateObj.getDay(); // 0 is Sunday, 1 is Monday, etc.
+
+  // Formatted focus time for interpolation
+  const formattedFocusTime = hours > 0 
+    ? `${hours}h ${minutes}m` 
+    : `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+
+  // Deterministic selector using today's day number to rotate options securely and avoid re-render flickering
+  const selectChoice = (options: string[]) => {
+    return options[dayNum % options.length];
+  };
+
   let reactiveLine = '';
-  if (totalMinutes === 0) {
-    reactiveLine = "Você ainda não focou hoje. Que tal uma Sessão Profunda?";
-  } else if (uniqueDaysCount > 0) {
-    // We have historical focus days to compare
-    if (totalMinutes < 0.8 * dailyAverageMinutes) {
-      reactiveLine = "Hoje rendeu menos que sua média. Bora recuperar?";
-    } else {
-      const formattedFocusTime = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-      reactiveLine = `Bom ritmo hoje — ${formattedFocusTime} de foco. Continue assim.`;
+
+  // PRIORITY 1 — PERFORMANCE (overrides time-based when notable)
+  const isAfternoonOrLater = currentHour >= 12;
+
+  if (totalMinutes === 0 && isAfternoonOrLater) {
+    reactiveLine = selectChoice([
+      "Você ainda não focou hoje. Que tal uma Sessão Profunda?",
+      "Que tal começar a focar agora? O primeiro passo é o mais importante.",
+      "Sua mente está pronta. Vamos iniciar uma Sessão Profunda hoje?",
+      "O dia está passando. Que tal reservar um tempo para focar?"
+    ]);
+  } else if (uniqueDaysCount > 0 && totalMinutes > allTimeBestMinutes && totalMinutes > 0) {
+    reactiveLine = selectChoice([
+      "Seu melhor dia de foco até agora. 🔥",
+      "Incrível! Hoje é o seu dia mais focado de todos os tempos. 🏆",
+      "Você quebrou seu recorde de foco diário hoje! Fantástico!",
+      "Superando todos os seus limites. Hoje foi histórico! 🔥"
+    ]);
+  } else if (uniqueDaysCount > 0 && totalMinutes > 0 && totalMinutes < 0.8 * dailyAverageMinutes) {
+    reactiveLine = selectChoice([
+      "Hoje rendeu menos que sua média. Bora recuperar?",
+      "Abaixo do seu ritmo normal. Que tal uma sessão rápida para retomar?",
+      "O dia ainda não acabou. Um bloco de foco pode fazer a diferença hoje!",
+      "Que tal ajustar o foco? Uma sessão curta ajuda a voltar ao ritmo."
+    ]);
+  } else if (uniqueDaysCount > 0 && totalMinutes > 0 && totalMinutes >= dailyAverageMinutes) {
+    reactiveLine = selectChoice([
+      `Bom ritmo hoje — ${formattedFocusTime} de foco. Continue assim.`,
+      `Ótimo trabalho! Já são ${formattedFocusTime} de foco acumulados hoje.`,
+      `Foco afiado hoje: ${formattedFocusTime} mantendo o controle do seu dia.`,
+      `Consistência excelente! ${formattedFocusTime} dedicados ao que importa hoje.`
+    ]);
+  }
+
+  // PRIORITY 2 — DAY OF WEEK (when performance is neutral or no high performance matches)
+  if (!reactiveLine) {
+    if (dayOfWeek === 1 && currentHour >= 5 && currentHour < 12) {
+      reactiveLine = selectChoice([
+        "Semana nova. Comece com uma sessão e dê o tom.",
+        "Segunda-feira pede foco total para começar a semana com tudo.",
+        "Nova semana, novas metas. Estabeleça seu ritmo logo cedo."
+      ]);
+    } else if (dayOfWeek === 5) {
+      reactiveLine = selectChoice([
+        "Sexta. Termine a semana no controle.",
+        "Quase lá! Um último gás na sexta-feira para um fim de semana tranquilo.",
+        "Sextou com produtividade. Feche as pendências e descanse em paz!"
+      ]);
+    } else if (dayOfWeek === 0) {
+      reactiveLine = selectChoice([
+        "Domingo é bom pra planejar a semana que vem.",
+        "Um domingo organizado traz uma semana produtiva. Prepare-se.",
+        "Planejar hoje poupa energia amanhã. Use o dia para estruturar seus alvos."
+      ]);
     }
-  } else {
-    // If no prior days and focus is active today, we don't have enough history so we fallback to empty (render nothing)
-    reactiveLine = '';
+  }
+
+  // PRIORITY 3 — TIME OF DAY (default fallback)
+  if (!reactiveLine) {
+    if (currentHour >= 5 && currentHour < 12) {
+      reactiveLine = selectChoice([
+        "Manhã é seu tempo mais nobre. Aproveite.",
+        "O dia está decolando. Defina sua prioridade número um agora.",
+        "Mente fresca e silenciosa nas primeiras horas. Melhor momento para focar."
+      ]);
+    } else if (currentHour >= 12 && currentHour < 18) {
+      reactiveLine = selectChoice([
+        "Tarde rende. Que tal um bloco de foco?",
+        "Metade do dia já foi. Mantenha a energia e a consistência.",
+        "Hora de avançar nos projetos. Que tal uma sessão produtiva?"
+      ]);
+    } else if (currentHour >= 18 && currentHour < 23) {
+      reactiveLine = selectChoice([
+        "Boa hora pra fechar uma última sessão do dia.",
+        "Feche o dia com chave de ouro: mais um bloco de foco profundo.",
+        "O dia está terminando. Que tal resolver aquela última pendência?"
+      ]);
+    } else {
+      reactiveLine = selectChoice([
+        "Tá tarde. Uma sessão curta e depois descanse.",
+        "Quase hora de dormir. Se for focar, faça um bloco curto.",
+        "Silêncio da noite ajuda a focar, mas priorize seu sono."
+      ]);
+    }
   }
 
   // Get upcoming/pending schedules
@@ -101,7 +189,6 @@ export const HeroSection = () => {
   }
 
   // Determine habitual focus window:
-  const currentHour = new Date().getHours();
   let matchingCount = 0;
   (dataStore.sessions || []).forEach(s => {
     const startHour = new Date(s.started_at).getHours();
@@ -200,7 +287,7 @@ export const HeroSection = () => {
         {sortedUpcoming.length > 0 && (
           <div className="w-full max-w-sm mx-auto bg-surface/10 border border-white/5 rounded-2xl p-4 space-y-3 text-left font-sans shadow-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6ee7a8]/80 animate-pulse">O que vem a seguir?</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-secondary/50">O que vem a seguir?</span>
               <span className="text-[8px] font-mono text-text-secondary/40 font-bold uppercase tracking-[0.1em]">PLANEJADO</span>
             </div>
             <div className="space-y-2">
@@ -215,7 +302,7 @@ export const HeroSection = () => {
                 return (
                   <div key={activity.id} className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
                       <span className="text-text-primary font-medium truncate">{activity.title}</span>
                     </div>
                     <div className="text-[9px] font-mono text-text-secondary/60 bg-white/5 px-2 py-0.5 rounded-md whitespace-nowrap font-bold">
@@ -244,7 +331,7 @@ export const HeroSection = () => {
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-emerald-500 block text-center">Tarefas Realizadas no Dia</span>
+          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-text-secondary/50 block text-center">Tarefas Realizadas no Dia</span>
           <div className="space-y-4 text-left">
             {todaySessions.length > 0 ? (
               todaySessions.slice(0, 5).map(session => {

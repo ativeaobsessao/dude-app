@@ -170,7 +170,7 @@ export const HabitsSection = () => {
         className="w-full p-6 bg-surface/20 hover:bg-surface/35 border border-border-white rounded-3xl flex items-center justify-between cursor-pointer transition-all duration-300 group"
       >
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary-green/5 flex items-center justify-center text-primary-green group-hover:bg-primary-green/10 transition-colors">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary/60 group-hover:bg-white/10 group-hover:text-text-primary transition-colors">
             <Layers size={18} />
           </div>
           <div className="text-left">
@@ -204,7 +204,7 @@ export const HabitsSection = () => {
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'habits' } }));
                   }}
-                  className="flex items-center gap-1.5 px-4 py-2 text-[10px] uppercase font-bold tracking-widest text-[#6ee7a8] bg-[#6ee7a8]/10 hover:bg-[#6ee7a8]/20 border border-[#6ee7a8]/20 rounded-full transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto"
+                  className="flex items-center gap-1.5 px-4 py-2 text-[10px] uppercase font-bold tracking-widest text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary border border-white/10 rounded-full transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto font-sans"
                 >
                   Registrar Hábito
                 </button>

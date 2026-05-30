@@ -43,7 +43,7 @@ export const RecentHistory = () => {
     <section className="w-full max-w-5xl space-y-10">
       <div className="flex items-center justify-between border-b border-border-white pb-4">
         <span className="text-text-secondary uppercase tracking-[0.3em] text-[10px] font-bold flex items-center gap-2">
-          <History size={12} className="text-primary-green" />
+          <History size={12} className="text-text-secondary/40" />
           HISTÓRICO RECENTE DAS ÚLTIMAS SESSÕES PROFUNDAS
         </span>
       </div>
@@ -166,7 +166,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
       key={session.id}
       className={`relative flex justify-between items-start py-6 border-b border-white/5 group ${
         session.habit_id 
-          ? 'pl-4 border-l-2 border-l-primary-green' 
+          ? 'pl-4 border-l-2 border-l-white/10' 
           : ''
       }`}
     >
@@ -179,7 +179,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
         <div className="space-y-1 flex-1 min-w-0">
           {/* Badge de hábito */}
           {session.habit_id && (
-            <span className="text-[9px] font-bold uppercase tracking-widest text-primary-green/60 flex items-center gap-1 mb-1">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary/40 flex items-center gap-1 mb-1">
               ⚡ Hábito Atômico
             </span>
           )}
@@ -291,7 +291,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
           <p className="text-sm font-semibold text-text-primary">
             {formattedDuration}
           </p>
-          <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
             {(() => {
               const d = new Date(session.started_at);
               const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
