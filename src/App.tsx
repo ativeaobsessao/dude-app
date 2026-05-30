@@ -309,6 +309,15 @@ export default function App() {
                 />
               </div>
 
+            {/* 7. Seção Hábitos Atômicos */}
+            <HabitsSection />
+
+            {/* Anti-Vício (Módulo Premium Separado) */}
+            <AvoidanceSection />
+
+            {/* 8. Seção Anotações */}
+            <RecentNotes />
+
             {/* 6. Botão "CENTRO DE INTELIGÊNCIA" */}
             <div className="flex justify-center w-full">
               <button 
@@ -319,15 +328,6 @@ export default function App() {
                 <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Métricas de Foco, Hábitos e Autoevolução</span>
               </button>
             </div>
-
-            {/* 7. Seção Hábitos Atômicos */}
-            <HabitsSection />
-
-            {/* Anti-Vício (Módulo Premium Separado) */}
-            <AvoidanceSection />
-
-            {/* 8. Seção Anotações */}
-            <RecentNotes />
 
             {/* 9. Seção Histórico Recente */}
             <RecentHistory />

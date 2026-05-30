@@ -19,13 +19,11 @@ export const HeroSection = () => {
   else if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
 
   // Date Logic
-  const formattedDate = new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short'
-  }).format(new Date());
-  // Capitalize first letter of weekday
-  const capitalizedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1).replace('.', '');
+  const dateObj = new Date();
+  const weekdayShort = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(dateObj).toUpperCase().replace('.', '');
+  const dayNum = dateObj.getDate();
+  const monthLong = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(dateObj).toUpperCase();
+  const fullCustomDate = `${weekdayShort}, ${dayNum} DE ${monthLong}`;
 
   // Daily Metrics
   const today = getLocalDateString(new Date());
@@ -36,6 +34,40 @@ export const HeroSection = () => {
   const streak = dataStore.profile?.current_streak || 0;
 
   const hasSessions = dataStore.sessions && dataStore.sessions.length > 0;
+
+  // Let's compute daily average of previous days
+  const previousSessions = dataStore.sessions.filter(s => {
+    const sDate = getLocalDateString(new Date(s.started_at));
+    return sDate !== today;
+  });
+
+  // Group by date to get previous focus days
+  const sessionsByDate: { [key: string]: number } = {};
+  previousSessions.forEach(s => {
+    const sDate = getLocalDateString(new Date(s.started_at));
+    sessionsByDate[sDate] = (sessionsByDate[sDate] || 0) + s.duration_minutes;
+  });
+
+  const uniqueDaysCount = Object.keys(sessionsByDate).length;
+  const totalPrevMinutes = Object.values(sessionsByDate).reduce((acc, mins) => acc + mins, 0);
+  const dailyAverageMinutes = uniqueDaysCount > 0 ? totalPrevMinutes / uniqueDaysCount : 0;
+
+  // Now, determine reactive text line
+  let reactiveLine = '';
+  if (totalMinutes === 0) {
+    reactiveLine = "Você ainda não focou hoje. Que tal uma Sessão Profunda?";
+  } else if (uniqueDaysCount > 0) {
+    // We have historical focus days to compare
+    if (totalMinutes < 0.8 * dailyAverageMinutes) {
+      reactiveLine = "Hoje rendeu menos que sua média. Bora recuperar?";
+    } else {
+      const formattedFocusTime = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      reactiveLine = `Bom ritmo hoje — ${formattedFocusTime} de foco. Continue assim.`;
+    }
+  } else {
+    // If no prior days and focus is active today, we don't have enough history so we fallback to empty (render nothing)
+    reactiveLine = '';
+  }
 
   // Get upcoming/pending schedules
   const now = new Date();
@@ -80,10 +112,10 @@ export const HeroSection = () => {
           <h2 className="text-[clamp(2.25rem,6.5vw,4.25rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
             {greeting}, {firstName}
           </h2>
-          <span className="text-text-secondary/40 font-mono text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-bold">
-            {capitalizedDate}
+          <span className="text-sm md:text-base text-text-secondary/60 font-mono tracking-[0.15em] uppercase font-bold">
+            {fullCustomDate}
           </span>
-          <p className="text-sm sm:text-base md:text-lg text-text-primary/95 font-medium max-w-xl text-center leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg text-[#6ee7a8] italic font-semibold max-w-xl text-center leading-relaxed">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
@@ -122,19 +154,26 @@ export const HeroSection = () => {
 
         {/* Bloco 2 — Métricas do Dia */}
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary/40">Hoje</span>
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm md:text-2xl font-light text-text-primary px-2 max-w-full">
-            <span>{hours}h {minutes}min focados</span>
-            <span className="text-border-white/20 select-none">·</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/30">Hoje</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-sm md:text-base font-semibold text-text-primary px-2 max-w-full font-mono uppercase tracking-[0.05em]">
+            <span>{hours}h {minutes}m focados</span>
+            <span className="text-white/10 select-none">·</span>
             <span>{todaySessions.length === 1 ? '1 sessão' : `${todaySessions.length} sessões`}</span>
-            <span className="text-border-white/20 select-none">·</span>
-            <span className="flex items-center gap-1 font-sans">🔥 {streak === 1 ? '1 dia' : `${streak} dias`}</span>
+            <span className="text-white/10 select-none">·</span>
+            <span className="flex items-center gap-1 normal-case">
+              🔥 {streak >= 1 ? `${streak} ${streak === 1 ? 'dia invicto' : 'dias invictos'}` : 'Comece hoje'}
+            </span>
           </div>
+          {reactiveLine && (
+            <p className="text-xs sm:text-sm text-text-secondary/60 font-sans italic mt-1 max-w-md mx-auto leading-relaxed">
+              {reactiveLine}
+            </p>
+          )}
         </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-text-primary block text-center">Tarefas Realizadas no Dia</span>
+          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-emerald-500 block text-center">Tarefas Realizadas no Dia</span>
           <div className="space-y-4 text-left">
             {todaySessions.length > 0 ? (
               todaySessions.slice(0, 5).map(session => {
@@ -270,7 +309,7 @@ export const HeroSection = () => {
         >
           <button 
             onClick={openDeepSession}
-            className="group relative px-3 sm:px-8 py-3.5 sm:py-4.5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-[0.98] flex items-center justify-center gap-2 sm:gap-3 mx-auto shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[48px] w-full max-w-[320px] sm:max-w-none sm:w-auto hover:scale-[1.02] duration-200 cursor-pointer"
+            className="group relative px-3 sm:px-8 py-3.5 sm:py-4.5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-[0.98] flex items-center justify-center gap-2 sm:gap-3 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[48px] w-full max-w-[320px] sm:max-w-none sm:w-auto hover:scale-[1.02] duration-200 cursor-pointer"
           >
             <div className="w-2 h-2 rounded-full bg-background animate-pulse shrink-0" />
             <span className="font-bold text-[11px] sm:text-xs uppercase tracking-[0.15em] whitespace-nowrap">
