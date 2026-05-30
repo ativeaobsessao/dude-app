@@ -11,12 +11,78 @@ import { resolverNomeSessao } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
 
+const getDolphinColor = (p: number, index: number, alpha?: number) => {
+  const stops: { t: number, color: [number, number, number] }[] = [
+    { t: 0.0, color: index === 0 ? [79, 70, 229] : index === 1 ? [59, 130, 246] : [13, 148, 136] }, // start blues: indigo-blue, royal-blue, teal-blue
+    { t: 0.5, color: [110, 231, 168] }, // Green-Mint (#6ee7a8)
+    { t: 0.85, color: [245, 158, 11] }, // Warm Amber (#f59e0b)
+    { t: 1.0, color: [16, 185, 129] }  // Victory Green (#10b981)
+  ];
+
+  let i = 0;
+  for (; i < stops.length - 1; i++) {
+    if (p <= stops[i+1].t) {
+      break;
+    }
+  }
+  const stopA = stops[i];
+  const stopB = stops[i+1];
+  const segmentT = stopB.t === stopA.t ? 0 : (p - stopA.t) / (stopB.t - stopA.t);
+  
+  const r = Math.round(stopA.color[0] + (stopB.color[0] - stopA.color[0]) * segmentT);
+  const g = Math.round(stopA.color[1] + (stopB.color[1] - stopA.color[1]) * segmentT);
+  const b = Math.round(stopA.color[2] + (stopB.color[2] - stopA.color[2]) * segmentT);
+
+  if (alpha !== undefined) {
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
+const desaturateRGB = (rgbStr: string, factor = 0.55) => {
+  const match = rgbStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  if (!match) return rgbStr;
+  const r = parseInt(match[1]);
+  const g = parseInt(match[2]);
+  const b = parseInt(match[3]);
+  const a = match[4] !== undefined ? parseFloat(match[4]) : null;
+  
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+  const newR = Math.round(r + (gray - r) * factor);
+  const newG = Math.round(g + (gray - g) * factor);
+  const newB = Math.round(b + (gray - b) * factor);
+  
+  if (a !== null) {
+    return `rgba(${newR}, ${newG}, ${newB}, ${a})`;
+  }
+  return `rgb(${newR}, ${newG}, ${newB})`;
+};
+
 export const ActiveSession = () => {
   const timer = useTimerStore();
   const dataStore = useDataStore();
   const { user } = useAuthStore();
   const [display, setDisplay] = useState("00:00:00");
   const [progress, setProgress] = useState(0);
+  const [completedPulseActive, setCompletedPulseActive] = useState(false);
+  const prevProgressRef = useRef(0);
+
+  useEffect(() => {
+    if (progress >= 100 && prevProgressRef.current < 100) {
+      setCompletedPulseActive(true);
+      const timeoutId = setTimeout(() => {
+        setCompletedPulseActive(false);
+      }, 1500);
+      return () => clearTimeout(timeoutId);
+    }
+    prevProgressRef.current = progress;
+  }, [progress]);
+
+  const sessionIndex = (timer.startTime || 0) % 3;
+  const baseColor = getDolphinColor(progress / 100, sessionIndex);
+  const baseColorAlpha = getDolphinColor(progress / 100, sessionIndex, 0.4);
+  const displayColor = timer.isPaused ? desaturateRGB(baseColor) : baseColor;
+  const displayColorAlpha = timer.isPaused ? desaturateRGB(baseColorAlpha) : baseColorAlpha;
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -419,8 +485,61 @@ export const ActiveSession = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex-1 flex flex-col items-center justify-between py-20 px-6"
+            className="flex-1 flex flex-col items-center justify-between py-20 px-6 relative z-10"
           >
+            {/* Style Inject */}
+            <style>{`
+              @keyframes breathe {
+                0%, 100% {
+                  transform: translate(-50%, -50%) scale(0.92);
+                  opacity: 0.15;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.08);
+                  opacity: 0.28;
+                }
+              }
+              @keyframes celebrate {
+                0% {
+                  transform: translate(-50%, -50%) scale(1);
+                  filter: drop-shadow(0 0 0px var(--glow-color));
+                  opacity: 0.25;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.45);
+                  filter: drop-shadow(0 0 60px var(--glow-color));
+                  opacity: 0.8;
+                }
+                100% {
+                  transform: translate(-50%, -50%) scale(1);
+                  filter: drop-shadow(0 0 0px var(--glow-color));
+                  opacity: 0.25;
+                }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .animate-breathe-glow {
+                  animation: none !important;
+                  transform: translate(-50%, -50%) scale(1) !important;
+                  opacity: 0.2 !important;
+                }
+              }
+            `}</style>
+
+            {/* Breathing Background Glow Layer */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              <div 
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] h-[75vw] max-w-[650px] max-h-[650px] rounded-full filter blur-[110px] pointer-events-none transition-colors duration-1000 animate-breathe-glow"
+                style={{
+                  background: `radial-gradient(circle, ${displayColor} 0%, transparent 70%)`,
+                  animation: completedPulseActive 
+                    ? 'celebrate 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' 
+                    : 'breathe 4.5s ease-in-out infinite',
+                  animationPlayState: timer.isPaused ? 'paused' : 'running',
+                  ['--glow-color' as any]: displayColor
+                }}
+              />
+            </div>
+
             {/* Notification Permission Request */}
             {notificationPermission !== 'granted' && showNotificationRequest && (
               <motion.div 
@@ -435,7 +554,7 @@ export const ActiveSession = () => {
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={handleRequestPermission}
-                    className="text-[10px] font-bold text-primary-green uppercase tracking-widest hover:text-glow-green transition-colors min-h-[44px]"
+                    className="text-[10px] font-bold text-[#6ee7b7] uppercase tracking-widest hover:text-white transition-colors min-h-[44px]"
                   >
                     Ativar Notificações
                   </button>
@@ -451,8 +570,8 @@ export const ActiveSession = () => {
 
             {/* 1. Header Activity Info */}
             {timer.habitId ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary-green/60 flex items-center gap-1">
+              <div className="flex flex-col items-center gap-1 relative z-10">
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#6ee7b7]/60 flex items-center gap-1">
                   ⚡ Sessão Hábito Atômico
                 </span>
                 <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
@@ -466,7 +585,7 @@ export const ActiveSession = () => {
               </div>
             ) : (
               // Mantém o layout atual para sessões sem hábito
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-1 relative z-10">
                 <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
                   {timer.activityName || 'Sessão Sem Título'}
                 </h2>
@@ -479,10 +598,10 @@ export const ActiveSession = () => {
             )}
 
             {/* Botão VER TAREFAS ou + ADICIONAR TAREFA */}
-            <div className="flex justify-center mt-4 mb-2">
+            <div className="flex justify-center mt-4 mb-2 relative z-10">
               <button
                 onClick={() => setShowTasksOverlay(true)}
-                className="flex items-center gap-2 px-4 py-2 hover:bg-primary-green/15 transition-all duration-200 cursor-pointer text-[#6ee7b7]"
+                className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition-all duration-200 cursor-pointer text-[#6ee7b7]"
                 style={{
                   borderRadius: '999px',
                   backgroundColor: 'rgba(110, 231, 183, 0.08)',
@@ -511,8 +630,15 @@ export const ActiveSession = () => {
             </div>
 
             {/* 2. Central Timer Display */}
-            <div className="relative flex flex-col items-center justify-center w-full max-w-5xl">
-              <h1 className="text-[18vw] md:text-[14rem] font-medium tabular-nums tracking-tighter leading-none text-primary-green drop-shadow-[0_0_80px_rgba(110,231,168,0.2)]">
+            <div className="relative flex flex-col items-center justify-center w-full max-w-5xl z-10">
+              <h1 
+                className="text-[18vw] md:text-[14rem] font-medium tabular-nums tracking-tighter leading-none transition-all duration-1000 select-none"
+                style={{ 
+                  color: displayColor,
+                  textShadow: `0 0 70px ${displayColorAlpha}`,
+                  willChange: 'color'
+                }}
+              >
                 {display}
               </h1>
               {timer.isPaused && (
@@ -520,7 +646,7 @@ export const ActiveSession = () => {
                   layout={false}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute -bottom-10 text-red-400 font-bold uppercase tracking-[0.5em] text-xs"
+                  className="absolute -bottom-10 text-red-500/70 font-bold uppercase tracking-[0.5em] text-xs"
                 >
                   Sessão Pausada
                 </motion.span>
@@ -528,11 +654,15 @@ export const ActiveSession = () => {
             </div>
 
             {/* 3. Progress Bar */}
-            <div className="w-full max-w-md space-y-4">
+            <div className="w-full max-w-md space-y-4 relative z-10">
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
                 <motion.div 
                   layout={false}
-                  className="h-full bg-primary-green shadow-[0_0_15px_rgba(110,231,168,0.5)]"
+                  className="h-full transition-all duration-1000"
+                  style={{
+                    backgroundColor: displayColor,
+                    boxShadow: `0 0 15px ${displayColorAlpha}`
+                  }}
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5, ease: "linear" }}
@@ -546,12 +676,12 @@ export const ActiveSession = () => {
             </div>
 
             {/* 4. Action Buttons */}
-            <div className="grid grid-cols-2 md:grid-cols-4 items-center gap-4 md:gap-6 w-full max-w-2xl px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 items-center gap-4 md:gap-6 w-full max-w-2xl px-4 relative z-10">
               <button 
                 onClick={() => setShowNoteModal(true)}
                 className="flex items-center justify-center gap-2 px-4 py-5 bg-surface/40 border border-border-white rounded-2xl text-text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface/60 transition-all min-h-[44px] touch-manipulation col-span-1"
               >
-                <StickyNote size={14} className="text-primary-green" />
+                <StickyNote size={14} className="text-[#6ee7b7]" />
                 Anotar
               </button>
 
@@ -567,7 +697,7 @@ export const ActiveSession = () => {
                 }}
                 className={`flex items-center justify-center gap-2 px-4 py-5 border rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation col-span-1 ${
                   timer.isPaused 
-                    ? "bg-primary-green text-background border-primary-green hover:bg-glow-green" 
+                    ? "bg-[#6ee7b7] text-background border-[#6ee7b7] hover:bg-[#6ee7b7]/80" 
                     : "bg-surface/40 border-border-white text-text-primary hover:bg-surface/60"
                 }`}
               >
