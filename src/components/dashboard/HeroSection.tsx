@@ -33,6 +33,10 @@ export const HeroSection = () => {
   const minutes = totalMinutes % 60;
   const streak = dataStore.profile?.current_streak || 0;
 
+  const compactFocusTime = hours === 0
+    ? `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`
+    : `${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`;
+
   const todayFocusFormatted = hours === 0
     ? `${minutes} ${minutes === 1 ? 'minuto focado' : 'minutos focados'}`
     : `${hours}h ${minutes}m focado${hours === 1 && minutes === 0 ? '' : 's'}`;
@@ -59,6 +63,70 @@ export const HeroSection = () => {
   // Let's find the maximum focus minutes in a single day across previous days to check for record day
   const previousDaysMins = Object.values(sessionsByDate);
   const allTimeBestMinutes = previousDaysMins.length > 0 ? Math.max(...previousDaysMins) : 0;
+
+  // Let's compute Yesterday & Average comparison with a rotater based on dayNum
+  const yesterdayDate = getLocalDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const yesterdayMinutes = sessionsByDate[yesterdayDate] || 0;
+  
+  // Decide which to try first to rotate reference points:
+  const tryYesterdayFirst = dayNum % 2 === 0;
+
+  const computeComparison = (todayMins: number, refMins: number, refName: 'ontem' | 'sua média') => {
+    if (refMins === 0) return null;
+
+    const diff = todayMins - refMins;
+    const percentDiff = Math.round((Math.abs(diff) / refMins) * 100);
+
+    if (diff > 0) {
+      return {
+        above: true,
+        text: refName === 'ontem'
+          ? `🎉 ${percentDiff}% acima de ontem. Voando!`
+          : `🎉 ${percentDiff}% acima da sua média. Continue assim!`,
+        percent: percentDiff
+      };
+    } else if (diff < 0) {
+      if (percentDiff >= 90 && todayMins === 0) {
+        return {
+          above: false,
+          text: refName === 'ontem'
+            ? "Amanhã é um novo dia para focar. Que tal se planejar?"
+            : "Sua média recente está alta. Logo você retoma o ritmo!",
+          percent: percentDiff
+        };
+      }
+      return {
+        above: false,
+        text: refName === 'ontem'
+          ? `${percentDiff}% menos que ontem. Bora recuperar!`
+          : `Um pouco abaixo da sua média. Dá pra virar o dia!`,
+        percent: percentDiff
+      };
+    } else {
+      return {
+        above: null,
+        text: "No mesmo ritmo de sempre. Mantenha o foco.",
+        percent: 0
+      };
+    }
+  };
+
+  const yesterdayComp = computeComparison(totalMinutes, yesterdayMinutes, 'ontem');
+  const averageComp = computeComparison(totalMinutes, dailyAverageMinutes, 'sua média');
+
+  let selectedComp = null;
+  if (tryYesterdayFirst) {
+    selectedComp = yesterdayComp || averageComp;
+  } else {
+    selectedComp = averageComp || yesterdayComp;
+  }
+
+  let incentiveLine = '';
+  if (selectedComp) {
+    incentiveLine = selectedComp.text;
+  } else {
+    incentiveLine = "Comece a registrar pra acompanhar sua evolução.";
+  }
 
   // Now, determine reactive text line (WAVE 1B living reactive line engine)
   const currentHour = new Date().getHours();
@@ -238,14 +306,14 @@ export const HeroSection = () => {
         )}
 
         {/* Bloco 1 — Saudação */}
-        <div className="space-y-2 flex flex-col items-center">
-          <h2 className="text-[clamp(1.5rem,5vw,2.5rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
+        <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden">
+          <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap px-2">
             {greeting}, {firstName}
           </h2>
           <span className="text-xs sm:text-sm md:text-base text-text-secondary/60 font-mono tracking-[0.15em] uppercase font-bold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(9px,2.4vw,1.125rem)] text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none">
+          <p className="text-[clamp(8.5px,2.4vw,1rem)] text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
@@ -316,17 +384,32 @@ export const HeroSection = () => {
         )}
 
         {/* Bloco 2 — Métricas do Dia */}
-        <div className="flex flex-col items-center gap-1.5 w-full overflow-hidden">
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/30">Hoje</span>
-          <div className="flex items-center justify-center gap-x-1 sm:gap-x-2 text-[clamp(8px,2.2vw,0.9rem)] font-bold text-text-primary px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
-            <span>{todayFocusFormatted}</span>
-            <span className="text-white/10 select-none">·</span>
-            <span>{todaySessions.length === 1 ? '1 Sessão Profunda' : `${todaySessions.length} Sessões Profundas`}</span>
-            <span className="text-white/10 select-none">·</span>
-            <span className="flex items-center gap-0.5 normal-case">
-              🔥 {streak >= 1 ? `${streak} ${streak === 1 ? 'dia invicto' : 'dias invictos'}` : 'Comece hoje'}
+        <div className="flex flex-col items-center gap-3 w-full overflow-hidden bg-white/[0.02] border border-white/[0.04] rounded-2xl py-6 px-4 md:py-8 md:px-6 my-2 shadow-inner">
+          <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-secondary/40">Hoje</span>
+          <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text-primary px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
+            <span>{compactFocusTime} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>
+            <span className="text-white/15 select-none font-sans font-normal">·</span>
+            <span>{todaySessions.length} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão' : 'Sessões'}</span></span>
+            <span className="text-white/15 select-none font-sans font-normal">·</span>
+            <span className="flex items-center gap-1 text-[#6ee7a8] filter drop-shadow-[0_0_6px_rgba(110,231,168,0.2)] font-sans">
+              <span>🔥</span>
+              {streak >= 1 ? (
+                <>
+                  <span className="font-mono">{streak}</span>
+                  <span className="font-sans font-medium text-[0.85em] lowercase text-[#6ee7a8]/80">{streak === 1 ? 'dia invicto' : 'dias invictos'}</span>
+                </>
+              ) : (
+                <span className="font-sans font-medium text-[0.85em] lowercase text-[#6ee7a8]/80">Comece hoje</span>
+              )}
             </span>
           </div>
+          {incentiveLine && (
+            <p className={`text-[11px] md:text-xs font-medium italic select-none mt-1 tracking-wide ${
+              selectedComp?.above ? 'text-[#6ee7a8]' : 'text-text-secondary/50'
+            }`}>
+              {incentiveLine}
+            </p>
+          )}
         </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
