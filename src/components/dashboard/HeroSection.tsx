@@ -83,6 +83,45 @@ export const HeroSection = () => {
     return dateA.getTime() - dateB.getTime();
   });
 
+  // Compute recent project
+  const sortedSessions = [...(dataStore.sessions || [])].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  let recentProjectName = '';
+  for (const session of sortedSessions) {
+    if (session.project_id) {
+      const proj = dataStore.projects.find(p => p.id === session.project_id);
+      if (proj && proj.name) {
+        recentProjectName = proj.name;
+        break;
+      }
+    }
+  }
+
+  // Determine habitual focus window:
+  const currentHour = new Date().getHours();
+  let matchingCount = 0;
+  (dataStore.sessions || []).forEach(s => {
+    const startHour = new Date(s.started_at).getHours();
+    const diff = Math.min((startHour - currentHour + 24) % 24, (currentHour - startHour + 24) % 24);
+    if (diff <= 2) {
+      matchingCount++;
+    }
+  });
+  const isInHabitualWindow = matchingCount >= 2;
+
+  // Cascade Cases for SP Button
+  let buttonLabel = 'Iniciar Sessão Profunda';
+  let buttonSubline = '';
+
+  if (recentProjectName && isInHabitualWindow) {
+    buttonLabel = `Continuar ${recentProjectName}`;
+    buttonSubline = 'Seu horário de foco';
+  } else if (recentProjectName && !isInHabitualWindow) {
+    buttonLabel = `Continuar ${recentProjectName}`;
+  } else if (!recentProjectName && isInHabitualWindow) {
+    buttonLabel = 'Iniciar Sessão Profunda';
+    buttonSubline = 'Bom horário pra focar';
+  }
+
   const openDeepSession = () => {
     window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'session' } }));
   };
@@ -119,6 +158,39 @@ export const HeroSection = () => {
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
+
+        {/* Bloco 4 — Botão de ação (The primary action centered with generous breathing room) */}
+        <motion.div 
+          layout={false}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="py-4 flex flex-col items-center gap-3 w-full"
+        >
+          <button 
+            onClick={openDeepSession}
+            className="group relative px-5 sm:px-10 py-4 sm:py-5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-background animate-pulse shrink-0" />
+              <span className="font-bold text-xs sm:text-sm uppercase tracking-[0.18em] whitespace-nowrap">
+                {buttonLabel}
+              </span>
+            </div>
+            {buttonSubline && (
+              <span className="text-[10px] font-mono text-background/80 uppercase tracking-[0.12em] font-semibold">
+                {buttonSubline}
+              </span>
+            )}
+          </button>
+
+          {/* Connected Context line / Reactive Nudge directly below the button */}
+          {reactiveLine && (
+            <p className="text-xs sm:text-sm text-text-secondary/60 font-sans italic mt-1 max-w-sm mx-auto leading-relaxed">
+              {reactiveLine}
+            </p>
+          )}
+        </motion.div>
 
         {/* Bloco de Agendamentos Pendentes */}
         {sortedUpcoming.length > 0 && (
@@ -164,11 +236,6 @@ export const HeroSection = () => {
               🔥 {streak >= 1 ? `${streak} ${streak === 1 ? 'dia invicto' : 'dias invictos'}` : 'Comece hoje'}
             </span>
           </div>
-          {reactiveLine && (
-            <p className="text-xs sm:text-sm text-text-secondary/60 font-sans italic mt-1 max-w-md mx-auto leading-relaxed">
-              {reactiveLine}
-            </p>
-          )}
         </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
@@ -298,25 +365,6 @@ export const HeroSection = () => {
             )}
           </div>
         </div>
-
-        {/* Bloco 4 — Botão de ação */}
-        <motion.div 
-          layout={false}
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="pt-2"
-        >
-          <button 
-            onClick={openDeepSession}
-            className="group relative px-3 sm:px-8 py-3.5 sm:py-4.5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-[0.98] flex items-center justify-center gap-2 sm:gap-3 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[48px] w-full max-w-[320px] sm:max-w-none sm:w-auto hover:scale-[1.02] duration-200 cursor-pointer"
-          >
-            <div className="w-2 h-2 rounded-full bg-background animate-pulse shrink-0" />
-            <span className="font-bold text-[11px] sm:text-xs uppercase tracking-[0.15em] whitespace-nowrap">
-              Iniciar Sessão Profunda
-            </span>
-          </button>
-        </motion.div>
       </motion.div>
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
