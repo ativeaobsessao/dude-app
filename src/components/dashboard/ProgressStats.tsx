@@ -464,9 +464,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   }, [scheduledActivities]);
 
   // ----------------------------------------------------
-  // LAST 90 DAYS COMPACT HEATMAP
+  // LAST 30 DAYS COMPACT HEATMAP
   // ----------------------------------------------------
-  const heatmapCells90 = useMemo(() => {
+  const heatmapCells30 = useMemo(() => {
     const focusMap: { [day: string]: number } = {};
     sessions.forEach(s => {
       const day = getLocalDateString(new Date(s.started_at));
@@ -475,9 +475,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       }
     });
 
-    return Array.from({ length: 90 }, (_, idx) => {
+    return Array.from({ length: 30 }, (_, idx) => {
       const d = new Date();
-      d.setDate(d.getDate() - (89 - idx));
+      d.setDate(d.getDate() - (29 - idx));
       const dStr = getLocalDateString(d);
       const mins = focusMap[dStr] || 0;
 
@@ -1349,21 +1349,21 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </section>
 
-        {/* HEATMAP AT THE BOTTOM OF SCROLL (LAST 90 DAYS ONLY) */}
+        {/* HEATMAP AT THE BOTTOM OF SCROLL (LAST 30 DAYS ONLY) */}
         <section className="space-y-4 pt-4 border-t border-white/5 font-sans font-sans">
           <div className="flex flex-col space-y-1 font-sans">
             <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-              <Calendar size={12} className="text-primary-green" /> Mapa do Foco Diário de 90 dias
+              <Calendar size={12} className="text-primary-green" /> Mapa do Foco Diário de 30 dias
             </h3>
             <span className="text-xs md:text-[13px] text-text-secondary/60 leading-normal block font-sans">
-              Representação visual compacta da intensidade de foco diário nos últimos 90 dias.
+              Representação visual compacta da intensidade de foco diário nos últimos 30 dias.
             </span>
           </div>
 
-          <div id="90-days-focus-heatmap" className="bg-white/[0.01] border border-white/5 p-5 rounded-2.5xl space-y-4 font-sans font-sans">
-            <div className="overflow-x-auto style-scrollbar select-none py-1 pr-1 font-sans">
-              <div className="flex flex-wrap gap-[4px] min-w-[340px] md:max-w-none font-sans">
-                {heatmapCells90.map((cell, idx) => {
+          <div id="30-days-focus-heatmap" className="bg-white/[0.01] border border-white/5 p-5 rounded-2.5xl space-y-4 font-sans font-sans">
+            <div className="select-none py-1 pr-1 font-sans">
+              <div className="flex flex-row justify-between gap-[2px] xs:gap-[3px] sm:gap-[5px] w-full font-sans">
+                {heatmapCells30.map((cell, idx) => {
                   const bgClass = {
                     0: 'bg-white/[0.01] border-white/[0.02]',
                     1: 'bg-primary-green/15 border-primary-green/10 hover:bg-primary-green/30 hover:scale-105',
@@ -1376,7 +1376,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     <div
                       key={idx}
                       title={cell.label}
-                      className={`aspect-square w-2.5 h-2.5 md:w-3 md:h-3 rounded-[2.5px] border cursor-crosshair transition-all duration-150 ${bgClass}`}
+                      className={`flex-1 min-w-0 aspect-square max-w-[14px] sm:max-w-[20px] rounded-[2px] sm:rounded-[3px] border cursor-crosshair transition-all duration-150 ${bgClass}`}
                     />
                   );
                 })}
