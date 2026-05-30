@@ -2,7 +2,8 @@ import { useDataStore } from '../../store/useDataStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
-  BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart
+  BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
+  Sun, CheckSquare
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString } from '../../lib/utils';
 import { useState, useMemo } from 'react';
@@ -720,6 +721,158 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     };
   }, [moodEntries, sessions, period]);
 
+  // ----------------------------------------------------
+  // IDENTITY LAYER CALCULATIONS (WAVE 2C)
+  // ----------------------------------------------------
+  const identityData = useMemo(() => {
+    // 1. Focus days in the last 7 days
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return getLocalDateString(d);
+    });
+
+    let focusDaysCount = 0;
+    last7Days.forEach(dStr => {
+      const dayHasFocus = sessions.some(s => s.completed && getLocalDateString(new Date(s.started_at)) === dStr);
+      if (dayHasFocus) focusDaysCount++;
+    });
+
+    // 2. Focus streak
+    const streak = profile?.current_streak || 0;
+
+    // 3. Steady habits streak (weekly_streak >= 2 or sessions_this_week >= 3)
+    const hasSteadyHabits = habits.some(h => (h.weekly_streak || 0) >= 2 || (h.sessions_this_week || 0) >= 3);
+
+    // 4. Successful avoidance checkins in last 7 days
+    let avoidanceDaysCount = 0;
+    last7Days.forEach(dStr => {
+      const dayHasAvoidance = avoidanceCheckins.some(ac => ac.checkin_date === dStr && ac.status === 'success');
+      if (dayHasAvoidance) avoidanceDaysCount++;
+    });
+
+    // Determine the Headline based on hierarchy
+    let headline = "Você está começando a construir sua identidade de foco."; // Default/building frame
+    if (focusDaysCount >= 5) {
+      headline = `Você é alguém que foca ${focusDaysCount} de 7 dias.`;
+    } else if (streak >= 3) {
+      headline = "Você está se tornando uma pessoa de foco diário.";
+    } else if (hasSteadyHabits) {
+      headline = "Você é alguém que mantém seus hábitos.";
+    } else if (avoidanceDaysCount >= 4) {
+      headline = "Você é alguém que resiste às distrações.";
+    }
+
+    // --- Compute Milestone States ---
+    const bestStreakValue = sessions.length === 0 ? 0 : (() => {
+      const sortedDates = Array.from(new Set(
+        sessions.map(s => getLocalDateString(new Date(s.started_at)))
+      )).sort();
+  
+      let longest = 0;
+      let current = 0;
+      let prevDateStr: string | null = null;
+  
+      for (const dateStr of sortedDates) {
+        if (!prevDateStr) {
+          current = 1;
+        } else {
+          const prev = new Date(`${prevDateStr}T12:00:00`);
+          const curr = new Date(`${dateStr}T12:00:00`);
+          const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24));
+          if (diffDays === 1) {
+            current++;
+          } else if (diffDays > 1) {
+            if (current > longest) longest = current;
+            current = 1;
+          }
+        }
+        prevDateStr = dateStr;
+      }
+      if (current > longest) longest = current;
+      return Math.max(longest, streak);
+    })();
+
+    const isFocoDiarioUnlocked = streak >= 7 || bestStreakValue >= 7;
+
+    // B) Madrugador do Foco: Focus registered between 5:00 and 10:59 on at least 3 distinct days
+    const focusMorningDays = new Set<string>();
+    sessions.forEach(s => {
+      if (!s.completed) return;
+      const date = new Date(s.started_at);
+      const hour = date.getHours();
+      if (hour >= 5 && hour < 11) {
+        focusMorningDays.add(getLocalDateString(date));
+      }
+    });
+    const isMadrugadorUnlocked = focusMorningDays.size >= 3;
+
+    // C) Construtor de Hábitos: At least 1 habit with weekly_streak >= 3 or total completions >= 15
+    const totalCompletions = habitCompletions.length;
+    const hasWeeklyStreak3 = habits.some(h => (h.weekly_streak || 0) >= 3);
+    const isConstrutorUnlocked = hasWeeklyStreak3 || totalCompletions >= 15;
+
+    // D) Mente Blindada: At least 5 distinct days of successful avoidance checkins
+    const successfulAvoidanceDays = new Set<string>();
+    avoidanceCheckins.forEach(ac => {
+      if (ac.status === 'success') {
+        successfulAvoidanceDays.add(ac.checkin_date);
+      }
+    });
+    const isMenteBlindadaUnlocked = successfulAvoidanceDays.size >= 5;
+
+    // E) Palavra Cumprida: At least 5 completed scheduled activities
+    const completedSchedulesCount = scheduledActivities.filter(sa => sa.status === 'completed').length;
+    const isPalavraCumpridaUnlocked = completedSchedulesCount >= 5;
+
+    return {
+      headline,
+      focusDaysCount,
+      milestones: [
+        {
+          key: 'foco_diario',
+          title: 'Foco Diário',
+          description: 'Aparecer todos os dias para o que realmente importa.',
+          unlocked: isFocoDiarioUnlocked,
+          requirement: 'Sequência de foco de 7 dias (atual ou melhor)',
+          progress: `${Math.max(streak, bestStreakValue)}/7 dias`
+        },
+        {
+          key: 'madrugador',
+          title: 'Madrugador do Foco',
+          description: 'Começar o trabalho profundo nas primeiras horas do dia.',
+          unlocked: isMadrugadorUnlocked,
+          requirement: 'Focalizar pela manhã (05h - 11h) em 3 dias diferentes',
+          progress: `${focusMorningDays.size}/3 dias`
+        },
+        {
+          key: 'construtor',
+          title: 'Construtor de Hábitos',
+          description: 'Sustentar rituais consistentes semana após semana.',
+          unlocked: isConstrutorUnlocked,
+          requirement: 'Hábito com sequência ≥ 3 sem. ou 15 registros totais',
+          progress: hasWeeklyStreak3 ? 'Sequência ≥ 3 em dia!' : `${totalCompletions}/15 registros`
+        },
+        {
+          key: 'mente_blindada',
+          title: 'Mente Blindada',
+          description: 'Proteger sua atenção contra impulsos e ruídos.',
+          unlocked: isMenteBlindadaUnlocked,
+          requirement: 'Evitar distrações com check-in de sucesso em 5 dias',
+          progress: `${successfulAvoidanceDays.size}/5 dias`
+        },
+        {
+          key: 'palavra_cumprida',
+          title: 'Palavra Cumprida',
+          description: 'Cumprir o que foi planejado na agenda.',
+          unlocked: isPalavraCumpridaUnlocked,
+          requirement: 'Completar 5 atividades agendadas ou planejadas',
+          progress: `${completedSchedulesCount}/5 concluídas`
+        }
+      ]
+    };
+  }, [sessions, habits, profile, avoidanceCheckins, habitCompletions, scheduledActivities]);
+
   return (
     <div className="fixed inset-0 z-[500] overflow-y-auto bg-background/95 backdrop-blur-xl p-4 md:p-6 flex items-start justify-center">
       <motion.div
@@ -761,6 +914,111 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </p>
           </div>
         </header>
+
+        {/* WAVE 2C: IDENTITY LAYER (Atomic Habits) */}
+        <section className="space-y-4 font-sans">
+          {/* Identity Headline Banner */}
+          <div className="p-5 bg-gradient-to-r from-primary-green/[0.04] to-primary-green/[0.012] border border-primary-green/15 rounded-3xl relative overflow-hidden select-none cursor-default">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-green/5 blur-2xl rounded-full pointer-events-none" />
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-primary-green block">
+                Sua Identidade
+              </span>
+            </div>
+            <h3 className="text-sm md:text-base font-bold text-text-primary leading-snug">
+              {identityData.headline}
+            </h3>
+            <p className="text-[10px] sm:text-[11px] text-text-secondary/60 mt-1 font-light italic">
+              "A verdadeira mudança de comportamento ocorre através da mudança de identidade." — Atomic Habits
+            </p>
+          </div>
+
+          {/* Identity Milestones Strip */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary/60">
+                Marcos de Identidade Desbloqueados
+              </span>
+              <span className="text-[10px] font-mono text-primary-green/80 font-bold">
+                {identityData.milestones.filter(m => m.unlocked).length} de 5 Desbloqueados
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 w-full">
+              {identityData.milestones.map((m) => {
+                const IconComponent = 
+                  m.key === 'foco_diario' ? Flame :
+                  m.key === 'madrugador' ? Sun :
+                  m.key === 'construtor' ? Activity :
+                  m.key === 'mente_blindada' ? Shield :
+                  CheckSquare;
+
+                return (
+                  <div
+                    key={m.key}
+                    className={`relative p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden select-none cursor-default group min-h-[140px] ${
+                      m.unlocked
+                        ? 'bg-primary-green/[0.03] border-primary-green/20 hover:border-primary-green/40 shadow-[0_4px_12px_rgba(110,231,168,0.03)]'
+                        : 'bg-white/[0.015] border-white/5 hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    {/* Glowing effect for unlocked */}
+                    {m.unlocked && (
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-primary-green/5 blur-lg pointer-events-none rounded-full" />
+                    )}
+
+                    <div className="space-y-2 z-10 relative">
+                      <div className="flex items-center justify-between">
+                        <div className={`p-2 rounded-xl border ${
+                          m.unlocked
+                            ? 'bg-primary-green/10 border-primary-green/20 text-primary-green'
+                            : 'bg-white/5 border-white/5 text-text-secondary/40'
+                        }`}>
+                          <IconComponent size={14} className={m.unlocked ? 'animate-pulse' : ''} />
+                        </div>
+                        {m.unlocked ? (
+                          <span className="text-[9px] font-mono font-bold text-primary-green bg-primary-green/10 px-1.5 py-0.5 rounded">
+                            ATIVO
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-mono font-medium text-text-secondary/30 bg-white/5 px-1.5 py-0.5 rounded">
+                            BLOQ
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className={`text-[12px] font-bold tracking-tight leading-none ${
+                          m.unlocked ? 'text-text-primary' : 'text-text-secondary/60'
+                        }`}>
+                          {m.title}
+                        </h4>
+                        <p className={`text-[10px] leading-tight font-light ${
+                          m.unlocked ? 'text-text-secondary/85' : 'text-text-secondary/40'
+                        }`}>
+                          {m.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono leading-none z-10 relative">
+                      <span className="text-text-secondary/35 uppercase">REQUISITO</span>
+                      <span 
+                        className={`font-semibold shrink-0 cursor-help ${
+                          m.unlocked ? 'text-primary-green/90' : 'text-text-secondary/50'
+                        }`}
+                        title={m.requirement}
+                      >
+                        {m.progress}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
         {/* PERIOD SELECTOR */}
         <div className="w-full flex">
