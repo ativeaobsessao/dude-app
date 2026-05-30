@@ -54,142 +54,90 @@ export const HeroSection = () => {
 
   const hasSessions = dataStore.sessions && dataStore.sessions.length > 0;
 
-  // Let's compute daily average of previous days
-  const previousSessions = dataStore.sessions.filter(s => {
-    const sDate = getLocalDateString(new Date(s.started_at));
-    return sDate !== today;
-  });
+  const formatCompact = (totalMins: number) => {
+    const h = Math.floor(totalMins / 60);
+    const m = Math.round(totalMins % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
 
-  // Group by date to get previous focus days
-  const sessionsByDate: { [key: string]: number } = {};
-  previousSessions.forEach(s => {
-    const sDate = getLocalDateString(new Date(s.started_at));
-    sessionsByDate[sDate] = (sessionsByDate[sDate] || 0) + s.duration_minutes;
-  });
+  const todayMinutesToShow = totalMinutes;
 
-  const uniqueDaysCount = Object.keys(sessionsByDate).length;
-  const totalPrevMinutes = Object.values(sessionsByDate).reduce((acc, mins) => acc + mins, 0);
-  const dailyAverageMinutes = uniqueDaysCount > 0 ? totalPrevMinutes / uniqueDaysCount : 0;
+  const averageData = useMemo(() => {
+    const map: { [key: string]: number } = {};
+    dataStore.sessions.forEach(s => {
+      if (!s.completed) return;
+      const sDate = getLocalDateString(new Date(s.started_at));
+      const mins = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
+        ? s.actual_duration_minutes
+        : s.duration_minutes;
+      map[sDate] = (map[sDate] || 0) + mins;
+    });
 
-  // Adaptive Daily Goal Auto-derivation
-  const autoGoal = useMemo(() => {
-    if (uniqueDaysCount === 0) {
-      return 45; // Achievable starting goal
+    const activeDates = Object.keys(map).filter(d => map[d] > 0);
+    const activeDatesCount = activeDates.length;
+
+    const otherActiveDates = activeDates.filter(d => d !== today);
+    let avg = 0;
+    if (otherActiveDates.length > 0) {
+      const sum = otherActiveDates.reduce((acc, d) => acc + map[d], 0);
+      avg = Math.round(sum / otherActiveDates.length);
+    } else if (activeDatesCount > 0) {
+      const sum = activeDates.reduce((acc, d) => acc + map[d], 0);
+      avg = Math.round(sum / activeDatesCount);
     }
-    const previousDaysMins = Object.values(sessionsByDate);
-    const lastActiveDays = previousDaysMins.slice(-14);
-    const sum = lastActiveDays.reduce((a, b) => a + b, 0);
-    const avg = sum / lastActiveDays.length;
-    // Round to the nearest 15 minutes, with a floor of 25 minutes
-    const rounded = Math.round(avg / 15) * 15;
-    return Math.max(25, rounded);
-  }, [sessionsByDate, uniqueDaysCount]);
 
-  const dailyGoal = customGoal !== null ? customGoal : autoGoal;
-  const percent = dailyGoal > 0 ? Math.round((totalMinutes / dailyGoal) * 100) : 0;
+    const otherDaysMins = otherActiveDates.map(d => map[d]);
+    const record = otherDaysMins.length > 0 ? Math.max(...otherDaysMins) : 0;
+
+    return {
+      averageMinutes: avg,
+      personalRecord: record,
+      hasEnoughHistory: avg > 0
+    };
+  }, [dataStore.sessions, today]);
+
+  const targetMinutes = customGoal !== null ? customGoal : averageData.averageMinutes;
+  const hasEnoughHistory = targetMinutes > 0;
+
+  const percent = hasEnoughHistory ? Math.round((todayMinutesToShow / targetMinutes) * 100) : 0;
   const strokePercent = Math.min(100, percent);
 
-  const [tempGoal, setTempGoal] = useState(dailyGoal);
+  const [tempGoal, setTempGoal] = useState<number>(45);
 
-  const saveGoal = (val: number) => {
-    const cleanVal = Math.max(15, Math.min(720, val));
-    setCustomGoal(cleanVal);
-    localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
-    setIsEditingGoal(false);
-  };
-
-  // Encouraging Message Logic
-  let goalMessage = '';
-  if (percent === 0) {
-    const goalStr = dailyGoal >= 60 
-      ? `${Math.floor(dailyGoal / 60)}h${dailyGoal % 60 > 0 ? ` ${dailyGoal % 60}m` : ''}` 
-      : `${dailyGoal} min`;
-    goalMessage = `Sua meta de hoje: ${goalStr}. Bora começar?`;
-  } else if (percent > 0 && percent < 100) {
-    const remainingMin = dailyGoal - totalMinutes;
-    const remainingFormatted = remainingMin >= 60 
-      ? `${Math.floor(remainingMin / 60)}h${remainingMin % 60 > 0 ? ` ${remainingMin % 60}m` : ''}` 
-      : `${remainingMin} min`;
-    goalMessage = `Faltam ${remainingFormatted} para sua meta de hoje. Você consegue.`;
-  } else if (percent === 100) {
-    const totalFormatted = totalMinutes >= 60
-      ? `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}m` : ''}`
-      : `${totalMinutes} min`;
-    goalMessage = `🎉 Meta do dia batida! ${totalFormatted} de foco.`;
-  } else {
-    // percent > 100
-    const totalFormatted = totalMinutes >= 60
-      ? `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}m` : ''}`
-      : `${totalMinutes} min`;
-    goalMessage = `🔥 ${totalFormatted} hoje — além da meta. Voando!`;
-  }
-
-  // Let's find the maximum focus minutes in a single day across previous days to check for record day
-  const previousDaysMins = Object.values(sessionsByDate);
-  const allTimeBestMinutes = previousDaysMins.length > 0 ? Math.max(...previousDaysMins) : 0;
-
-  // Let's compute Yesterday & Average comparison with a rotater based on dayNum
-  const yesterdayDate = getLocalDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
-  const yesterdayMinutes = sessionsByDate[yesterdayDate] || 0;
-  
-  // Decide which to try first to rotate reference points:
-  const tryYesterdayFirst = dayNum % 2 === 0;
-
-  const computeComparison = (todayMins: number, refMins: number, refName: 'ontem' | 'sua média') => {
-    if (refMins === 0) return null;
-
-    const diff = todayMins - refMins;
-    const percentDiff = Math.round((Math.abs(diff) / refMins) * 100);
-
-    if (diff > 0) {
-      return {
-        above: true,
-        text: refName === 'ontem'
-          ? `🎉 ${percentDiff}% acima de ontem. Voando!`
-          : `🎉 ${percentDiff}% acima da sua média. Continue assim!`,
-        percent: percentDiff
-      };
-    } else if (diff < 0) {
-      if (percentDiff >= 90 && todayMins === 0) {
-        return {
-          above: false,
-          text: refName === 'ontem'
-            ? "Amanhã é um novo dia para focar. Que tal se planejar?"
-            : "Sua média recente está alta. Logo você retoma o ritmo!",
-          percent: percentDiff
-        };
-      }
-      return {
-        above: false,
-        text: refName === 'ontem'
-          ? `${percentDiff}% menos que ontem. Bora recuperar!`
-          : `Um pouco abaixo da sua média. Dá pra virar o dia!`,
-        percent: percentDiff
-      };
+  let stateType: 'above' | 'on_pace' | 'below' | 'neutral' = 'neutral';
+  if (hasEnoughHistory) {
+    if (percent > 110) {
+      stateType = 'above';
+    } else if (percent >= 90) {
+      stateType = 'on_pace';
     } else {
-      return {
-        above: null,
-        text: "No mesmo ritmo de sempre. Mantenha o foco.",
-        percent: 0
-      };
+      stateType = 'below';
     }
-  };
-
-  const yesterdayComp = computeComparison(totalMinutes, yesterdayMinutes, 'ontem');
-  const averageComp = computeComparison(totalMinutes, dailyAverageMinutes, 'sua média');
-
-  let selectedComp = null;
-  if (tryYesterdayFirst) {
-    selectedComp = yesterdayComp || averageComp;
-  } else {
-    selectedComp = averageComp || yesterdayComp;
   }
 
-  let incentiveLine = '';
-  if (selectedComp) {
-    incentiveLine = selectedComp.text;
+  // Smart Status Phrase (varies by state — NOT always "beat record")
+  let smartPhrase = '';
+  if (!hasEnoughHistory) {
+    smartPhrase = "Comece a registrar pra DUDE aprender seu ritmo.";
+  } else if (todayMinutesToShow === 0) {
+    smartPhrase = `Sua média é ${formatCompact(targetMinutes)}. Bora abrir o dia?`;
+  } else if (stateType === 'above') {
+    if (averageData.personalRecord > 0 && todayMinutesToShow >= averageData.personalRecord) {
+      smartPhrase = `Recorde histórico superado com ${formatCompact(todayMinutesToShow)}! Você está voando alto hoje! 🏆`;
+    } else if (averageData.personalRecord > 0 && (averageData.personalRecord - todayMinutesToShow) <= 15) {
+      smartPhrase = `Incrível, você está quase quebrando seu recorde de ${formatCompact(averageData.personalRecord)}! 🔥`;
+    } else if (averageData.personalRecord > 0) {
+      smartPhrase = `Acima da média! Falta pouco pro seu recorde de ${formatCompact(averageData.personalRecord)}. 🔥`;
+    } else {
+      smartPhrase = `Acima da média! Excelente ritmo hoje. 🔥`;
+    }
+  } else if (stateType === 'on_pace') {
+    smartPhrase = "No seu ritmo de sempre. Que tal superar hoje?";
   } else {
-    incentiveLine = "Comece a registrar pra acompanhar sua evolução.";
+    // stateType === 'below'
+    smartPhrase = "Dá tempo de virar o dia. Uma sessão já te recoloca.";
   }
 
   // Now, determine reactive text line (WAVE 1B living reactive line engine)
@@ -218,21 +166,21 @@ export const HeroSection = () => {
       "Sua mente está pronta. Vamos iniciar uma Sessão Profunda hoje?",
       "O dia está passando. Que tal reservar um tempo para focar?"
     ]);
-  } else if (uniqueDaysCount > 0 && totalMinutes > allTimeBestMinutes && totalMinutes > 0) {
+  } else if (averageData.hasEnoughHistory && totalMinutes > averageData.personalRecord && totalMinutes > 0) {
     reactiveLine = selectChoice([
       "Seu melhor dia de foco até agora. 🔥",
       "Incrível! Hoje é o seu dia mais focado de todos os tempos. 🏆",
       "Você quebrou seu recorde de foco diário hoje! Fantástico!",
       "Superando todos os seus limites. Hoje foi histórico! 🔥"
     ]);
-  } else if (uniqueDaysCount > 0 && totalMinutes > 0 && totalMinutes < 0.8 * dailyAverageMinutes) {
+  } else if (averageData.hasEnoughHistory && totalMinutes > 0 && totalMinutes < 0.8 * averageData.averageMinutes) {
     reactiveLine = selectChoice([
       "Hoje rendeu menos que sua média. Bora recuperar?",
       "Abaixo do seu ritmo normal. Que tal uma sessão rápida para retomar?",
       "O dia ainda não acabou. Um bloco de foco pode fazer a diferença hoje!",
       "Que tal ajustar o foco? Uma sessão curta ajuda a voltar ao ritmo."
     ]);
-  } else if (uniqueDaysCount > 0 && totalMinutes > 0 && totalMinutes >= dailyAverageMinutes) {
+  } else if (averageData.hasEnoughHistory && totalMinutes > 0 && totalMinutes >= averageData.averageMinutes) {
     reactiveLine = selectChoice([
       `Bom ritmo hoje — ${formattedFocusTime} de foco. Continue assim.`,
       `Ótimo trabalho! Já são ${formattedFocusTime} de foco acumulados hoje.`,
@@ -404,13 +352,81 @@ export const HeroSection = () => {
           )}
         </div>
 
+        {/* THE AVERAGE RING COLUMNS (WAVE 2C / PART B) */}
+        <div className="flex flex-col items-center justify-center gap-5 w-full py-2">
+          {/* THE AVERAGE RING */}
+          <div className="relative w-36 h-36 flex items-center justify-center rounded-full bg-white/[0.01]">
+            <svg className="w-full h-full transform -rotate-90 select-none pointer-events-none" viewBox="0 0 36 36">
+              {/* Track ring */}
+              <path
+                className="text-white/[0.05]"
+                strokeWidth="2.8"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              {/* Active progress ring */}
+              {hasEnoughHistory && (
+                <motion.path
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  stroke={
+                    stateType === 'above'
+                      ? 'var(--green)'
+                      : stateType === 'on_pace'
+                      ? 'var(--amber)'
+                      : 'var(--coral)'
+                  }
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  initial={{ strokeDasharray: "0, 100" }}
+                  animate={{ strokeDasharray: `${strokePercent}, 100` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                />
+              )}
+            </svg>
+            
+            {/* Centered label element with absolute centering to prevent layout shift */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-2 select-none">
+              {hasEnoughHistory ? (
+                <>
+                  <span className="text-3xl font-black font-mono text-text tracking-tighter leading-none">
+                    {percent}%
+                  </span>
+                  <span className="text-[10px] text-text-dim/60 font-mono tracking-tight leading-normal mt-1.5 whitespace-nowrap">
+                    {formatCompact(todayMinutesToShow)} / {formatCompact(targetMinutes)}
+                  </span>
+                  <div className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 flex items-center gap-1 leading-none ${
+                    stateType === 'above' ? 'text-green' : stateType === 'on_pace' ? 'text-amber' : 'text-coral'
+                  }`}>
+                    {stateType === 'above' && '↑ acima'}
+                    {stateType === 'on_pace' && '= no ritmo'}
+                    {stateType === 'below' && '↓ abaixo'}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-extrabold font-mono text-text-dim/30 leading-none">
+                    —
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* SMART STATUS PHRASE */}
+          <p className="text-xs sm:text-sm font-medium italic text-text-dim/80 max-w-sm text-center leading-relaxed select-none px-4">
+            "{smartPhrase}"
+          </p>
+        </div>
+
         {/* Bloco 4 — Botão de ação (The primary action centered with generous breathing room) */}
         <motion.div 
           layout={false}
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="py-2 flex flex-col items-center gap-2 w-full"
+          className="pb-2 flex flex-col items-center gap-2 w-full animate-fade-in"
         >
           <button 
             onClick={openDeepSession}
@@ -429,6 +445,109 @@ export const HeroSection = () => {
             )}
           </button>
         </motion.div>
+
+        {/* "SEUS NÚMEROS DE HOJE" BLOCK (PART B3 & B4) */}
+        <div className="w-full space-y-4 pt-1">
+          <h3 className="text-xs sm:text-sm font-bold tracking-[0.22em] text-text uppercase text-center font-sans">
+            SEUS NÚMEROS DE HOJE
+          </h3>
+          
+          <div className="grid grid-cols-3 gap-3 w-full">
+            {/* Card 1 — Horas Focadas */}
+            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
+              <div className="flex items-center justify-center w-full min-h-[40px]">
+                <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-text whitespace-nowrap leading-none">
+                  {formatCompact(todayMinutesToShow)}
+                </span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+                Horas Focadas
+              </span>
+            </div>
+
+            {/* Card 2 — Sessões Profundas */}
+            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
+              <div className="flex items-center justify-center w-full min-h-[40px]">
+                <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-text whitespace-nowrap leading-none">
+                  {todaySessions.length}
+                </span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+                {todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}
+              </span>
+            </div>
+
+            {/* Card 3 — Dias Invictos */}
+            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
+              <div className="flex items-center justify-center w-full min-h-[40px]">
+                <div className="flex items-center justify-center gap-1.5 w-full font-mono">
+                  <span className="text-lg sm:text-xl md:text-2xl select-none leading-none shrink-0 text-center">🔥</span>
+                  <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-green whitespace-nowrap leading-none">
+                    {streak}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+                {streak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
+              </span>
+            </div>
+          </div>
+
+          {/* Tiny ajust-meta link */}
+          <div className="flex items-center justify-center pt-1 pb-2">
+            {!isEditingGoal ? (
+              <button
+                onClick={() => {
+                  setTempGoal(targetMinutes || 45);
+                  setIsEditingGoal(true);
+                }}
+                className="text-[10px] font-medium text-text-dim/40 hover:text-green transition-colors cursor-pointer"
+              >
+                ajustar minha meta
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-surface-2 border border-border-custom px-3 py-1.5 rounded-xl text-xs shadow-xl font-sans">
+                <span className="text-[9px] font-mono text-text-dim uppercase">meta:</span>
+                <input
+                  type="number"
+                  value={tempGoal}
+                  onChange={(e) => setTempGoal(Math.max(15, parseInt(e.target.value, 10) || 15))}
+                  className="w-12 bg-transparent text-center font-mono text-xs font-bold text-text focus:outline-none"
+                />
+                <span className="text-[9px] text-text-dim font-mono">min</span>
+                <button
+                  onClick={() => {
+                    const cleanVal = Math.max(15, Math.min(720, tempGoal));
+                    setCustomGoal(cleanVal);
+                    localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
+                    setIsEditingGoal(false);
+                  }}
+                  className="px-2 py-0.5 bg-green hover:brightness-105 rounded text-[9px] font-bold text-surface-2 uppercase cursor-pointer"
+                >
+                  OK
+                </button>
+                {customGoal !== null && (
+                  <button
+                    onClick={() => {
+                      setCustomGoal(null);
+                      localStorage.removeItem('dude_daily_focus_goal');
+                      setIsEditingGoal(false);
+                    }}
+                    className="text-[9px] text-coral hover:underline"
+                  >
+                    reset
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsEditingGoal(false)}
+                  className="text-[10px] text-text-dim hover:text-text cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Bloco de Agendamentos Pendentes */}
         {sortedUpcoming.length > 0 && (
@@ -461,151 +580,6 @@ export const HeroSection = () => {
             </div>
           </div>
         )}
-
-        {/* Bloco 2 — Métricas do Dia */}
-        <div 
-          className="w-full overflow-hidden bg-surface-1 border border-border-custom hover:border-white/15 rounded-3xl py-6 px-5 md:py-8 md:px-8 shadow-inner transition-all duration-300 mt-4"
-          style={{ borderTop: '3px solid var(--mood)' }}
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-            
-            {/* Visual Progress Ring Column */}
-            <div className="flex flex-col items-center gap-3 w-full md:w-auto shrink-0">
-              <div 
-                className="relative w-28 h-28 flex items-center justify-center transition-all duration-500 rounded-full"
-                style={{
-                  filter: percent >= 100 ? 'drop-shadow(0 0 10px rgba(110, 231, 168, 0.25))' : 'none'
-                }}
-              >
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  {/* Track ring */}
-                  <path
-                    className="text-white/5"
-                    strokeWidth="3"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  {/* Green progress ring */}
-                  <motion.path
-                    className="text-green"
-                    strokeWidth="3.2"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    initial={{ strokeDasharray: "0, 100" }}
-                    animate={{ strokeDasharray: `${strokePercent}, 100` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                </svg>
-                
-                {/* Centered label element with absolute centering to prevent layout shift */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-2 select-none">
-                  <span className="text-xl font-black font-mono text-text tracking-tighter leading-none">
-                    {percent}%
-                  </span>
-                  <span className="text-[9px] text-text-dim/60 font-sans tracking-tight leading-normal mt-1">
-                    {hours > 0 ? `${hours}h${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`} de {dailyGoal >= 60 ? `${Math.floor(dailyGoal / 60)}h${dailyGoal % 60 > 0 ? `${dailyGoal % 60}m` : ''}` : `${dailyGoal}m`}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Celeb statement if reached */}
-              {percent >= 100 && (
-                <div className="text-[9px] font-bold text-green uppercase tracking-widest flex items-center gap-1 bg-green/10 border border-green/20 px-2 py-0.5 rounded-full animate-bounce">
-                  <span>✓</span> Meta batida!
-                </div>
-              )}
-            </div>
-
-            {/* Metrics and Encouraging Line Column */}
-            <div className="flex-1 space-y-4 text-center md:text-left w-full">
-              <div className="space-y-1">
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-dim/40 block">Meta e Progresso</span>
-                
-                {/* Encouraging message */}
-                <h3 className="text-sm sm:text-base md:text-lg font-bold text-text tracking-tight uppercase leading-snug">
-                  {goalMessage}
-                </h3>
-              </div>
-
-              {/* Grid of micro stats */}
-              <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-white/5">
-                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
-                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Hoje</span>
-                  <span className="text-[11px] sm:text-xs font-bold font-mono text-text block">
-                    {compactFocusTime}
-                  </span>
-                </div>
-                
-                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
-                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Sessões</span>
-                  <span className="text-[11px] sm:text-xs font-bold font-mono text-text block">
-                    {todaySessions.length}
-                  </span>
-                </div>
-
-                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
-                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Streak</span>
-                  <span className="text-[11px] sm:text-xs font-bold font-mono text-green block flex items-center justify-center gap-0.5">
-                    🔥 {streak}
-                  </span>
-                </div>
-              </div>
-
-              {/* Adjust Goal Panel or Buttons */}
-              <div className="flex items-center justify-center md:justify-start pt-1">
-                {!isEditingGoal ? (
-                  <button
-                    onClick={() => {
-                      setTempGoal(dailyGoal);
-                      setIsEditingGoal(true);
-                    }}
-                    className="text-[9px] font-extrabold uppercase tracking-widest text-text-dim/50 hover:text-green transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    ⚙️ Ajustar meta diária
-                  </button>
-                ) : (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-1.5 bg-surface-2/65 border border-border-custom rounded-xl p-1 w-full max-w-xs md:max-w-none"
-                  >
-                    <button
-                      onClick={() => setTempGoal(prev => Math.max(15, prev - 15))}
-                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black text-text-dim hover:bg-white/10 active:scale-90"
-                    >
-                      -
-                    </button>
-                    <div className="flex-1 text-center font-mono text-[10px] font-bold text-text">
-                      {tempGoal} min {tempGoal >= 60 ? `(${Math.floor(tempGoal / 60)}h${tempGoal % 60 > 0 ? ` ${tempGoal % 60}m` : ''})` : ''}
-                    </div>
-                    <button
-                      onClick={() => setTempGoal(prev => Math.min(720, prev + 15))}
-                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black text-text-dim hover:bg-white/10 active:scale-90"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => saveGoal(tempGoal)}
-                      className="px-2.5 py-1 h-7 bg-green hover:brightness-105 active:scale-95 text-base rounded-lg font-bold text-[9px] uppercase tracking-wider text-center flex items-center justify-center"
-                    >
-                      salvar
-                    </button>
-                    <button
-                      onClick={() => setIsEditingGoal(false)}
-                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-[10px] text-text-dim/60 hover:text-coral"
-                    >
-                      ✕
-                    </button>
-                  </motion.div>
-                )}
-              </div>
-
-            </div>
-          </div>
-        </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
