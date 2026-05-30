@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useState, useMemo } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { CheckCircle, Pause } from 'lucide-react';
@@ -14,6 +15,12 @@ export const HeroSection = () => {
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
 
   // Greeting Logic
+  const [customGoal, setCustomGoal] = useState<number | null>(() => {
+    const saved = localStorage.getItem('dude_daily_focus_goal');
+    return saved ? parseInt(saved, 10) : null;
+  });
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+
   const hour = new Date().getHours();
   let greeting = 'Boa noite';
   if (hour >= 5 && hour < 12) greeting = 'Bom dia';
@@ -63,6 +70,59 @@ export const HeroSection = () => {
   const uniqueDaysCount = Object.keys(sessionsByDate).length;
   const totalPrevMinutes = Object.values(sessionsByDate).reduce((acc, mins) => acc + mins, 0);
   const dailyAverageMinutes = uniqueDaysCount > 0 ? totalPrevMinutes / uniqueDaysCount : 0;
+
+  // Adaptive Daily Goal Auto-derivation
+  const autoGoal = useMemo(() => {
+    if (uniqueDaysCount === 0) {
+      return 45; // Achievable starting goal
+    }
+    const previousDaysMins = Object.values(sessionsByDate);
+    const lastActiveDays = previousDaysMins.slice(-14);
+    const sum = lastActiveDays.reduce((a, b) => a + b, 0);
+    const avg = sum / lastActiveDays.length;
+    // Round to the nearest 15 minutes, with a floor of 25 minutes
+    const rounded = Math.round(avg / 15) * 15;
+    return Math.max(25, rounded);
+  }, [sessionsByDate, uniqueDaysCount]);
+
+  const dailyGoal = customGoal !== null ? customGoal : autoGoal;
+  const percent = dailyGoal > 0 ? Math.round((totalMinutes / dailyGoal) * 100) : 0;
+  const strokePercent = Math.min(100, percent);
+
+  const [tempGoal, setTempGoal] = useState(dailyGoal);
+
+  const saveGoal = (val: number) => {
+    const cleanVal = Math.max(15, Math.min(720, val));
+    setCustomGoal(cleanVal);
+    localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
+    setIsEditingGoal(false);
+  };
+
+  // Encouraging Message Logic
+  let goalMessage = '';
+  if (percent === 0) {
+    const goalStr = dailyGoal >= 60 
+      ? `${Math.floor(dailyGoal / 60)}h${dailyGoal % 60 > 0 ? ` ${dailyGoal % 60}m` : ''}` 
+      : `${dailyGoal} min`;
+    goalMessage = `Sua meta de hoje: ${goalStr}. Bora começar?`;
+  } else if (percent > 0 && percent < 100) {
+    const remainingMin = dailyGoal - totalMinutes;
+    const remainingFormatted = remainingMin >= 60 
+      ? `${Math.floor(remainingMin / 60)}h${remainingMin % 60 > 0 ? ` ${remainingMin % 60}m` : ''}` 
+      : `${remainingMin} min`;
+    goalMessage = `Faltam ${remainingFormatted} para sua meta de hoje. Você consegue.`;
+  } else if (percent === 100) {
+    const totalFormatted = totalMinutes >= 60
+      ? `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}m` : ''}`
+      : `${totalMinutes} min`;
+    goalMessage = `🎉 Meta do dia batida! ${totalFormatted} de foco.`;
+  } else {
+    // percent > 100
+    const totalFormatted = totalMinutes >= 60
+      ? `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? ` ${totalMinutes % 60}m` : ''}`
+      : `${totalMinutes} min`;
+    goalMessage = `🔥 ${totalFormatted} hoje — além da meta. Voando!`;
+  }
 
   // Let's find the maximum focus minutes in a single day across previous days to check for record day
   const previousDaysMins = Object.values(sessionsByDate);
@@ -404,34 +464,147 @@ export const HeroSection = () => {
 
         {/* Bloco 2 — Métricas do Dia */}
         <div 
-          className="flex flex-col items-center gap-3 w-full overflow-hidden bg-white/[0.02] border border-white/[0.04] rounded-2xl py-6 px-4 md:py-8 md:px-6 my-2 shadow-inner transition-all duration-700 mt-2 hover:brightness-105"
-          style={{ borderTop: '2px solid var(--mood)' }}
+          className="w-full overflow-hidden bg-surface-1 border border-border-custom hover:border-white/15 rounded-3xl py-6 px-5 md:py-8 md:px-8 shadow-inner transition-all duration-300 mt-4"
+          style={{ borderTop: '3px solid var(--mood)' }}
         >
-          <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-dim/40">Hoje</span>
-          <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
-            <span>{compactFocusTime} <span className="text-text-dim/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>
-            <span className="text-white/15 select-none font-sans font-normal">·</span>
-            <span>{todaySessions.length} <span className="text-text-dim/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}</span></span>
-            <span className="text-white/15 select-none font-sans font-normal">·</span>
-            <span className="flex items-center gap-1 text-green filter drop-shadow-[0_0_6px_rgba(110,231,168,0.2)] font-sans">
-              <span>🔥</span>
-              {streak >= 1 ? (
-                <>
-                  <span className="font-mono">{streak}</span>
-                  <span className="font-sans font-medium text-[0.85em] lowercase text-green/80">{streak === 1 ? 'dia invicto' : 'dias invictos'}</span>
-                </>
-              ) : (
-                <span className="font-sans font-medium text-[0.85em] lowercase text-green/80">Comece hoje</span>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+            
+            {/* Visual Progress Ring Column */}
+            <div className="flex flex-col items-center gap-3 w-full md:w-auto shrink-0">
+              <div 
+                className="relative w-28 h-28 flex items-center justify-center transition-all duration-500 rounded-full"
+                style={{
+                  filter: percent >= 100 ? 'drop-shadow(0 0 10px rgba(110, 231, 168, 0.25))' : 'none'
+                }}
+              >
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  {/* Track ring */}
+                  <path
+                    className="text-white/5"
+                    strokeWidth="3"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  {/* Green progress ring */}
+                  <motion.path
+                    className="text-green"
+                    strokeWidth="3.2"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    initial={{ strokeDasharray: "0, 100" }}
+                    animate={{ strokeDasharray: `${strokePercent}, 100` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
+                </svg>
+                
+                {/* Centered label element with absolute centering to prevent layout shift */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-2 select-none">
+                  <span className="text-xl font-black font-mono text-text tracking-tighter leading-none">
+                    {percent}%
+                  </span>
+                  <span className="text-[9px] text-text-dim/60 font-sans tracking-tight leading-normal mt-1">
+                    {hours > 0 ? `${hours}h${minutes > 0 ? `${minutes}m` : ''}` : `${minutes}m`} de {dailyGoal >= 60 ? `${Math.floor(dailyGoal / 60)}h${dailyGoal % 60 > 0 ? `${dailyGoal % 60}m` : ''}` : `${dailyGoal}m`}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Celeb statement if reached */}
+              {percent >= 100 && (
+                <div className="text-[9px] font-bold text-green uppercase tracking-widest flex items-center gap-1 bg-green/10 border border-green/20 px-2 py-0.5 rounded-full animate-bounce">
+                  <span>✓</span> Meta batida!
+                </div>
               )}
-            </span>
+            </div>
+
+            {/* Metrics and Encouraging Line Column */}
+            <div className="flex-1 space-y-4 text-center md:text-left w-full">
+              <div className="space-y-1">
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-dim/40 block">Meta e Progresso</span>
+                
+                {/* Encouraging message */}
+                <h3 className="text-sm sm:text-base md:text-lg font-bold text-text tracking-tight uppercase leading-snug">
+                  {goalMessage}
+                </h3>
+              </div>
+
+              {/* Grid of micro stats */}
+              <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-white/5">
+                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
+                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Hoje</span>
+                  <span className="text-[11px] sm:text-xs font-bold font-mono text-text block">
+                    {compactFocusTime}
+                  </span>
+                </div>
+                
+                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
+                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Sessões</span>
+                  <span className="text-[11px] sm:text-xs font-bold font-mono text-text block">
+                    {todaySessions.length}
+                  </span>
+                </div>
+
+                <div className="space-y-0.5 text-center p-1.5 rounded-xl bg-white/[0.01]">
+                  <span className="text-[8px] font-bold tracking-widest uppercase text-text-dim/30 block">Streak</span>
+                  <span className="text-[11px] sm:text-xs font-bold font-mono text-green block flex items-center justify-center gap-0.5">
+                    🔥 {streak}
+                  </span>
+                </div>
+              </div>
+
+              {/* Adjust Goal Panel or Buttons */}
+              <div className="flex items-center justify-center md:justify-start pt-1">
+                {!isEditingGoal ? (
+                  <button
+                    onClick={() => {
+                      setTempGoal(dailyGoal);
+                      setIsEditingGoal(true);
+                    }}
+                    className="text-[9px] font-extrabold uppercase tracking-widest text-text-dim/50 hover:text-green transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    ⚙️ Ajustar meta diária
+                  </button>
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-1.5 bg-surface-2/65 border border-border-custom rounded-xl p-1 w-full max-w-xs md:max-w-none"
+                  >
+                    <button
+                      onClick={() => setTempGoal(prev => Math.max(15, prev - 15))}
+                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black text-text-dim hover:bg-white/10 active:scale-90"
+                    >
+                      -
+                    </button>
+                    <div className="flex-1 text-center font-mono text-[10px] font-bold text-text">
+                      {tempGoal} min {tempGoal >= 60 ? `(${Math.floor(tempGoal / 60)}h${tempGoal % 60 > 0 ? ` ${tempGoal % 60}m` : ''})` : ''}
+                    </div>
+                    <button
+                      onClick={() => setTempGoal(prev => Math.min(720, prev + 15))}
+                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-xs font-black text-text-dim hover:bg-white/10 active:scale-90"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => saveGoal(tempGoal)}
+                      className="px-2.5 py-1 h-7 bg-green hover:brightness-105 active:scale-95 text-base rounded-lg font-bold text-[9px] uppercase tracking-wider text-center flex items-center justify-center"
+                    >
+                      salvar
+                    </button>
+                    <button
+                      onClick={() => setIsEditingGoal(false)}
+                      className="w-7 h-7 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-[10px] text-text-dim/60 hover:text-coral"
+                    >
+                      ✕
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+
+            </div>
           </div>
-          {incentiveLine && (
-            <p className={`text-[11px] md:text-xs font-medium italic select-none mt-1 tracking-wide ${
-              selectedComp?.above ? 'text-green' : 'text-text-dim/50'
-            }`}>
-              {incentiveLine}
-            </p>
-          )}
         </div>
 
         {/* Bloco 3 — Tarefas do Dia */}
