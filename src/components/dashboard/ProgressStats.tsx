@@ -2,10 +2,12 @@ import { useDataStore } from '../../store/useDataStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
-  BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle
+  BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString } from '../../lib/utils';
 import { useState, useMemo } from 'react';
+import { MOODS, MOOD_LIST, MoodKey } from '../../lib/mood';
+import { MoodEntry } from '../../types';
 
 const formatCompactDuration = (minutes: number) => {
   const h = Math.floor(minutes / 60);
@@ -26,14 +28,18 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     profile, 
     avoidanceCheckins, 
     habitCompletions,
-    scheduledActivities
+    scheduledActivities,
+    moodEntries
   } = useDataStore();
 
   // Selected period state
   const [period, setPeriod] = useState<PeriodType>('week');
 
   // Multi-pillar expander state
-  const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | null>(null);
+  const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | 'mood' | null>(null);
+
+  // Selected cell in Humor heat map
+  const [tappedMoodDayStr, setTappedMoodDayStr] = useState<string | null>(null);
 
   // Helper sets
   const getDatesRangeSet = (offsetStart: number, length: number) => {
@@ -490,6 +496,230 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
   }, [sessions]);
 
+  // ----------------------------------------------------
+  // PILLAR D — HUMOR / MOOD GATHERING & CROSS-INSIGHTS
+  // ----------------------------------------------------
+  const moodAnalytics = useMemo(() => {
+    // 1. Get filtered mood logs based on selected period
+    const targetSet = period === 'all' ? null : getDatesRangeSet(0, period === 'week' ? 7 : 30);
+    const filtered = targetSet 
+      ? moodEntries.filter(m => targetSet.has(m.date))
+      : moodEntries;
+
+    // 2. Compute dominant mood of the period
+    let dominantMoodOfPeriod: MoodKey | null = null;
+    if (filtered.length > 0) {
+      const counts: Record<string, number> = {};
+      filtered.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
+      const maxCount = Math.max(...Object.values(counts));
+      const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
+
+      if (candidates.length === 1) {
+        dominantMoodOfPeriod = candidates[0] as MoodKey;
+      } else {
+        const periodWeights = { noite: 3, tarde: 2, manha: 1 };
+        const sortedByPeriod = [...filtered].sort((a, b) => {
+          return (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0);
+        });
+        dominantMoodOfPeriod = sortedByPeriod[0].mood as MoodKey;
+      }
+    }
+
+    // 3. Mood distribution frequency percentages
+    const totalFilteredCount = filtered.length;
+    const distribution = MOOD_LIST.map(m => {
+      const count = filtered.filter(item => item.mood === m.key).length;
+      const percent = totalFilteredCount > 0 ? Math.round((count / totalFilteredCount) * 100) : 0;
+      return {
+        ...m,
+        count,
+        percent
+      };
+    });
+
+    // 4. Mood over time strip (Option A: a per-day strip/heatmap)
+    const totalDays = period === 'week' ? 7 : 30;
+    const stripDays = Array.from({ length: totalDays }, (_, idx) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (totalDays - 1 - idx)); // oldest to newest (left to right)
+      const dStr = getLocalDateString(d);
+      
+      const dayMoods = moodEntries.filter(m => m.date === dStr);
+      let dayDominant: MoodKey | null = null;
+      if (dayMoods.length > 0) {
+        const counts: Record<string, number> = {};
+        dayMoods.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
+        const maxCount = Math.max(...Object.values(counts));
+        const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
+        if (candidates.length === 1) {
+          dayDominant = candidates[0] as MoodKey;
+        } else {
+          const periodWeights = { noite: 3, tarde: 2, manha: 1 };
+          const sortedByPeriod = [...dayMoods].sort((a, b) => {
+            return (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0);
+          });
+          dayDominant = sortedByPeriod[0].mood as MoodKey;
+        }
+      }
+
+      const formatLabel = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+      return {
+        dateStr: dStr,
+        dayLabel: formatLabel,
+        dayName: dayName,
+        dominantMood: dayDominant,
+        allMoods: dayMoods
+      };
+    });
+
+    // 5. Cross insights (Mood x Focus)
+    const insights: string[] = [];
+    
+    // Group focus minutes by local Date string
+    const dailyFocus: Record<string, number> = {};
+    sessions.forEach(s => {
+      const day = getLocalDateString(new Date(s.started_at));
+      if (day) {
+        dailyFocus[day] = (dailyFocus[day] || 0) + (s.duration_minutes || 0);
+      }
+    });
+
+    // Group mood entries by local Date string and compute dominant mood per day
+    const dailyDominantMood: Record<string, MoodKey> = {};
+    const dailyMoodsMap: Record<string, MoodEntry[]> = {};
+    moodEntries.forEach(m => {
+      if (!dailyMoodsMap[m.date]) dailyMoodsMap[m.date] = [];
+      dailyMoodsMap[m.date].push(m);
+    });
+
+    Object.entries(dailyMoodsMap).forEach(([dateStr, list]) => {
+      const counts: Record<string, number> = {};
+      list.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
+      const maxCount = Math.max(...Object.values(counts));
+      const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
+      let dom: MoodKey;
+      if (candidates.length === 1) {
+        dom = candidates[0] as MoodKey;
+      } else {
+        const periodWeights = { noite: 3, tarde: 2, manha: 1 };
+        const sortedByPeriod = [...list].sort((a, b) => (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0));
+        dom = sortedByPeriod[0].mood as MoodKey;
+      }
+      dailyDominantMood[dateStr] = dom;
+    });
+
+    // We only compute cross-insights if there exists enough mood entries (e.g., min 3 logs)
+    if (moodEntries.length >= 3) {
+      // Metric 1: Productivity average by mood
+      const focusByMood: Record<MoodKey, number[]> = {
+        animado: [],
+        tranquilo: [],
+        neutro: [],
+        ansioso: [],
+        prabaixo: []
+      };
+
+      Object.entries(dailyDominantMood).forEach(([dateStr, moodKey]) => {
+        const mins = dailyFocus[dateStr] || 0;
+        focusByMood[moodKey].push(mins);
+      });
+
+      const moodAverages = Object.entries(focusByMood).reduce((acc, [mKey, minsList]) => {
+        acc[mKey as MoodKey] = minsList.length > 0 
+          ? minsList.reduce((s, val) => s + val, 0) / minsList.length 
+          : null;
+        return acc;
+      }, {} as Record<MoodKey, number | null>);
+
+      // Standard active days average for base reference
+      const loggedDates = Object.keys(dailyDominantMood);
+      const overallAvg = loggedDates.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / loggedDates.length;
+
+      // Positive boost checks
+      if (moodAverages['tranquilo'] !== null && moodAverages['tranquilo'] > overallAvg && overallAvg > 10) {
+        const ratio = moodAverages['tranquilo'] / overallAvg;
+        if (ratio >= 1.05) {
+          insights.push(`Você foca em média ${Math.round((ratio - 1) * 100)}% mais nos dias em que o seu humor está predominantemente Tranquilo.`);
+        }
+      }
+      if (moodAverages['animado'] !== null && moodAverages['animado'] > overallAvg && overallAvg > 10) {
+        const ratio = moodAverages['animado'] / overallAvg;
+        if (ratio >= 1.05 && insights.length < 2) {
+          insights.push(`O humor Animado registra o maior boost de dedicação no seu histórico, gerando ${Math.round((ratio - 1) * 100)}% mais tempo focado.`);
+        }
+      }
+
+      // Neutral state efficiency check
+      if (moodAverages['neutro'] !== null && moodAverages['neutro'] > overallAvg && insights.length < 2) {
+        insights.push(`Seus dias de tom Neutro mantêm uma consistência estável, garantindo boas sessões mesmo sem oscilações emocionais.`);
+      }
+
+      // Morning down day check
+      const morningDownDays = moodEntries.filter(m => m.period === 'manha' && m.mood === 'prabaixo').map(m => m.date);
+      const morningClearDays = moodEntries.filter(m => m.period === 'manha' && m.mood !== 'prabaixo' && m.mood !== 'ansioso').map(m => m.date);
+      if (morningDownDays.length >= 1 && morningClearDays.length >= 2) {
+        const avgDown = morningDownDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningDownDays.length;
+        const avgClear = morningClearDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningClearDays.length;
+        if (avgClear > avgDown && avgClear > 15) {
+          const drop = Math.round(((avgClear - avgDown) / avgClear) * 100);
+          if (drop > 10 && drop < 100 && insights.length < 3) {
+            insights.push(`Quando você acorda se sentindo Pra Baixo, o foco do dia costuma recuar ${drop}%. Sintonize tarefas menos desgastantes e respeite seu próprio tempo.`);
+          }
+        }
+      }
+
+      // Ansioso weekend/weekday recurrence checks
+      const weekdayNamesShort = ['Domingos', 'Segundas-feiras', 'Terças-feiras', 'Quartas-feiras', 'Quintas-feiras', 'Sextas-feiras', 'Sábados'];
+      const weekdayCounts: Record<number, Record<MoodKey, number>> = {};
+      
+      moodEntries.forEach(m => {
+        const dateObj = new Date(m.date + 'T12:00:00'); // avoid timezone offsets
+        const wday = dateObj.getDay();
+        if (!weekdayCounts[wday]) {
+          weekdayCounts[wday] = { animado: 0, tranquilo: 0, neutro: 0, ansioso: 0, prabaixo: 0 };
+        }
+        weekdayCounts[wday][m.mood] = (weekdayCounts[wday][m.mood] || 0) + 1;
+      });
+
+      let weekdayInsightFound = false;
+      Object.entries(weekdayCounts).forEach(([wdayStr, counts]) => {
+        if (weekdayInsightFound || insights.length >= 3) return;
+        const wday = parseInt(wdayStr);
+        const totalWday = Object.values(counts).reduce((s, v) => s + v, 0);
+        if (totalWday >= 2) {
+          const sortedMoods = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+          const dominantDayMood = sortedMoods[0][0] as MoodKey;
+          const dominantCount = sortedMoods[0][1];
+          const pct = Math.round((dominantCount / totalWday) * 100);
+          
+          if (pct >= 50 && (dominantDayMood === 'ansioso' || dominantDayMood === 'prabaixo' || dominantDayMood === 'tranquilo')) {
+            weekdayInsightFound = true;
+            if (dominantDayMood === 'ansioso') {
+              insights.push(`Suas ${weekdayNamesShort[wday]} costumam carregar um tom mais Ansioso. Experimente fracionar suas metas de foco em fatias curtas.`);
+            } else if (dominantDayMood === 'prabaixo') {
+              insights.push(`Você tende a se sentir mais Pra Baixo nas ${weekdayNamesShort[wday]}. Considere inserir pausas gentis de descompressão nesses dias.`);
+            } else if (dominantDayMood === 'tranquilo') {
+              insights.push(`Suas ${weekdayNamesShort[wday]} são predominantemente Tranquilas, oferecendo um espaço natural perfeito para sessões focadas intensas.`);
+            }
+          }
+        }
+      });
+    }
+
+    if (insights.length === 0) {
+      insights.push('Continue registrando seu humor diário para a DUDE revelar seus padrões de rendimento de foco.');
+    }
+
+    return {
+      dominantMoodOfPeriod,
+      distribution,
+      stripDays,
+      insights,
+      hasEnoughData: filtered.length >= 1
+    };
+  }, [moodEntries, sessions, period]);
+
   return (
     <div className="fixed inset-0 z-[500] overflow-y-auto bg-background/95 backdrop-blur-xl p-4 md:p-6 flex items-start justify-center">
       <motion.div
@@ -922,6 +1152,194 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                           </div>
                         </div>
                       </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* PILLAR 4: HUMOR */}
+            <div className="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden transition-all duration-300 font-sans">
+              <button 
+                onClick={() => setExpandedPillar(expandedPillar === 'mood' ? null : 'mood')}
+                className="w-full p-5 flex items-center justify-between text-left cursor-pointer hover:bg-white/[0.02] transition-colors font-sans"
+              >
+                <div className="flex items-center gap-3 font-sans">
+                  <Heart size={16} className="text-pink-500 fill-pink-500/10" style={{ color: moodAnalytics.dominantMoodOfPeriod ? MOODS[moodAnalytics.dominantMoodOfPeriod]?.color : 'var(--primary-green)' }} />
+                  <div>
+                    <span className="text-xs md:text-sm font-bold tracking-tight text-text-primary font-sans">Sua Energia e Humor</span>
+                    <span className="text-[10px] text-text-secondary/60 block uppercase tracking-wide mt-0.5 font-sans">
+                      {moodAnalytics.dominantMoodOfPeriod ? (
+                        <span className="capitalize">{MOODS[moodAnalytics.dominantMoodOfPeriod]?.emoji} {MOODS[moodAnalytics.dominantMoodOfPeriod]?.label} na maioria dos dias</span>
+                      ) : (
+                        "Comece a registrar seu humor diário"
+                      )}
+                    </span>
+                  </div>
+                </div>
+                {expandedPillar === 'mood' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              <AnimatePresence>
+                {expandedPillar === 'mood' && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-6 font-sans"
+                  >
+                    {!moodAnalytics.hasEnoughData ? (
+                      <div className="p-5 bg-white/[0.015] border border-dashed border-white/5 rounded-xl text-center space-y-2 font-sans">
+                        <p className="text-xs text-text-secondary/60 leading-relaxed font-light max-w-md mx-auto font-sans">
+                          Nenhum registro de humor encontrado para o filtro selecionado neste período. Responda ao ritual diário para gerar métricas emocionais de alta sensibilidade.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 1. MOOD OVER TIME (Heatmap / Strip) */}
+                        <div className="space-y-3 font-sans">
+                          <div className="flex justify-between items-baseline font-sans">
+                            <span className="text-xs font-bold text-text-primary uppercase tracking-wider block font-sans">Evolução do Humor</span>
+                            <span className="text-[10px] text-text-secondary/60 font-sans">Toque em um dia para ver os períodos</span>
+                          </div>
+
+                          <div className="w-full bg-white/[0.015] border border-white/5 p-4 rounded-xl space-y-3 font-sans">
+                            {/* Flex layout with gap matching heatmaps */}
+                            <div className={`grid ${period === 'week' ? 'grid-cols-7' : 'grid-cols-5 sm:grid-cols-10'} gap-2 w-full font-sans`}>
+                              {moodAnalytics.stripDays.map((day, idx) => {
+                                const hasMood = !!day.dominantMood;
+                                const md = day.dominantMood ? MOODS[day.dominantMood] : null;
+                                const isSelected = tappedMoodDayStr === day.dateStr;
+
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => setTappedMoodDayStr(isSelected ? null : day.dateStr)}
+                                    className={`relative flex flex-col items-center justify-between p-2 rounded-xl border transition-all duration-300 aspect-square sm:aspect-auto hover:brightness-110 active:scale-95 cursor-pointer select-none font-sans ${
+                                      hasMood 
+                                        ? 'border-white/5 hover:scale-105' 
+                                        : 'bg-white/[0.02] border-white/[0.02] text-text-secondary/30'
+                                    } ${isSelected ? 'ring-2 ring-primary-green/60 border-primary-green scale-105 shadow-inner' : ''}`}
+                                    style={{
+                                      backgroundColor: md ? `${md.color}15` : undefined,
+                                      borderColor: md ? `${md.color}35` : undefined,
+                                    }}
+                                  >
+                                    <span className="text-[9px] font-bold text-text-secondary/60 uppercase tracking-tight block">
+                                      {day.dayName}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-text-secondary/50 block tracking-tighter my-0.5">
+                                      {day.dayLabel.split(' ')[0]}
+                                    </span>
+                                    <div className="flex items-center justify-center h-6 w-full text-sm">
+                                      {md ? (
+                                        <span role="img" aria-label={md.label} className="animate-fade-in block">
+                                          {md.emoji}
+                                        </span>
+                                      ) : (
+                                        <span className="text-text-secondary/40">·</span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Tapped Day Detail Section */}
+                            {tappedMoodDayStr && (() => {
+                              const selectedDay = moodAnalytics.stripDays.find(d => d.dateStr === tappedMoodDayStr);
+                              if (!selectedDay) return null;
+
+                              const pWeights = { manha: 'Manhã 🌅', tarde: 'Tarde ☀️', noite: 'Noite 🌙' };
+
+                              return (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="p-3 bg-white/[0.02] border border-white/5 rounded-lg space-y-2 mt-2 font-sans text-left"
+                                >
+                                  <span className="text-[10px] font-bold text-text-secondary/80 uppercase tracking-wider block">
+                                    Registros detalhados em {selectedDay.dayLabel}:
+                                  </span>
+                                  <div className="grid grid-cols-3 gap-2 font-sans">
+                                    {(['manha', 'tarde', 'noite'] as const).map(pKey => {
+                                      const matching = selectedDay.allMoods.find(m => m.period === pKey);
+                                      const mdMeta = matching ? MOODS[matching.mood] : null;
+
+                                      return (
+                                        <div key={pKey} className="p-2 bg-white/[0.01] border border-white/5 rounded-lg text-center space-y-1 font-sans">
+                                          <span className="text-[9px] font-semibold text-text-secondary/50 block uppercase">
+                                            {pWeights[pKey]}
+                                          </span>
+                                          <div className="text-xs font-bold font-sans flex items-center justify-center gap-1">
+                                            {mdMeta ? (
+                                              <span className="flex items-center gap-1">
+                                                <span>{mdMeta.emoji}</span>
+                                                <span className="capitalize text-[10px] text-text-primary" style={{ color: mdMeta.color }}>{mdMeta.label}</span>
+                                              </span>
+                                            ) : (
+                                              <span className="text-text-secondary/40 text-[10px] font-normal">-</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </motion.div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* 2. MOOD DISTRIBUTION (Breakdown bars) */}
+                        <div className="space-y-3 font-sans">
+                          <span className="text-xs font-bold text-text-primary uppercase tracking-wider block font-sans font-sans">Distribuição dos Tons de Humor</span>
+                          
+                          <div className="space-y-2 bg-white/[0.015] border border-white/5 p-4 rounded-xl font-sans">
+                            {moodAnalytics.distribution.map((item) => (
+                              <div key={item.key} className="space-y-1.5 font-sans font-sans">
+                                <div className="flex justify-between items-baseline text-xs font-sans">
+                                  <span className="font-semibold text-text-primary uppercase tracking-wider text-[10px] flex items-center gap-1.5 min-w-[100px] block">
+                                    <span>{item.emoji}</span>
+                                    <span>{item.label}</span>
+                                  </span>
+                                  <span className="text-text-secondary text-right text-[10px] font-semibold font-mono block">
+                                    {item.count} {item.count === 1 ? 'registro' : 'registros'} · <strong className="font-bold" style={{ color: item.color }}>{item.percent}%</strong>
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full rounded-full transition-all duration-500" 
+                                    style={{ 
+                                      width: `${item.percent}%`,
+                                      backgroundColor: item.color
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 3. THE CROSS-INSIGHTS Card */}
+                        <div className="space-y-2 font-sans bg-white/[0.015] border border-white/5 p-4 rounded-xl">
+                          <h4 className="text-[11px] md:text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                            <Sparkles size={11} className="text-primary-green animate-pulse" />
+                            <span>Descobertas Cruzadas · Humor e Foco</span>
+                          </h4>
+                          
+                          <div className="space-y-2 pt-1 font-sans">
+                            {moodAnalytics.insights.map((insight, idx) => (
+                              <div key={idx} className="flex items-start gap-2.5 p-2 bg-primary-green/[0.01] border border-primary-green/5 rounded-lg font-sans">
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary-green shrink-0 mt-1.5" />
+                                <p className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light">
+                                  {insight}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     )}
                   </motion.div>
                 )}
