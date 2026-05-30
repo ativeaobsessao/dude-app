@@ -26,6 +26,7 @@ import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 // Mood Ritual Integration
 import { MoodRitualModal } from './components/mood/MoodRitualModal';
 import { MOODS } from './lib/mood';
+import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
@@ -189,6 +190,7 @@ export default function App() {
       <ProtectedRoute>
         <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <MoodRitualModal />
+        <DailyShutdownModal />
         <CinematicBackground />
         <ActiveSession />
         <ActionCenter />
