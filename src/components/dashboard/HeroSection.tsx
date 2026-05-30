@@ -3,6 +3,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { CheckCircle, Pause } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
+import { MOODS } from '../../lib/mood';
 
 export const HeroSection = () => {
   const timer = useTimerStore();
@@ -27,6 +28,9 @@ export const HeroSection = () => {
 
   // Daily Metrics
   const today = getLocalDateString(new Date());
+  const todayMoods = dataStore.moodEntries ? dataStore.moodEntries.filter(m => m.date === today) : [];
+  const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
+
   const todaySessions = dataStore.sessions.filter(s => getLocalDateString(new Date(s.started_at)) === today);
   const totalMinutes = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
   const hours = Math.floor(totalMinutes / 60);
@@ -306,8 +310,17 @@ export const HeroSection = () => {
         )}
 
         {/* Bloco 1 — Saudação */}
-        <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden">
-          <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2">
+        <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden relative">
+          {/* Radial Halo behind greeting */}
+          <div 
+            className="absolute -top-12 left-1/2 -translate-x-1/2 w-80 h-44 rounded-full blur-[72px] transition-all duration-700 pointer-events-none"
+            style={{ 
+              background: 'radial-gradient(circle, var(--mood) 0%, transparent 80%)',
+              opacity: activeMoodEntry ? 0.22 : 0.08
+            }}
+          />
+
+          <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2 relative z-10">
             {greeting}, {firstName}
           </h2>
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 font-mono tracking-[0.15em] uppercase font-bold">
@@ -316,6 +329,19 @@ export const HeroSection = () => {
           <p className="text-[clamp(8.5px,2.4vw,1rem)] text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
+
+          {/* Seu tom de hoje: [label] chip */}
+          {activeMoodEntry && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 px-3 py-1 bg-surface-2/65 border border-border-custom rounded-full text-[10px] uppercase font-bold tracking-wider text-text-dim mt-2 hover:bg-surface-2 transition-colors cursor-default select-none relative z-10"
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10" style={{ backgroundColor: 'var(--mood)' }} />
+              <span>Seu tom de hoje: <span className="text-text font-semibold capitalize">{activeMoodEntry.mood} {MOODS[activeMoodEntry.mood]?.emoji}</span></span>
+            </motion.div>
+          )}
         </div>
 
         {/* Bloco 4 — Botão de ação (The primary action centered with generous breathing room) */}
@@ -377,7 +403,10 @@ export const HeroSection = () => {
         )}
 
         {/* Bloco 2 — Métricas do Dia */}
-        <div className="flex flex-col items-center gap-3 w-full overflow-hidden bg-white/[0.02] border border-white/[0.04] rounded-2xl py-6 px-4 md:py-8 md:px-6 my-2 shadow-inner">
+        <div 
+          className="flex flex-col items-center gap-3 w-full overflow-hidden bg-white/[0.02] border border-white/[0.04] rounded-2xl py-6 px-4 md:py-8 md:px-6 my-2 shadow-inner transition-all duration-700 mt-2 hover:brightness-105"
+          style={{ borderTop: '2px solid var(--mood)' }}
+        >
           <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-dim/40">Hoje</span>
           <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
             <span>{compactFocusTime} <span className="text-text-dim/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>

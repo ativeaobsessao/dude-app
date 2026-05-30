@@ -140,6 +140,17 @@ CREATE TABLE notes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 11. MOOD ENTRIES
+CREATE TABLE mood_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  date TEXT NOT NULL, -- local YYYY-MM-DD
+  period TEXT NOT NULL CHECK (period IN ('manha', 'tarde', 'noite')),
+  mood TEXT NOT NULL CHECK (mood IN ('animado', 'tranquilo', 'neutro', 'ansioso', 'prabaixo')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_user_date_period UNIQUE (user_id, date, period)
+);
+
 
 -- INDEXES FOR MAXIMUM QUERY EFFICIENCY
 CREATE INDEX IF NOT EXISTS idx_profiles_streak ON profiles(current_streak);
@@ -157,6 +168,8 @@ CREATE INDEX IF NOT EXISTS idx_session_tasks_session ON session_tasks(session_id
 CREATE INDEX IF NOT EXISTS idx_habit_completions_habit ON habit_completions(habit_id);
 CREATE INDEX IF NOT EXISTS idx_habit_completions_user ON habit_completions(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_user ON mood_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_date ON mood_entries(date);
 
 
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -170,6 +183,7 @@ ALTER TABLE pending_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE session_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habit_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mood_entries ENABLE ROW LEVEL SECURITY;
 
 -- Profile Policies
 CREATE POLICY "Users can view their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -201,6 +215,9 @@ CREATE POLICY "Users can manage their own completions" ON habit_completions FOR 
 
 -- Note Policies
 CREATE POLICY "Users can manage their own notes" ON notes FOR ALL USING (auth.uid() = user_id);
+
+-- Mood Entries Policies
+CREATE POLICY "Users can manage their own mood entries" ON mood_entries FOR ALL USING (auth.uid() = user_id);
 
 
 -- FUNCTIONS AND TRIGGERS FOR NEW USERS

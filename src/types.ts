@@ -138,3 +138,14 @@ export type SessionTask = {
   completed: boolean;
   created_at: string;
 };
+
+export type MoodPeriod = 'manha' | 'tarde' | 'noite';
+
+export type MoodEntry = {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD local
+  period: MoodPeriod;
+  mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo';
+  created_at: string;
+};

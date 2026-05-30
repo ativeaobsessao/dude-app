@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
@@ -36,6 +36,9 @@ interface DataState {
   loading: boolean;
   initialFetchDone: boolean;
   hasCompletedFirstSession: boolean;
+  moodEntries: MoodEntry[];
+  
+  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo') => Promise<MoodEntry | null>;
   
   fetchProfile: (userId: string) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
@@ -104,6 +107,14 @@ export const useDataStore = create<DataState>((set, get) => ({
   loading: false,
   initialFetchDone: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
+  moodEntries: (() => {
+    try {
+      const cached = localStorage.getItem('dude-mood-entries');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  })(),
   notification: null,
   showNotification: (message, type = 'success') => {
     set({ notification: { message, type } });
@@ -127,7 +138,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa, ac] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac, me] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -137,7 +148,33 @@ export const useDataStore = create<DataState>((set, get) => ({
         supabase.from('pending_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
         supabase.from('scheduled_activities').select('*').eq('user_id', userId).order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true }),
         supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        (async () => {
+          try {
+            return await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+          } catch (err) {
+            console.warn('Silent fallback: mood_entries table lookup failed', err);
+            return { data: null };
+          }
+        })(),
       ]);
+
+      const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as MoodEntry[]) : [];
+      let combinedMoods = [...fetchedMoods];
+      try {
+        const cachedStr = localStorage.getItem('dude-mood-entries');
+        const cachedMoods = cachedStr ? (JSON.parse(cachedStr) as MoodEntry[]) : [];
+        const fetchedIds = new Set(fetchedMoods.map(m => m.id));
+        const missingFromRemote = cachedMoods.filter(m => !fetchedIds.has(m.id));
+        combinedMoods = [...combinedMoods, ...missingFromRemote];
+      } catch (err) {
+        console.error('Error merging local mood cache:', err);
+      }
+      combinedMoods.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      try {
+        localStorage.setItem('dude-mood-entries', JSON.stringify(combinedMoods));
+      } catch (err) {
+        console.error('Error writing merged mood cache:', err);
+      }
 
       set({ 
         projects: p.data || [], 
@@ -149,6 +186,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         pendingTasks: pt.data || [],
         scheduledActivities: sa.data || [],
         avoidanceCheckins: ac.data || [],
+        moodEntries: combinedMoods,
         loading: false,
         initialFetchDone: true 
       });
@@ -1300,5 +1338,55 @@ export const useDataStore = create<DataState>((set, get) => ({
   completeFirstSession: () => {
     localStorage.setItem('dude-first-session-completed', 'true');
     set({ hasCompletedFirstSession: true });
+  },
+
+  addMoodEntry: async (userId, date, period, mood) => {
+    const tempId = crypto.randomUUID ? crypto.randomUUID() : 'mood-' + Math.random().toString(36).substring(2, 11);
+    const newEntry: MoodEntry = {
+      id: tempId,
+      user_id: userId,
+      date,
+      period,
+      mood,
+      created_at: new Date().toISOString()
+    };
+
+    const existing = get().moodEntries.filter(m => !(m.date === date && m.period === period));
+    const updated = [newEntry, ...existing];
+    set({ moodEntries: updated });
+    try {
+      localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Local Storage save mood error:', err);
+    }
+
+    try {
+      await supabase.from('mood_entries').delete().eq('user_id', userId).eq('date', date).eq('period', period);
+      const { data, error } = await supabase
+        .from('mood_entries')
+        .insert({
+          user_id: userId,
+          date,
+          period,
+          mood
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        const finalEntries = get().moodEntries.map(m => m.id === tempId ? data : m);
+        set({ moodEntries: finalEntries });
+        try {
+          localStorage.setItem('dude-mood-entries', JSON.stringify(finalEntries));
+        } catch (err) {
+          console.error('Local Storage update mood error:', err);
+        }
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase sync warning for mood entry (cached locally only):', err);
+    }
+    return newEntry;
   }
 }));

@@ -118,3 +118,28 @@ export function isSameLocalDay(date1: Date | string, date2: Date | string): bool
   return str1 !== '' && str1 === str2;
 }
 
+export function getCurrentPeriodAndDate(now: Date = new Date()): { period: 'manha' | 'tarde' | 'noite'; dateStr: string } {
+  const hours = now.getHours();
+  let period: 'manha' | 'tarde' | 'noite';
+  let dateStr: string;
+
+  if (hours >= 5 && hours < 12) {
+    period = 'manha';
+    dateStr = getLocalDateString(now);
+  } else if (hours >= 12 && hours < 18) {
+    period = 'tarde';
+    dateStr = getLocalDateString(now);
+  } else {
+    period = 'noite';
+    if (hours >= 18) {
+      dateStr = getLocalDateString(now);
+    } else {
+      const yesterday = new Date(now.getTime());
+      yesterday.setDate(now.getDate() - 1);
+      dateStr = getLocalDateString(yesterday);
+    }
+  }
+
+  return { period, dateStr };
+}
+

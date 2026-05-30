@@ -23,12 +23,35 @@ import { AgendaHoje } from './components/agenda/AgendaHoje';
 import { ProximasAtividades } from './components/agenda/ProximasAtividades';
 import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 
+// Mood Ritual Integration
+import { MoodRitualModal } from './components/mood/MoodRitualModal';
+import { MOODS } from './lib/mood';
+
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession, profile, notification, sessions, initialFetchDone } = useDataStore();
+  const { hasCompletedFirstSession, profile, notification, sessions, initialFetchDone, moodEntries } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
+
+  // Dynamically set --mood CSS variable based on current today's mood
+  useEffect(() => {
+    if (!user) {
+      document.documentElement.style.setProperty('--mood', 'var(--text-dimmer)');
+      return;
+    }
+    
+    const todayStr = getLocalDateString(new Date());
+    const todayMoods = moodEntries.filter(m => m.date === todayStr);
+    
+    if (todayMoods.length > 0) {
+      const mostRecent = todayMoods[0];
+      const moodColor = MOODS[mostRecent.mood]?.color || 'var(--text-dimmer)';
+      document.documentElement.style.setProperty('--mood', moodColor);
+    } else {
+      document.documentElement.style.setProperty('--mood', 'var(--text-dimmer)');
+    }
+  }, [moodEntries, user]);
 
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
 
@@ -165,6 +188,7 @@ export default function App() {
     <ErrorBoundary>
       <ProtectedRoute>
         <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
+        <MoodRitualModal />
         <CinematicBackground />
         <ActiveSession />
         <ActionCenter />
