@@ -46,7 +46,6 @@ export const RecentHistory = () => {
           <History size={12} className="text-primary-green" />
           HISTÓRICO RECENTE DAS ÚLTIMAS SESSÕES PROFUNDAS
         </span>
-        <span className="text-[10px] text-text-secondary/40 font-mono tracking-[0.2em]">ARQUIVO OPERACIONAL</span>
       </div>
 
       <div className="space-y-4">

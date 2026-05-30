@@ -33,6 +33,10 @@ export const HeroSection = () => {
   const minutes = totalMinutes % 60;
   const streak = dataStore.profile?.current_streak || 0;
 
+  const todayFocusFormatted = hours === 0
+    ? `${minutes} ${minutes === 1 ? 'minuto focado' : 'minutos focados'}`
+    : `${hours}h ${minutes}m focado${hours === 1 && minutes === 0 ? '' : 's'}`;
+
   const hasSessions = dataStore.sessions && dataStore.sessions.length > 0;
 
   // Let's compute daily average of previous days
@@ -148,13 +152,13 @@ export const HeroSection = () => {
 
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center">
-          <h2 className="text-[clamp(2.25rem,6.5vw,4.25rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
+          <h2 className="text-[clamp(1.5rem,5vw,2.5rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap">
             {greeting}, {firstName}
           </h2>
-          <span className="text-sm md:text-base text-text-secondary/60 font-mono tracking-[0.15em] uppercase font-bold">
+          <span className="text-xs sm:text-sm md:text-base text-text-secondary/60 font-mono tracking-[0.15em] uppercase font-bold">
             {fullCustomDate}
           </span>
-          <p className="text-sm sm:text-base md:text-lg text-[#6ee7a8] italic font-semibold max-w-xl text-center leading-relaxed">
+          <p className="text-[clamp(9px,2.4vw,1.125rem)] text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
@@ -225,14 +229,14 @@ export const HeroSection = () => {
         )}
 
         {/* Bloco 2 — Métricas do Dia */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5 w-full overflow-hidden">
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary/30">Hoje</span>
-          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-sm md:text-base font-semibold text-text-primary px-2 max-w-full font-mono uppercase tracking-[0.05em]">
-            <span>{hours}h {minutes}m focados</span>
+          <div className="flex items-center justify-center gap-x-1 sm:gap-x-2 text-[clamp(8px,2.2vw,0.9rem)] font-bold text-text-primary px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
+            <span>{todayFocusFormatted}</span>
             <span className="text-white/10 select-none">·</span>
-            <span>{todaySessions.length === 1 ? '1 sessão' : `${todaySessions.length} sessões`}</span>
+            <span>{todaySessions.length === 1 ? '1 Sessão Profunda' : `${todaySessions.length} Sessões Profundas`}</span>
             <span className="text-white/10 select-none">·</span>
-            <span className="flex items-center gap-1 normal-case">
+            <span className="flex items-center gap-0.5 normal-case">
               🔥 {streak >= 1 ? `${streak} ${streak === 1 ? 'dia invicto' : 'dias invictos'}` : 'Comece hoje'}
             </span>
           </div>
