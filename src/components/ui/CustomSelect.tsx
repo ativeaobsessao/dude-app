@@ -38,19 +38,19 @@ export const CustomSelect = ({ options, value, onChange, placeholder = 'Selecion
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-left text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px] flex items-center justify-between gap-2"
+        className="w-full bg-surface-2 border border-border-custom rounded-2xl p-4 text-left text-text outline-none focus:border-green transition-all touch-manipulation min-h-[44px] flex items-center justify-between gap-2"
       >
-        <span className={selected ? 'text-text-primary' : 'text-text-secondary/50'}>
+        <span className={selected ? 'text-text' : 'text-text-dim/50'}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown 
           size={16} 
-          className={`text-text-secondary/40 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} 
+          className={`text-text-dimmer transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} 
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-white/20 rounded-2xl overflow-hidden z-[9999] shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-surface-2 border border-border-custom rounded-2xl overflow-hidden z-[9999] shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
           <div className="max-h-48 overflow-y-auto">
             {options.map(option => (
               <button
@@ -60,10 +60,10 @@ export const CustomSelect = ({ options, value, onChange, placeholder = 'Selecion
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-primary-green/10 hover:text-primary-green ${
+                className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-green/10 hover:text-green ${
                   option.value === value 
-                    ? 'text-primary-green bg-primary-green/10 font-bold' 
-                    : 'text-text-primary'
+                    ? 'text-green bg-green/10 font-bold' 
+                    : 'text-text'
                 }`}
               >
                 {option.label}

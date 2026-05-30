@@ -13,10 +13,10 @@ import { SessionEditPanel } from '../session/SessionEditPanel';
 
 const getDolphinColor = (p: number, index: number, alpha?: number) => {
   const stops: { t: number, color: [number, number, number] }[] = [
-    { t: 0.0, color: index === 0 ? [79, 70, 229] : index === 1 ? [59, 130, 246] : [13, 148, 136] }, // start blues: indigo-blue, royal-blue, teal-blue
-    { t: 0.5, color: [110, 231, 168] }, // Green-Mint (#6ee7a8)
-    { t: 0.85, color: [245, 158, 11] }, // Warm Amber (#f59e0b)
-    { t: 1.0, color: [16, 185, 129] }  // Victory Green (#10b981)
+    { t: 0.0, color: index === 0 ? [167, 139, 250] : index === 1 ? [129, 140, 248] : [96, 165, 250] }, // violet, indigo, light blue
+    { t: 0.5, color: [110, 231, 183] }, // Green-Mint (#6EE7B7)
+    { t: 0.85, color: [251, 191, 36] }, // Warm Amber (#FBBF24)
+    { t: 1.0, color: [52, 211, 153] }  // Victory Green (#34D399)
   ];
 
   let i = 0;

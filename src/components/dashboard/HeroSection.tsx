@@ -307,13 +307,13 @@ export const HeroSection = () => {
 
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden">
-          <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text-primary leading-none whitespace-nowrap px-2">
+          <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2">
             {greeting}, {firstName}
           </h2>
-          <span className="text-xs sm:text-sm md:text-base text-text-secondary/60 font-mono tracking-[0.15em] uppercase font-bold">
+          <span className="text-xs sm:text-sm md:text-base text-text-dim/60 font-mono tracking-[0.15em] uppercase font-bold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(8.5px,2.4vw,1rem)] text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
+          <p className="text-[clamp(8.5px,2.4vw,1rem)] text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
         </div>
@@ -328,16 +328,16 @@ export const HeroSection = () => {
         >
           <button 
             onClick={openDeepSession}
-            className="group relative px-5 sm:px-10 py-4 sm:py-5 bg-primary-green text-background rounded-2xl overflow-hidden transition-all hover:bg-glow-green active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center"
+            className="group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-background animate-pulse shrink-0" />
+              <div className="w-2.5 h-2.5 rounded-full bg-base animate-pulse shrink-0" />
               <span className="font-bold text-xs sm:text-sm uppercase tracking-[0.18em] whitespace-nowrap">
                 {buttonLabel}
               </span>
             </div>
             {buttonSubline && (
-              <span className="text-[10px] font-mono text-background/80 uppercase tracking-[0.12em] font-semibold">
+              <span className="text-[10px] font-mono text-base/80 uppercase tracking-[0.12em] font-semibold">
                 {buttonSubline}
               </span>
             )}
@@ -346,10 +346,10 @@ export const HeroSection = () => {
 
         {/* Bloco de Agendamentos Pendentes */}
         {sortedUpcoming.length > 0 && (
-          <div className="w-full max-w-sm mx-auto bg-surface/10 border border-white/5 rounded-2xl p-4 space-y-3 text-left font-sans shadow-xl">
+          <div className="w-full max-w-sm mx-auto bg-surface-1 border border-border-custom rounded-2xl p-4 space-y-3 text-left font-sans shadow-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-secondary/50">O que vem a seguir?</span>
-              <span className="text-[8px] font-mono text-text-secondary/40 font-bold uppercase tracking-[0.1em]">PLANEJADO</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-dim/50">O que vem a seguir?</span>
+              <span className="text-[8px] font-mono text-text-dimmer font-bold uppercase tracking-[0.1em]">PLANEJADO</span>
             </div>
             <div className="space-y-2">
               {sortedUpcoming.slice(0, 3).map(activity => {
@@ -361,12 +361,12 @@ export const HeroSection = () => {
                 }).replace('.', '');
 
                 return (
-                  <div key={activity.id} className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
+                  <div key={activity.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border-custom last:border-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
-                      <span className="text-text-primary font-medium truncate">{activity.title}</span>
+                      <span className="text-text font-medium truncate">{activity.title}</span>
                     </div>
-                    <div className="text-[9px] font-mono text-text-secondary/60 bg-white/5 px-2 py-0.5 rounded-md whitespace-nowrap font-bold">
+                    <div className="text-[9px] font-mono text-text-dim/60 bg-surface-2 border border-border-custom/50 px-2 py-0.5 rounded-md whitespace-nowrap font-bold">
                       {formattedSchedDate} às {timeStr}
                     </div>
                   </div>
@@ -378,27 +378,27 @@ export const HeroSection = () => {
 
         {/* Bloco 2 — Métricas do Dia */}
         <div className="flex flex-col items-center gap-3 w-full overflow-hidden bg-white/[0.02] border border-white/[0.04] rounded-2xl py-6 px-4 md:py-8 md:px-6 my-2 shadow-inner">
-          <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-secondary/40">Hoje</span>
-          <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text-primary px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
-            <span>{compactFocusTime} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>
+          <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.4em] text-text-dim/40">Hoje</span>
+          <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
+            <span>{compactFocusTime} <span className="text-text-dim/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>
             <span className="text-white/15 select-none font-sans font-normal">·</span>
-            <span>{todaySessions.length} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}</span></span>
+            <span>{todaySessions.length} <span className="text-text-dim/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}</span></span>
             <span className="text-white/15 select-none font-sans font-normal">·</span>
-            <span className="flex items-center gap-1 text-[#6ee7a8] filter drop-shadow-[0_0_6px_rgba(110,231,168,0.2)] font-sans">
+            <span className="flex items-center gap-1 text-green filter drop-shadow-[0_0_6px_rgba(110,231,168,0.2)] font-sans">
               <span>🔥</span>
               {streak >= 1 ? (
                 <>
                   <span className="font-mono">{streak}</span>
-                  <span className="font-sans font-medium text-[0.85em] lowercase text-[#6ee7a8]/80">{streak === 1 ? 'dia invicto' : 'dias invictos'}</span>
+                  <span className="font-sans font-medium text-[0.85em] lowercase text-green/80">{streak === 1 ? 'dia invicto' : 'dias invictos'}</span>
                 </>
               ) : (
-                <span className="font-sans font-medium text-[0.85em] lowercase text-[#6ee7a8]/80">Comece hoje</span>
+                <span className="font-sans font-medium text-[0.85em] lowercase text-green/80">Comece hoje</span>
               )}
             </span>
           </div>
           {incentiveLine && (
             <p className={`text-[11px] md:text-xs font-medium italic select-none mt-1 tracking-wide ${
-              selectedComp?.above ? 'text-[#6ee7a8]' : 'text-text-secondary/50'
+              selectedComp?.above ? 'text-green' : 'text-text-dim/50'
             }`}>
               {incentiveLine}
             </p>
@@ -424,29 +424,29 @@ export const HeroSection = () => {
                 const completedTasks = tasks.filter(t => t.completed);
 
                 return (
-                  <div key={session.id} className="flex gap-3 text-left items-start border-b border-white/5 pb-3">
+                  <div key={session.id} className="flex gap-3 text-left items-start border-b border-border-custom pb-3">
                     <CheckCircle 
                       size={14} 
                       className="shrink-0 mt-1" 
-                      style={{ color: isPartial ? '#fbbf24' : '#6ee7b7' }}
+                      style={{ color: isPartial ? 'var(--amber)' : 'var(--green)' }}
                     />
                     <div className="flex-1 min-w-0 font-sans">
                       {/* Linha 1: [ATIVIDADE] — [Projeto] */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm md:text-base text-text-primary font-semibold truncate">
+                        <span className="text-sm md:text-base text-text font-semibold truncate">
                           {resolved.titulo}
                         </span>
-                        <span className="text-text-secondary/35">—</span>
-                        <span className="text-xs text-text-secondary/60 truncate font-light uppercase tracking-widest font-mono">
+                        <span className="text-text-dimmer/50">—</span>
+                        <span className="text-xs text-text-dim/60 truncate font-light uppercase tracking-widest font-mono">
                           {resolved.projeto}
                         </span>
                         {session.scheduled_activity_id && (
                           <span 
                             className="inline-flex items-center font-bold font-mono"
                             style={{
-                              backgroundColor: 'rgba(139, 92, 246, 0.12)',
-                              border: '0.5px solid rgba(139, 92, 246, 0.25)',
-                              color: '#8b5cf6',
+                              backgroundColor: 'rgba(167, 139, 250, 0.12)',
+                              border: '0.5px solid rgba(167, 139, 250, 0.25)',
+                              color: 'var(--violet)',
                               fontSize: '9px',
                               letterSpacing: '0.12em',
                               textTransform: 'uppercase',
@@ -464,7 +464,7 @@ export const HeroSection = () => {
                             style={{
                               backgroundColor: 'rgba(251, 191, 36, 0.12)',
                               border: '0.5px solid rgba(251, 191, 36, 0.25)',
-                              color: '#fbbf24',
+                              color: 'var(--amber)',
                               fontSize: '9px',
                               letterSpacing: '0.12em',
                               textTransform: 'uppercase',
@@ -479,9 +479,9 @@ export const HeroSection = () => {
                       </div>
                       
                       {/* Linha 2: [HH:MM] → [HH:MM] · [duração] */}
-                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570] font-mono">
+                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-dimmer font-mono">
                         <span>{timeRange}</span>
-                        <span className="text-[#3a4540]">·</span>
+                        <span className="text-text-dimmer/50">·</span>
                         <span>{formattedDuration}</span>
                       </div>
 
@@ -489,9 +489,9 @@ export const HeroSection = () => {
                       {completedTasks.length > 0 && (
                         <div className="mt-2 space-y-1 pl-1">
                           {completedTasks.map(task => (
-                            <div key={task.id} className="flex items-center gap-2 text-xs text-text-primary/80">
-                              <span className="text-primary-green select-none text-[13px]">☑</span>
-                              <span className="line-through decoration-white/10 text-text-secondary/80">{task.description}</span>
+                            <div key={task.id} className="flex items-center gap-2 text-xs text-text/80">
+                              <span className="text-green select-none text-[13px]">☑</span>
+                              <span className="line-through decoration-white/10 text-text-dim/80">{task.description}</span>
                             </div>
                           ))}
                         </div>
@@ -511,12 +511,12 @@ export const HeroSection = () => {
                           <div 
                             className="font-medium flex items-center"
                             style={{
-                              color: '#fbbf24',
+                              color: 'var(--amber)',
                               fontSize: '10px',
                               opacity: 0.8
                             }}
                           >
-                            <Pause size={10} className="shrink-0 mr-1.5" style={{ color: '#fbbf24' }} />
+                            <Pause size={10} className="shrink-0 mr-1.5" style={{ color: 'var(--amber)' }} />
                             <span>{session.actual_duration_minutes || 0} / {session.duration_minutes} min programados</span>
                           </div>
                         </>
@@ -526,7 +526,7 @@ export const HeroSection = () => {
                 );
               })
             ) : (
-              <p className="text-sm text-text-secondary/40 italic font-light pt-2 text-center font-sans">
+              <p className="text-sm text-text-dimmer italic font-light pt-2 text-center font-sans">
                 Nenhuma sessão realizada hoje — que tal começar agora?
               </p>
             )}
@@ -536,7 +536,7 @@ export const HeroSection = () => {
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[280px] h-[200px] md:w-[800px] md:h-[400px] bg-primary-green/5 blur-[80px] md:blur-[120px] rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[280px] h-[200px] md:w-[800px] md:h-[400px] bg-green/5 blur-[80px] md:blur-[120px] rounded-full" />
       </div>
     </section>
   );

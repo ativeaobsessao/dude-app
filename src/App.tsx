@@ -164,7 +164,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ProtectedRoute>
-        <div className="relative min-h-screen selection:bg-primary-green/30 selection:text-primary-green overflow-x-hidden text-text-primary">
+        <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <CinematicBackground />
         <ActiveSession />
         <ActionCenter />
@@ -180,17 +180,17 @@ export default function App() {
               className="fixed inset-x-0 pointer-events-none z-[9999] flex justify-center p-6"
               style={{ top: '30vh' }}
             >
-              <div className="mx-auto px-6 py-4 rounded-2xl bg-[#0D1527]/85 border border-white/10 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex items-center gap-3 text-text-primary pointer-events-auto max-w-sm md:max-w-md">
+              <div className="mx-auto px-6 py-4 rounded-2xl bg-surface-2/85 border border-border-custom backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex items-center gap-3 text-text pointer-events-auto max-w-sm md:max-w-md">
                 {notification.type === 'success' ? (
-                  <div className="w-5 h-5 rounded-full bg-primary-green/20 flex items-center justify-center text-primary-green flex-shrink-0 animate-pulse">
+                  <div className="w-5 h-5 rounded-full bg-green/20 flex items-center justify-center text-green flex-shrink-0 animate-pulse">
                     <Check size={12} strokeWidth={3} />
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-red-400/20 flex items-center justify-center text-red-100 flex-shrink-0 animate-pulse">
+                  <div className="w-5 h-5 rounded-full bg-coral/20 flex items-center justify-center text-coral flex-shrink-0 animate-pulse">
                     <AlertTriangle size={12} strokeWidth={3} />
                   </div>
                 )}
-                <span className="text-xs font-bold uppercase tracking-widest text-[#E2E8F0]">{notification.message}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-text">{notification.message}</span>
               </div>
             </motion.div>
           )}
@@ -207,33 +207,33 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-background/80 backdrop-blur-md"
+              className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-base/80 backdrop-blur-md"
             >
               <motion.div 
                 layout={false}
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="w-full max-w-sm bg-surface border border-border-white rounded-3xl p-10 flex flex-col items-center gap-6 text-center shadow-2xl"
+                className="w-full max-w-sm bg-surface-2 border border-border-custom rounded-3xl p-10 flex flex-col items-center gap-6 text-center shadow-2xl"
               >
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-text-primary tracking-tight">
+                  <h3 className="text-xl font-bold text-text tracking-tight">
                     Sair do DUDE?
                   </h3>
-                  <p className="text-text-secondary font-light text-sm">
+                  <p className="text-text-dim font-light text-sm">
                     Tem certeza que deseja sair?
                   </p>
                 </div>
                 <div className="flex flex-col w-full gap-3">
                   <button
                     onClick={() => signOut()}
-                    className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
+                    className="w-full py-4 bg-coral/10 hover:bg-coral/20 border border-coral/20 text-coral rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
                   >
                     Sim, sair
                   </button>
                   <button
                     onClick={() => setShowSignOutConfirm(false)}
-                    className="w-full py-4 border border-primary-green/30 text-primary-green rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-primary-green/10 transition-all"
+                    className="w-full py-4 border border-green/30 text-green rounded-2xl font-bold uppercase tracking-widest text-[10px] hover:bg-green/10 transition-all"
                   >
                     Cancelar
                   </button>
@@ -248,9 +248,9 @@ export default function App() {
             layout={false}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-xl font-bold tracking-tighter text-text-primary cursor-default"
+            className="text-xl font-bold tracking-tighter text-text cursor-default"
           >
-            DUDE <span className="text-primary-green">.</span>
+            DUDE <span className="text-green">.</span>
           </motion.div>
           
           <motion.nav 
@@ -261,11 +261,11 @@ export default function App() {
           >
             <button 
               onClick={() => setShowSignOutConfirm(true)}
-              className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 hover:text-red-400 transition-colors"
+              className="text-[10px] font-bold uppercase tracking-widest text-text-dim/40 hover:text-coral transition-colors"
             >
               Sair
             </button>
-            <div className="w-10 h-10 rounded-full border border-border-white overflow-hidden hover:border-primary-green transition-colors cursor-pointer">
+            <div className="w-10 h-10 rounded-full border border-border-custom overflow-hidden hover:border-green transition-colors cursor-pointer">
               {profile?.avatar_url ? (
                 <img 
                   src={profile.avatar_url} 
@@ -274,7 +274,7 @@ export default function App() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)] flex items-center justify-center text-primary-green font-bold text-sm">
+                <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)] flex items-center justify-center text-green font-bold text-sm">
                   {profile?.full_name?.charAt(0).toUpperCase() || '?'}
                 </div>
               )}
@@ -322,10 +322,10 @@ export default function App() {
             <div className="flex justify-center w-full">
               <button 
                 onClick={() => setShowStats(true)}
-                className="px-16 py-5 bg-primary-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
+                className="px-16 py-5 bg-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
               >
-                <span className="text-background text-xl font-bold tracking-tight">Centro de Inteligência</span>
-                <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Métricas de Foco, Hábitos e Autoevolução</span>
+                <span className="text-base text-xl font-bold tracking-tight">Centro de Inteligência</span>
+                <span className="text-base/60 text-[10px] font-bold uppercase tracking-[0.3em]">Métricas de Foco, Hábitos e Autoevolução</span>
               </button>
             </div>
 
