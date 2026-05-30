@@ -291,10 +291,10 @@ export const HeroSection = () => {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-3xl space-y-8 md:space-y-12 py-4 md:py-8"
+        className="w-full max-w-3xl space-y-6 md:space-y-8 py-2 md:py-4"
       >
         {/* Block B — MARKETING (Only rendered here if user has ZERO SP recorded) */}
-        {!hasSessions && (
+        {dataStore.initialFetchDone && !hasSessions && (
           <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-b border-white/5 pb-8 mb-6">
             <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
               Tenha Controle Total Sobre Seu Tempo
@@ -324,7 +324,7 @@ export const HeroSection = () => {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="py-4 flex flex-col items-center gap-3 w-full"
+          className="py-2 flex flex-col items-center gap-2 w-full"
         >
           <button 
             onClick={openDeepSession}
@@ -342,13 +342,6 @@ export const HeroSection = () => {
               </span>
             )}
           </button>
-
-          {/* Connected Context line / Reactive Nudge directly below the button */}
-          {reactiveLine && (
-            <p className="text-xs sm:text-sm text-text-secondary/60 font-sans italic mt-1 max-w-sm mx-auto leading-relaxed">
-              {reactiveLine}
-            </p>
-          )}
         </motion.div>
 
         {/* Bloco de Agendamentos Pendentes */}
@@ -389,7 +382,7 @@ export const HeroSection = () => {
           <div className="flex items-center justify-center gap-x-1.5 sm:gap-x-3 text-[clamp(10px,2.8vw,1.35rem)] font-bold text-text-primary px-2 w-full max-w-full font-mono uppercase tracking-[0.03em] whitespace-nowrap overflow-hidden">
             <span>{compactFocusTime} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">focado</span></span>
             <span className="text-white/15 select-none font-sans font-normal">·</span>
-            <span>{todaySessions.length} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão' : 'Sessões'}</span></span>
+            <span>{todaySessions.length} <span className="text-text-secondary/50 font-sans font-medium text-[0.85em] lowercase font-semibold tracking-normal">{todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}</span></span>
             <span className="text-white/15 select-none font-sans font-normal">·</span>
             <span className="flex items-center gap-1 text-[#6ee7a8] filter drop-shadow-[0_0_6px_rgba(110,231,168,0.2)] font-sans">
               <span>🔥</span>
@@ -414,7 +407,7 @@ export const HeroSection = () => {
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-text-secondary/50 block text-center">Tarefas Realizadas no Dia</span>
+          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] text-[#6a7570] block text-center">Tarefas Realizadas no Dia</span>
           <div className="space-y-4 text-left">
             {todaySessions.length > 0 ? (
               todaySessions.slice(0, 5).map(session => {

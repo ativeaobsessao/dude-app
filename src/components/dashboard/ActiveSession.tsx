@@ -80,7 +80,7 @@ export const ActiveSession = () => {
 
   const sessionIndex = (timer.startTime || 0) % 3;
   const baseColor = getDolphinColor(progress / 100, sessionIndex);
-  const baseColorAlpha = getDolphinColor(progress / 100, sessionIndex, 0.4);
+  const baseColorAlpha = getDolphinColor(progress / 100, sessionIndex, 0.55);
   const displayColor = timer.isPaused ? desaturateRGB(baseColor) : baseColor;
   const displayColorAlpha = timer.isPaused ? desaturateRGB(baseColorAlpha) : baseColorAlpha;
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
@@ -491,12 +491,12 @@ export const ActiveSession = () => {
             <style>{`
               @keyframes breathe {
                 0%, 100% {
-                  transform: translate(-50%, -50%) scale(0.92);
-                  opacity: 0.15;
+                  transform: translate(-50%, -50%) scale(0.90);
+                  opacity: 0.24;
                 }
                 50% {
-                  transform: translate(-50%, -50%) scale(1.08);
-                  opacity: 0.28;
+                  transform: translate(-50%, -50%) scale(1.15);
+                  opacity: 0.44;
                 }
               }
               @keyframes celebrate {
@@ -632,10 +632,10 @@ export const ActiveSession = () => {
             {/* 2. Central Timer Display */}
             <div className="relative flex flex-col items-center justify-center w-full max-w-5xl z-10">
               <h1 
-                className="text-[18vw] md:text-[14rem] font-medium tabular-nums tracking-tighter leading-none transition-all duration-1000 select-none"
+                className="text-[21vw] md:text-[16.5rem] font-semibold tabular-nums tracking-tighter leading-none transition-all duration-1000 select-none"
                 style={{ 
                   color: displayColor,
-                  textShadow: `0 0 70px ${displayColorAlpha}`,
+                  textShadow: `0 0 40px ${displayColorAlpha}, 0 0 80px ${displayColorAlpha}`,
                   willChange: 'color'
                 }}
               >

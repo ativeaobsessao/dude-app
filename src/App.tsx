@@ -25,7 +25,7 @@ import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession, profile, notification, sessions } = useDataStore();
+  const { hasCompletedFirstSession, profile, notification, sessions, initialFetchDone } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
@@ -333,7 +333,7 @@ export default function App() {
             <RecentHistory />
 
             {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
-            {sessions && sessions.length > 0 && (
+            {initialFetchDone && sessions && sessions.length > 0 && (
               <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-t border-white/5 pt-12 mt-12">
                 <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
                   Tenha Controle Total Sobre Seu Tempo

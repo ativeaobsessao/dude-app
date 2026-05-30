@@ -34,6 +34,7 @@ interface DataState {
   pendingTasks: PendingTask[];
   scheduledActivities: ScheduledActivity[];
   loading: boolean;
+  initialFetchDone: boolean;
   hasCompletedFirstSession: boolean;
   
   fetchProfile: (userId: string) => Promise<void>;
@@ -101,6 +102,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   pendingTasks: [],
   scheduledActivities: [],
   loading: false,
+  initialFetchDone: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
   notification: null,
   showNotification: (message, type = 'success') => {
@@ -147,7 +149,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         pendingTasks: pt.data || [],
         scheduledActivities: sa.data || [],
         avoidanceCheckins: ac.data || [],
-        loading: false 
+        loading: false,
+        initialFetchDone: true 
       });
 
       await get().fetchSessionTasks(userId);
