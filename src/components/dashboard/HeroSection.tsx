@@ -319,19 +319,10 @@ export const HeroSection = () => {
 
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden relative">
-          {/* Radial Halo behind greeting */}
-          <div 
-            className="absolute -top-12 left-1/2 -translate-x-1/2 w-80 h-44 rounded-full blur-[72px] transition-all duration-700 pointer-events-none"
-            style={{ 
-              background: 'radial-gradient(circle, var(--mood) 0%, transparent 80%)',
-              opacity: activeMoodEntry ? 0.22 : 0.08
-            }}
-          />
-
           <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2 relative z-10">
             {greeting}, {firstName}
           </h2>
-          <span className="text-xs sm:text-sm md:text-base text-text-dim/60 font-mono tracking-[0.15em] uppercase font-bold">
+          <span className="text-xs sm:text-sm md:text-base text-text-dim font-mono tracking-[0.15em] uppercase font-semibold">
             {fullCustomDate}
           </span>
           <p className="text-[clamp(8.5px,2.4vw,1rem)] text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
