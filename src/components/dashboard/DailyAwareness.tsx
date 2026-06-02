@@ -99,7 +99,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration, isP
           <Check size={16} />
         </div>
         <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-3">
-          <span className="text-xl font-light tracking-tight flex items-center gap-2 flex-wrap">
+          <span className="text-xl font-light tracking-tight flex items-center gap-2 flex-wrap md:text-text">
             {title} 
             <span className="text-text-secondary/20 hidden md:inline">—</span> 
             <span className="text-text-secondary uppercase tracking-widest text-xs font-bold">{project}</span>
