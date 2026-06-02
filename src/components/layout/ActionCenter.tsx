@@ -1329,7 +1329,7 @@ export const ActionCenter = () => {
                                             {resolved.titulo}
                                           </span>
                                           <span className="text-text-secondary/30 hidden md:inline">—</span>
-                                          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest leading-none mt-0.5">
+                                          <span className="text-[10px] font-bold text-text-secondary/40 md:text-text-secondary/75 uppercase tracking-widest leading-none mt-0.5">
                                             {resolved.projeto}
                                           </span>
                                           {session.scheduled_activity_id && (
@@ -1371,9 +1371,9 @@ export const ActionCenter = () => {
                                         </div>
 
                                         {/* Segunda linha: horário início → fim + duração */}
-                                        <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
+                                        <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570] md:text-text-secondary/85">
                                           <span>{timeRange}</span>
-                                          <span className="text-[#3a4540]">·</span>
+                                          <span className="text-[#3a4540] md:text-text-secondary/40">·</span>
                                           <span>{formattedDuration}</span>
                                         </div>
 

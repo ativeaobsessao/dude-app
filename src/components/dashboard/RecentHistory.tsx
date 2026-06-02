@@ -179,7 +179,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
         <div className="space-y-1 flex-1 min-w-0">
           {/* Badge de hábito */}
           {session.habit_id && (
-            <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary/40 flex items-center gap-1 mb-1">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary/40 md:text-text-secondary/70 flex items-center gap-1 mb-1">
               ⚡ Hábito Atômico
             </span>
           )}
@@ -189,7 +189,7 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
               {resolved.titulo}
             </span>
             <span className="text-text-secondary/30 hidden md:inline">—</span>
-            <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest leading-none mt-0.5">
+            <span className="text-[10px] font-bold text-text-secondary/40 md:text-text-secondary/75 uppercase tracking-widest leading-none mt-0.5">
               {resolved.projeto}
             </span>
             {session.scheduled_activity_id && (
@@ -231,9 +231,9 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
           </div>
 
           {/* Segunda linha: horário início → fim + duração */}
-          <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570]">
+          <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-[#6a7570] md:text-text-secondary/85">
             <span>{timeRange}</span>
-            <span className="text-[#3a4540]">·</span>
+            <span className="text-[#3a4540] md:text-text-secondary/40">·</span>
             <span>{formattedDuration}</span>
           </div>
 
@@ -268,9 +268,9 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
             return tasks.length > 0 ? (
               <div className="mt-2 space-y-1">
                 {tasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 text-[10px] text-text-secondary/50">
+                  <div key={task.id} className="flex items-center gap-2 text-[10px] text-text-secondary/50 md:text-text-secondary/80">
                     <span>{task.completed ? '✅' : '○'}</span>
-                    <span className={task.completed ? '' : 'opacity-50'}>{task.description}</span>
+                    <span className={task.completed ? '' : 'opacity-50 md:opacity-80'}>{task.description}</span>
                   </div>
                 ))}
               </div>

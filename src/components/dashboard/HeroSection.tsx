@@ -322,7 +322,7 @@ export const HeroSection = () => {
           <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2 relative z-10">
             {greeting}, {firstName}
           </h2>
-          <span className="text-xs sm:text-sm md:text-base text-text-dim font-mono tracking-[0.15em] uppercase font-semibold">
+          <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
           <p className="text-[clamp(8.5px,2.4vw,1rem)] text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-2">
@@ -608,8 +608,8 @@ export const HeroSection = () => {
                         <span className="text-sm md:text-base text-text font-semibold truncate">
                           {resolved.titulo}
                         </span>
-                        <span className="text-text-dimmer/50">—</span>
-                        <span className="text-xs text-text-dim/60 truncate font-light uppercase tracking-widest font-mono">
+                        <span className="text-text-dimmer/50 md:text-text-dim/40">—</span>
+                        <span className="text-xs text-text-dim/60 md:text-text-dim truncate font-light uppercase tracking-widest font-mono">
                           {resolved.projeto}
                         </span>
                         {session.scheduled_activity_id && (
@@ -651,9 +651,9 @@ export const HeroSection = () => {
                       </div>
                       
                       {/* Linha 2: [HH:MM] → [HH:MM] · [duração] */}
-                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-dimmer font-mono">
+                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-dimmer md:text-text-dim font-mono">
                         <span>{timeRange}</span>
-                        <span className="text-text-dimmer/50">·</span>
+                        <span className="text-text-dimmer/50 md:text-text-dim/40">·</span>
                         <span>{formattedDuration}</span>
                       </div>
 

@@ -124,9 +124,9 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ title, project, duration, isP
           </span>
         </div>
       </div>
-      <div className="pl-13 text-sm text-[#6a7570] font-normal flex items-center gap-1.5 mt-0.5 flex-wrap">
+      <div className="pl-13 text-sm text-[#6a7570] md:text-text-secondary/80 font-normal flex items-center gap-1.5 mt-0.5 flex-wrap">
         <span>{timeRange}</span>
-        <span className="text-[#3a4540]">·</span>
+        <span className="text-[#3a4540] md:text-text-secondary/40">·</span>
         <span>{duration}</span>
       </div>
       {isPartial && (
