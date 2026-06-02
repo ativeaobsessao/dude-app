@@ -605,7 +605,7 @@ export const HeroSection = () => {
                     <div className="flex-1 min-w-0 font-sans">
                       {/* Linha 1: [ATIVIDADE] — [Projeto] */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm md:text-base text-text font-semibold truncate">
+                        <span className="text-sm md:text-base text-text md:text-text font-semibold truncate">
                           {resolved.titulo}
                         </span>
                         <span className="text-text-dimmer/50 md:text-text-dim/40">—</span>
