@@ -10,8 +10,6 @@ export const HeroSection = () => {
   const timer = useTimerStore();
   const dataStore = useDataStore();
   
-  if (timer.isActive) return null;
-
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
 
   // Greeting Logic
@@ -296,6 +294,8 @@ export const HeroSection = () => {
   const openDeepSession = () => {
     window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'session' } }));
   };
+
+  if (timer.isActive) return null;
 
   return (
     <section className="relative pt-20 pb-4 md:pt-32 md:pb-12 px-4 sm:px-6 flex flex-col items-center text-center w-full max-w-5xl mx-auto overflow-hidden">

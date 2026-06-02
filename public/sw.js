@@ -10,11 +10,13 @@ self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
 function scheduleCheck() {
   if (checkTimeout) clearTimeout(checkTimeout);
   
+  const remaining = sessionData.endTime - Date.now();
+  
   checkTimeout = setTimeout(() => {
     const now = Date.now();
-    const remaining = sessionData.endTime - now;
+    const r = sessionData.endTime - now;
 
-    if (remaining <= 0) {
+    if (r <= 0) {
       if (!completeFired) {
         completeFired = true;
         self.registration.showNotification('✅ Sessão concluída!', {
@@ -35,7 +37,7 @@ function scheduleCheck() {
     }
 
     // Aviso de 5 minutos
-    if (remaining <= 300000 && !warningFired) {
+    if (r <= 300000 && !warningFired) {
       warningFired = true;
       self.registration.showNotification('⏳ Faltam 5 minutos!', {
         body: `${sessionData.activity} — ${sessionData.project}`,
@@ -50,8 +52,6 @@ function scheduleCheck() {
     }
 
     // Agenda próxima verificação
-    // Mais frequente perto do fim para não perder o momento exato
-    const nextCheck = remaining <= 60000 ? 5000 : remaining <= 300000 ? 15000 : 30000;
     scheduleCheck();
   }, remaining <= 300000 ? 15000 : 30000);
 }
