@@ -10,13 +10,14 @@ export const MoodRitualModal = () => {
   const { user } = useAuthStore();
   const { moodEntries, addMoodEntry, initialFetchDone } = useDataStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [resolved, setResolved] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<'manha' | 'tarde' | 'noite' | null>(null);
   const [currentDate, setCurrentDate] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !initialFetchDone) return;
+    if (!user) return;
 
-    const checkMoodRequirement = () => {
+    const runCheck = () => {
       const { period, dateStr } = getCurrentPeriodAndDate(new Date());
       setCurrentPeriod(period);
       setCurrentDate(dateStr);
@@ -25,14 +26,30 @@ export const MoodRitualModal = () => {
         m => m.date === dateStr && m.period === period
       );
 
-      setIsOpen(!hasAnswered);
+      let isSkipped = false;
+      try {
+        isSkipped = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (hasAnswered || isSkipped) {
+        setIsOpen(false);
+        setResolved(true);
+      } else if (initialFetchDone) {
+        setIsOpen(true);
+        setResolved(true);
+      } else {
+        setIsOpen(false);
+        setResolved(false);
+      }
     };
 
-    checkMoodRequirement();
+    runCheck();
 
-    window.addEventListener('focus', checkMoodRequirement);
+    window.addEventListener('focus', runCheck);
     return () => {
-      window.removeEventListener('focus', checkMoodRequirement);
+      window.removeEventListener('focus', runCheck);
     };
   }, [user, moodEntries, initialFetchDone]);
 
@@ -54,24 +71,13 @@ export const MoodRitualModal = () => {
     setIsOpen(false);
   };
 
-  useEffect(() => {
-    if (!user || !initialFetchDone || !isOpen || !currentDate || !currentPeriod) return;
-
-    try {
-      const isSkipped = localStorage.getItem(`dude-mood-skipped-${currentDate}-${currentPeriod}`) === 'true';
-      if (isSkipped) {
-        setIsOpen(false);
-      }
-    } catch {}
-  }, [isOpen, currentDate, currentPeriod, initialFetchDone, user]);
-
   const getPeriodLabel = () => {
     if (currentPeriod === 'manha') return 'da manhã';
     if (currentPeriod === 'tarde') return 'da tarde';
     return 'da noite';
   };
 
-  if (!isOpen) return null;
+  if (!resolved || !isOpen) return null;
 
   return (
     <AnimatePresence>
