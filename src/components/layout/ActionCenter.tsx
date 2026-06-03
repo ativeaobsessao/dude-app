@@ -13,10 +13,12 @@ import {
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
-type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio';
+type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
 
 import { CustomSelect } from '../ui/CustomSelect';
 import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
+import { SavedLinksConfigScreen } from '../links/SavedLinksConfigScreen';
+import { LinksListScreen } from '../links/LinksListScreen';
 
 export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -687,6 +689,11 @@ export const ActionCenter = () => {
         id: 'notes',
         label: 'ANOTAÇÕES',
         subtitle: 'Seu espaço para registrar o que não pode ser esquecido.'
+      },
+      {
+        id: 'saved-links',
+        label: 'ORGANIZADOR DE LINKS',
+        subtitle: 'Centro organizacional dos links mais importantes para acessar sempre que precisar'
       },
       {
         id: 'history',
@@ -1997,6 +2004,19 @@ export const ActionCenter = () => {
                       setEditingActivity(undefined);
                     }}
                     editingActivity={editingActivity}
+                  />
+                )}
+
+                {currentScreen === 'saved-links' && (
+                  <SavedLinksConfigScreen
+                    onBack={() => setCurrentScreen(null)}
+                    onNavigateToViewAll={() => setCurrentScreen('links-list')}
+                  />
+                )}
+
+                {currentScreen === 'links-list' && (
+                  <LinksListScreen
+                    onBack={() => setCurrentScreen('saved-links')}
                   />
                 )}
               </div>

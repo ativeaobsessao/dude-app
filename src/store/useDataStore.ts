@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
@@ -37,8 +37,15 @@ interface DataState {
   initialFetchDone: boolean;
   hasCompletedFirstSession: boolean;
   moodEntries: MoodEntry[];
+  savedLinks: SavedLink[];
   
   addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo') => Promise<MoodEntry | null>;
+  
+  fetchLinks: (userId: string) => Promise<void>;
+  addLink: (userId: string, data: { title: string; url: string; projectId?: string | null; habitId?: string | null }) => Promise<SavedLink | null>;
+  updateLink: (linkId: string, data: { title: string; url: string; projectId?: string | null; habitId?: string | null }) => Promise<boolean>;
+  deleteLink: (linkId: string) => Promise<boolean>;
+  registerLinkAccess: (linkId: string) => Promise<void>;
   
   fetchProfile: (userId: string) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
@@ -115,6 +122,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return [];
     }
   })(),
+  savedLinks: [],
   notification: null,
   showNotification: (message, type = 'success') => {
     set({ notification: { message, type } });
@@ -138,7 +146,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa, ac, me] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac, me, sl] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -154,6 +162,24 @@ export const useDataStore = create<DataState>((set, get) => ({
           } catch (err) {
             console.warn('Silent fallback: mood_entries table lookup failed', err);
             return { data: null };
+          }
+        })(),
+        (async () => {
+          try {
+            const res = await supabase
+              .from('saved_links')
+              .select('*')
+              .eq('user_id', userId)
+              .order('access_count', { ascending: false })
+              .order('created_at', { ascending: false });
+            if (res.error) {
+              console.warn('Silent fallback: saved_links table lookup failed with error', res.error);
+              return { data: [] };
+            }
+            return res;
+          } catch (err) {
+            console.warn('Silent fallback: saved_links table lookup threw an exception', err);
+            return { data: [] };
           }
         })(),
       ]);
@@ -187,6 +213,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         scheduledActivities: sa.data || [],
         avoidanceCheckins: ac.data || [],
         moodEntries: combinedMoods,
+        savedLinks: sl.data || [],
         loading: false,
         initialFetchDone: true 
       });
@@ -1388,5 +1415,133 @@ export const useDataStore = create<DataState>((set, get) => ({
       console.warn('Supabase sync warning for mood entry (cached locally only):', err);
     }
     return newEntry;
+  },
+
+  fetchLinks: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('saved_links')
+        .select('*')
+        .eq('user_id', userId)
+        .order('access_count', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      set({ savedLinks: data || [] });
+    } catch (err) {
+      console.error('Error in fetchLinks:', err);
+    }
+  },
+
+  addLink: async (userId, { title, url, projectId, habitId }) => {
+    try {
+      let normalizedUrl = url.trim();
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
+
+      const { data, error } = await supabase
+        .from('saved_links')
+        .insert({
+          user_id: userId,
+          title: title.trim(),
+          url: normalizedUrl,
+          project_id: projectId || null,
+          habit_id: habitId || null,
+          access_count: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        set({ savedLinks: [data, ...get().savedLinks] });
+        get().showNotification('✅ Link salvo com sucesso!');
+        return data;
+      }
+    } catch (err: any) {
+      console.error('Error in addLink:', err);
+      get().showNotification(`Erro ao salvar link: ${err?.message || err}`, 'error');
+    }
+    return null;
+  },
+
+  updateLink: async (linkId, { title, url, projectId, habitId }) => {
+    try {
+      let normalizedUrl = url.trim();
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
+
+      const { data, error } = await supabase
+        .from('saved_links')
+        .update({
+          title: title.trim(),
+          url: normalizedUrl,
+          project_id: projectId || null,
+          habit_id: habitId || null
+        })
+        .eq('id', linkId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        const updated = get().savedLinks.map(l => l.id === linkId ? data : l);
+        set({ savedLinks: updated });
+        get().showNotification('✅ Link atualizado com sucesso!');
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Error in updateLink:', err);
+      get().showNotification(`Erro ao atualizar link: ${err?.message || err}`, 'error');
+    }
+    return false;
+  },
+
+  deleteLink: async (linkId) => {
+    try {
+      const { error } = await supabase
+        .from('saved_links')
+        .delete()
+        .eq('id', linkId);
+
+      if (error) throw error;
+      set({ savedLinks: get().savedLinks.filter(l => l.id !== linkId) });
+      get().showNotification('✅ Link removido!');
+      return true;
+    } catch (err: any) {
+      console.error('Error in deleteLink:', err);
+      get().showNotification(`Erro ao excluir link: ${err?.message || err}`, 'error');
+      return false;
+    }
+  },
+
+  registerLinkAccess: async (linkId) => {
+    try {
+      const link = get().savedLinks.find(l => l.id === linkId);
+      if (!link) return;
+
+      const newCount = link.access_count + 1;
+      const nowStr = new Date().toISOString();
+
+      const optimisticallyUpdated = get().savedLinks.map(l => 
+        l.id === linkId 
+          ? { ...l, access_count: newCount, last_accessed_at: nowStr } 
+          : l
+      );
+      set({ savedLinks: optimisticallyUpdated });
+
+      const { error } = await supabase
+        .from('saved_links')
+        .update({
+          access_count: newCount,
+          last_accessed_at: nowStr
+        })
+        .eq('id', linkId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error in registerLinkAccess:', err);
+    }
   }
 }));

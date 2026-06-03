@@ -149,3 +149,15 @@ export type MoodEntry = {
   mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo';
   created_at: string;
 };
+
+export type SavedLink = {
+  id: string;
+  user_id: string;
+  title: string;
+  url: string;
+  project_id: string | null;
+  habit_id: string | null;
+  access_count: number;
+  last_accessed_at: string | null;
+  created_at: string;
+};

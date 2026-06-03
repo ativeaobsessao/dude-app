@@ -6,6 +6,7 @@ import { ActiveSession } from './components/dashboard/ActiveSession';
 import { HabitsSection } from './components/dashboard/HabitsSection';
 import { AvoidanceSection } from './components/dashboard/AvoidanceSection';
 import { RecentNotes } from './components/dashboard/RecentNotes';
+import { LinksHeroBlock } from './components/links/LinksHeroBlock';
 import { RecentHistory } from './components/dashboard/RecentHistory';
 import { ActionCenter } from './components/layout/ActionCenter';
 import { motion, AnimatePresence } from 'motion/react';
@@ -343,6 +344,9 @@ export default function App() {
 
             {/* 8. Seção Anotações */}
             <RecentNotes />
+
+            {/* Organizador de Links Section */}
+            <LinksHeroBlock />
 
             {/* 6. Botão "CENTRO DE INTELIGÊNCIA" */}
             <div className="flex justify-center w-full">
