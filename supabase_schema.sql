@@ -151,6 +151,16 @@ CREATE TABLE mood_entries (
   CONSTRAINT unique_user_date_period UNIQUE (user_id, date, period)
 );
 
+-- 12. DAILY SHUTDOWNS
+CREATE TABLE daily_shutdowns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  date TEXT NOT NULL, -- local YYYY-MM-DD
+  status TEXT NOT NULL CHECK (status IN ('completed', 'dismissed')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_user_shutdown_date UNIQUE (user_id, date)
+);
+
 
 -- INDEXES FOR MAXIMUM QUERY EFFICIENCY
 CREATE INDEX IF NOT EXISTS idx_profiles_streak ON profiles(current_streak);
@@ -170,6 +180,8 @@ CREATE INDEX IF NOT EXISTS idx_habit_completions_user ON habit_completions(user_
 CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_mood_entries_user ON mood_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_mood_entries_date ON mood_entries(date);
+CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_user ON daily_shutdowns(user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_date ON daily_shutdowns(date);
 
 
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -184,6 +196,7 @@ ALTER TABLE session_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE habit_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mood_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_shutdowns ENABLE ROW LEVEL SECURITY;
 
 -- Profile Policies
 CREATE POLICY "Users can view their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -218,6 +231,9 @@ CREATE POLICY "Users can manage their own notes" ON notes FOR ALL USING (auth.ui
 
 -- Mood Entries Policies
 CREATE POLICY "Users can manage their own mood entries" ON mood_entries FOR ALL USING (auth.uid() = user_id);
+
+-- Daily Shutdowns Policies
+CREATE POLICY "Users can manage their own daily shutdowns" ON daily_shutdowns FOR ALL USING (auth.uid() = user_id);
 
 
 -- FUNCTIONS AND TRIGGERS FOR NEW USERS

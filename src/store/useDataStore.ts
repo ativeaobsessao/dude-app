@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
@@ -38,8 +38,10 @@ interface DataState {
   hasCompletedFirstSession: boolean;
   moodEntries: MoodEntry[];
   savedLinks: SavedLink[];
+  dailyShutdowns: DailyShutdown[];
   
   addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo') => Promise<MoodEntry | null>;
+  addDailyShutdown: (userId: string, date: string, status: 'completed' | 'dismissed') => Promise<DailyShutdown | null>;
   
   fetchLinks: (userId: string) => Promise<void>;
   addLink: (userId: string, data: { title: string; url: string; projectId?: string | null; habitId?: string | null }) => Promise<SavedLink | null>;
@@ -123,6 +125,14 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   })(),
   savedLinks: [],
+  dailyShutdowns: (() => {
+    try {
+      const cached = localStorage.getItem('dude-daily-shutdowns');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  })(),
   notification: null,
   showNotification: (message, type = 'success') => {
     set({ notification: { message, type } });
@@ -146,7 +156,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa, ac, me, sl] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -182,6 +192,23 @@ export const useDataStore = create<DataState>((set, get) => ({
             return { data: [] };
           }
         })(),
+        (async () => {
+          try {
+            const res = await supabase
+              .from('daily_shutdowns')
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false });
+            if (res.error) {
+              console.warn('Silent fallback: daily_shutdowns table lookup failed with error', res.error);
+              return { data: [] };
+            }
+            return res;
+          } catch (err) {
+            console.warn('Silent fallback: daily_shutdowns table lookup threw an exception', err);
+            return { data: [] };
+          }
+        })(),
       ]);
 
       const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as MoodEntry[]) : [];
@@ -202,6 +229,24 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.error('Error writing merged mood cache:', err);
       }
 
+      const fetchedShutdowns = (ds && 'data' in ds && ds.data) ? (ds.data as DailyShutdown[]) : [];
+      let combinedShutdowns = [...fetchedShutdowns];
+      try {
+        const cachedStr = localStorage.getItem('dude-daily-shutdowns');
+        const cachedShutdowns = cachedStr ? (JSON.parse(cachedStr) as DailyShutdown[]) : [];
+        const fetchedIds = new Set(fetchedShutdowns.map(d => d.id));
+        const missingFromRemote = cachedShutdowns.filter(d => !fetchedIds.has(d.id));
+        combinedShutdowns = [...combinedShutdowns, ...missingFromRemote];
+      } catch (err) {
+        console.error('Error merging local shutdowns cache:', err);
+      }
+      combinedShutdowns.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      try {
+        localStorage.setItem('dude-daily-shutdowns', JSON.stringify(combinedShutdowns));
+      } catch (err) {
+        console.error('Error writing merged shutdowns cache:', err);
+      }
+
       set({ 
         projects: p.data || [], 
         habits: h.data || [], 
@@ -214,6 +259,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         avoidanceCheckins: ac.data || [],
         moodEntries: combinedMoods,
         savedLinks: sl.data || [],
+        dailyShutdowns: combinedShutdowns,
         loading: false,
         initialFetchDone: true 
       });
@@ -1413,6 +1459,54 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
     } catch (err) {
       console.warn('Supabase sync warning for mood entry (cached locally only):', err);
+    }
+    return newEntry;
+  },
+
+  addDailyShutdown: async (userId, date, status) => {
+    const tempId = crypto.randomUUID ? crypto.randomUUID() : 'shutdown-' + Math.random().toString(36).substring(2, 11);
+    const newEntry: DailyShutdown = {
+      id: tempId,
+      user_id: userId,
+      date,
+      status,
+      created_at: new Date().toISOString()
+    };
+
+    const existing = get().dailyShutdowns.filter(d => d.date !== date);
+    const updated = [newEntry, ...existing];
+    set({ dailyShutdowns: updated });
+    try {
+      localStorage.setItem('dude-daily-shutdowns', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Local Storage save shutdown error:', err);
+    }
+
+    try {
+      await supabase.from('daily_shutdowns').delete().eq('user_id', userId).eq('date', date);
+      const { data, error } = await supabase
+        .from('daily_shutdowns')
+        .insert({
+          user_id: userId,
+          date,
+          status
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        const finalEntries = get().dailyShutdowns.map(d => d.id === tempId ? data : d);
+        set({ dailyShutdowns: finalEntries });
+        try {
+          localStorage.setItem('dude-daily-shutdowns', JSON.stringify(finalEntries));
+        } catch (err) {
+          console.error('Local Storage update shutdowns error:', err);
+        }
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase sync warning for daily shutdown (cached locally only):', err);
     }
     return newEntry;
   },

@@ -5,6 +5,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from '../../lib/utils';
 import { MOOD_LIST } from '../../lib/mood';
 import { X, Moon, Check, CheckSquare, Square, Plus } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { DailyShutdown } from '../../types';
 
 export const DailyShutdownModal = () => {
   const { user } = useAuthStore();
@@ -18,7 +20,9 @@ export const DailyShutdownModal = () => {
     toggleSessionTask,
     moodEntries, 
     initialFetchDone,
-    profile
+    profile,
+    dailyShutdowns,
+    addDailyShutdown
   } = useDataStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -104,14 +108,17 @@ export const DailyShutdownModal = () => {
   useEffect(() => {
     if (!user || !initialFetchDone) return;
 
-    const checkRequirement = () => {
+    const checkRequirement = async () => {
       const yesterdayStr = getLocalYesterdayDateString(new Date());
 
-      // Yesterday was completed or dismissed?
-      const isYesterdayDone = localStorage.getItem(`dude-shutdown-completed-${yesterdayStr}`) === 'true';
-      const isYesterdayDismissed = localStorage.getItem(`dude-shutdown-dismissed-${yesterdayStr}`) === 'true';
+      // Yesterday was completed or dismissed in cache/store?
+      const isYesterdayDone = localStorage.getItem(`dude-shutdown-completed-${yesterdayStr}`) === 'true' ||
+                              dailyShutdowns.some(d => d.date === yesterdayStr && d.status === 'completed');
+      const isYesterdayDismissed = localStorage.getItem(`dude-shutdown-dismissed-${yesterdayStr}`) === 'true' ||
+                                   dailyShutdowns.some(d => d.date === yesterdayStr && d.status === 'dismissed');
 
       if (isYesterdayDone || isYesterdayDismissed) {
+        setIsOpen(false);
         return;
       }
 
@@ -127,6 +134,7 @@ export const DailyShutdownModal = () => {
                                    yesterdayScheduled.length > 0;
 
       if (!hasActivityYesterday) {
+        setIsOpen(false);
         return;
       }
 
@@ -137,14 +145,44 @@ export const DailyShutdownModal = () => {
       const isMoodActive = !hasAnsweredMood && !isMoodSkipped;
 
       if (isMoodActive) {
+        setIsOpen(false);
         return;
       }
 
-      // Trigger automatic catch-up for yesterday
+      // Trigger automatic catch-up for yesterday (initial state)
       setTargetDate(yesterdayStr);
       setIsCatchUp(true);
       setIsCompleted(false);
       setIsOpen(true);
+
+      // Background revalidation
+      try {
+        const { data, error } = await supabase
+          .from('daily_shutdowns')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', yesterdayStr);
+
+        if (!error && data) {
+          const serverEntry = data[0];
+          if (serverEntry) {
+            // Already handled on another device! Close silently
+            setIsOpen(false);
+
+            // Reconcile and update cache/store
+            const hasInStore = dailyShutdowns.some(d => d.date === yesterdayStr && d.status === serverEntry.status);
+            if (!hasInStore) {
+              const updated = [serverEntry, ...dailyShutdowns.filter(d => d.date !== yesterdayStr)];
+              useDataStore.setState({ dailyShutdowns: updated });
+              localStorage.setItem('dude-daily-shutdowns', JSON.stringify(updated));
+              localStorage.setItem(`dude-shutdown-completed-${yesterdayStr}`, serverEntry.status === 'completed' ? 'true' : 'false');
+              localStorage.setItem(`dude-shutdown-dismissed-${yesterdayStr}`, serverEntry.status === 'dismissed' ? 'true' : 'false');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Background daily shutdown check failed:', err);
+      }
     };
 
     checkRequirement();
@@ -153,7 +191,7 @@ export const DailyShutdownModal = () => {
     return () => {
       window.removeEventListener('focus', checkRequirement);
     };
-  }, [user, initialFetchDone, sessions, habitCompletions, avoidanceCheckins, scheduledActivities, moodEntries]);
+  }, [user, initialFetchDone, sessions, habitCompletions, avoidanceCheckins, scheduledActivities, moodEntries, dailyShutdowns]);
 
   // Listen to custom event for manual trigger
   useEffect(() => {
@@ -170,14 +208,20 @@ export const DailyShutdownModal = () => {
     };
   }, [todayStr]);
 
-  const handleDismiss = () => {
+  const handleDismiss = async () => {
     localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
     setIsOpen(false);
+    if (user) {
+      await addDailyShutdown(user.id, targetDate, 'dismissed');
+    }
   };
 
-  const handleCompleteShutdown = () => {
+  const handleCompleteShutdown = async () => {
     localStorage.setItem(`dude-shutdown-completed-${targetDate}`, 'true');
     setIsCompleted(true);
+    if (user) {
+      await addDailyShutdown(user.id, targetDate, 'completed');
+    }
     setTimeout(() => {
       setIsOpen(false);
     }, 1800);

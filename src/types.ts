@@ -150,6 +150,14 @@ export type MoodEntry = {
   created_at: string;
 };
 
+export type DailyShutdown = {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD local
+  status: 'completed' | 'dismissed';
+  created_at: string;
+};
+
 export type SavedLink = {
   id: string;
   user_id: string;

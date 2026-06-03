@@ -146,3 +146,30 @@ CREATE INDEX IF NOT EXISTS idx_avoidance_checkins_habit ON avoidance_checkins(ha
 CREATE INDEX IF NOT EXISTS idx_avoidance_checkins_user ON avoidance_checkins(user_id);
 CREATE INDEX IF NOT EXISTS idx_avoidance_checkins_date ON avoidance_checkins(checkin_date);
 
+
+-- 7. CREATE DAILY SHUTDOWNS SCHEMA
+CREATE TABLE IF NOT EXISTS daily_shutdowns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  date TEXT NOT NULL, -- local YYYY-MM-DD
+  status TEXT NOT NULL CHECK (status IN ('completed', 'dismissed')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_user_shutdown_date UNIQUE (user_id, date)
+);
+
+ALTER TABLE daily_shutdowns ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'daily_shutdowns' AND policyname = 'Users can manage their own daily shutdowns'
+  ) THEN
+    CREATE POLICY "Users can manage their own daily shutdowns" 
+      ON daily_shutdowns FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_user ON daily_shutdowns(user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_date ON daily_shutdowns(date);
+

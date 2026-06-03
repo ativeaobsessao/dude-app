@@ -5,6 +5,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { getCurrentPeriodAndDate } from '../../lib/utils';
 import { MOOD_LIST, MoodKey } from '../../lib/mood';
 import { X, Heart } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { MoodEntry } from '../../types';
 
 export const MoodRitualModal = () => {
   const { user } = useAuthStore();
@@ -17,23 +19,23 @@ export const MoodRitualModal = () => {
   useEffect(() => {
     if (!user) return;
 
-    const runCheck = () => {
+    const runCheck = async () => {
       const { period, dateStr } = getCurrentPeriodAndDate(new Date());
       setCurrentPeriod(period);
       setCurrentDate(dateStr);
 
-      const hasAnswered = moodEntries.some(
+      const hasAnsweredLocal = moodEntries.some(
         m => m.date === dateStr && m.period === period
       );
 
-      let isSkipped = false;
+      let isSkippedLocal = false;
       try {
-        isSkipped = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
+        isSkippedLocal = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
       } catch (e) {
         console.error(e);
       }
 
-      if (hasAnswered || isSkipped) {
+      if (hasAnsweredLocal || isSkippedLocal) {
         setIsOpen(false);
         setResolved(true);
       } else if (initialFetchDone) {
@@ -42,6 +44,47 @@ export const MoodRitualModal = () => {
       } else {
         setIsOpen(false);
         setResolved(false);
+      }
+
+      // Background revalidation
+      try {
+        const { data, error } = await supabase
+          .from('mood_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', dateStr)
+          .eq('period', period);
+
+        if (!error && data) {
+          const serverHasAnswered = data.length > 0;
+          if (serverHasAnswered) {
+            // Already answered on another device
+            setIsOpen(false);
+            setResolved(true);
+            
+            // Reconcile store if missing locally
+            const localHasEntry = moodEntries.some(m => m.date === dateStr && m.period === period);
+            if (!localHasEntry) {
+              const serverEntry = data[0] as MoodEntry;
+              const updated = [serverEntry, ...moodEntries.filter(m => !(m.date === dateStr && m.period === period))];
+              useDataStore.setState({ moodEntries: updated });
+              localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
+            }
+          } else {
+            // Server has not answered. If local cache was wrong (falsely claimed answered), fix it
+            if (hasAnsweredLocal) {
+              const updated = moodEntries.filter(m => !(m.date === dateStr && m.period === period));
+              useDataStore.setState({ moodEntries: updated });
+              localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
+              
+              if (!isSkippedLocal && initialFetchDone) {
+                setIsOpen(true);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Background mood check failed:', e);
       }
     };
 
