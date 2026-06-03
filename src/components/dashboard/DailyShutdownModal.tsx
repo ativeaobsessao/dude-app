@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getLocalDateString, getCurrentPeriodAndDate } from '../../lib/utils';
+import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from '../../lib/utils';
 import { MOOD_LIST } from '../../lib/mood';
-import { X, Moon, Check, CheckSquare, Square, Plus, Sparkles, Clock, Calendar } from 'lucide-react';
+import { X, Moon, Check, CheckSquare, Square, Plus } from 'lucide-react';
 
 export const DailyShutdownModal = () => {
   const { user } = useAuthStore();
@@ -24,14 +24,16 @@ export const DailyShutdownModal = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [taskInputs, setTaskInputs] = useState<{ [sessionId: string]: string }>({});
+  const [targetDate, setTargetDate] = useState<string>(() => getLocalDateString(new Date()));
+  const [isCatchUp, setIsCatchUp] = useState<boolean>(false);
 
   const todayStr = useMemo(() => getLocalDateString(new Date()), []);
   const firstName = profile?.full_name?.split(' ')[0] || 'Gustavo';
 
-  // Summarize today's stats
+  // Summarize stats for the targetDate
   const todaySessions = useMemo(() => {
-    return sessions.filter(s => getLocalDateString(new Date(s.started_at)) === todayStr && s.completed);
-  }, [sessions, todayStr]);
+    return sessions.filter(s => getLocalDateString(new Date(s.started_at)) === targetDate && s.completed);
+  }, [sessions, targetDate]);
 
   const totalMinutes = useMemo(() => {
     return todaySessions.reduce((acc, s) => acc + (s.actual_duration_minutes || s.duration_minutes), 0);
@@ -64,23 +66,23 @@ export const DailyShutdownModal = () => {
 
   const percent = dailyGoal > 0 ? Math.round((totalMinutes / dailyGoal) * 100) : 0;
 
-  // Have any activity today?
-  const hasActivityToday = useMemo(() => {
+  // Have any activity on the target date?
+  const hasActivityOnTargetDay = useMemo(() => {
     if (todaySessions.length > 0) return true;
 
-    const todaysHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(todayStr));
+    const todaysHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(targetDate));
     if (todaysHabitComps.length > 0) return true;
 
-    const todaysAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === todayStr);
+    const todaysAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === targetDate);
     if (todaysAvoidance.length > 0) return true;
 
-    const todaysScheduled = scheduledActivities.filter(sa => sa.scheduled_date === todayStr && sa.status === 'completed');
+    const todaysScheduled = scheduledActivities.filter(sa => sa.scheduled_date === targetDate && sa.status === 'completed');
     if (todaysScheduled.length > 0) return true;
 
     return false;
-  }, [todaySessions, habitCompletions, avoidanceCheckins, scheduledActivities, todayStr]);
+  }, [todaySessions, habitCompletions, avoidanceCheckins, scheduledActivities, targetDate]);
 
-  // Check for completed sessions from today that have NO checklist tasks marked / look incomplete
+  // Check for completed sessions from target day that have NO checklist tasks marked / look incomplete
   const incompleteSessions = useMemo(() => {
     return todaySessions.filter(session => {
       const tasks = sessionTasks.filter(t => t.session_id === session.id);
@@ -89,56 +91,59 @@ export const DailyShutdownModal = () => {
     });
   }, [todaySessions, sessionTasks]);
 
-  // Today's logged mood (if any)
+  // Target day's logged mood (if any)
   const todayMoodObj = useMemo(() => {
-    const todayMoodsList = moodEntries.filter(m => m.date === todayStr);
+    const todayMoodsList = moodEntries.filter(m => m.date === targetDate);
     if (todayMoodsList.length > 0) {
       return MOOD_LIST.find(m => m.key === todayMoodsList[0].mood);
     }
     return null;
-  }, [moodEntries, todayStr]);
+  }, [moodEntries, targetDate]);
 
-  // Determine if we should trigger the modal
+  // Determine if we should trigger the modal automatically for yesterday
   useEffect(() => {
     if (!user || !initialFetchDone) return;
 
     const checkRequirement = () => {
-      // 1. Evening/Night trigger (>= 21:00 or before 04:59)
-      const now = new Date();
-      const hour = now.getHours();
-      const isEveningOrNight = hour >= 21 || hour < 5;
+      const yesterdayStr = getLocalYesterdayDateString(new Date());
 
-      if (!isEveningOrNight) {
-        setIsOpen(false);
+      // Yesterday was completed or dismissed?
+      const isYesterdayDone = localStorage.getItem(`dude-shutdown-completed-${yesterdayStr}`) === 'true';
+      const isYesterdayDismissed = localStorage.getItem(`dude-shutdown-dismissed-${yesterdayStr}`) === 'true';
+
+      if (isYesterdayDone || isYesterdayDismissed) {
         return;
       }
 
-      // 2. Has any activity today
-      if (!hasActivityToday) {
-        setIsOpen(false);
+      // Check if yesterday had activity
+      const yesterdaySessionsObj = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === yesterdayStr && s.completed);
+      const yesterdayHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(yesterdayStr));
+      const yesterdayAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === yesterdayStr);
+      const yesterdayScheduled = scheduledActivities.filter(sa => sa.scheduled_date === yesterdayStr && sa.status === 'completed');
+
+      const hasActivityYesterday = yesterdaySessionsObj.length > 0 ||
+                                   yesterdayHabitComps.length > 0 ||
+                                   yesterdayAvoidance.length > 0 ||
+                                   yesterdayScheduled.length > 0;
+
+      if (!hasActivityYesterday) {
         return;
       }
 
-      // 3. Not completed or dismissed today
-      const isDone = localStorage.getItem(`dude-shutdown-completed-${todayStr}`) === 'true';
-      const isDismissed = localStorage.getItem(`dude-shutdown-dismissed-${todayStr}`) === 'true';
-      if (isDone || isDismissed) {
-        setIsOpen(false);
-        return;
-      }
-
-      // 4. Mood ritual overlay check: wait for it if not completed or skipped
+      // Mood ritual overlay check: wait for it if not completed or skipped
       const { period, dateStr } = getCurrentPeriodAndDate(new Date());
       const hasAnsweredMood = moodEntries.some(m => m.date === dateStr && m.period === period);
       const isMoodSkipped = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
       const isMoodActive = !hasAnsweredMood && !isMoodSkipped;
 
       if (isMoodActive) {
-        setIsOpen(false);
         return;
       }
 
-      // All checks pass - open the modal!
+      // Trigger automatic catch-up for yesterday
+      setTargetDate(yesterdayStr);
+      setIsCatchUp(true);
+      setIsCompleted(false);
       setIsOpen(true);
     };
 
@@ -148,15 +153,30 @@ export const DailyShutdownModal = () => {
     return () => {
       window.removeEventListener('focus', checkRequirement);
     };
-  }, [user, initialFetchDone, hasActivityToday, moodEntries, todayStr]);
+  }, [user, initialFetchDone, sessions, habitCompletions, avoidanceCheckins, scheduledActivities, moodEntries]);
+
+  // Listen to custom event for manual trigger
+  useEffect(() => {
+    const handleManualTrigger = () => {
+      setTargetDate(todayStr);
+      setIsCatchUp(false);
+      setIsCompleted(false);
+      setIsOpen(true);
+    };
+
+    window.addEventListener('trigger-daily-shutdown', handleManualTrigger);
+    return () => {
+      window.removeEventListener('trigger-daily-shutdown', handleManualTrigger);
+    };
+  }, [todayStr]);
 
   const handleDismiss = () => {
-    localStorage.setItem(`dude-shutdown-dismissed-${todayStr}`, 'true');
+    localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
     setIsOpen(false);
   };
 
   const handleCompleteShutdown = () => {
-    localStorage.setItem(`dude-shutdown-completed-${todayStr}`, 'true');
+    localStorage.setItem(`dude-shutdown-completed-${targetDate}`, 'true');
     setIsCompleted(true);
     setTimeout(() => {
       setIsOpen(false);
@@ -232,18 +252,22 @@ export const DailyShutdownModal = () => {
                   <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-green block">
                     FECHAMENTO DO DIA
                   </span>
-                  <h3 className="text-lg sm:text-2xl font-mono font-black text-text tracking-tight uppercase">
-                    Hora de fechar o dia, {firstName}.
+                  <h3 className="text-lg sm:text-2xl font-mono font-black text-text tracking-tight uppercase animate-fade-in">
+                    {isCatchUp ? `Você não fechou ontem, ${firstName}.` : `Hora de fechar o dia, ${firstName}.`}
                   </h3>
                   <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-md mx-auto">
-                    Um resumo rápido de hoje antes de deitar e recuperar as energias.
+                    {isCatchUp 
+                      ? "Um resumo rápido de ontem para manter suas estatísticas organizadas."
+                      : "Um resumo rápido de hoje antes de deitar e recuperar as energias."}
                   </p>
                 </div>
 
                 {/* TODAY STATS SUMMARY ROW */}
                 <div className="grid grid-cols-3 gap-2 w-full p-3 rounded-2xl bg-surface-1/40 border border-border-custom/50 text-center">
                   <div className="space-y-0.5">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-text-dim/40">Foco Hoje</span>
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-text-dim/40">
+                      {isCatchUp ? 'Foco Ontem' : 'Foco Hoje'}
+                    </span>
                     <span className="text-xs sm:text-sm font-mono font-bold text-text block">
                       {totalMinutes >= 60 
                         ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m` 
@@ -268,7 +292,7 @@ export const DailyShutdownModal = () => {
                 {/* Optional Mood Display */}
                 {todayMoodObj && (
                   <div className="mx-auto flex items-center gap-1.5 px-3 py-1 bg-white/[0.02] border border-white/5 rounded-full text-[10px] text-text-dim">
-                    <span>Sua sintonia hoje:</span>
+                    <span>Sintonia do dia:</span>
                     <span className="text-xs">{todayMoodObj.emoji}</span>
                     <span className="font-bold text-text uppercase tracking-wider text-[9px]">{todayMoodObj.label}</span>
                   </div>

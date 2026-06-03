@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useState, useMemo } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
-import { CheckCircle, Pause } from 'lucide-react';
+import { CheckCircle, Pause, Moon } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 
@@ -703,6 +703,16 @@ export const HeroSection = () => {
               </p>
             )}
           </div>
+
+          {todaySessions.length > 0 && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
+              className="w-full mt-4 py-3 sm:py-3.5 border border-green/20 hover:border-green/45 bg-green/5 hover:bg-green/10 text-green font-mono font-bold uppercase tracking-wider text-[11px] rounded-2xl flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <Moon size={13} className="fill-green/15 group-hover:scale-115 transition-transform" />
+              <span>Fechar meu dia</span>
+            </button>
+          )}
         </div>
       </motion.div>
 
