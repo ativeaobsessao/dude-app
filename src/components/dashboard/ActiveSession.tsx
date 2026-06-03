@@ -126,7 +126,7 @@ export const ActiveSession = () => {
   const [noteProjectId, setNoteProjectId] = useState(timer.projectId || '');
   const [noteActivityId, setNoteActivityId] = useState('');
 
-  const { triggerNotification } = useSessionNotifications();
+  const { triggerNotification, unlockAudio } = useSessionNotifications();
   const hasObservedFinish = useRef(false);
   const hasObservedWarning = useRef(false);
   const wakeLockRef = useRef<any>(null);
@@ -224,6 +224,15 @@ export const ActiveSession = () => {
     if (!timer.isActive) {
       hasObservedFinish.current = false;
       hasObservedWarning.current = false;
+    } else {
+      console.log('[SP Audio] Active session initialized. StartTime:', timer.startTime, 'DurationMs:', timer.totalDurationMs);
+      hasObservedFinish.current = false;
+      hasObservedWarning.current = false;
+    }
+  }, [timer.isActive, timer.startTime]);
+
+  useEffect(() => {
+    if (!timer.isActive) {
       return;
     }
 
@@ -237,14 +246,17 @@ export const ActiveSession = () => {
         setProgress(Math.min(100, p));
       }
 
-      // 5-minute warning (300000ms)
-      if (ms <= 300000 && ms > 295000 && !hasObservedWarning.current && timer.isActive) {
+      // 5-minute warning (300000ms) - only applicable if total session > 5 min
+      const is5MinWarningApplicable = timer.totalDurationMs ? (timer.totalDurationMs > 300000) : false;
+      if (is5MinWarningApplicable && ms <= 300000 && ms > 0 && !hasObservedWarning.current && timer.isActive && !timer.isPaused) {
         hasObservedWarning.current = true;
+        console.log('[SP Audio] 5-minute warning sound triggered. Remaining MS:', ms);
         triggerNotification('warning');
       }
 
-      if (ms <= 0 && timer.isActive && !hasObservedFinish.current) {
+      if (ms <= 0 && timer.isActive && !hasObservedFinish.current && !timer.isPaused) {
         hasObservedFinish.current = true;
+        console.log('[SP Audio] End of session complete sound triggered. Remaining MS:', ms);
         
         // Vibrate and Play Sound
         triggerNotification('complete');
@@ -687,6 +699,7 @@ export const ActiveSession = () => {
 
               <button 
                 onClick={() => {
+                  unlockAudio();
                   if (timer.isPaused) {
                     timer.resume();
                     sendToServiceWorker('RESUME_TIMER');

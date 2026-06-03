@@ -11,6 +11,7 @@ import {
   Pencil, Calendar
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
+import { unlockAudio } from '../../hooks/useSessionNotifications';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
@@ -341,6 +342,9 @@ export const ActionCenter = () => {
         sessionData.activityId || undefined
       );
     }
+
+    // Unlock audio context on user click gesture before timer start
+    unlockAudio();
 
     timer.start(
       totalMinutes, 
