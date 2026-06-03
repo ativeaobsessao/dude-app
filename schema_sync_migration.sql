@@ -173,3 +173,7 @@ $$;
 CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_user ON daily_shutdowns(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_shutdowns_date ON daily_shutdowns(date);
 
+-- 8. ADD DAILY_GOAL_MINUTES TO PROFILES
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS daily_goal_minutes INTEGER DEFAULT NULL;
+
+

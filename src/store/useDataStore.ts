@@ -50,6 +50,7 @@ interface DataState {
   registerLinkAccess: (linkId: string) => Promise<void>;
   
   fetchProfile: (userId: string) => Promise<void>;
+  updateDailyGoal: (userId: string, minutes: number | null) => Promise<boolean>;
   fetchData: (userId: string) => Promise<void>;
   syncHabitsRollover: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
@@ -147,9 +148,53 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
       if (error) throw error;
-      if (data) set({ profile: data });
+      if (data) {
+        set({ profile: data });
+        // Local cache reconciliation
+        if (data.daily_goal_minutes !== undefined && data.daily_goal_minutes !== null) {
+          localStorage.setItem('dude_daily_focus_goal', data.daily_goal_minutes.toString());
+        } else {
+          const localSaved = localStorage.getItem('dude_daily_focus_goal');
+          if (localSaved) {
+            const minutes = parseInt(localSaved, 10);
+            if (!isNaN(minutes)) {
+              supabase.from('profiles').update({ daily_goal_minutes: minutes }).eq('id', userId).then();
+              set({ profile: { ...data, daily_goal_minutes: minutes } });
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Error fetching profile:', err);
+    }
+  },
+
+  updateDailyGoal: async (userId, minutes) => {
+    const currentProfile = get().profile;
+    if (currentProfile) {
+      set({ profile: { ...currentProfile, daily_goal_minutes: minutes } });
+    }
+    
+    if (minutes !== null) {
+      localStorage.setItem('dude_daily_focus_goal', minutes.toString());
+    } else {
+      localStorage.removeItem('dude_daily_focus_goal');
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ daily_goal_minutes: minutes })
+        .eq('id', userId);
+      
+      if (error) {
+        console.warn('Silent fallback: daily_goal_minutes save on server failed', error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Supabase profile focus goal update failed with exception:', err);
+      return false;
     }
   },
 

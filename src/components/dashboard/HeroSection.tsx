@@ -13,10 +13,6 @@ export const HeroSection = () => {
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
 
   // Greeting Logic
-  const [customGoal, setCustomGoal] = useState<number | null>(() => {
-    const saved = localStorage.getItem('dude_daily_focus_goal');
-    return saved ? parseInt(saved, 10) : null;
-  });
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
   const hour = new Date().getHours();
@@ -96,46 +92,62 @@ export const HeroSection = () => {
     };
   }, [dataStore.sessions, today]);
 
-  const targetMinutes = customGoal !== null ? customGoal : averageData.averageMinutes;
+  // SOURCE OF TRUTH FOR THE DAILY FOCUS GOAL (MANUAL GOAL / CACHED GOAL)
+  const userGoal = dataStore.profile?.daily_goal_minutes;
+
+  const targetMinutes = useMemo(() => {
+    if (userGoal !== undefined && userGoal !== null && userGoal > 0) {
+      return userGoal;
+    }
+    const saved = localStorage.getItem('dude_daily_focus_goal');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    // SMART DEFAULT: if the user has NEVER set a goal, initialize a suggested goal based on their recent
+    // average (rounded to a friendly number, sensible floor), but from then on it's the user's manual goal.
+    const avg = averageData.averageMinutes;
+    if (avg && avg > 0) {
+      return Math.max(45, Math.round(avg / 15) * 15);
+    }
+    return 150; // Fallback default
+  }, [userGoal, averageData.averageMinutes]);
+
   const hasEnoughHistory = targetMinutes > 0;
 
-  const percent = hasEnoughHistory ? Math.round((todayMinutesToShow / targetMinutes) * 100) : 0;
+  const percent = targetMinutes > 0 ? Math.round((todayMinutesToShow / targetMinutes) * 100) : 0;
   const strokePercent = Math.min(100, percent);
 
-  const [tempGoal, setTempGoal] = useState<number>(45);
+  const [tempGoal, setTempGoal] = useState<number>(150);
 
   let stateType: 'above' | 'on_pace' | 'below' | 'neutral' = 'neutral';
-  if (hasEnoughHistory) {
-    if (percent > 110) {
-      stateType = 'above';
-    } else if (percent >= 90) {
-      stateType = 'on_pace';
-    } else {
-      stateType = 'below';
-    }
+  if (percent > 110) {
+    stateType = 'above';
+  } else if (percent >= 90) {
+    stateType = 'on_pace';
+  } else {
+    stateType = 'below';
   }
 
-  // Smart Status Phrase (varies by state — NOT always "beat record")
+  // Smart Status Phrase (varies by state — compared to MANUAL GOAL!)
   let smartPhrase = '';
-  if (!hasEnoughHistory) {
-    smartPhrase = "Comece a registrar pra DUDE aprender seu ritmo.";
-  } else if (todayMinutesToShow === 0) {
-    smartPhrase = `Sua média é ${formatCompact(targetMinutes)}. Bora abrir o dia?`;
+  if (todayMinutesToShow === 0) {
+    smartPhrase = `Sua meta de hoje é ${formatCompact(targetMinutes)}. Bora abrir o dia?`;
   } else if (stateType === 'above') {
     if (averageData.personalRecord > 0 && todayMinutesToShow >= averageData.personalRecord) {
       smartPhrase = `Recorde histórico superado com ${formatCompact(todayMinutesToShow)}! Você está voando alto hoje! 🏆`;
     } else if (averageData.personalRecord > 0 && (averageData.personalRecord - todayMinutesToShow) <= 15) {
       smartPhrase = `Incrível, você está quase quebrando seu recorde de ${formatCompact(averageData.personalRecord)}! 🔥`;
-    } else if (averageData.personalRecord > 0) {
-      smartPhrase = `Acima da média! Falta pouco pro seu recorde de ${formatCompact(averageData.personalRecord)}. 🔥`;
     } else {
-      smartPhrase = `Acima da média! Excelente ritmo hoje. 🔥`;
+      smartPhrase = `Meta batida! Excelente ritmo hoje. 🔥`;
     }
   } else if (stateType === 'on_pace') {
-    smartPhrase = "No seu ritmo de sempre. Que tal superar hoje?";
+    smartPhrase = "No compasso da sua meta diária. Continue focado!";
   } else {
     // stateType === 'below'
-    smartPhrase = "Dá tempo de virar o dia. Uma sessão já te recoloca.";
+    smartPhrase = `Dá tempo de atingir os ${formatCompact(targetMinutes)}. Uma sessão já te aproxima!`;
   }
 
   // Now, determine reactive text line (WAVE 1B living reactive line engine)
@@ -484,57 +496,75 @@ export const HeroSection = () => {
             </div>
           </div>
 
-          {/* Tiny ajust-meta link */}
-          <div className="flex items-center justify-center pt-1 pb-2">
+          {/* Prominent Adjust Goal Control */}
+          <div className="flex flex-col items-center justify-center pt-3 pb-1 w-full">
             {!isEditingGoal ? (
               <button
                 onClick={() => {
-                  setTempGoal(targetMinutes || 45);
+                  setTempGoal(targetMinutes);
                   setIsEditingGoal(true);
                 }}
-                className="text-[10px] font-medium text-text-dim/40 hover:text-green transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-custom hover:border-green/20 bg-surface-1/50 hover:bg-surface-1/80 text-xs font-semibold text-text-dim hover:text-green transition-all shadow-sm cursor-pointer select-none"
               >
-                ajustar minha meta
+                <span>⚙️</span>
+                <span>Ajustar minha meta diária</span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5 bg-surface-2 border border-border-custom px-3 py-1.5 rounded-xl text-xs shadow-xl font-sans">
-                <span className="text-[9px] font-mono text-text-dim uppercase">meta:</span>
-                <input
-                  type="number"
-                  value={tempGoal}
-                  onChange={(e) => setTempGoal(Math.max(15, parseInt(e.target.value, 10) || 15))}
-                  className="w-12 bg-transparent text-center font-mono text-xs font-bold text-text focus:outline-none"
-                />
-                <span className="text-[9px] text-text-dim font-mono">min</span>
-                <button
-                  onClick={() => {
-                    const cleanVal = Math.max(15, Math.min(720, tempGoal));
-                    setCustomGoal(cleanVal);
-                    localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
-                    setIsEditingGoal(false);
-                  }}
-                  className="px-2 py-0.5 bg-green hover:brightness-105 rounded text-[9px] font-bold text-surface-2 uppercase cursor-pointer"
-                >
-                  OK
-                </button>
-                {customGoal !== null && (
+              <div className="flex flex-col items-center gap-2 bg-surface-1 border border-border-custom p-3.5 rounded-2xl shadow-2xl w-full max-w-[280px] animate-fade-in font-sans">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] font-mono text-text-dim uppercase tracking-wider font-bold">Definir Meta</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        if (dataStore.profile?.id) {
+                          await dataStore.updateDailyGoal(dataStore.profile.id, null);
+                        } else {
+                          localStorage.removeItem('dude_daily_focus_goal');
+                        }
+                        setIsEditingGoal(false);
+                      }}
+                      className="text-[10px] text-coral hover:underline uppercase font-bold cursor-pointer"
+                    >
+                      reset
+                    </button>
+                    <button
+                      onClick={() => setIsEditingGoal(false)}
+                      className="text-text-dim hover:text-text cursor-pointer text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 w-full mt-1">
+                  <input
+                    type="number"
+                    value={tempGoal}
+                    onChange={(e) => setTempGoal(Math.max(15, parseInt(e.target.value, 10) || 15))}
+                    className="w-20 bg-surface-2 border border-border-custom text-center font-mono text-sm font-bold text-text focus:outline-none py-1.5 rounded-xl"
+                  />
+                  <span className="text-xs text-text-dim font-mono shrink-0">min</span>
                   <button
-                    onClick={() => {
-                      setCustomGoal(null);
-                      localStorage.removeItem('dude_daily_focus_goal');
+                    onClick={async () => {
+                      const cleanVal = Math.max(15, Math.min(720, tempGoal));
+                      if (dataStore.profile?.id) {
+                        await dataStore.updateDailyGoal(dataStore.profile.id, cleanVal);
+                      } else {
+                        localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
+                      }
                       setIsEditingGoal(false);
                     }}
-                    className="text-[9px] text-coral hover:underline"
+                    className="flex-1 py-1.5 bg-green hover:brightness-110 rounded-xl text-xs font-bold text-surface-2 uppercase cursor-pointer transition-colors"
                   >
-                    reset
+                    Salvar
                   </button>
+                </div>
+                
+                {averageData.averageMinutes > 0 && (
+                  <p className="text-[10px] text-text-dim/80 font-medium leading-relaxed mt-1 text-center font-sans">
+                    Sua média recente é <span className="font-mono text-text">{formatCompact(averageData.averageMinutes)}</span> — que tal mirar <span className="font-mono text-text">{formatCompact(Math.max(45, Math.round((averageData.averageMinutes * 1.2) / 15) * 15))}</span>?
+                  </p>
                 )}
-                <button
-                  onClick={() => setIsEditingGoal(false)}
-                  className="text-[10px] text-text-dim hover:text-text cursor-pointer"
-                >
-                  ✕
-                </button>
               </div>
             )}
           </div>

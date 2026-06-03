@@ -8,6 +8,7 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   total_focus_minutes BIGINT DEFAULT 0,
   current_streak INTEGER DEFAULT 0,
+  daily_goal_minutes INTEGER DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

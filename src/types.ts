@@ -4,6 +4,7 @@ export type Profile = {
   avatar_url: string | null;
   total_focus_minutes: number;
   current_streak: number;
+  daily_goal_minutes?: number | null;
   created_at: string;
   updated_at: string;
 };
