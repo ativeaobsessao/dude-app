@@ -51,20 +51,20 @@ export const SessionTasksChecklist: React.FC<SessionTasksChecklistProps> = ({
   return (
     <div className="space-y-2">
       {tasks.length > 0 && (
-        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {tasks.map((task, index) => {
             const isDone = completedTasks.includes(task);
             return (
               <div
                 key={index}
-                className="flex items-center justify-between gap-3 p-[10px] pl-[12px] pr-[12px] rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all"
+                className="flex items-start justify-between gap-3 p-[10px] pl-[12px] pr-[12px] rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/10 transition-all"
               >
                 <div 
                   onClick={() => handleToggle(task)}
-                  className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                  className="flex items-start gap-3 cursor-pointer flex-1 min-w-0 pt-[1px]"
                 >
                   <div
-                    className="w-4 h-4 rounded flex items-center justify-center transition-all duration-150 shrink-0 select-none"
+                    className="w-4 h-4 rounded flex items-center justify-center transition-all duration-150 shrink-0 select-none mt-[1px]"
                     style={{
                       backgroundColor: isDone ? '#6ee7b7' : 'transparent',
                       border: isDone ? 'none' : '1.5px solid rgba(255, 255, 255, 0.2)',
@@ -73,10 +73,12 @@ export const SessionTasksChecklist: React.FC<SessionTasksChecklistProps> = ({
                     {isDone && <Check size={10} className="text-[#0a1410] stroke-[3]" />}
                   </div>
                   <span
-                    className="text-xs transition-colors duration-150 truncate flex-1"
+                    className="text-xs transition-colors duration-150 flex-1 whitespace-normal break-words"
                     style={{
                       color: isDone ? '#6a7570' : '#ffffff',
                       textDecoration: isDone ? 'line-through' : 'none',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {task}
@@ -86,7 +88,7 @@ export const SessionTasksChecklist: React.FC<SessionTasksChecklistProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemove(task)}
-                  className="text-text-secondary/35 hover:text-red-400 transition-colors cursor-pointer p-1"
+                  className="text-text-secondary/35 hover:text-red-400 transition-colors cursor-pointer p-1 shrink-0 mt-[1px]"
                 >
                   <Trash2 size={12} />
                 </button>
