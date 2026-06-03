@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Link2, Plus, ExternalLink } from 'lucide-react';
+import { Link2, Plus, ExternalLink, ChevronDown, Folder } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CustomSelect } from '../ui/CustomSelect';
 
 export const LinksHeroBlock = () => {
   const { user } = useAuthStore();
   const { projects, habits, savedLinks, addLink, registerLinkAccess } = useDataStore();
 
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
@@ -70,88 +72,122 @@ export const LinksHeroBlock = () => {
 
   const inputClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px]";
   const labelClasses = "text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-70 mb-2 block";
-  const selectClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px] cursor-pointer appearance-none px-4";
 
   return (
     <section id="links-hero-block" className="w-full max-w-5xl space-y-4 font-sans">
-      <div className="w-full p-6 bg-surface/20 border border-border-white rounded-3xl space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary/60">
-              <Link2 size={18} />
-            </div>
-            <div className="text-left">
-              <h3 className="text-lg font-semibold text-text-primary tracking-tight">🔗 Links Importantes</h3>
-              <p className="text-xs text-text-secondary/60 mt-0.5">
-                Acesse rapidamente seus atalhos mais utilizados
-              </p>
-            </div>
+      {/* Header Collapsible Trigger */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-6 bg-surface/20 hover:bg-surface/35 border border-border-white rounded-3xl flex items-center justify-between cursor-pointer transition-all duration-300 group"
+      >
+        <div className="flex items-center gap-4 font-sans">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary/60 group-hover:bg-white/10 group-hover:text-text-primary transition-colors">
+            <Link2 size={18} />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              id="hero-add-link-btn"
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-wider text-text-primary border border-white/5 hover:border-primary-green/30 transition-all cursor-pointer"
-            >
-              <Plus size={14} className="text-primary-green" />
-              Salvar Link
-            </button>
-
-            {savedLinks.length > 0 && (
-              <button
-                id="hero-ver-todos-btn"
-                onClick={handleVerTodos}
-                className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-              >
-                Ver Todos
-              </button>
-            )}
+          <div className="text-left font-sans">
+            <h3 className="text-lg font-semibold text-text-primary tracking-tight">Organizador de Links</h3>
+            <p className="text-xs text-text-secondary/60 mt-0.5">
+              {savedLinks.length === 0 
+                ? 'Nenhum link cadastrado' 
+                : `${savedLinks.length} ${savedLinks.length === 1 ? 'link salvo' : 'links salvos'}`}
+            </p>
           </div>
         </div>
+        <div className={`text-text-secondary/40 group-hover:text-text-primary transition-colors transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+          <ChevronDown size={20} />
+        </div>
+      </div>
 
-        {/* Top Links Preview */}
-        {topLinks.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topLinks.map((link) => (
-              <div
-                key={link.id}
-                id={`hero-preview-link-${link.id}`}
-                onClick={() => handleLinkClick(link)}
-                className="group relative flex flex-col justify-between bg-surface/30 hover:bg-surface/50 border border-white/5 hover:border-primary-green/35 rounded-2xl p-5 cursor-pointer transition-all duration-300 overflow-hidden"
-              >
-                <div className="space-y-1 text-left">
-                  <div className="flex items-center justify-between gap-2 overflow-hidden">
-                    <span className="text-sm font-bold text-text-primary group-hover:text-primary-green transition-colors truncate">
-                      {link.title}
-                    </span>
-                    <ExternalLink size={12} className="text-text-secondary/40 group-hover:text-primary-green transition-colors flex-shrink-0 animate-pulse" />
-                  </div>
-                  <span className="text-[10px] text-text-secondary/50 font-mono block truncate">
-                    {link.url}
-                  </span>
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="w-full p-6 bg-surface/20 border border-border-white rounded-3xl space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="text-left">
+                  <p className="text-xs text-text-secondary/60">
+                    Acesse rapidamente seus atalhos mais utilizados
+                  </p>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between text-[8px] font-mono uppercase text-text-secondary/40">
-                  <span className="bg-white/5 px-2 py-0.5 rounded-full">
-                    {link.access_count} {link.access_count === 1 ? 'acesso' : 'acessos'}
-                  </span>
-                  {link.project_id && (
-                    <span className="text-primary-green/60">
-                      📂 {projects.find(p => p.id === link.project_id)?.name || 'Projeto'}
-                    </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="hero-add-link-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-wider text-text-primary border border-white/5 hover:border-primary-green/30 transition-all cursor-pointer"
+                  >
+                    <Plus size={14} className="text-primary-green" />
+                    Salvar Link
+                  </button>
+
+                  {savedLinks.length > 0 && (
+                    <button
+                      id="hero-ver-todos-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVerTodos();
+                      }}
+                      className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Ver Todos
+                    </button>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 bg-white/5 rounded-2xl border border-white/5 space-y-2">
-            <p className="text-xs text-text-secondary/60">Nenhum link cadastrado.</p>
-            <p className="text-[10px] text-text-secondary/40 uppercase tracking-wider">Configure seus primeiros atalhos para aparecerem aqui</p>
-          </div>
+
+              {/* Top Links Preview */}
+              {topLinks.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {topLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      id={`hero-preview-link-${link.id}`}
+                      onClick={() => handleLinkClick(link)}
+                      className="group relative flex flex-col justify-between bg-surface/30 hover:bg-surface/50 border border-white/5 hover:border-primary-green/35 rounded-2xl p-5 cursor-pointer transition-all duration-300 overflow-hidden text-left"
+                    >
+                      <div className="space-y-1 text-left">
+                        <div className="flex items-center justify-between gap-2 overflow-hidden">
+                          <span className="text-sm font-bold text-text-primary group-hover:text-primary-green transition-colors truncate">
+                            {link.title}
+                          </span>
+                          <ExternalLink size={12} className="text-text-secondary/40 group-hover:text-primary-green transition-colors flex-shrink-0 animate-pulse" />
+                        </div>
+                        <span className="text-[10px] text-text-secondary/50 font-mono block truncate">
+                          {link.url}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between text-[8px] font-mono uppercase text-text-secondary/40">
+                        <span className="bg-white/5 px-2 py-0.5 rounded-full">
+                          {link.access_count} {link.access_count === 1 ? 'acesso' : 'acessos'}
+                        </span>
+                        {link.project_id && (
+                          <span className="text-primary-green/60 flex items-center gap-1">
+                            <Folder size={10} /> {projects.find(p => p.id === link.project_id)?.name || 'Projeto'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white/5 rounded-2xl border border-white/5 space-y-2">
+                  <p className="text-xs text-text-secondary/60">Nenhum link cadastrado.</p>
+                  <p className="text-[10px] text-text-secondary/40 uppercase tracking-wider">Configure seus primeiros atalhos para aparecerem aqui</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       {/* Quick Add Popup Modal */}
       <AnimatePresence>
@@ -199,48 +235,28 @@ export const LinksHeroBlock = () => {
                   />
                 </div>
 
-                <div className="space-y-1 text-left relative">
+                <div className="space-y-1 text-left">
                   <label className={labelClasses}>Projeto (Opcional)</label>
-                  <div className="relative">
-                    <select
-                      id="quick-link-project-select"
-                      className={selectClasses}
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                    >
-                      <option value="">Nenhum Projeto</option>
-                      {projects.map((proj) => (
-                        <option key={proj.id} value={proj.id}>
-                          {proj.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary">
-                      ▼
-                    </div>
-                  </div>
+                  <CustomSelect
+                    options={[
+                      { value: '', label: 'Nenhum Projeto' },
+                      ...projects.map((proj) => ({ value: proj.id, label: proj.name })),
+                    ]}
+                    value={projectId}
+                    onChange={(val) => setProjectId(val)}
+                  />
                 </div>
 
-                <div className="space-y-1 text-left relative">
+                <div className="space-y-1 text-left">
                   <label className={labelClasses}>Hábito (Opcional)</label>
-                  <div className="relative">
-                    <select
-                      id="quick-link-habit-select"
-                      className={selectClasses}
-                      value={habitId}
-                      onChange={(e) => setHabitId(e.target.value)}
-                    >
-                      <option value="">Nenhum Hábito</option>
-                      {habits.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary">
-                      ▼
-                    </div>
-                  </div>
+                  <CustomSelect
+                    options={[
+                      { value: '', label: 'Nenhum Hábito' },
+                      ...habits.map((h) => ({ value: h.id, label: h.name })),
+                    ]}
+                    value={habitId}
+                    onChange={(val) => setHabitId(val)}
+                  />
                 </div>
 
                 <div className="pt-4 flex gap-4">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { CustomSelect } from '../ui/CustomSelect';
 
 interface SavedLinksConfigScreenProps {
   onBack: () => void;
@@ -23,7 +24,6 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
 
   const inputClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px]";
   const labelClasses = "text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-70 mb-2 block";
-  const selectClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px] cursor-pointer appearance-none px-4";
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,48 +108,28 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
           />
         </div>
 
-        <div className="space-y-1 text-left relative">
+        <div className="space-y-1 text-left">
           <label className={labelClasses}>Projeto (Opcional)</label>
-          <div className="relative">
-            <select
-              id="link-project-select"
-              className={selectClasses}
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-            >
-              <option value="">Nenhum Projeto</option>
-              {projects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.name}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary">
-              ▼
-            </div>
-          </div>
+          <CustomSelect
+            options={[
+              { value: '', label: 'Nenhum Projeto' },
+              ...projects.map((proj) => ({ value: proj.id, label: proj.name })),
+            ]}
+            value={projectId}
+            onChange={(val) => setProjectId(val)}
+          />
         </div>
 
-        <div className="space-y-1 text-left relative">
+        <div className="space-y-1 text-left">
           <label className={labelClasses}>Hábito (Opcional)</label>
-          <div className="relative">
-            <select
-              id="link-habit-select"
-              className={selectClasses}
-              value={habitId}
-              onChange={(e) => setHabitId(e.target.value)}
-            >
-              <option value="">Nenhum Hábito</option>
-              {habits.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-text-secondary">
-              ▼
-            </div>
-          </div>
+          <CustomSelect
+            options={[
+              { value: '', label: 'Nenhum Hábito' },
+              ...habits.map((h) => ({ value: h.id, label: h.name })),
+            ]}
+            value={habitId}
+            onChange={(val) => setHabitId(val)}
+          />
         </div>
 
         <div className="pt-4 space-y-4">
