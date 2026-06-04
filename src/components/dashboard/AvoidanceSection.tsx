@@ -236,18 +236,37 @@ export const AvoidanceSection = () => {
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="p-1 pt-4 space-y-8">
+            <div className="w-full p-6 bg-surface/20 border border-border-white rounded-3xl space-y-6">
               {/* Inner header & Action panel */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-surface/10 p-5 rounded-2xl border border-white/5 text-left font-sans">
-                <span className="text-xs text-text-secondary/60 font-light">
-                  Recuperação Comportamental Proativa: Centro para se livrar de vícios que impedem seu real desenvolvimento pessoal, projetado para autocontrole progressivo e resiliência psicológica mental.
-                </span>
-                <button
-                  onClick={triggerNewAvoidanceModal}
-                  className="flex items-center gap-1.5 px-4 py-2 text-[10px] uppercase font-bold tracking-widest text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary border border-white/10 rounded-full transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto font-sans"
-                >
-                  Adicionar Controle
-                </button>
+              <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-white/5">
+                <div className="text-left max-w-sm md:max-w-md">
+                  <p className="text-xs text-text-secondary/60 font-light">
+                    Recuperação Comportamental Proativa: Centro projetado para autocontrole progressivo e resiliência psicológica mental.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerNewAvoidanceModal();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#6ee7a8]/10 hover:bg-[#6ee7a8]/20 border border-[#6ee7a8]/20 rounded-xl text-xs font-bold uppercase tracking-wider text-[#6ee7a8] transition-all cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    Adicionar Controle
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowHistoryModal(true);
+                    }}
+                    className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Ver Histórico
+                  </button>
+                </div>
               </div>
 
       {avoidHabits.length === 0 ? (
@@ -451,17 +470,6 @@ export const AvoidanceSection = () => {
         </div>
       )}
 
-      {/* Trigger links below the cards container */}
-      {avoidHabits.length > 0 && (
-        <div className="flex justify-center mt-4">
-          <button
-            onClick={() => setShowHistoryModal(true)}
-            className="text-[10px] font-bold text-primary-green/60 hover:text-primary-green uppercase tracking-[0.2em] transition-all cursor-pointer underline underline-offset-4"
-          >
-            Ver histórico de Anti-Vícios
-          </button>
-        </div>
-      )}
             </div>
           </motion.div>
         )}

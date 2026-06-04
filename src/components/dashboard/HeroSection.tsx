@@ -1,8 +1,8 @@
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
-import { CheckCircle, Pause, Moon } from 'lucide-react';
+import { CheckCircle, Pause, Moon, ChevronDown } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 
@@ -14,6 +14,7 @@ export const HeroSection = () => {
 
   // Greeting Logic
   const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [isTasksExpanded, setIsTasksExpanded] = useState(false);
 
   const hour = new Date().getHours();
   let greeting = 'Boa noite';
@@ -572,147 +573,185 @@ export const HeroSection = () => {
 
 
 
-        {/* Bloco 3 — Tarefas do Dia */}
-        <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">
-          <span 
-            className="text-xs md:text-sm font-bold uppercase tracking-[0.25em] block text-center"
-            style={{ color: '#2F8F6B' }}
+        {/* Bloco 3 — Tarefas do Dia Collapsible Branch */}
+        <div className="w-full space-y-4 max-w-full font-sans">
+          {/* Header Collapsible Trigger */}
+          <div 
+            onClick={() => setIsTasksExpanded(!isTasksExpanded)}
+            className="w-full p-6 bg-surface/20 hover:bg-surface/35 border border-border-white rounded-3xl flex items-center justify-between cursor-pointer transition-all duration-300 group"
           >
-            Tarefas Realizadas no Dia
-          </span>
-          <div className="space-y-4 text-left">
-            {todaySessions.length > 0 ? (
-              todaySessions.slice(0, 5).map(session => {
-                const resolved = resolverNomeSessao(session, dataStore.habits, dataStore.projects);
-                const isPartial = session.parcial === true || 
-                                 (session.actual_duration_minutes !== null && 
-                                  session.actual_duration_minutes !== undefined && 
-                                  session.actual_duration_minutes < session.duration_minutes);
-                const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
-                const formattedDuration = formatSessionDuration(durationToUse);
-                const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
-
-                const tasks = dataStore.sessionTasks.filter(t => t.session_id === session.id);
-                const completedTasks = tasks.filter(t => t.completed);
-
-                return (
-                  <div key={session.id} className="flex gap-3 text-left items-start border-b border-border-custom pb-3">
-                    <CheckCircle 
-                      size={14} 
-                      className="shrink-0 mt-1" 
-                      style={{ color: isPartial ? 'var(--amber)' : 'var(--green)' }}
-                    />
-                    <div className="flex-1 min-w-0 font-sans">
-                      {/* Linha 1: [ATIVIDADE] — [Projeto] */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm md:text-base text-text md:text-text font-semibold truncate">
-                          {resolved.titulo}
-                        </span>
-                        <span className="text-text-dimmer/50 md:text-text-dim/40">—</span>
-                        <span className="text-xs text-text-dim/60 md:text-text-dim truncate font-light uppercase tracking-widest font-mono">
-                          {resolved.projeto}
-                        </span>
-                        {session.scheduled_activity_id && (
-                          <span 
-                            className="inline-flex items-center font-bold font-mono"
-                            style={{
-                              backgroundColor: 'rgba(167, 139, 250, 0.12)',
-                              border: '0.5px solid rgba(167, 139, 250, 0.25)',
-                              color: 'var(--violet)',
-                              fontSize: '9px',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              padding: '2px 6px',
-                              borderRadius: '999px',
-                              lineHeight: '1'
-                            }}
-                          >
-                            AGENDADA
-                          </span>
-                        )}
-                        {isPartial && (
-                          <span 
-                            className="inline-flex items-center font-bold font-mono"
-                            style={{
-                              backgroundColor: 'rgba(251, 191, 36, 0.12)',
-                              border: '0.5px solid rgba(251, 191, 36, 0.25)',
-                              color: 'var(--amber)',
-                              fontSize: '9px',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              padding: '2px 6px',
-                              borderRadius: '999px',
-                              lineHeight: '1'
-                            }}
-                          >
-                            INCOMPLETA
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Linha 2: [HH:MM] → [HH:MM] · [duração] */}
-                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-dimmer md:text-text-dim font-mono">
-                        <span>{timeRange}</span>
-                        <span className="text-text-dimmer/50 md:text-text-dim/40">·</span>
-                        <span>{formattedDuration}</span>
-                      </div>
-
-                      {/* Checklist: rendered BELOW the time range with checklist style checkboxes checkmarked */}
-                      {completedTasks.length > 0 && (
-                        <div className="mt-2 space-y-1 pl-1">
-                          {completedTasks.map(task => (
-                            <div key={task.id} className="flex items-center gap-2 text-xs text-text/80">
-                              <span className="text-green select-none text-[13px]">☑</span>
-                              <span className="line-through decoration-white/10 text-text-dim/80">{task.description}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Linha tracejada e ícone de pausa */}
-                      {isPartial && (
-                        <>
-                          <div 
-                            style={{
-                              width: '100%',
-                              borderTop: '1px dashed rgba(251, 191, 36, 0.3)',
-                              marginTop: '6px',
-                              marginBottom: '4px'
-                            }}
-                          />
-                          <div 
-                            className="font-medium flex items-center"
-                            style={{
-                              color: 'var(--amber)',
-                              fontSize: '10px',
-                              opacity: 0.8
-                            }}
-                          >
-                            <Pause size={10} className="shrink-0 mr-1.5" style={{ color: 'var(--amber)' }} />
-                            <span>{session.actual_duration_minutes || 0} / {session.duration_minutes} min programados</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-sm text-text-dimmer italic font-light pt-2 text-center font-sans">
-                Nenhuma sessão realizada hoje — que tal começar agora?
-              </p>
-            )}
+            <div className="flex items-center gap-4 font-sans">
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary/60 group-hover:bg-white/10 group-hover:text-text-primary transition-colors">
+                <CheckCircle size={18} />
+              </div>
+              <div className="text-left font-sans">
+                <h3 className="text-lg font-semibold text-[#f8fafc] tracking-tight">Tarefas Realizadas no Dia</h3>
+                <p className="text-xs text-text-secondary/60 mt-0.5">
+                  {todaySessions.length} {todaySessions.length === 1 ? 'sessão concluída' : 'sessões concluídas'}
+                </p>
+              </div>
+            </div>
+            <div className={`text-text-secondary/40 group-hover:text-[#f8fafc] transition-colors transform duration-300 ${isTasksExpanded ? 'rotate-180' : ''}`}>
+              <ChevronDown size={20} />
+            </div>
           </div>
 
-          {todaySessions.length > 0 && (
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
-              className="w-full mt-4 py-3 sm:py-3.5 border border-green/20 hover:border-green/45 bg-green/5 hover:bg-green/10 text-green font-mono font-bold uppercase tracking-wider text-[11px] rounded-2xl flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <Moon size={13} className="fill-green/15 group-hover:scale-115 transition-transform" />
-              <span>Fechar meu dia</span>
-            </button>
-          )}
+          <AnimatePresence initial={false}>
+            {isTasksExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden w-full mt-4"
+              >
+                <div className="w-full p-6 bg-surface/20 border border-border-white rounded-3xl space-y-6">
+                  {/* Inner context header */}
+                  <div className="pb-2 border-b border-white/5 text-left">
+                    <p className="text-xs text-text-secondary/60 font-light">
+                      Consistência Diária: Suas tarefas e sessões profundas registradas hoje.
+                    </p>
+                  </div>
+
+                  {/* Today Sessions list */}
+                  <div className="space-y-4 text-left">
+                    {todaySessions.length > 0 ? (
+                      todaySessions.slice(0, 5).map(session => {
+                        const resolved = resolverNomeSessao(session, dataStore.habits, dataStore.projects);
+                        const isPartial = session.parcial === true || 
+                                         (session.actual_duration_minutes !== null && 
+                                          session.actual_duration_minutes !== undefined && 
+                                          session.actual_duration_minutes < session.duration_minutes);
+                        const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                        const formattedDuration = formatSessionDuration(durationToUse);
+                        const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+
+                        const tasks = dataStore.sessionTasks.filter(t => t.session_id === session.id);
+                        const completedTasks = tasks.filter(t => t.completed);
+
+                        return (
+                          <div key={session.id} className="flex gap-3 text-left items-start border-b border-border-custom pb-3 last:border-b-0 last:pb-0">
+                            <CheckCircle 
+                              size={14} 
+                              className="shrink-0 mt-1" 
+                              style={{ color: isPartial ? 'var(--amber)' : 'var(--green)' }}
+                            />
+                            <div className="flex-1 min-w-0 font-sans">
+                              {/* Linha 1: [ATIVIDADE] — [Projeto] */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm md:text-base text-text md:text-text font-semibold truncate">
+                                  {resolved.titulo}
+                                </span>
+                                <span className="text-text-dimmer/50 md:text-text-dim/40">—</span>
+                                <span className="text-xs text-text-dim/60 md:text-text-dim truncate font-light uppercase tracking-widest font-mono">
+                                  {resolved.projeto}
+                                </span>
+                                {session.scheduled_activity_id && (
+                                  <span 
+                                    className="inline-flex items-center font-bold font-mono"
+                                    style={{
+                                      backgroundColor: 'rgba(167, 139, 250, 0.12)',
+                                      border: '0.5px solid rgba(167, 139, 250, 0.25)',
+                                      color: 'var(--violet)',
+                                      fontSize: '9px',
+                                      letterSpacing: '0.12em',
+                                      textTransform: 'uppercase',
+                                      padding: '2px 6px',
+                                      borderRadius: '999px',
+                                      lineHeight: '1'
+                                    }}
+                                  >
+                                    AGENDADA
+                                  </span>
+                                )}
+                                {isPartial && (
+                                  <span 
+                                    className="inline-flex items-center font-bold font-mono"
+                                    style={{
+                                      backgroundColor: 'rgba(251, 191, 36, 0.12)',
+                                      border: '0.5px solid rgba(251, 191, 36, 0.25)',
+                                      color: 'var(--amber)',
+                                      fontSize: '9px',
+                                      letterSpacing: '0.12em',
+                                      textTransform: 'uppercase',
+                                      padding: '2px 6px',
+                                      borderRadius: '999px',
+                                      lineHeight: '1'
+                                    }}
+                                  >
+                                    INCOMPLETA
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Linha 2: [HH:MM] → [HH:MM] · [duração] */}
+                              <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-dimmer md:text-text-dim font-mono">
+                                <span>{timeRange}</span>
+                                <span className="text-text-dimmer/50 md:text-text-dim/40">·</span>
+                                <span>{formattedDuration}</span>
+                              </div>
+
+                              {/* Checklist */}
+                              {completedTasks.length > 0 && (
+                                <div className="mt-2 space-y-1 pl-1">
+                                  {completedTasks.map(task => (
+                                    <div key={task.id} className="flex items-center gap-2 text-xs text-text/80">
+                                      <span className="text-green select-none text-[13px]">☑</span>
+                                      <span className="line-through decoration-white/10 text-text-dim/80">{task.description}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Linha tracejada e ícone de pausa */}
+                              {isPartial && (
+                                <>
+                                  <div 
+                                    style={{
+                                      width: '100%',
+                                      borderTop: '1px dashed rgba(251, 191, 36, 0.3)',
+                                      marginTop: '6px',
+                                      marginBottom: '4px'
+                                    }}
+                                  />
+                                  <div 
+                                    className="font-medium flex items-center"
+                                    style={{
+                                      color: 'var(--amber)',
+                                      fontSize: '10px',
+                                      opacity: 0.8
+                                    }}
+                                  >
+                                    <Pause size={10} className="shrink-0 mr-1.5" style={{ color: 'var(--amber)' }} />
+                                    <span>{session.actual_duration_minutes || 0} / {session.duration_minutes} min programados</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-text-dimmer italic font-light pt-2 text-center font-sans">
+                        Nenhuma sessão realizada hoje — que tal começar agora?
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Today Shutdown Button rendered inside the branch as specified */}
+                  {todaySessions.length > 0 && (
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
+                      className="w-full mt-4 py-3 sm:py-3.5 border border-green/20 hover:border-green/45 bg-green/5 hover:bg-green/10 text-green font-mono font-bold uppercase tracking-wider text-[11px] rounded-2xl flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <Moon size={13} className="fill-green/15 group-hover:scale-115 transition-transform" />
+                      <span>Fechar meu dia</span>
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 

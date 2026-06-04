@@ -321,46 +321,39 @@ export default function App() {
           <main className="min-h-screen pb-40 flex flex-col items-center">
             <HeroSection />
 
-            <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-24 flex flex-col items-center">
+            <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-16 flex flex-col items-center">
               
-              {/* AGENDA HOJE & ATIVIDADES PROGRAMADAS */}
-              <div className="w-full space-y-12">
-                <AgendaHoje 
-                  onStartSession={handleStartSessionFromAgenda}
-                  onOpenNewSchedule={handleOpenNewSchedule}
-                />
-                <ProximasAtividades
-                  onStartSession={handleStartSessionFromAgenda}
-                  onOpenNewSchedule={handleOpenNewSchedule}
-                  onNavigateToFullAgenda={() => setShowFullAgenda(true)}
-                />
+              {/* AGENDA HOJE BRANCH */}
+              <AgendaHoje 
+                onStartSession={handleStartSessionFromAgenda}
+                onOpenNewSchedule={handleOpenNewSchedule}
+              />
+
+              {/* 6. Botão "CENTRO DE INTELIGÊNCIA" repositioned right above Hábitos */}
+              <div className="flex justify-center w-full max-w-5xl">
+                <button 
+                  onClick={() => setShowStats(true)}
+                  className="px-16 py-5 bg-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300 w-full"
+                >
+                  <span className="text-base text-xl font-bold tracking-tight text-background">Centro de Inteligência</span>
+                  <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Veja para onde seu tempo está indo</span>
+                </button>
               </div>
 
-            {/* 7. Seção Hábitos Atômicos */}
-            <HabitsSection />
+              {/* 7. Seção Hábitos Atômicos */}
+              <HabitsSection />
 
-            {/* Anti-Vício (Módulo Premium Separado) */}
-            <AvoidanceSection />
+              {/* Anti-Vício (Módulo Premium Separado) */}
+              <AvoidanceSection />
 
-            {/* 8. Seção Anotações */}
-            <RecentNotes />
+              {/* 8. Seção Anotações */}
+              <RecentNotes />
 
-            {/* Organizador de Links Section */}
-            <LinksHeroBlock />
+              {/* Organizador de Links Section */}
+              <LinksHeroBlock />
 
-            {/* 6. Botão "CENTRO DE INTELIGÊNCIA" */}
-            <div className="flex justify-center w-full">
-              <button 
-                onClick={() => setShowStats(true)}
-                className="px-16 py-5 bg-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300"
-              >
-                <span className="text-base text-xl font-bold tracking-tight">Centro de Inteligência</span>
-                <span className="text-base/60 text-[10px] font-bold uppercase tracking-[0.3em]">Métricas de Foco, Hábitos e Autoevolução</span>
-              </button>
-            </div>
-
-            {/* 9. Seção Histórico Recente */}
-            <RecentHistory />
+              {/* 9. Seção Histórico Recente */}
+              <RecentHistory />
 
             {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
             {initialFetchDone && sessions && sessions.length > 0 && (
