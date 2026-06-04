@@ -712,12 +712,157 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       insights.push('Continue registrando seu humor diário para a DUDE revelar seus padrões de rendimento de foco.');
     }
 
+    // --- START OF ENERGY CALCULATIONS ---
+    const periodFocusDuration: Record<string, number> = {};
+    sessions.forEach(s => {
+      if (!s.completed) return;
+      const dateObj = new Date(s.started_at);
+      const hours = dateObj.getHours();
+      const dStr = getLocalDateString(dateObj);
+      let p: 'manha' | 'tarde' | 'noite';
+      if (hours >= 5 && hours < 12) {
+        p = 'manha';
+      } else if (hours >= 12 && hours < 18) {
+        p = 'tarde';
+      } else {
+        p = 'noite';
+      }
+      const key = `${dStr}_${p}`;
+      const actualDuration = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
+        ? s.actual_duration_minutes
+        : s.duration_minutes;
+      periodFocusDuration[key] = (periodFocusDuration[key] || 0) + (actualDuration || 0);
+    });
+
+    const dailyFocusDurationOnStats: Record<string, number> = {};
+    sessions.forEach(s => {
+      if (!s.completed) return;
+      const dStr = getLocalDateString(new Date(s.started_at));
+      const actualDuration = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
+        ? s.actual_duration_minutes
+        : s.duration_minutes;
+      dailyFocusDurationOnStats[dStr] = (dailyFocusDurationOnStats[dStr] || 0) + (actualDuration || 0);
+    });
+
+    const focusDurationByEnergy: Record<'cansado' | 'normal' | 'energizado', number[]> = {
+      cansado: [],
+      normal: [],
+      energizado: []
+    };
+
+    moodEntries.forEach(m => {
+      if (!m.energy) return;
+      const key = `${m.date}_${m.period}`;
+      const minsObj = periodFocusDuration[key] || 0;
+      focusDurationByEnergy[m.energy].push(minsObj);
+    });
+
+    const energyCounts = {
+      cansado: focusDurationByEnergy.cansado.length,
+      normal: focusDurationByEnergy.normal.length,
+      energizado: focusDurationByEnergy.energizado.length
+    };
+
+    const energySums = {
+      cansado: focusDurationByEnergy.cansado.reduce((s, x) => s + x, 0),
+      normal: focusDurationByEnergy.normal.reduce((s, x) => s + x, 0),
+      energizado: focusDurationByEnergy.energizado.reduce((s, x) => s + x, 0)
+    };
+
+    const energyAverages = {
+      cansado: energyCounts.cansado > 0 ? (energySums.cansado / energyCounts.cansado) : 0,
+      normal: energyCounts.normal > 0 ? (energySums.normal / energyCounts.normal) : 0,
+      energizado: energyCounts.energizado > 0 ? (energySums.energizado / energyCounts.energizado) : 0
+    };
+
+    const totalEnergyLogs = energyCounts.cansado + energyCounts.normal + energyCounts.energizado;
+    const hasEnoughEnergyData = totalEnergyLogs >= 3;
+
+    let energyCorrelationInsight = "";
+    if (hasEnoughEnergyData) {
+      if (energyAverages.energizado > energyAverages.normal && energyAverages.energizado > 0) {
+        const factor = energyAverages.normal > 0 
+          ? (energyAverages.energizado / energyAverages.normal).toFixed(1)
+          : (energyAverages.cansado > 0 ? (energyAverages.energizado / energyAverages.cansado).toFixed(1) : "2.0");
+        
+        // Find most common period for 'energizado'
+        const energizedPeriods = moodEntries.filter(m => m.energy === 'energizado');
+        const periodCounts: Record<string, number> = {};
+        energizedPeriods.forEach(p => periodCounts[p.period] = (periodCounts[p.period] || 0) + 1);
+        let favoredPeriod = "";
+        const maxPeriodVal = Math.max(...Object.values(periodCounts), 0);
+        const bestPeriod = Object.keys(periodCounts).find(k => periodCounts[k] === maxPeriodVal);
+        if (bestPeriod) {
+          if (bestPeriod === 'manha') favoredPeriod = " e quase sempre no período da manhã";
+          else if (bestPeriod === 'tarde') favoredPeriod = " e quase sempre no período da tarde";
+          else if (bestPeriod === 'noite') favoredPeriod = " e quase sempre no período da noite";
+        }
+        
+        energyCorrelationInsight = `Você foca cerca de ${factor}x mais nos momentos em que registra nível de energia Energizado${favoredPeriod}.`;
+      } else if (energyAverages.normal > energyAverages.cansado && energyAverages.normal > 0) {
+        const factor = energyAverages.cansado > 0 
+          ? (energyAverages.normal / energyAverages.cansado).toFixed(1)
+          : "1.5";
+        energyCorrelationInsight = `Seu rendimento se mantém sob controle nos períodos com energia Normal, sendo ${factor}x superior aos momentos marcados por fadiga mental.`;
+      } else {
+        energyCorrelationInsight = `Seus níveis de foco estão equilibrados entre seus momentos de alta e média energia. Excelente adaptação das suas sessões profundas!`;
+      }
+    }
+
+    // RISK PATTERN (gentle, never shaming)
+    const tiredFocusDates = moodEntries
+      .filter(m => m.energy === 'cansado')
+      .map(m => m.date)
+      .filter(date => (dailyFocusDurationOnStats[date] || 0) > 0);
+
+    let nextDayFocusAfterTiredSum = 0;
+    let nextDayFocusAfterTiredCount = 0;
+    
+    tiredFocusDates.forEach(dStr => {
+      const dObj = new Date(dStr + 'T12:00:00');
+      dObj.setDate(dObj.getDate() + 1);
+      const nextDayStr = getLocalDateString(dObj);
+      if (dailyFocusDurationOnStats[nextDayStr] !== undefined) {
+        nextDayFocusAfterTiredSum += dailyFocusDurationOnStats[nextDayStr];
+        nextDayFocusAfterTiredCount++;
+      }
+    });
+
+    const averageFocusNextDayAfterTired = nextDayFocusAfterTiredCount > 0 
+      ? (nextDayFocusAfterTiredSum / nextDayFocusAfterTiredCount) 
+      : null;
+
+    const overallDailyAvg = Object.values(dailyFocusDurationOnStats).length > 0
+      ? Object.values(dailyFocusDurationOnStats).reduce((a, b) => a + b, 0) / Object.values(dailyFocusDurationOnStats).length
+      : 0;
+
+    let hasRiskPattern = false;
+    if (averageFocusNextDayAfterTired !== null && overallDailyAvg > 0) {
+      if (averageFocusNextDayAfterTired < overallDailyAvg * 0.9) {
+        hasRiskPattern = true;
+      }
+    }
+
+    let energyRiskInsight = "";
+    if (hasEnoughEnergyData) {
+      if (hasRiskPattern) {
+        energyRiskInsight = "Quando você foca cansado mentalmente, sua consistência tende a cair no dia seguinte. Nesses dias, sessões curtas rendem mais — e descansar é estratégia.";
+      } else {
+        energyRiskInsight = "Sua resiliência mental pós-esforço é elogiável: mesmo ao focar sob fadiga mental, seu ritmo no dia subsequente não recua drasticamente. Lembre-se, porém, de cultivar pausas saudáveis.";
+      }
+    }
+
     return {
       dominantMoodOfPeriod,
       distribution,
       stripDays,
       insights,
-      hasEnoughData: filtered.length >= 1
+      hasEnoughData: filtered.length >= 1,
+      energyAverages,
+      energyCounts,
+      hasEnoughEnergyData,
+      energyCorrelationInsight,
+      energyRiskInsight
     };
   }, [moodEntries, sessions, period]);
 
@@ -1579,23 +1724,82 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                           </div>
                         </div>
 
-                        {/* 3. THE CROSS-INSIGHTS Card */}
-                        <div className="space-y-2 font-sans bg-white/[0.015] border border-white/5 p-4 rounded-xl">
+                        {/* 3. NEW ACTIONABLE ENERGY & FOCUS INSIGHTS */}
+                        <div className="space-y-4 font-sans bg-white/[0.015] border border-white/5 p-4 rounded-xl">
                           <h4 className="text-[11px] md:text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 leading-none">
-                            <Sparkles size={11} className="text-primary-green animate-pulse" />
-                            <span>Descobertas Cruzadas · Humor e Foco</span>
+                            <Sparkles size={11} className="text-pink-500 animate-pulse" />
+                            <span>Neurociência do Foco · Diagnósticos Cruzados</span>
                           </h4>
-                          
-                          <div className="space-y-2 pt-1 font-sans">
-                            {moodAnalytics.insights.map((insight, idx) => (
-                              <div key={idx} className="flex items-start gap-2.5 p-2 bg-primary-green/[0.01] border border-primary-green/5 rounded-lg font-sans">
-                                <div className="w-1.5 h-1.5 rounded-full bg-primary-green shrink-0 mt-1.5" />
-                                <p className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light">
-                                  {insight}
-                                </p>
+
+                          {!moodAnalytics.hasEnoughEnergyData ? (
+                            <div className="p-3.5 bg-white/[0.01] border border-dashed border-white/5 rounded-lg text-center font-sans">
+                              <p className="text-[11px] text-text-secondary/70 leading-relaxed font-sans font-light">
+                                Suas novas medições em duas dimensões (Energia × Humor) estão sendo salvas. Continue registrando seus rituais para a DUDE revelar seus padrões de rendimento e fadiga mental. (Mínimo de 3 registros em dobro para ligar os motores).
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3 font-sans">
+                              {/* Insight A: Energy x Focus correlation */}
+                              {moodAnalytics.energyCorrelationInsight && (
+                                <div className="flex items-start gap-2.5 p-3 bg-pink-500/[0.02] border border-pink-500/10 rounded-lg font-sans">
+                                  <span className="text-base shrink-0 select-none mt-0.5">🧠</span>
+                                  <span className="space-y-1 block text-left">
+                                    <strong className="text-[9px] font-bold text-pink-400 uppercase tracking-wider block">Correlação de Energia</strong>
+                                    <span className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light block">
+                                      {moodAnalytics.energyCorrelationInsight}
+                                    </span>
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Insight B: Risk Pattern */}
+                              {moodAnalytics.energyRiskInsight && (
+                                <div className="flex items-start gap-2.5 p-3 bg-amber-500/[0.02] border border-amber-500/10 rounded-lg font-sans">
+                                  <span className="text-base shrink-0 select-none mt-0.5">⚠️</span>
+                                  <span className="space-y-1 block text-left">
+                                    <strong className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">Fadiga & Consistência</strong>
+                                    <span className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light block leading-relaxed">
+                                      {moodAnalytics.energyRiskInsight}
+                                    </span>
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Insight C: Mini chart */}
+                              <div className="space-y-2.5 pt-1.5">
+                                <span className="text-[9px] font-bold text-text-secondary/60 uppercase tracking-widest block text-left">Rendimento Médio de Foco por Período</span>
+                                <div className="space-y-2">
+                                  {[
+                                    { key: 'energizado', label: '⚡ Energizado', color: 'bg-emerald-500', avg: moodAnalytics.energyAverages.energizado },
+                                    { key: 'normal', label: '😐 Normal', color: 'bg-amber-400', avg: moodAnalytics.energyAverages.normal },
+                                    { key: 'cansado', label: '🥱 Cansado', color: 'bg-rose-500', avg: moodAnalytics.energyAverages.cansado }
+                                  ].map((lvl) => {
+                                    const maxVal = Math.max(
+                                      moodAnalytics.energyAverages.energizado,
+                                      moodAnalytics.energyAverages.normal,
+                                      moodAnalytics.energyAverages.cansado,
+                                      1
+                                    );
+                                    const percentage = Math.round((lvl.avg / maxVal) * 100);
+                                    return (
+                                      <div key={lvl.key} className="flex items-center justify-between text-xs gap-3 font-sans">
+                                        <span className="font-semibold text-text-primary uppercase tracking-wider text-[10px] w-24 shrink-0 block text-left">{lvl.label}</span>
+                                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden relative">
+                                          <div 
+                                            className={`h-full rounded-full transition-all duration-500 ${lvl.color}`}
+                                            style={{ width: `${lvl.avg > 0 ? percentage : 0}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-[10px] font-mono font-bold text-text-secondary/80 w-16 text-right shrink-0 block font-sans">
+                                          {lvl.avg > 0 ? `${Math.round(lvl.avg)} min` : '0 min'}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}

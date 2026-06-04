@@ -147,7 +147,8 @@ export type MoodEntry = {
   user_id: string;
   date: string; // YYYY-MM-DD local
   period: MoodPeriod;
-  mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo';
+  mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null;
+  energy?: 'cansado' | 'normal' | 'energizado' | null;
   created_at: string;
 };
 

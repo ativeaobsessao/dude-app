@@ -40,7 +40,7 @@ interface DataState {
   savedLinks: SavedLink[];
   dailyShutdowns: DailyShutdown[];
   
-  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo') => Promise<MoodEntry | null>;
+  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null, energy?: 'cansado' | 'normal' | 'energizado' | null) => Promise<MoodEntry | null>;
   addDailyShutdown: (userId: string, date: string, status: 'completed' | 'dismissed') => Promise<DailyShutdown | null>;
   
   fetchLinks: (userId: string) => Promise<void>;
@@ -1458,7 +1458,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ hasCompletedFirstSession: true });
   },
 
-  addMoodEntry: async (userId, date, period, mood) => {
+  addMoodEntry: async (userId, date, period, mood, energy) => {
     const tempId = crypto.randomUUID ? crypto.randomUUID() : 'mood-' + Math.random().toString(36).substring(2, 11);
     const newEntry: MoodEntry = {
       id: tempId,
@@ -1466,6 +1466,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       date,
       period,
       mood,
+      energy: energy || null,
       created_at: new Date().toISOString()
     };
 
@@ -1486,7 +1487,8 @@ export const useDataStore = create<DataState>((set, get) => ({
           user_id: userId,
           date,
           period,
-          mood
+          mood,
+          energy: energy || null
         })
         .select()
         .single();
