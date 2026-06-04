@@ -570,37 +570,7 @@ export const HeroSection = () => {
           </div>
         </div>
 
-        {/* Bloco de Agendamentos Pendentes */}
-        {sortedUpcoming.length > 0 && (
-          <div className="w-full max-w-sm mx-auto bg-surface-1 border border-border-custom rounded-2xl p-4 space-y-3 text-left font-sans shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-text-dim/50">O que vem a seguir?</span>
-              <span className="text-[8px] font-mono text-text-dimmer font-bold uppercase tracking-[0.1em]">PLANEJADO</span>
-            </div>
-            <div className="space-y-2">
-              {sortedUpcoming.slice(0, 3).map(activity => {
-                const d = new Date(`${activity.scheduled_date}T${activity.scheduled_time || '00:00'}`);
-                const timeStr = activity.scheduled_time || '??:??';
-                const formattedSchedDate = d.toLocaleDateString('pt-BR', {
-                  day: 'numeric',
-                  month: 'short'
-                }).replace('.', '');
 
-                return (
-                  <div key={activity.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border-custom last:border-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />
-                      <span className="text-text font-medium truncate">{activity.title}</span>
-                    </div>
-                    <div className="text-[9px] font-mono text-text-dim/60 bg-surface-2 border border-border-custom/50 px-2 py-0.5 rounded-md whitespace-nowrap font-bold">
-                      {formattedSchedDate} às {timeStr}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Bloco 3 — Tarefas do Dia */}
         <div className="space-y-4 max-w-sm mx-auto w-full md:max-w-md px-1">

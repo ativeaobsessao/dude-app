@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomSelect } from '../ui/CustomSelect';
@@ -28,15 +28,16 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
   );
 
   // Scheduled Start Time
-  const [scheduledTime, setScheduledTime] = useState(editingActivity?.scheduled_time || '09:00');
-  const [timeInput, setTimeInput] = useState(editingActivity?.scheduled_time || '09:00');
+  const initialStartTime = editingActivity?.scheduled_time || '09:00';
+  const [scheduledTime, setScheduledTime] = useState<string>(initialStartTime);
+  const [startHours, setStartHours] = useState<string>(initialStartTime.split(':')[0] || '09');
+  const [startMins, setStartMins] = useState<string>(initialStartTime.split(':')[1] || '00');
 
   // Checklist Integrated
   const [tasks, setTasks] = useState<string[]>(editingActivity?.tasks || []);
   const [newTaskInput, setNewTaskInput] = useState('');
 
   // Additional fields
-  const [notes, setNotes] = useState(editingActivity?.notes || '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [conflictWarning, setConflictWarning] = useState<{ name: string; time: string; end: string; payload: any } | null>(null);
@@ -62,16 +63,11 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
   }
 
   // End Time variables, reactive to start time + duration
-  const [endTime, setEndTime] = useState<string>(
-    editingActivity
-      ? minutesToTime(timeToMinutes(editingActivity.scheduled_time) + editingActivity.duration_minutes)
-      : '09:30'
-  );
-  const [endTimeInput, setEndTimeInput] = useState<string>(
-    editingActivity
-      ? minutesToTime(timeToMinutes(editingActivity.scheduled_time) + editingActivity.duration_minutes)
-      : '09:30'
-  );
+  const initialEndTime = editingActivity
+    ? minutesToTime(timeToMinutes(editingActivity.scheduled_time) + editingActivity.duration_minutes)
+    : '09:30';
+  const [endHours, setEndHours] = useState<string>(initialEndTime.split(':')[0] || '09');
+  const [endMins, setEndMins] = useState<string>(initialEndTime.split(':')[1] || '30');
 
   // Duration inputs split in state (HH:MM)
   const initialDuration = editingActivity?.duration_minutes ?? 30;
@@ -92,53 +88,57 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
     const total = h * 60 + m;
     setDurationMinutes(total);
 
-    if (scheduledTime) {
-      const calculatedEnd = minutesToTime(timeToMinutes(scheduledTime) + total);
-      setEndTime(calculatedEnd);
-      setEndTimeInput(calculatedEnd);
-    }
+    const calculatedEnd = minutesToTime(timeToMinutes(scheduledTime) + total);
+    const [eh, em] = calculatedEnd.split(':');
+    setEndHours(eh || '00');
+    setEndMins(em || '00');
+  };
+
+  const updateStartAndEndTime = (sh: string, sm: string, dur: number) => {
+    const sHNum = parseInt(sh, 10) || 0;
+    const sMNum = parseInt(sm, 10) || 0;
+    const formattedStart = `${String(sHNum).padStart(2, '0')}:${String(sMNum).padStart(2, '0')}`;
+    setScheduledTime(formattedStart);
+
+    const calculatedEnd = minutesToTime(timeToMinutes(formattedStart) + dur);
+    const [eh, em] = calculatedEnd.split(':');
+    setEndHours(eh || '00');
+    setEndMins(em || '00');
   };
 
   // ----------------- START TIME HANDLERS -----------------
-  const handleStartTimeChange = (val: string) => {
-    setScheduledTime(val);
-    const calculatedEnd = minutesToTime(timeToMinutes(val) + durationMinutes);
-    setEndTime(calculatedEnd);
-    setEndTimeInput(calculatedEnd);
-  };
-
-  const handleTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/\D/g, '').slice(0, 4);
-
-    let formatted = '';
-    if (digits.length > 2) {
-      formatted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
-    } else {
-      formatted = digits;
-    }
-
-    setTimeInput(formatted);
-
-    // Apply update if valid full format is reached
-    if (formatted.length === 5) {
-      const [h, m] = formatted.split(':').map(Number);
-      if (h >= 0 && h < 24 && m >= 0 && m < 60) {
-        handleStartTimeChange(formatted);
-      }
+  const handleStartHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2);
+    setStartHours(raw);
+    const hrsNum = parseInt(raw, 10) || 0;
+    if (hrsNum <= 23) {
+      updateStartAndEndTime(raw, startMins, durationMinutes);
     }
   };
 
-  const handleTimeInputBlur = () => {
-    const [hStr, mStr] = timeInput.split(':');
-    const h = parseInt(hStr || '', 10);
-    const m = parseInt(mStr || '', 10);
+  const handleStartHoursBlur = () => {
+    let hNum = parseInt(startHours, 10) || 0;
+    if (hNum > 23) hNum = 23;
+    const formatted = String(hNum).padStart(2, '0');
+    setStartHours(formatted);
+    updateStartAndEndTime(formatted, startMins, durationMinutes);
+  };
 
-    if (timeInput.length === 5 && !isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
-      handleStartTimeChange(timeInput);
-    } else {
-      setTimeInput(scheduledTime);
+  const handleStartMinsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 2);
+    setStartMins(raw);
+    const minsNum = parseInt(raw, 10) || 0;
+    if (minsNum <= 59) {
+      updateStartAndEndTime(startHours, raw, durationMinutes);
     }
+  };
+
+  const handleStartMinsBlur = () => {
+    let mNum = parseInt(startMins, 10) || 0;
+    if (mNum > 59) mNum = 59;
+    const formatted = String(mNum).padStart(2, '0');
+    setStartMins(formatted);
+    updateStartAndEndTime(startHours, formatted, durationMinutes);
   };
 
   // ----------------- DURATION HANDLERS -----------------
@@ -186,65 +186,16 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
     updateDurationMinutesVal(durationHours, finalMinsStr);
   };
 
-  // ----------------- END TIME HANDLERS -----------------
-  const handleEndTimeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = raw.replace(/\D/g, '').slice(0, 4);
-
-    let formatted = '';
-    if (digits.length > 2) {
-      formatted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
-    } else {
-      formatted = digits;
+  // React effect to handle success dismissal and redirect after 5 seconds
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => {
+        setSuccessMsg(null);
+        onBack();
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-
-    setEndTimeInput(formatted);
-
-    if (formatted.length === 5) {
-      const [h, m] = formatted.split(':').map(Number);
-      if (h >= 0 && h < 24 && m >= 0 && m < 60) {
-        setEndTime(formatted);
-        // Calculate the difference in minutes to determine duration
-        const startMin = timeToMinutes(scheduledTime);
-        const endMin = timeToMinutes(formatted);
-        let diff = endMin - startMin;
-        if (diff < 0) diff += 24 * 60; // crossover safety
-
-        setDurationMinutes(diff);
-        const newH = Math.floor(diff / 60);
-        const newM = diff % 60;
-        setDurationHours(String(newH).padStart(2, '0'));
-        setDurationMinsState(String(newM).padStart(2, '0'));
-      }
-    }
-  };
-
-  const handleEndTimeInputBlur = () => {
-    const [hStr, mStr] = endTimeInput.split(':');
-    const h = parseInt(hStr || '', 10);
-    const m = parseInt(mStr || '', 10);
-
-    if (endTimeInput.length === 5 && !isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
-      const startMin = timeToMinutes(scheduledTime);
-      const endMin = timeToMinutes(endTimeInput);
-      let diff = endMin - startMin;
-      if (diff <= 0) {
-        // Fallback to auto calculated time if equal/earlier
-        const fallbackEnd = minutesToTime(timeToMinutes(scheduledTime) + durationMinutes);
-        setEndTimeInput(fallbackEnd);
-        setEndTime(fallbackEnd);
-      } else {
-        setEndTime(endTimeInput);
-        setDurationMinutes(diff);
-        const newH = Math.floor(diff / 60);
-        const newM = diff % 60;
-        setDurationHours(String(newH).padStart(2, '0'));
-        setDurationMinsState(String(newM).padStart(2, '0'));
-      }
-    } else {
-      setEndTimeInput(endTime);
-    }
-  };
+  }, [successMsg, onBack]);
 
   // Filter activities by currently selected project
   const filteredActivities = useMemo(() => {
@@ -273,7 +224,18 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
     const conflict = dataStore.scheduledActivities.find(item => {
       if (editingActivity && item.id === editingActivity.id) return false;
       if (item.scheduled_date !== scheduledDate) return false;
-      if (item.status === 'cancelled') return false;
+      if (item.status === 'cancelled' || item.status === 'completed') return false;
+
+      // Exclude if it has been converted/registered to a focus session
+      const isLinkedToSession = dataStore.sessions.some(s => s.scheduled_activity_id === item.id);
+      if (isLinkedToSession || item.completed_session_id) return false;
+
+      // Exclude if scheduled date is in the past
+      const now = new Date();
+      const itemDateStr = item.scheduled_date; // YYYY-MM-DD
+      const itemTimeStr = item.scheduled_time; // HH:MM
+      const itemDateTime = new Date(`${itemDateStr}T${itemTimeStr}:00`);
+      if (itemDateTime < now) return false;
 
       const startExisting = timeToMinutes(item.scheduled_time);
       const endExisting = startExisting + item.duration_minutes;
@@ -334,7 +296,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       scheduled_date: scheduledDate,
       scheduled_time: scheduledTime,
       duration_minutes: durationMinutes,
-      notes: notes.trim() || null,
+      notes: null,
       tasks: tasks,
       completed_session_id: editingActivity ? editingActivity.completed_session_id : null
     };
@@ -362,10 +324,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const success = await dataStore.updateScheduledActivity(editingActivity.id, payload);
       if (success) {
         setConflictWarning(null);
-        setSuccessMsg('✅ Agendamento atualizado com sucesso!');
-        setTimeout(() => {
-          onBack();
-        }, 1500);
+        setSuccessMsg('Agendamento salvo com sucesso ✓');
       } else {
         setErrorMsg('Erro interno ao atualizar no banco de dados.');
       }
@@ -373,10 +332,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const saved = await dataStore.addScheduledActivity(payload);
       if (saved) {
         setConflictWarning(null);
-        setSuccessMsg('✅ Atividade agendada com sucesso!');
-        setTimeout(() => {
-          onBack();
-        }, 1500);
+        setSuccessMsg('Agendamento salvo com sucesso ✓');
       } else {
         setErrorMsg('Erro interno ao salvar no banco de dados.');
       }
@@ -473,8 +429,37 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
         )}
 
         {successMsg && (
-          <div className="bg-primary-green/10 border border-primary-green/30 text-primary-green p-4 rounded-3xl flex items-center gap-3 text-sm">
-            <span className="font-bold">{successMsg}</span>
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
+            <div className="bg-surface border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-4 shadow-[0_0_50px_rgba(110,231,168,0.15)] relative">
+              <button
+                onClick={() => {
+                  setSuccessMsg(null);
+                  onBack();
+                }}
+                className="absolute top-4 right-4 text-text-secondary/60 hover:text-text-primary transition-colors cursor-pointer p-1"
+                title="Fechar"
+              >
+                <X size={16} />
+              </button>
+              <div className="w-12 h-12 bg-primary-green/10 rounded-full flex items-center justify-center text-primary-green mx-auto mb-2">
+                <span className="text-xl">✓</span>
+              </div>
+              <h4 className="text-lg font-bold text-text-primary tracking-tight">
+                Sucesso!
+              </h4>
+              <p className="text-sm text-text-secondary/80 leading-relaxed font-light">
+                {successMsg}
+              </p>
+              <button
+                onClick={() => {
+                  setSuccessMsg(null);
+                  onBack();
+                }}
+                className="w-full py-2.5 bg-primary-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all"
+              >
+                OK
+              </button>
+            </div>
           </div>
         )}
 
@@ -533,11 +518,11 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                   <button
                     type="button"
                     onMouseDown={(e) => {
-                      e.preventDefault();
-                      setFocusedField(null);
-                      if (document.activeElement instanceof HTMLElement) {
-                        document.activeElement.blur();
-                      }
+                        e.preventDefault();
+                        setFocusedField(null);
+                        if (document.activeElement instanceof HTMLElement) {
+                          document.activeElement.blur();
+                        }
                     }}
                     className="px-5 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 h-[58px]"
                   >
@@ -628,38 +613,6 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
               )}
             </div>
 
-            {/* NOTAS / REQUISITOS (OPCIONAL) */}
-            <div className="space-y-1 pt-2 text-left">
-              <label className={labelClasses}>NOTAS / REQUISITOS ADICIONAIS (OPCIONAL)</label>
-              <div className="flex gap-2 items-stretch">
-                <textarea
-                  placeholder="Ex: Pegar protótipo no Figma e separar café forte antes do início..."
-                  className={`${inputClasses} min-h-[80px] resize-none py-3 flex-1`}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  onFocus={() => setFocusedField('notes')}
-                  onBlur={() => {
-                    setTimeout(() => setFocusedField(curr => curr === 'notes' ? null : curr), 200);
-                  }}
-                />
-                {focusedField === 'notes' && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setFocusedField(null);
-                      if (document.activeElement instanceof HTMLElement) {
-                        document.activeElement.blur();
-                      }
-                    }}
-                    className="px-5 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 flex items-center justify-center min-h-[80px]"
-                  >
-                    OK
-                  </button>
-                )}
-              </div>
-            </div>
-
           </div>
 
           <div className="border-t border-white/5 pt-6" />
@@ -670,8 +623,8 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
               Configurações de Agenda
             </span>
             
-            {/* GRID QUE EMPILHA VERTICAL NO MOBILE E EXPANDE EM 4 COLUNAS NO DESKTOP */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            {/* ONE BOX PER LINE ON DESKTOP & MOBILE */}
+            <div className="flex flex-col gap-5 w-full">
               
               {/* DATE BLOCK */}
               <div className="space-y-1 text-left w-full min-w-0">
@@ -715,33 +668,52 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                 </div>
               </div>
 
-              {/* HORÁRIO DE INÍCIO */}
+              {/* HORÁRIO DE INÍCIO (HH | MM CONTAINER) */}
               <div className="space-y-1 text-left w-full min-w-0">
                 <label className={labelClasses}>HORÁRIO DE INÍCIO</label>
                 <div className="flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="09:00"
-                      maxLength={5}
-                      className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
-                      value={timeInput}
-                      onChange={handleTimeInputChange}
-                      onBlur={handleTimeInputBlur}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setFocusedField('inicio');
-                      }}
-                    />
-                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                  <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                        maxLength={2}
+                        value={startHours}
+                        onChange={handleStartHoursChange}
+                        onBlur={handleStartHoursBlur}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedField('inicio');
+                        }}
+                      />
+                    </div>
+                    <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                        maxLength={2}
+                        value={startMins}
+                        onChange={handleStartMinsChange}
+                        onBlur={handleStartMinsBlur}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedField('inicio');
+                        }}
+                      />
+                    </div>
                   </div>
                   {focusedField === 'inicio' && (
                     <button
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        handleTimeInputBlur();
+                        handleStartHoursBlur();
+                        handleStartMinsBlur();
                         setFocusedField(null);
                         if (document.activeElement instanceof HTMLElement) {
                           document.activeElement.blur();
@@ -814,43 +786,31 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                 </div>
               </div>
 
-              {/* HORÁRIO DE ENCERRAMENTO (AUTO-CALCULADO / EDITA SÓ SE QUISER) */}
+              {/* HORÁRIO DE ENCERRAMENTO (HH | MM CONTAINER AUTO-CALCULATED) */}
               <div className="space-y-1 text-left w-full min-w-0">
                 <label className={labelClasses}>HORÁRIO DE ENCERRAMENTO</label>
                 <div className="flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="09:30"
-                      maxLength={5}
-                      className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary font-bold text-sm tracking-wide outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
-                      value={endTimeInput}
-                      onChange={handleEndTimeInputChange}
-                      onBlur={handleEndTimeInputBlur}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setFocusedField('fim');
-                      }}
-                    />
-                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                  <div className="flex-1 flex items-center justify-center bg-white/[0.02] border border-white/10 rounded-2xl px-3 min-h-[58px] gap-1 opacity-70">
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                      <input
+                        type="text"
+                        readOnly
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary/70 outline-none py-1 select-none pointer-events-none"
+                        value={endHours}
+                      />
+                    </div>
+                    <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                    <div className="flex-1 flex flex-col items-center">
+                      <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                      <input
+                        type="text"
+                        readOnly
+                        className="w-full bg-transparent text-center font-bold text-sm text-text-primary/70 outline-none py-1 select-none pointer-events-none"
+                        value={endMins}
+                      />
+                    </div>
                   </div>
-                  {focusedField === 'fim' && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleEndTimeInputBlur();
-                        setFocusedField(null);
-                        if (document.activeElement instanceof HTMLElement) {
-                          document.activeElement.blur();
-                        }
-                      }}
-                      className="px-4 py-4 bg-primary-green text-background text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-glow-green transition-all shadow-[0_4px_12px_rgba(110,231,168,0.2)] shrink-0 min-h-[58px]"
-                    >
-                      OK
-                    </button>
-                  )}
                 </div>
               </div>
 
