@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from '../../lib/utils';
+import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate, formatTimeRange } from '../../lib/utils';
 import { MOOD_LIST } from '../../lib/mood';
-import { X, Moon, Check, CheckSquare, Square, Plus } from 'lucide-react';
+import { X, Moon, Check, Calendar, ChevronDown, ChevronUp, Folder } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DailyShutdown } from '../../types';
 
@@ -22,11 +22,14 @@ export const DailyShutdownModal = () => {
     initialFetchDone,
     profile,
     dailyShutdowns,
-    addDailyShutdown
+    addDailyShutdown,
+    projects
   } = useDataStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [taskInputs, setTaskInputs] = useState<{ [sessionId: string]: string }>({});
   const [targetDate, setTargetDate] = useState<string>(() => getLocalDateString(new Date()));
   const [isCatchUp, setIsCatchUp] = useState<boolean>(false);
@@ -45,6 +48,10 @@ export const DailyShutdownModal = () => {
 
   // Daily Goal derivation matching the Home page
   const dailyGoal = useMemo(() => {
+    const userGoal = profile?.daily_goal_minutes;
+    if (userGoal !== undefined && userGoal !== null && userGoal > 0) {
+      return userGoal;
+    }
     const sessionsByDate: { [key: string]: number } = {};
     sessions.forEach(s => {
       if (!s.completed) return;
@@ -66,9 +73,35 @@ export const DailyShutdownModal = () => {
 
     const saved = localStorage.getItem('dude_daily_focus_goal');
     return saved ? parseInt(saved, 10) : autoGoal;
-  }, [sessions]);
+  }, [sessions, profile?.daily_goal_minutes]);
 
   const percent = dailyGoal > 0 ? Math.round((totalMinutes / dailyGoal) * 100) : 0;
+
+  const timeByProject = useMemo(() => {
+    const map: { [projectId: string]: { name: string; minutes: number } } = {};
+    
+    todaySessions.forEach(s => {
+      const duration = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
+        ? s.actual_duration_minutes
+        : s.duration_minutes;
+      
+      const pId = s.project_id || 'no-project';
+      let pName = 'Sem Projeto';
+      if (s.project_id && projects) {
+        const proj = projects.find(p => p.id === s.project_id);
+        if (proj) {
+          pName = proj.name;
+        }
+      }
+      
+      if (!map[pId]) {
+        map[pId] = { name: pName, minutes: 0 };
+      }
+      map[pId].minutes += duration;
+    });
+    
+    return Object.values(map).sort((a, b) => b.minutes - a.minutes);
+  }, [todaySessions, projects]);
 
   // Have any activity on the target date?
   const hasActivityOnTargetDay = useMemo(() => {
@@ -235,6 +268,19 @@ export const DailyShutdownModal = () => {
     setTaskInputs(prev => ({ ...prev, [sessionId]: '' }));
   };
 
+  const formatDuration = (totalMins: number) => {
+    const h = Math.floor(totalMins / 60);
+    const m = Math.round(totalMins % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
+
+  const handleConfirmShutdown = async () => {
+    setShowConfirmPopup(false);
+    await handleCompleteShutdown();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -249,7 +295,7 @@ export const DailyShutdownModal = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="relative w-full max-w-xl overflow-hidden rounded-3xl bg-surface-2/95 border border-border-custom p-6 sm:p-10 shadow-2xl text-center cursor-default"
+          className="relative w-full max-w-xl overflow-y-auto max-h-[92vh] style-scrollbar rounded-3xl bg-surface-2/95 border border-border-custom p-6 sm:p-10 shadow-2xl text-center cursor-default"
         >
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full blur-[80px] bg-green/10 pointer-events-none" />
 
@@ -301,8 +347,8 @@ export const DailyShutdownModal = () => {
                   </h3>
                   <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-md mx-auto">
                     {isCatchUp 
-                      ? "Um resumo rápido de ontem para manter suas estatísticas organizadas."
-                      : "Um resumo rápido de hoje antes de deitar e recuperar as energias."}
+                      ? "Seu resumo e ritual com foco e clareza."
+                      : "Tranque as tarefas de hoje, sinta orgulho do progresso e durma limpo."}
                   </p>
                 </div>
 
@@ -313,10 +359,7 @@ export const DailyShutdownModal = () => {
                       {isCatchUp ? 'Foco Ontem' : 'Foco Hoje'}
                     </span>
                     <span className="text-xs sm:text-sm font-mono font-bold text-text block">
-                      {totalMinutes >= 60 
-                        ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m` 
-                        : `${totalMinutes} min`
-                      }
+                      {formatDuration(totalMinutes)}
                     </span>
                   </div>
                   <div className="space-y-0.5 border-l border-r border-white/5">
@@ -342,107 +385,84 @@ export const DailyShutdownModal = () => {
                   </div>
                 )}
 
-                {/* FIX FOR UNMARKED TASKS BLOCK */}
-                <div className="w-full space-y-3 mt-1">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim/60">
-                      Checklist de atividades
-                    </span>
-                    <span className="text-[9px] text-text-dim/40 font-mono">
-                      {incompleteSessions.length > 0 ? `${incompleteSessions.length} pendentes` : 'Tudo em dia'}
-                    </span>
-                  </div>
-
-                  {incompleteSessions.length > 0 ? (
-                    <div className="space-y-3 max-h-[180px] overflow-y-auto style-scrollbar pr-1">
-                      <p className="text-[10px] text-coral/80 font-medium">
-                        ⚠️ Você fez {incompleteSessions.length} {incompleteSessions.length === 1 ? 'sessão' : 'sessões'} sem registrar o que avançou. Quer completar agora de forma rápida?
-                      </p>
-
-                      {incompleteSessions.map(session => {
-                        const tasks = sessionTasks.filter(t => t.session_id === session.id);
-                        return (
-                          <div 
-                            key={session.id} 
-                            className="bg-white/[0.01] border border-white/5 rounded-xl p-3 space-y-2.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-text tracking-wide truncate max-w-[200px]">
-                                🎯 {session.activity_name || 'Sessão de Foco'}
-                              </span>
-                              <span className="text-[9px] font-mono text-text-dim/60 shrink-0">
-                                {session.actual_duration_minutes || session.duration_minutes} min
-                              </span>
-                            </div>
-
-                            {/* Render associated tasks if any */}
-                            {tasks.length > 0 && (
-                              <div className="space-y-1.5 pl-1">
-                                {tasks.map(t => (
-                                  <button
-                                    key={t.id}
-                                    onClick={() => toggleSessionTask(t.id)}
-                                    className="flex items-center gap-2 text-[11px] font-sans text-text-dim/80 hover:text-text cursor-pointer transition-colors w-full text-left"
-                                  >
-                                    {t.completed ? (
-                                      <CheckSquare size={13} className="text-green shrink-0" />
-                                    ) : (
-                                      <Square size={13} className="text-text-dim/40 shrink-0" />
-                                    )}
-                                    <span className={`${t.completed ? 'line-through text-text-dim/40' : ''}`}>
-                                      {t.description}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Inline quick-add completed task */}
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="text"
-                                value={taskInputs[session.id] || ''}
-                                onChange={(e) => setTaskInputs(prev => ({ ...prev, [session.id]: e.target.value }))}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleAddTaskInline(session.id);
-                                }}
-                               placeholder="O que você avançou nesta sessão?"
-                               className="flex-1 bg-surface-1/50 border border-border-custom/50 rounded-lg px-2.5 py-1 text-[11px] text-text focus:outline-none focus:border-green transition-all"
-                              />
-                              <button
-                                onClick={() => handleAddTaskInline(session.id)}
-                                className="p-1 h-7 rounded-lg bg-green/10 hover:bg-green/20 border border-green/20 text-green transition-all flex items-center justify-center cursor-pointer aspect-square"
-                              >
-                                <Plus size={14} />
-                              </button>
-                            </div>
+                {/* TIME BY PROJECT SUMMARY (THE NEW MAIN summary) */}
+                <div className="w-full space-y-2.5 text-left">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim/50 block">
+                    Tempo por Projeto
+                  </span>
+                  
+                  {timeByProject.length > 0 ? (
+                    <div className="space-y-2">
+                      {timeByProject.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 hover:bg-white/[0.03] transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Folder size={12} className="text-green shrink-0" />
+                            <span className="text-xs font-semibold text-text truncate">{item.name}</span>
                           </div>
-                        );
-                      })}
+                          <span className="text-xs font-mono font-black text-text-dim shrink-0">{formatDuration(item.minutes)}</span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="py-4 text-center bg-green/5 border border-green/10 rounded-2xl">
-                      <p className="text-xs font-semibold text-green flex items-center justify-center gap-1.5">
-                        <span>Tudo registrado. 👏 Noite limpa e produtiva!</span>
-                      </p>
+                    <div className="py-6 text-center bg-white/[0.01] border border-white/[0.04] rounded-2xl">
+                      <p className="text-xs font-medium text-text-dim/50 font-sans">Nenhuma sessão associada a projetos hoje.</p>
                     </div>
                   )}
                 </div>
 
-                {/* Primary Button Options */}
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full mt-4">
+                {/* VER TODAS SESSÕES PROFUNDAS REGISTRADAS (ON-DEMAND DETAILED LIST) */}
+                <div className="w-full">
                   <button
-                    onClick={handleCompleteShutdown}
-                    className="w-full sm:flex-1 py-3.5 bg-green hover:brightness-105 active:scale-[0.98] transition-all rounded-xl font-bold uppercase tracking-wider text-[10px] text-center text-surface-2 cursor-pointer shadow-[0_4px_15px_rgba(110,231,168,0.2)]"
+                    type="button"
+                    onClick={() => setShowAllSessions(!showAllSessions)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.06] hover:border-white/10 bg-white/[0.01] hover:bg-white/[0.03] text-xs font-bold text-text-dim transition-all select-none cursor-pointer"
                   >
-                    Fechar o dia com intenção
+                    <span className="font-mono uppercase tracking-wider text-left block">Ver todas sessões profundas registradas</span>
+                    {showAllSessions ? <ChevronUp size={14} className="text-text-dim shrink-0 ml-2" /> : <ChevronDown size={14} className="text-text-dim shrink-0 ml-2" />}
                   </button>
+                  
+                  {showAllSessions && (
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto style-scrollbar pr-1 text-left">
+                      {todaySessions.length > 0 ? (
+                        todaySessions.map((s) => {
+                          const rangeStr = s.started_at ? formatTimeRange(s.started_at, s.completed_at, s.actual_duration_minutes || s.duration_minutes) : '';
+                          return (
+                            <div key={s.id} className="flex justify-between items-center p-3 rounded-xl bg-white/[0.01] border border-white/[0.03] animate-fade-in hover:bg-white/[0.02] transition-colors">
+                              <div className="flex flex-col min-w-0 pr-2">
+                                <span className="text-xs font-bold text-text truncate">🎯 {s.activity_name || 'Sessão de Foco'}</span>
+                                {rangeStr && <span className="text-[10px] text-text-dim/50 font-mono mt-0.5">{rangeStr}</span>}
+                              </div>
+                              <span className="text-xs font-mono font-bold text-text-dim shrink-0">
+                                {formatDuration(s.actual_duration_minutes || s.duration_minutes)}
+                              </span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-text-dim/50 italic text-center py-2 font-sans">Nenhuma sessão registrada.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
+                {/* PRIMARY ACTION BUTTONS - PROMINENT ENCERRAR AND VOLTAR */}
+                <div className="flex flex-col gap-3 w-full mt-4">
                   <button
-                    onClick={handleDismiss}
-                    className="w-full sm:w-auto px-6 py-3.5 border border-white/10 hover:bg-white/5 active:scale-[0.98] transition-all rounded-xl font-bold uppercase tracking-wider text-[10px] text-center text-text-dim cursor-pointer"
+                    type="button"
+                    onClick={() => setShowConfirmPopup(true)}
+                    className="w-full py-4 bg-green hover:bg-green/95 active:scale-[0.99] hover:brightness-110 text-surface-2 rounded-2xl font-mono font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 select-none cursor-pointer shadow-lg shadow-green/5"
                   >
-                    Fechar sem revisar
+                    <span>🔒</span>
+                    <span>Encerrar dia</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="w-full py-4 border border-white/10 hover:bg-white/[0.03] active:scale-[0.99] text-text-dim hover:text-text rounded-2xl font-mono font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 select-none cursor-pointer"
+                  >
+                    <span>←</span>
+                    <span>Voltar ao painel</span>
                   </button>
                 </div>
 
@@ -451,6 +471,45 @@ export const DailyShutdownModal = () => {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      {/* CONFIRMATION POPUP FOR THE RITUAL */}
+      {showConfirmPopup && (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-base/95 backdrop-blur-md">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-2 border border-border-custom p-6 sm:p-8 shadow-2xl text-center">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-[60px] bg-green/10 pointer-events-none" />
+            
+            {/* Icon */}
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-green/10 flex items-center justify-center text-green mb-4">
+              <Moon size={20} className="fill-green/10" />
+            </div>
+            
+            <h4 className="text-base font-mono font-bold text-text uppercase tracking-wider mb-2">
+              Encerrar Ritual do Dia?
+            </h4>
+            
+            <p className="text-xs sm:text-sm text-text-dim font-sans leading-relaxed text-left mb-6 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
+              Fechar seu dia marca o encerramento da sua jornada de hoje — você vê seu resumo e descansa tranquilo. Se voltar a focar ainda hoje, suas sessões continuam contando normalmente. Amanhã, seu dia recomeça do zero.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <button
+                type="button"
+                onClick={handleConfirmShutdown}
+                className="flex-1 py-3.5 bg-green hover:brightness-110 text-surface-2 rounded-xl font-mono font-bold uppercase tracking-wider text-xs transition-all cursor-pointer"
+              >
+                Confirmar
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConfirmPopup(false)}
+                className="flex-1 py-3.5 border border-white/10 hover:bg-white/5 text-text-dim hover:text-text rounded-xl font-mono font-bold uppercase tracking-wider text-xs transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
