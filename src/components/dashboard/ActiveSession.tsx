@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -119,7 +119,21 @@ export const ActiveSession = () => {
   
   // Late session config state
   const [lateProjectId, setLateProjectId] = useState(timer.projectId || '');
-  const [lateActivityName, setLateActivityName] = useState(timer.activityName || '');
+  const [lateActivityId, setLateActivityId] = useState(timer.activityId || '');
+  const [lateActivityName, setLateActivityName] = useState(timer.activityId ? '' : timer.activityName || '');
+
+  const filteredLateActivities = useMemo(() => {
+    if (!lateProjectId) return dataStore.activities;
+    return dataStore.activities.filter(a => a.project_id === lateProjectId);
+  }, [dataStore.activities, lateProjectId]);
+
+  useEffect(() => {
+    if (showLateConfig) {
+      setLateProjectId(timer.projectId || '');
+      setLateActivityId(timer.activityId || '');
+      setLateActivityName(timer.activityId ? '' : timer.activityName || '');
+    }
+  }, [showLateConfig, timer.projectId, timer.activityId, timer.activityName]);
 
   // Note Creation State
   const [noteContent, setNoteContent] = useState('');
@@ -453,7 +467,21 @@ export const ActiveSession = () => {
   };
 
   const handleUpdateLateConfig = () => {
-    timer.updateConfig(lateProjectId, undefined, lateActivityName);
+    let finalActivityName = '';
+    if (lateActivityId) {
+      finalActivityName = dataStore.activities.find(a => a.id === lateActivityId)?.name || '';
+    } else {
+      finalActivityName = lateActivityName;
+    }
+
+    const activityName = finalActivityName || timer.activityName || 'Sessão Sem Título';
+
+    timer.updateConfig(
+      lateProjectId, 
+      undefined, 
+      activityName, 
+      lateActivityId
+    );
     setShowLateConfig(false);
   };
 
@@ -769,7 +797,10 @@ export const ActiveSession = () => {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
                   <CustomSelect
                     value={lateProjectId}
-                    onChange={val => setLateProjectId(val)}
+                    onChange={val => {
+                      setLateProjectId(val);
+                      setLateActivityId('');
+                    }}
                     placeholder="Sem Projeto"
                     options={[
                       { value: '', label: 'Sem Projeto' },
@@ -780,10 +811,25 @@ export const ActiveSession = () => {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
+                  <CustomSelect
+                    className={!!lateActivityName ? 'opacity-50 pointer-events-none' : ''}
+                    value={lateActivityId}
+                    onChange={val => setLateActivityId(val)}
+                    placeholder="Selecionar Atividade"
+                    options={[
+                      { value: '', label: 'Selecionar Atividade' },
+                      ...filteredLateActivities.map(a => ({ value: a.id, label: a.name }))
+                    ]}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade Avulsa</label>
                   <input
+                    disabled={!!lateActivityId}
                     placeholder="O que está fazendo?"
                     autoComplete="off" enterKeyHint="done"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px]"
+                    className={`w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px] ${!!lateActivityId ? 'opacity-50 cursor-not-allowed' : ''}`}
                     value={lateActivityName}
                     onChange={e => setLateActivityName(e.target.value)}
                   />

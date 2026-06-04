@@ -269,11 +269,13 @@ export const HeroSection = () => {
   // Compute recent project
   const sortedSessions = [...(dataStore.sessions || [])].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
   let recentProjectName = '';
+  let recentProjectId = '';
   for (const session of sortedSessions) {
     if (session.project_id) {
       const proj = dataStore.projects.find(p => p.id === session.project_id);
       if (proj && proj.name) {
         recentProjectName = proj.name;
+        recentProjectId = proj.id;
         break;
       }
     }
@@ -293,19 +295,27 @@ export const HeroSection = () => {
   // Cascade Cases for SP Button
   let buttonLabel = 'Iniciar Sessão Profunda';
   let buttonSubline = '';
+  let suggestedProjectId = '';
 
   if (recentProjectName && isInHabitualWindow) {
     buttonLabel = `Continuar ${recentProjectName}`;
     buttonSubline = 'Seu horário de foco';
+    suggestedProjectId = recentProjectId;
   } else if (recentProjectName && !isInHabitualWindow) {
     buttonLabel = `Continuar ${recentProjectName}`;
+    suggestedProjectId = recentProjectId;
   } else if (!recentProjectName && isInHabitualWindow) {
     buttonLabel = 'Iniciar Sessão Profunda';
     buttonSubline = 'Bom horário pra focar';
   }
 
   const openDeepSession = () => {
-    window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'session' } }));
+    window.dispatchEvent(new CustomEvent('open-action-center', { 
+      detail: { 
+        screen: 'session',
+        projectId: suggestedProjectId
+      } 
+    }));
   };
 
   if (timer.isActive) return null;

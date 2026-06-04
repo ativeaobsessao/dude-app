@@ -102,6 +102,19 @@ export const ActionCenter = () => {
             p.scheduledActivityId
           );
         }
+      } else if (e.detail?.projectId) {
+        setSessionData({
+          activityId: '',
+          activityManual: '',
+          project: e.detail.projectId,
+          habit: '',
+          description: '',
+          hours: 0,
+          minutes: 25,
+          date: getLocalDateString(new Date())
+        });
+        setCustomUserTasks([]);
+        setRestoredTasks([]);
       }
     };
     window.addEventListener('open-action-center', handleOpen);
