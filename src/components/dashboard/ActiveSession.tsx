@@ -145,6 +145,7 @@ export const ActiveSession = () => {
   const hasObservedWarning = useRef(false);
   const wakeLockRef = useRef<any>(null);
   const timerStartedRef = useRef(false);
+  const lastStartTimeRef = useRef<number | null>(null);
 
   const currentProjectName = dataStore.projects.find(p => p.id === timer.projectId)?.name || 'Projeto Padrão';
   
@@ -294,23 +295,30 @@ export const ActiveSession = () => {
   }, [timer.isActive, timer.startTime, timer.totalDurationMs, timer.getRemainingMs, timer.isPaused]);
 
   useEffect(() => {
-    if (timer.isActive && timer.pendingTasks.length > 0 && sessionTasksLocal.length === 0) {
-      setSessionTasksLocal(timer.pendingTasks);
+    if (timer.isActive && timer.startTime && timer.startTime !== lastStartTimeRef.current) {
+      lastStartTimeRef.current = timer.startTime;
+      // Starting a brand new session! Clean up any stale task states or popup states.
+      setShowAllTasksDonePopup(false);
+      setAllTasksCompletedTime(null);
+      setCompletedTasksLocal([]);
+      setSessionTasksLocal(timer.pendingTasks || []);
       timer.clearPendingTasks();
     }
-  }, [timer.isActive, timer.pendingTasks]);
+  }, [timer.isActive, timer.startTime, timer.pendingTasks]);
 
-  useEffect(() => {
-    if (
-      sessionTasksLocal.length > 0 &&
-      completedTasksLocal.length === sessionTasksLocal.length &&
-      !showAllTasksDonePopup &&
-      !allTasksCompletedTime
-    ) {
-      setAllTasksCompletedTime(Date.now());
-      setShowAllTasksDonePopup(true);
+  const handleCompletedTasksChange = (nextCompleted: string[]) => {
+    // Only trigger if a task was checked (nextCompleted length is greater than completedTasksLocal)
+    if (nextCompleted.length > completedTasksLocal.length) {
+      const isAllDone = sessionTasksLocal.length > 0 && sessionTasksLocal.every(t => nextCompleted.includes(t));
+      const wasAllDoneBefore = sessionTasksLocal.length > 0 && sessionTasksLocal.every(t => completedTasksLocal.includes(t));
+      
+      if (isAllDone && !wasAllDoneBefore && !allTasksCompletedTime && !showAllTasksDonePopup) {
+        setAllTasksCompletedTime(Date.now());
+        setShowAllTasksDonePopup(true);
+      }
     }
-  }, [completedTasksLocal, sessionTasksLocal]);
+    setCompletedTasksLocal(nextCompleted);
+  };
 
   const handleSave = async () => {
     if (!user || !timer.totalDurationMs || isSaving) return;
@@ -1058,9 +1066,9 @@ export const ActiveSession = () => {
                                 checked={isDone}
                                 onChange={() => {
                                   if (isDone) {
-                                    setCompletedTasksLocal(completedTasksLocal.filter(t => t !== task));
+                                    handleCompletedTasksChange(completedTasksLocal.filter(t => t !== task));
                                   } else {
-                                    setCompletedTasksLocal([...completedTasksLocal, task]);
+                                    handleCompletedTasksChange([...completedTasksLocal, task]);
                                   }
                                 }}
                                 className="w-4 h-4 rounded border-white/10 text-primary-green bg-transparent focus:ring-0 cursor-pointer"
@@ -1235,7 +1243,7 @@ export const ActiveSession = () => {
             tasks={sessionTasksLocal}
             completedTasks={completedTasksLocal}
             onChangeTasks={setSessionTasksLocal}
-            onChangeCompleted={setCompletedTasksLocal}
+            onChangeCompleted={handleCompletedTasksChange}
           />
         )}
       </AnimatePresence>
