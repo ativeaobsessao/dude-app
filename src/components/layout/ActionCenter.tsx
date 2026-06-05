@@ -29,6 +29,65 @@ export const ActionCenter = () => {
   const [showListModal, setShowListModal] = useState<'projects' | 'activities' | null>(null);
   const [editingActivity, setEditingActivity] = useState<ScheduledActivity | undefined>(undefined);
 
+  const touchStartRef = useRef<{ x: number, y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    let current: HTMLElement | null = target;
+    while (current && current !== e.currentTarget) {
+      const style = window.getComputedStyle(current);
+      if (
+        (style.overflowX === 'auto' || style.overflowX === 'scroll' || current.scrollWidth > current.clientWidth) &&
+        style.overflowX !== 'hidden'
+      ) {
+        return;
+      }
+      current = current.parentElement;
+    }
+
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - touchStartRef.current.x;
+    const diffY = touch.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (diffX > 80 && diffX > Math.abs(diffY) * 1.5) {
+      if (currentScreen !== null) {
+        if (currentScreen === 'links-list') {
+          setCurrentScreen('saved-links');
+        } else {
+          setCurrentScreen(null);
+          setEditingActivity(undefined);
+        }
+      } else {
+        setIsOpen(false);
+      }
+    }
+  };
+
+  const renderBottomBackButton = () => (
+    <div className="pt-10 w-full flex justify-center pb-6">
+      <button
+        onClick={() => {
+          if (currentScreen === 'links-list') {
+            setCurrentScreen('saved-links');
+          } else {
+            setCurrentScreen(null);
+            setEditingActivity(undefined);
+          }
+        }}
+        className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
+      >
+        <ArrowLeft size={14} /> Voltar ao Menu
+      </button>
+    </div>
+  );
+
   const timer = useTimerStore();
   const dataStore = useDataStore();
   const { user } = useAuthStore();
@@ -767,6 +826,8 @@ export const ActionCenter = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
             <div className="w-full max-w-4xl space-y-12 pb-32">
               <header className="flex justify-between items-center border-b border-white/5 pb-8">
@@ -1050,6 +1111,7 @@ export const ActionCenter = () => {
                         </div>
                       </div>
                     )}
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1073,6 +1135,7 @@ export const ActionCenter = () => {
                     <div className="flex justify-center">
                       <button onClick={() => setShowListModal('projects')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todos os projetos</button>
                     </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1192,6 +1255,7 @@ export const ActionCenter = () => {
                     <div className="flex justify-center">
                       <button onClick={() => setShowListModal('activities')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todas as atividades</button>
                     </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1264,6 +1328,7 @@ export const ActionCenter = () => {
                         VER TODAS AS ANOTAÇÕES
                       </button>
                     </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1476,6 +1541,7 @@ export const ActionCenter = () => {
                         }
                       </div>
                     </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1670,6 +1736,7 @@ export const ActionCenter = () => {
                         VER TODOS OS REGISTROS
                       </button>
                     </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -1930,111 +1997,44 @@ export const ActionCenter = () => {
                       </button>
                     </div>
 
-                    {/* SEÇÃO 2 — Seus hábitos ativos */}
-                    <div className="space-y-6 text-left">
-                      <h3 className="text-2xl font-bold tracking-tight text-text-primary uppercase">SEUS HÁBITOS</h3>
-                      
-                      <div className="space-y-4">
-                        {dataStore.habits.length === 0 ? (
-                          <p className="text-text-secondary/40 font-light italic">Nenhum hábito ativo.</p>
-                        ) : (
-                          dataStore.habits.map(h => {
-                            const total = h.sessions_per_week || 3;
-                            const current = h.sessions_this_week || 0;
-                            const dots = Array.from({ length: total }, (_, i) => i < current ? '●' : '○').join(' ');
-
-                            return (
-                              <div key={h.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-surface/5 border border-white/5 rounded-3xl gap-4">
-                                <div className="space-y-1.5 text-left">
-                                  <h4 className="text-lg font-semibold text-text-primary">{h.name}</h4>
-                                  <div className="text-xs text-text-secondary/60 flex flex-wrap items-center gap-x-1.5">
-                                    <span>
-                                      {{
-                                        morning: '🌅 Manhã',
-                                        afternoon: '☀️ Tarde',
-                                        evening: '🌙 Noite'
-                                      }[h.preferred_time] || h.preferred_time} · {h.minutes_per_session}min por sessão
-                                    </span>
-                                    {h.is_recurring && (
-                                      <span className="flex items-center gap-1 text-[10px] font-bold text-primary-green uppercase tracking-widest bg-primary-green/10 px-2 py-0.5 rounded-full">
-                                        <Calendar size={10} />
-                                        Fixo: {h.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {h.recurrence_time || '09:00'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-primary-green text-sm tracking-widest font-bold">
-                                      {dots}
-                                    </span>
-                                    <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
-                                      {current}/{total} esta semana
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-3 w-full sm:w-auto shrink-0 mt-2 sm:mt-0">
-                                  <span className="text-xs font-bold text-primary-green font-mono">
-                                    🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invictas
-                                  </span>
-                                  <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                                    <button
-                                      onClick={() => {
-                                        setRegisteringHabit(h.id);
-                                        setManualSessionDuration(h.minutes_per_session);
-                                      }}
-                                      className="text-[10px] font-bold uppercase tracking-widest text-primary-green/60 hover:text-primary-green border border-primary-green/20 hover:border-primary-green/40 px-3 py-1 rounded-full transition-all cursor-pointer"
-                                    >
-                                      + Registrar sessão
-                                    </button>
-                                    <button
-                                      onClick={() => handleEditHabitClick(h)}
-                                      className="p-2.5 text-primary-green/40 hover:text-primary-green hover:bg-primary-green/10 rounded-full transition-all cursor-pointer"
-                                      title="Editar hábito"
-                                    >
-                                      <Pencil size={15} />
-                                    </button>
-                                    <button 
-                                      onClick={() => setDeleteConfirm({ id: h.id, type: 'habit', name: h.name })} 
-                                      className="p-2.5 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all cursor-pointer"
-                                      title="Excluir hábito"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
+                    {renderBottomBackButton()}
                   </div>
                 )}
 
                 {currentScreen === 'agenda' && (
-                  <CriarAgendamentoScreen
-                    onBack={() => {
-                      setCurrentScreen(null);
-                      setEditingActivity(undefined);
-                    }}
-                    onClose={() => {
-                      setIsOpen(false);
-                      setEditingActivity(undefined);
-                    }}
-                    editingActivity={editingActivity}
-                  />
+                  <div className="w-full max-w-2xl flex flex-col items-stretch">
+                    <CriarAgendamentoScreen
+                      onBack={() => {
+                        setCurrentScreen(null);
+                        setEditingActivity(undefined);
+                      }}
+                      onClose={() => {
+                        setIsOpen(false);
+                        setEditingActivity(undefined);
+                      }}
+                      editingActivity={editingActivity}
+                    />
+                    {renderBottomBackButton()}
+                  </div>
                 )}
 
                 {currentScreen === 'saved-links' && (
-                  <SavedLinksConfigScreen
-                    onBack={() => setCurrentScreen(null)}
-                    onNavigateToViewAll={() => setCurrentScreen('links-list')}
-                  />
+                  <div className="w-full max-w-2xl flex flex-col items-stretch">
+                    <SavedLinksConfigScreen
+                      onBack={() => setCurrentScreen(null)}
+                      onNavigateToViewAll={() => setCurrentScreen('links-list')}
+                    />
+                    {renderBottomBackButton()}
+                  </div>
                 )}
 
                 {currentScreen === 'links-list' && (
-                  <LinksListScreen
-                    onBack={() => setCurrentScreen('saved-links')}
-                  />
+                  <div className="w-full max-w-2xl flex flex-col items-stretch">
+                    <LinksListScreen
+                      onBack={() => setCurrentScreen('saved-links')}
+                    />
+                    {renderBottomBackButton()}
+                  </div>
                 )}
               </div>
             </div>
