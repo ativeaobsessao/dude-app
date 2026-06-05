@@ -532,6 +532,7 @@ export const HeroSection = () => {
                         } else {
                           localStorage.removeItem('dude_daily_focus_goal');
                         }
+                        dataStore.showNotification('Meta diária redefinida para o padrão! ✓');
                         setIsEditingGoal(false);
                       }}
                       className="text-[10px] text-coral hover:underline uppercase font-bold cursor-pointer"
@@ -563,6 +564,7 @@ export const HeroSection = () => {
                       } else {
                         localStorage.setItem('dude_daily_focus_goal', cleanVal.toString());
                       }
+                      dataStore.showNotification('Meta diária salva com sucesso! ✓');
                       setIsEditingGoal(false);
                     }}
                     className="flex-1 py-1.5 bg-green hover:brightness-110 rounded-xl text-xs font-bold text-surface-2 uppercase cursor-pointer transition-colors"

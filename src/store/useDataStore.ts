@@ -99,7 +99,9 @@ interface DataState {
   deleteHabit: (id: string) => Promise<void>;
   completeFirstSession: () => void;
   notification: { message: string; type: 'success' | 'error' } | null;
+  notificationTimeoutId: any;
   showNotification: (message: string, type?: 'success' | 'error') => void;
+  clearNotification: () => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -135,13 +137,23 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   })(),
   notification: null,
+  notificationTimeoutId: null as any,
+  clearNotification: () => {
+    const tid = get().notificationTimeoutId;
+    if (tid) clearTimeout(tid);
+    set({ notification: null, notificationTimeoutId: null });
+  },
   showNotification: (message, type = 'success') => {
+    const prevTid = get().notificationTimeoutId;
+    if (prevTid) clearTimeout(prevTid);
+
     set({ notification: { message, type } });
-    setTimeout(() => {
-      if (get().notification?.message === message) {
-        set({ notification: null });
-      }
-    }, 1200);
+
+    const tid = setTimeout(() => {
+      set({ notification: null, notificationTimeoutId: null });
+    }, 6000);
+
+    set({ notificationTimeoutId: tid });
   },
 
   fetchProfile: async (userId) => {

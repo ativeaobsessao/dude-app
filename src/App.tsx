@@ -36,6 +36,7 @@ export default function App() {
     hasCompletedFirstSession, 
     profile, 
     notification, 
+    clearNotification,
     sessions, 
     initialFetchDone, 
     moodEntries,
@@ -364,28 +365,48 @@ export default function App() {
 
         <AnimatePresence>
           {notification && (
-            <motion.div
-              layout={false}
-              initial={{ opacity: 0, scale: 0.9, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -20 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-x-0 pointer-events-none z-[9999] flex justify-center p-6"
-              style={{ top: '30vh' }}
-            >
-              <div className="mx-auto px-6 py-4 rounded-2xl bg-surface-2/85 border border-border-custom backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex items-center gap-3 text-text pointer-events-auto max-w-sm md:max-w-md">
-                {notification.type === 'success' ? (
-                  <div className="w-5 h-5 rounded-full bg-green/20 flex items-center justify-center text-green flex-shrink-0 animate-pulse">
-                    <Check size={12} strokeWidth={3} />
-                  </div>
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-coral/20 flex items-center justify-center text-coral flex-shrink-0 animate-pulse">
-                    <AlertTriangle size={12} strokeWidth={3} />
-                  </div>
-                )}
-                <span className="text-xs font-bold uppercase tracking-widest text-text">{notification.message}</span>
-              </div>
-            </motion.div>
+            <div className="fixed inset-0 pointer-events-none z-[10000] flex items-center justify-center p-6 bg-background/50 backdrop-blur-[2px] transition-all duration-300">
+              <motion.div
+                layout={false}
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -15 }}
+                transition={{ type: "spring", duration: 0.4 }}
+                className="mx-auto px-8 py-6 rounded-[2rem] bg-surface/90 border border-border-white backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.8),0_0_80px_rgba(110,231,168,0.15)] flex flex-col items-center gap-5 text-text pointer-events-auto max-w-sm w-full text-center relative"
+              >
+                <button
+                  onClick={clearNotification}
+                  className="absolute top-5 right-5 text-text-secondary/60 hover:text-text-primary transition-colors cursor-pointer p-1 rounded-full hover:bg-white/5"
+                  title="Fechar"
+                >
+                  <X size={16} />
+                </button>
+
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto bg-primary-green/10 text-primary-green">
+                  {notification.type === 'success' ? (
+                    <Check size={24} strokeWidth={3} />
+                  ) : (
+                    <AlertTriangle size={24} strokeWidth={3} className="text-coral" />
+                  )}
+                </div>
+
+                <div className="space-y-1.5 w-full">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#6e7572]">
+                    {notification.type === 'success' ? 'Salvo ✓' : 'Aviso / Erro'}
+                  </p>
+                  <p className="text-sm font-semibold text-text-primary leading-relaxed">
+                    {notification.message}
+                  </p>
+                </div>
+
+                <button
+                  onClick={clearNotification}
+                  className="w-full py-3 bg-primary-green hover:brightness-110 active:scale-95 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer shadow-md"
+                >
+                  OK
+                </button>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
 

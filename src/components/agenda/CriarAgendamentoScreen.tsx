@@ -39,7 +39,6 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
 
   // Additional fields
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [conflictWarning, setConflictWarning] = useState<{ name: string; time: string; end: string; payload: any } | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -186,17 +185,6 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
     updateDurationMinutesVal(durationHours, finalMinsStr);
   };
 
-  // React effect to handle success dismissal and redirect after 5 seconds
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => {
-        setSuccessMsg(null);
-        onBack();
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg, onBack]);
-
   // Filter activities by currently selected project
   const filteredActivities = useMemo(() => {
     if (!projectId) return dataStore.activities;
@@ -249,7 +237,6 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
   // Save the scheduled activity
   const handleSave = async (bypass = false) => {
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (!user) {
       setErrorMsg('Usuário não autenticado.');
@@ -324,7 +311,8 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const success = await dataStore.updateScheduledActivity(editingActivity.id, payload);
       if (success) {
         setConflictWarning(null);
-        setSuccessMsg('Agendamento salvo com sucesso ✓');
+        dataStore.showNotification('Agendamento salvo com sucesso ✓');
+        onBack();
       } else {
         setErrorMsg('Erro interno ao atualizar no banco de dados.');
       }
@@ -332,7 +320,8 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const saved = await dataStore.addScheduledActivity(payload);
       if (saved) {
         setConflictWarning(null);
-        setSuccessMsg('Agendamento salvo com sucesso ✓');
+        dataStore.showNotification('Agendamento salvo com sucesso ✓');
+        onBack();
       } else {
         setErrorMsg('Erro interno ao salvar no banco de dados.');
       }
@@ -428,40 +417,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
           </div>
         )}
 
-        {successMsg && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
-            <div className="bg-surface border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-4 shadow-[0_0_50px_rgba(110,231,168,0.15)] relative">
-              <button
-                onClick={() => {
-                  setSuccessMsg(null);
-                  onBack();
-                }}
-                className="absolute top-4 right-4 text-text-secondary/60 hover:text-text-primary transition-colors cursor-pointer p-1"
-                title="Fechar"
-              >
-                <X size={16} />
-              </button>
-              <div className="w-12 h-12 bg-primary-green/10 rounded-full flex items-center justify-center text-primary-green mx-auto mb-2">
-                <span className="text-xl">✓</span>
-              </div>
-              <h4 className="text-lg font-bold text-text-primary tracking-tight">
-                Sucesso!
-              </h4>
-              <p className="text-sm text-text-secondary/80 leading-relaxed font-light">
-                {successMsg}
-              </p>
-              <button
-                onClick={() => {
-                  setSuccessMsg(null);
-                  onBack();
-                }}
-                className="w-full py-2.5 bg-primary-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+
 
         <div className="bg-surface/10 p-6 md:p-8 rounded-[2.5rem] border border-white/5 space-y-6">
           
