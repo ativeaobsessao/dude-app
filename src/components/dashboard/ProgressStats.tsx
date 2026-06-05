@@ -1294,7 +1294,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     />
                     <div className="flex-1 min-w-0 font-sans">
                       <div className="flex items-center gap-2 flex-wrap font-sans">
-                        <span className="text-sm font-semibold text-text-primary truncate">
+                        <span className="text-sm font-semibold text-text-primary break-words max-w-full">
                           {resolved.titulo}
                         </span>
                         <span className="text-text-secondary/30">—</span>
@@ -2328,10 +2328,10 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 Sua Identidade
               </span>
             </div>
-            <h3 className="text-sm md:text-base font-bold text-text-primary leading-snug">
+            <h3 className="text-sm md:text-lg lg:text-xl font-bold md:font-extrabold text-text-primary leading-normal">
               {identityData.headline}
             </h3>
-            <p className="text-[10px] sm:text-[11px] text-text-secondary/60 mt-1 font-light italic">
+            <p className="text-[10px] sm:text-[11px] md:text-xs lg:text-sm text-text-secondary/80 mt-1.5 font-light italic">
               "A verdadeira mudança de comportamento ocorre através da mudança de identidade." — Atomic Habits
             </p>
           </div>

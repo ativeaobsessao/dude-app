@@ -618,11 +618,11 @@ export const ActiveSession = () => {
 
             {/* 1. Header Activity Info */}
             {timer.habitId ? (
-              <div className="flex flex-col items-center gap-1 relative z-10">
+              <div className="flex flex-col items-center gap-1 relative z-10 w-full">
                 <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#6ee7b7]/60 flex items-center gap-1">
                   ⚡ Sessão Hábito Atômico
                 </span>
-                <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary tracking-tight text-center break-words w-full px-4">
                   {dataStore.habits.find(h => h.id === timer.habitId)?.name || 'Hábito'}
                 </h2>
                 {timer.projectId && (
@@ -633,8 +633,8 @@ export const ActiveSession = () => {
               </div>
             ) : (
               // Mantém o layout atual para sessões sem hábito
-              <div className="flex flex-col items-center gap-1 relative z-10">
-                <h2 className="text-4xl font-bold text-text-primary tracking-tight text-center">
+              <div className="flex flex-col items-center gap-1 relative z-10 w-full">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary tracking-tight text-center break-words w-full px-4">
                   {timer.activityName || 'Sessão Sem Título'}
                 </h2>
                 {timer.projectId && (

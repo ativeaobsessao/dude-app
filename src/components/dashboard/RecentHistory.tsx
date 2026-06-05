@@ -161,8 +161,8 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
             </span>
           )}
           
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors">
+          <div className="flex items-center gap-2 flex-wrap min-w-0 w-full">
+            <span className="text-lg font-light text-text-primary group-hover:text-primary-green transition-colors break-words max-w-full">
               {resolved.titulo}
             </span>
             <span className="text-text-secondary/30 hidden md:inline">—</span>
