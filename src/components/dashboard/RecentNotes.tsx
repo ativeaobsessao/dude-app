@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown, Plus } from 'lucide-react';
+import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown, Plus, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { getLocalDateString } from '../../lib/utils';
+import JSZip from 'jszip';
 
 export const RecentNotes = () => {
   const dataStore = useDataStore();
@@ -30,6 +31,148 @@ export const RecentNotes = () => {
   // Note Editing State
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+
+  // Selection and Download State
+  const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+
+  // Toggle selection for a note
+  const handleToggleSelect = (id: string) => {
+    setSelectedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Select all filtered notes
+  const handleSelectAll = () => {
+    const allIds = filteredAllNotes.map(n => n.id);
+    setSelectedNotes(new Set(allIds));
+  };
+
+  // Clear all selections
+  const handleClearSelection = () => {
+    setSelectedNotes(new Set());
+  };
+
+  // Copy helper
+  const handleCopyNote = (note: any) => {
+    const titlePrefix = note.title?.trim() ? `${note.title.trim()}\n\n` : '';
+    const textToCopy = `${titlePrefix}${note.content}`;
+    navigator.clipboard.writeText(textToCopy)
+      .then(() => {
+        dataStore.showNotification('Anotação copiada ✓', 'success');
+      })
+      .catch((err) => {
+        console.error('Erro ao copiar: ', err);
+        alert('Erro ao copiar anotação.');
+      });
+  };
+
+  // Safe filename generator
+  const getSafeFilename = (note: any, index: number) => {
+    const project = dataStore.projects.find(p => p.id === note.project_id);
+    const dateStr = (note.target_date || note.created_at).slice(0, 10);
+    
+    let base = '';
+    if (note.title?.trim()) {
+      base = note.title.trim();
+    } else if (project) {
+      base = `${project.name}-${dateStr}`;
+    } else {
+      base = `anotacao-${dateStr}-${index + 1}`;
+    }
+    
+    return base
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove portuguese accents
+      .replace(/[^a-z0-9_-]/g, '_')   // replace non-alphanumeric with under
+      .replace(/_+/g, '_')            // collapse consecutive underscores
+      .substring(0, 50) + '.md';
+  };
+
+  // Markdown renderer
+  const renderNoteAsMarkdown = (note: any) => {
+    const project = dataStore.projects.find(p => p.id === note.project_id);
+    const activity = dataStore.activities.find(a => a.id === note.activity_id);
+    
+    let parts: string[] = [];
+    
+    if (note.title?.trim()) {
+      parts.push(`## ${note.title.trim()}`);
+    } else {
+      const dateLabel = formatDate(note.target_date || note.created_at);
+      const categoryLabel = project ? ` | ${project.name}` : '';
+      parts.push(`## Anotação (${dateLabel}${categoryLabel})`);
+    }
+    
+    parts.push(note.content);
+    
+    const tags: string[] = [];
+    if (project) tags.push(`#projeto/${project.name.toLowerCase().replace(/\s+/g, '-')}`);
+    if (activity) tags.push(`#atividade/${activity.name.toLowerCase().replace(/\s+/g, '-')}`);
+    
+    const formattedDate = new Date(note.target_date || note.created_at).toLocaleDateString('pt-BR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    
+    const metadataLine = `*Data: ${formattedDate}* ${tags.length > 0 ? `• Tags: ${tags.join(' ')}` : ''}`;
+    parts.push(metadataLine);
+    
+    return parts.join('\n\n');
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadAsSingleFile = () => {
+    const selectedNotesList = dataStore.notes.filter(n => selectedNotes.has(n.id));
+    const combinedMarkdown = selectedNotesList
+      .map(note => renderNoteAsMarkdown(note))
+      .join('\n\n---\n\n');
+    
+    const blob = new Blob([combinedMarkdown], { type: 'text/markdown;charset=utf-8' });
+    downloadBlob(blob, 'anotacoes-foco.md');
+    dataStore.showNotification('Download iniciado ✓', 'success');
+    setShowDownloadDialog(false);
+  };
+
+  const downloadAsZip = async () => {
+    const zip = new JSZip();
+    const selectedNotesList = dataStore.notes.filter(n => selectedNotes.has(n.id));
+    
+    selectedNotesList.forEach((note, index) => {
+      const filename = getSafeFilename(note, index);
+      const markdown = renderNoteAsMarkdown(note);
+      zip.file(filename, markdown);
+    });
+    
+    try {
+      const content = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(content, 'anotacoes-foco.zip');
+      dataStore.showNotification('Download iniciado ✓', 'success');
+      setShowDownloadDialog(false);
+    } catch (err) {
+      console.error('Erro ao gerar zip:', err);
+      alert('Erro ao criar arquivo ZIP.');
+    }
+  };
 
   const handleUpdateNote = async (id: string) => {
     if (!editingNoteContent.trim()) return;
@@ -171,6 +314,13 @@ export const RecentNotes = () => {
                       >
                         {editingNoteId !== note.id && (
                           <>
+                            <button 
+                              onClick={() => handleCopyNote(note)}
+                              title="Copiar para área de transferência"
+                              className="absolute top-4 right-20 p-2 text-text-secondary opacity-0 group-hover:opacity-100 hover:text-primary-green hover:bg-white/5 rounded-lg transition-all cursor-pointer max-md:opacity-100 max-md:text-text-secondary/60"
+                            >
+                              <Copy size={14} />
+                            </button>
                             <button 
                               onClick={() => {
                                 setEditingNoteId(note.id);
@@ -388,16 +538,99 @@ export const RecentNotes = () => {
                 </div>
               </header>
 
+              {/* Note Selection controls bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white/[0.02] border border-white/5 rounded-2.5xl font-sans select-none animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <span className="text-xs sm:text-sm font-bold text-text-primary">
+                    {selectedNotes.size} {selectedNotes.size === 1 ? 'anotação selecionada' : 'anotações selecionadas'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSelectAll}
+                      className="text-[10px] uppercase tracking-wider font-bold text-primary-green hover:text-glow-green transition-colors cursor-pointer"
+                    >
+                      Selecionar Todas
+                    </button>
+                    <span className="text-white/10 text-xs">|</span>
+                    <button
+                      onClick={handleClearSelection}
+                      className="text-[10px] uppercase tracking-wider font-bold text-text-secondary hover:text-white transition-colors cursor-pointer"
+                    >
+                      Limpar Seleção
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    disabled={selectedNotes.size === 0}
+                    onClick={() => setShowDownloadDialog(true)}
+                    className="flex items-center gap-2 px-5 py-3 bg-[#6ee7a8] disabled:bg-white/[0.03] disabled:text-text-secondary/30 disabled:border-white/5 border border-primary-green/25 text-background rounded-xl text-xs font-black uppercase tracking-[0.1em] transition-all cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.15)] disabled:shadow-none hover:brightness-110"
+                  >
+                    Baixar selecionadas
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
                 {filteredAllNotes.map(note => {
                   const project = dataStore.projects.find(p => p.id === note.project_id);
                   const activity = dataStore.activities.find(a => a.id === note.activity_id);
+                  const isSelected = selectedNotes.has(note.id);
                   return (
-                    <div key={note.id} className="group p-8 rounded-[2rem] bg-surface/10 border border-white/5 hover:border-primary-green/20 transition-all flex flex-col relative">
+                    <div 
+                      key={note.id} 
+                      onClick={() => {
+                        if (editingNoteId !== note.id) {
+                          handleToggleSelect(note.id);
+                        }
+                      }}
+                      className={`group p-8 pl-14 rounded-[2rem] bg-surface/10 border transition-all flex flex-col relative ${
+                        editingNoteId !== note.id ? 'cursor-pointer select-none' : ''
+                      } ${
+                        isSelected 
+                          ? 'border-primary-green/45 bg-primary-green/[0.02] shadow-[0_4px_25px_rgba(110,231,168,0.04)]' 
+                          : 'border-white/5 hover:border-primary-green/20'
+                      }`}
+                    >
+                      {/* Custom indicator checkbox */}
+                      {editingNoteId !== note.id && (
+                        <div 
+                          className="absolute top-8 left-5 transition-all duration-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelect(note.id);
+                          }}
+                        >
+                          <div 
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'bg-primary-green border-primary-green text-background animate-in zoom-in duration-150'
+                                : 'border-white/20 group-hover:border-primary-green/50 text-transparent'
+                            }`}
+                          >
+                            <svg className="w-3.5 h-3.5 stroke-current" fill="none" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" strokeWidth={3} />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+
                       {editingNoteId !== note.id && (
                         <>
                           <button 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyNote(note);
+                            }}
+                            title="Copiar para área de transferência"
+                            className="absolute top-6 right-26 p-3 text-text-secondary/40 hover:text-primary-green hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Copy size={20} />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setEditingNoteId(note.id);
                               setEditingNoteContent(note.content);
                             }}
@@ -406,7 +639,10 @@ export const RecentNotes = () => {
                             <Pencil size={20} />
                           </button>
                           <button 
-                            onClick={() => handleDeleteConfirm(note.id, note.content)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteConfirm(note.id, note.content);
+                            }}
                             className="absolute top-6 right-6 p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
                           >
                             <Trash2 size={20} />
@@ -420,9 +656,10 @@ export const RecentNotes = () => {
                             className="w-full bg-surface/60 border border-primary-green/40 p-4 rounded-[1.5rem] text-text-primary text-base font-light outline-none resize-none h-32 focus:border-primary-green"
                             value={editingNoteContent}
                             onChange={e => setEditingNoteContent(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                             autoFocus
                           />
-                          <div className="flex justify-end gap-3">
+                          <div className="flex justify-end gap-3" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => setEditingNoteId(null)}
                               className="px-4 py-2 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors min-h-[44px]"
@@ -468,6 +705,58 @@ export const RecentNotes = () => {
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Download Mode Selection Dialog */}
+      <AnimatePresence>
+        {showDownloadDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1500] bg-background/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-surface border border-white/10 rounded-[2rem] p-6 max-w-sm w-full space-y-6 text-center shadow-2xl relative"
+            >
+              <div className="space-y-2">
+                <h3 className="text-lg font-bold text-text-primary tracking-tight">Exportar Anotações</h3>
+                <p className="text-xs text-text-secondary/60">
+                  Você selecionou <strong className="text-primary-green">{selectedNotes.size}</strong> {selectedNotes.size === 1 ? 'anotação' : 'anotações'}. Como deseja baixá-las?
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={downloadAsSingleFile}
+                  className="w-full py-3.5 bg-white/5 border border-white/10 hover:border-primary-green/35 hover:bg-white/[0.08] text-text-primary rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Download size={14} className="text-primary-green" />
+                  Arquivo único (.md)
+                </button>
+                <button
+                  onClick={downloadAsZip}
+                  className="w-full py-3.5 bg-white/5 border border-white/10 hover:border-primary-green/35 hover:bg-white/[0.08] text-text-primary rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Download size={14} className="text-primary-green" />
+                  Arquivos separados (.zip)
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-white/5">
+                <button
+                  onClick={() => setShowDownloadDialog(false)}
+                  className="w-full py-2.5 bg-transparent hover:text-white text-text-secondary/60 text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
