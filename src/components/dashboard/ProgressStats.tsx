@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
-  Sun, CheckSquare
+  Sun, CheckSquare, Brain
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString } from '../../lib/utils';
+import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { useState, useMemo } from 'react';
 import { MOODS, MOOD_LIST, MoodKey } from '../../lib/mood';
 import { MoodEntry } from '../../types';
@@ -426,6 +427,129 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     return maxS > 0 ? { habit: maxHabit, streak: maxS } : null;
   }, [avoidanceHabitsList, avoidanceStreaks]);
+
+  const avoidanceAnalysis = useMemo(() => {
+    const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
+    const avoidHabitsMap = new Map(avoidHabits.map(h => [h.id, h]));
+    
+    // Filter relapses to existing habits of mode 'avoid'
+    const relapses = avoidanceCheckins.filter(c => {
+      if (c.status !== 'relapse') return false;
+      return avoidHabitsMap.has(c.habit_id);
+    });
+    
+    const byPeriod = { morning: 0, afternoon: 0, evening: 0, window: 0 };
+    const byEnergy = { cansado: 0, normal: 0, energizado: 0 };
+    const byMood = { animado: 0, tranquilo: 0, neutro: 0, ansioso: 0, prabaixo: 0 };
+    let semRegistroCount = 0;
+    
+    const periodMap: Record<string, string> = {
+      morning: 'manha',
+      afternoon: 'tarde',
+      evening: 'noite',
+      window: 'tarde'
+    };
+    
+    relapses.forEach(c => {
+      const p = c.checkin_period;
+      if (p in byPeriod) {
+        byPeriod[p as keyof typeof byPeriod]++;
+      } else {
+        byPeriod.window++;
+      }
+      
+      let targetPeriod = periodMap[p] || 'tarde';
+      if (p === 'window' && c.created_at) {
+        const hour = new Date(c.created_at).getHours();
+        if (hour < 12) targetPeriod = 'manha';
+        else if (hour < 18) targetPeriod = 'tarde';
+        else targetPeriod = 'noite';
+      }
+      
+      const match = moodEntries.find(m => m.date === c.checkin_date && m.period === targetPeriod)
+                 || moodEntries.find(m => m.date === c.checkin_date);
+                 
+      if (match) {
+        if (match.energy && match.energy in byEnergy) {
+          byEnergy[match.energy as keyof typeof byEnergy]++;
+        } else {
+          semRegistroCount++;
+        }
+        
+        if (match.mood && match.mood in byMood) {
+          byMood[match.mood as keyof typeof byMood]++;
+        }
+      } else {
+        semRegistroCount++;
+      }
+    });
+    
+    const totalRelapses = relapses.length;
+    
+    const findMaxKey = <T extends Record<string, number>>(obj: T): keyof T | null => {
+      let maxVal = -1;
+      let maxK: keyof T | null = null;
+      Object.entries(obj).forEach(([k, val]) => {
+        if (val > maxVal) {
+          maxVal = val;
+          maxK = k as keyof T;
+        }
+      });
+      return maxVal > 0 ? maxK : null;
+    };
+    
+    const maxPeriodKey = findMaxKey(byPeriod);
+    const maxEnergyKey = findMaxKey(byEnergy);
+    const maxMoodKey = findMaxKey(byMood);
+    
+    let leadInsight = "";
+    let suggestion = "";
+    
+    if (totalRelapses > 0) {
+      const periodLabel = {
+        morning: "pela manhã",
+        afternoon: "à tarde",
+        evening: "à noite",
+        window: "durante a janela de foco"
+      }[maxPeriodKey || 'evening'];
+      
+      const energyLabel = {
+        cansado: "cansado mentalmente",
+        normal: "com energia normal",
+        energizado: "energizado"
+      }[maxEnergyKey || 'cansado'];
+      
+      const moodLabel = {
+        animado: "animado / ansioso por recompensa",
+        tranquilo: "tranquilo",
+        neutro: "neutro",
+        ansioso: "ansioso",
+        prabaixo: "pra baixo ou desmotivado"
+      }[maxMoodKey || 'ansioso'];
+      
+      leadInsight = `Você recai mais nos momentos em que está ${energyLabel}, geralmente ${periodLabel} e sentindo-se ${moodLabel}.`;
+      
+      if (maxEnergyKey === 'cansado') {
+        suggestion = "Nesses momentos de cansaço mental, uma sessão curta de foco assistido ou um descanso absoluto ajuda muito mais do que tentar resistir apenas na pura força de vontade.";
+      } else if (maxMoodKey === 'ansioso') {
+        suggestion = "Quando os níveis de ansiedade sobem, técnicas de respiração quadrada ou uma pausa rápida de descompressão consciente no DUDE são seus maiores escudos.";
+      } else if (maxMoodKey === 'prabaixo') {
+        suggestion = "Em dias mais difíceis, lembre-se de que a autocompaixão é vital. Não busque compensar ou anestesiar a frustração cedendo ao vício; faça uma atividade física leve ou registre uma anotação.";
+      } else {
+        suggestion = "Identifique os primeiros sinais físicos de perda de controle e utilize rituais rápidos de desvio de foco para desarmar o loop do hábito voluntário.";
+      }
+    }
+    
+    return {
+      totalRelapses,
+      byPeriod,
+      byEnergy,
+      byMood,
+      semRegistro: semRegistroCount,
+      leadInsight,
+      suggestion
+    };
+  }, [avoidanceCheckins, moodEntries, habits]);
 
   // ----------------------------------------------------
   // PILLAR C — AGENDAMENTOS (Schedules Rate)
@@ -1347,43 +1471,194 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-4 font-sans"
+                    className="px-5 pb-5 border-t border-white/5 pt-5 space-y-6 font-sans"
                   >
                     {avoidanceHabitsList.length === 0 ? (
                       <div className="p-5 bg-white/[0.015] border border-dashed border-white/5 rounded-xl text-center space-y-2 font-sans">
                         <p className="text-xs text-text-secondary/60 leading-relaxed font-light max-w-md mx-auto font-sans">
-                          Você ainda não configurou nenhuma blindagem. Configure um vício no painel principal e o DUDE começará a mapear suas vitórias nos horários que você definir.
+                          Você ainda não possui nenhuma blindagem ativa. Adicione um vício no painel principal e o DUDE começará a calcular seus recordes e mapear suas vitórias neurais.
                         </p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
-                        {avoidanceHabitsList.map((ah) => {
-                          const streak = avoidanceStreaks[ah.id] || 0;
-                          const checkinsList = avoidanceCheckins.filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'relapse'));
-                          const totalCheckins = checkinsList.length;
-                          const wins = checkinsList.filter(c => c.status === 'success').length;
-                          const lapses = checkinsList.filter(c => c.status === 'relapse').length;
-                          const rate = totalCheckins > 0 ? Math.round((wins / totalCheckins) * 100) : 100;
-                          
-                          // Estimate hours saved
-                          const hrsSaved = Math.round(wins * (ah.minutes_per_session || 150) / 60);
+                      <div className="space-y-6 font-sans">
+                        {/* 1. Módulos Ativos com Counters de Tempo Limpo e Métricas */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                          {avoidanceHabitsList.map((ah) => {
+                            const metrics = calculateAvoidanceMetrics(ah, avoidanceCheckins);
+                            
+                            return (
+                              <div key={ah.id} className="p-4 bg-white/[0.02] border border-white/5 hover:border-primary-green/10 rounded-2xl space-y-3 font-sans transition-all duration-200">
+                                <div className="flex justify-between items-start gap-1 font-sans">
+                                  <span className="text-[11px] md:text-xs font-extrabold text-text-primary uppercase tracking-wider truncate block max-w-[65%] font-sans">
+                                    {ah.name}
+                                  </span>
+                                  <span className="text-[9px] font-mono uppercase bg-primary-green/15 text-primary-green px-2 py-0.5 rounded border border-primary-green/20">
+                                    {metrics.diasLimpoSeguidos} seguidos
+                                  </span>
+                                </div>
 
-                          return (
-                            <div key={ah.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-3 font-sans">
-                              <div className="flex justify-between items-baseline gap-1 font-sans">
-                                <span className="text-[11px] md:text-xs font-bold text-text-primary truncate block max-w-[65%] font-sans">{ah.name}</span>
-                                <span className="text-[10px] font-bold text-primary-green whitespace-nowrap font-sans">
-                                  {streak} {streak === 1 ? 'dia' : 'dias'} resistindo
-                                </span>
+                                <div className="p-3.5 bg-background/40 border border-white/5 rounded-xl text-center space-y-1">
+                                  <span className="text-[8px] font-bold text-text-secondary/40 uppercase tracking-widest block font-sans">
+                                    Tempo Limpo Atual
+                                  </span>
+                                  <span className="text-lg md:text-xl font-black text-primary-green tracking-tight font-mono">
+                                    {metrics.tempoLimpoAtualText}
+                                  </span>
+                                  <span className="text-[8px] text-text-secondary/60 block italic font-light">
+                                    {metrics.tempoLimpoSubtitle}
+                                  </span>
+                                </div>
+
+                                {/* Custom Support stats boxes requested */}
+                                <div className="grid grid-cols-3 gap-1.5 text-center pt-1">
+                                  <div className="py-1.5 px-1 bg-white/[0.02] border border-white/5 rounded-lg flex flex-col justify-center">
+                                    <span className="text-[7px] font-bold text-text-secondary/40 uppercase tracking-tight block">
+                                      Seguidos
+                                    </span>
+                                    <span className="text-[11px] font-bold text-text-primary font-mono mt-0.5">
+                                      {metrics.diasLimpoSeguidos}d
+                                    </span>
+                                  </div>
+                                  <div className="py-1.5 px-1 bg-white/[0.02] border border-white/5 rounded-lg flex flex-col justify-center">
+                                    <span className="text-[7px] font-bold text-text-secondary/40 uppercase tracking-tight block">
+                                      Total Limpo
+                                    </span>
+                                    <span className="text-[11px] font-bold text-primary-green font-mono mt-0.5">
+                                      {metrics.diasLimposTotal}d
+                                    </span>
+                                  </div>
+                                  <div className="py-1.5 px-1 bg-white/[0.02] border border-white/5 rounded-lg flex flex-col justify-center">
+                                    <span className="text-[7px] font-bold text-text-secondary/40 uppercase tracking-tight block">
+                                      Recorde
+                                    </span>
+                                    <span className="text-[11px] font-bold text-amber-400 font-mono mt-0.5">
+                                      {metrics.maxStreak}d
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-text-secondary/65 space-y-1 block leading-normal font-sans">
-                                <p font-sans="true">{totalCheckins} {totalCheckins === 1 ? 'check-in respondido' : 'check-ins respondidos'} · <strong className="text-primary-green font-bold font-sans">{wins} resistidos</strong> · <strong className="text-amber-500 font-bold font-sans">{lapses} lapsos</strong></p>
-                                <p className="text-text-secondary/65 font-sans">Eficácia: <strong className="text-text-primary font-sans">{rate}% de sucesso</strong></p>
-                                <p className="text-primary-green mt-1 font-sans">≈ {hrsSaved}h que você recuperou do {ah.name}</p>
+                            );
+                          })}
+                        </div>
+
+                        {/* 2. Centro de Inteligência — Mapeador Real de Gatilhos */}
+                        <div className="p-4 bg-white/[0.015] border border-white/5 rounded-2xl space-y-4 font-sans">
+                          <span className="text-[9px] font-extrabold text-[#6ee7a8] uppercase tracking-widest flex items-center gap-1">
+                            <Brain size={12} className="animate-pulse" /> Mapeamento de Gatilhos de Lapsos/Recaídas
+                          </span>
+
+                          {avoidanceAnalysis.totalRelapses === 0 ? (
+                            <div className="p-5 bg-white/5 rounded-xl border border-dashed border-white/5 text-center space-y-2">
+                              <span className="text-xs">🧘</span>
+                              <p className="text-xs text-[#6ee7a8] font-bold uppercase tracking-wider">Mente Blindada</p>
+                              <p className="text-[10px] text-text-secondary/60 leading-relaxed font-light max-w-sm mx-auto">
+                                Nenhuma recaída registrada! Continue firme no autocontrole para manter esta saúde mental intacta. Quando houver registros, o DUDE mapeará seus gatilhos de energia, humor e período.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {/* Lead Insight block */}
+                              <div className="p-3 rounded-xl bg-orange-400/5 border border-orange-400/10 space-y-1.5 text-left">
+                                <span className="text-[8px] font-black text-orange-400 uppercase tracking-wider block">Insight Dominante</span>
+                                <p className="text-xs text-text-primary font-medium tracking-tight leading-relaxed">
+                                  {avoidanceAnalysis.leadInsight}
+                                </p>
+                                <p className="text-[10px] text-text-secondary/80 font-light leading-relaxed">
+                                  💡 <strong>Sugestão:</strong> {avoidanceAnalysis.suggestion}
+                                </p>
+                              </div>
+
+                              {/* Proportional Bars Section */}
+                              <div className="space-y-3 font-sans">
+                                <h5 className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-wider">Quando a impulsividade ganha força:</h5>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  {/* Dimension A: Period */}
+                                  <div className="space-y-2 bg-background/50 p-3 rounded-xl border border-white/5">
+                                    <span className="text-[8px] font-black text-text-secondary/60 uppercase tracking-widest block border-b border-white/5 pb-1">
+                                      Por Período do Dia
+                                    </span>
+                                    <div className="space-y-1.5">
+                                      {Object.entries(avoidanceAnalysis.byPeriod).map(([key, val]) => {
+                                        const total = avoidanceAnalysis.totalRelapses;
+                                        const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                        const label = { morning: "Manhã", afternoon: "Tarde", evening: "Noite", window: "Janela" }[key] || key;
+                                        return (
+                                          <div key={key} className="space-y-0.5 text-left">
+                                            <div className="flex justify-between items-center text-[8px] text-text-secondary/70 font-mono">
+                                              <span>{label}</span>
+                                              <span>{pct}% ({val})</span>
+                                            </div>
+                                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+                                              <div className="bg-primary-green h-full" style={{ width: `${pct}%` }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Dimension B: Energy Level */}
+                                  <div className="space-y-2 bg-background/50 p-3 rounded-xl border border-white/5">
+                                    <span className="text-[8px] font-black text-text-secondary/60 uppercase tracking-widest block border-b border-white/5 pb-1">
+                                      Por Nível de Energia
+                                    </span>
+                                    <div className="space-y-1.5">
+                                      {Object.entries(avoidanceAnalysis.byEnergy).map(([key, val]) => {
+                                        const total = avoidanceAnalysis.byEnergy.cansado + avoidanceAnalysis.byEnergy.normal + avoidanceAnalysis.byEnergy.energizado;
+                                        const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                        const label = { cansado: "🥱 Cansado", normal: "😐 Normal", energizado: "⚡ Energizado" }[key] || key;
+                                        const color = { cansado: "bg-red-400", normal: "bg-amber-400", energizado: "bg-emerald-400" }[key] || "bg-primary-green";
+                                        return (
+                                          <div key={key} className="space-y-0.5 text-left">
+                                            <div className="flex justify-between items-center text-[8px] text-text-secondary/70 font-mono">
+                                              <span>{label}</span>
+                                              <span>{pct}% ({val})</span>
+                                            </div>
+                                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+                                              <div className={`${color} h-full`} style={{ width: `${pct}%` }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Dimension C: Mood Level */}
+                                  <div className="space-y-2 bg-background/50 p-3 rounded-xl border border-white/5">
+                                    <span className="text-[8px] font-black text-text-secondary/60 uppercase tracking-widest block border-b border-white/5 pb-1">
+                                      Por Estado de Humor
+                                    </span>
+                                    <div className="space-y-1.5">
+                                      {Object.entries(avoidanceAnalysis.byMood).map(([key, val]) => {
+                                        const total = Object.values(avoidanceAnalysis.byMood).reduce((a, b) => a + b, 0);
+                                        const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                        const label = {
+                                          animado: "😃 Animado",
+                                          tranquilo: "😌 Tranquilo",
+                                          neutro: "😐 Neutro",
+                                          ansioso: "😰 Ansioso",
+                                          prabaixo: "😞 Pra baixo"
+                                        }[key] || key;
+                                        return (
+                                          <div key={key} className="space-y-0.5 text-left">
+                                            <div className="flex justify-between items-center text-[8px] text-text-secondary/70 font-mono">
+                                              <span>{label}</span>
+                                              <span>{pct}% ({val})</span>
+                                            </div>
+                                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+                                              <div className="bg-orange-400 h-full" style={{ width: `${pct}%` }} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          );
-                        })}
+                          )}
+                        </div>
                       </div>
                     )}
                   </motion.div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Shield, ShieldAlert, Sparkles, Flame, Plus, Brain, Calendar, Trash2, Pencil, RefreshCw, BarChart2, ChevronDown } from 'lucide-react';
+import { Shield, ShieldAlert, Sparkles, Flame, Plus, Brain, Calendar, Trash2, Pencil, BarChart2, ChevronDown, Check, X, AlertTriangle, UserCheck, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Habit, AvoidanceCheckin } from '../../types';
 
@@ -13,6 +13,105 @@ const getLocalDateString = (d = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+// Precise clean-time and streak metrics calculator
+export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheckin[]) {
+  const checkins = allCheckins.filter(c => c.habit_id === ah.id);
+  const todayStr = getLocalDateString();
+  
+  // Normalize victories and relapses
+  const isVictory = (status: 'success' | 'relapse' | 'pending') => status === 'success';
+  const isRelapse = (status: 'success' | 'relapse' | 'pending') => status === 'relapse';
+
+  // Sort relapses in ascending order of date/time
+  const relapseCheckins = checkins
+    .filter(c => isRelapse(c.status))
+    .sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : new Date(a.checkin_date + 'T12:00:00').getTime();
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : new Date(b.checkin_date + 'T12:00:00').getTime();
+      return aTime - bTime;
+    });
+  
+  // 1. Tempo Limpo Atual
+  let lastRelapseTimestamp = 0;
+  const lastRelapse = relapseCheckins[relapseCheckins.length - 1];
+  if (lastRelapse) {
+    lastRelapseTimestamp = lastRelapse.created_at 
+      ? new Date(lastRelapse.created_at).getTime() 
+      : new Date(lastRelapse.checkin_date + 'T12:00:00').getTime();
+  } else {
+    lastRelapseTimestamp = new Date(ah.created_at).getTime();
+  }
+
+  const currentCleanMs = Math.max(0, Date.now() - lastRelapseTimestamp);
+  
+  const currentCleanDays = Math.floor(currentCleanMs / (1000 * 60 * 60 * 24));
+  const currentCleanHours = Math.floor((currentCleanMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const currentCleanMins = Math.floor((currentCleanMs % (1000 * 60 * 60)) / (1000 * 60));
+  const currentCleanSecs = Math.floor((currentCleanMs % (1000 * 60)) / 1000);
+  
+  let tempoLimpoAtualText = "";
+  if (currentCleanDays > 0) {
+    tempoLimpoAtualText = `${currentCleanDays}d ${currentCleanHours}h ${currentCleanMins}min`;
+  } else if (currentCleanHours > 0) {
+    tempoLimpoAtualText = `${currentCleanHours}h ${currentCleanMins}min`;
+  } else if (currentCleanMins > 0) {
+    tempoLimpoAtualText = `${currentCleanMins}min ${currentCleanSecs}s`;
+  } else {
+    tempoLimpoAtualText = `${currentCleanSecs}s`;
+  }
+  
+  const tempoLimpoSubtitle = lastRelapse ? "desde a última recaída" : "desde o início do controle";
+
+  // Days between calculator
+  const getDaysBetween = (d1Str: string, d2Str: string) => {
+    const d1 = new Date(d1Str + 'T12:00:00');
+    const d2 = new Date(d2Str + 'T12:00:00');
+    return Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+  };
+
+  // 2. Dias Limpo Seguidos (consecutive clean days - resets to 0 upon relapse on the day)
+  const todayHasRelapse = relapseCheckins.some(c => c.checkin_date === todayStr);
+  let diasLimpoSeguidos = 0;
+  if (!todayHasRelapse) {
+    if (lastRelapse) {
+      diasLimpoSeguidos = getDaysBetween(lastRelapse.checkin_date, todayStr);
+    } else {
+      diasLimpoSeguidos = getDaysBetween(ah.created_at.split('T')[0], todayStr) + 1;
+    }
+  }
+
+  // 3. Dias Limpos no Total (never resets, counts unique clean days logged)
+  const rawVictoryDates = checkins.filter(c => isVictory(c.status)).map(c => c.checkin_date);
+  const diasLimposTotal = new Set(rawVictoryDates).size;
+
+  // 4. Recorde de Dias Limpo (longest clean span)
+  const startDay = ah.created_at.split('T')[0];
+  const relapseDates = relapseCheckins.map(c => c.checkin_date);
+  
+  let maxStreak = 0;
+  if (relapseDates.length === 0) {
+    maxStreak = getDaysBetween(startDay, todayStr) + 1;
+  } else {
+    maxStreak = Math.max(maxStreak, getDaysBetween(startDay, relapseDates[0]));
+    for (let i = 0; i < relapseDates.length - 1; i++) {
+      const gap = getDaysBetween(relapseDates[i], relapseDates[i+1]) - 1;
+      maxStreak = Math.max(maxStreak, gap);
+    }
+    const lastGap = getDaysBetween(relapseDates[relapseDates.length - 1], todayStr);
+    maxStreak = Math.max(maxStreak, lastGap);
+  }
+
+  maxStreak = Math.max(maxStreak, diasLimpoSeguidos);
+
+  return {
+    tempoLimpoAtualText,
+    tempoLimpoSubtitle,
+    diasLimpoSeguidos,
+    diasLimposTotal,
+    maxStreak
+  };
+}
+
 export const AvoidanceSection = () => {
   const { user } = useAuthStore();
   const dataStore = useDataStore();
@@ -21,7 +120,22 @@ export const AvoidanceSection = () => {
   const [activePromptPeriod, setActivePromptPeriod] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [supportiveModal, setSupportiveModal] = useState<{
+    isOpen: boolean;
+    habitName: string;
+    totalCleanDays: number;
+  } | null>(null);
   
+  const [tick, setTick] = useState(0);
+
+  // Periodical ticker to update the clean-time counters in real time (every 10s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(t => t + 1);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Filtering habits centered on anti-vício (habit_mode === 'avoid')
   const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
 
@@ -36,7 +150,7 @@ export const AvoidanceSection = () => {
     };
   }, []);
 
-  // Trigger avoidance check-in evaluations periodically
+  // Trigger avoidance check-in evaluations periodically (in-app per-period)
   useEffect(() => {
     if (!user || avoidHabits.length === 0) return;
 
@@ -51,7 +165,7 @@ export const AvoidanceSection = () => {
       const currentDayStr = dayOfWeek === 0 ? '7' : String(dayOfWeek);
 
       for (const habit of avoidHabits) {
-        // 1. Is the habit active on this weekday?
+        // Is the habit active on this weekday?
         const isTodayActive = !habit.recurrence_days || 
                               habit.recurrence_days.length === 0 || 
                               habit.recurrence_days.includes(currentDayStr);
@@ -64,7 +178,6 @@ export const AvoidanceSection = () => {
         );
 
         if (habit.avoidance_scope === 'time_window') {
-          // Time window parsing "HH:MM"
           const startStr = habit.avoidance_window_start || '09:00';
           const endStr = habit.avoidance_window_end || '18:00';
           
@@ -73,53 +186,42 @@ export const AvoidanceSection = () => {
           
           let startMin = sh * 60 + sm;
           let endMin = eh * 60 + em;
-          if (endMin < startMin) {
-            endMin += 1440; // overnight support
-          }
+          if (endMin < startMin) endMin += 1440;
           
           const duration = endMin - startMin;
           const currentAdjustedMin = (currentMinutesTotal < startMin && currentMinutesTotal < 120) 
             ? currentMinutesTotal + 1440 
             : currentMinutesTotal;
 
-          // Is current time within the window?
           if (currentAdjustedMin >= startMin && currentAdjustedMin <= endMin) {
-            // How many check-ins are scheduled?
             const intensity = habit.avoidance_checkin_intensity || 'balanced';
             const countRequired = intensity === 'light' ? 1 : intensity === 'balanced' ? 2 : 3;
-
-            // Calculate due check-ins based on elapsed time within the window
             const elapsed = currentAdjustedMin - startMin;
             let dueCount = 0;
 
             if (countRequired === 1) {
-              // 1 check-in halfway through
               if (elapsed >= duration * 0.5) dueCount = 1;
             } else if (countRequired === 2) {
-              // 2 check-ins at 1/3 and 2/3
               if (elapsed >= duration * 0.33) dueCount = 1;
               if (elapsed >= duration * 0.66) dueCount = 2;
             } else {
-              // 3 check-ins at 1/4, 2/4, 3/4
               if (elapsed >= duration * 0.25) dueCount = 1;
               if (elapsed >= duration * 0.5) dueCount = 2;
               if (elapsed >= duration * 0.75) dueCount = 3;
             }
 
-            // Exclude pending ones
             const windowCheckinsCount = todaysCheckins.filter(c => c.checkin_period === 'window').length;
             if (windowCheckinsCount < dueCount) {
               setActivePromptHabitId(habit.id);
               setActivePromptPeriod('window');
-              break; // Handle one at a time for elegant UX
+              break;
             }
           }
         } else {
           // Full Day scope: morning, afternoon, evening slots
           const intensity = habit.avoidance_checkin_intensity || 'balanced';
-          
-          // Let's define target due hours
           const slots: { period: 'morning' | 'afternoon' | 'evening'; hour: number }[] = [];
+          
           if (intensity === 'light') {
             slots.push({ period: 'afternoon', hour: 15 });
           } else if (intensity === 'balanced') {
@@ -134,7 +236,6 @@ export const AvoidanceSection = () => {
           let foundPending = false;
           for (const slot of slots) {
             if (currentHour >= slot.hour) {
-              // Has the checkin for this period been made today?
               const registered = todaysCheckins.some(c => c.checkin_period === slot.period);
               if (!registered) {
                 setActivePromptHabitId(habit.id);
@@ -155,31 +256,41 @@ export const AvoidanceSection = () => {
   }, [user, avoidHabits, dataStore.avoidanceCheckins]);
 
   // Submit check-in results
-  const handleCheckinSubmit = async (status: 'success' | 'relapse') => {
-    if (!user || !activePromptHabitId || !activePromptPeriod) return;
+  const handleCheckinSubmit = async (habitId: string, period: 'morning' | 'afternoon' | 'evening' | 'window', status: 'success' | 'relapse') => {
+    if (!user) return;
 
-    const currentHabit = avoidHabits.find(h => h.id === activePromptHabitId);
+    const currentHabit = avoidHabits.find(h => h.id === habitId);
     if (!currentHabit) return;
 
     const checkinData = {
       user_id: user.id,
-      habit_id: activePromptHabitId,
+      habit_id: habitId,
       checkin_date: getLocalDateString(),
-      checkin_period: activePromptPeriod as 'morning' | 'afternoon' | 'evening' | 'window',
+      checkin_period: period,
       status
     };
 
     const result = await dataStore.addAvoidanceCheckin(checkinData);
     if (result) {
       if (status === 'success') {
-        dataStore.showNotification(`Excelente! Recuperando o controle sobre ${currentHabit.name}.`, 'success');
+        dataStore.showNotification(`Excelente! Registro de resistência gravado para ${currentHabit.name} ✓`, 'success');
       } else {
-        dataStore.showNotification(`Foco mental restabelecido. Vamos manter a consistência no próximo.`, 'error');
+        const relatedCheckins = [...dataStore.avoidanceCheckins, result];
+        const metrics = calculateAvoidanceMetrics(currentHabit, relatedCheckins);
+        
+        // Show supportive, shame-free overlay
+        setSupportiveModal({
+          isOpen: true,
+          habitName: currentHabit.name,
+          totalCleanDays: metrics.diasLimposTotal
+        });
       }
     }
 
-    setActivePromptHabitId(null);
-    setActivePromptPeriod(null);
+    if (activePromptHabitId === habitId) {
+      setActivePromptHabitId(null);
+      setActivePromptPeriod(null);
+    }
   };
 
   // Delete habit
@@ -189,7 +300,7 @@ export const AvoidanceSection = () => {
     setShowDeleteConfirm(null);
   };
 
-  // Open creation modal pre-registered via event trigger
+  // Trigger modals via action center
   const triggerNewAvoidanceModal = () => {
     window.dispatchEvent(new CustomEvent('open-action-center', {
       detail: { screen: 'anti-vicio' }
@@ -227,7 +338,7 @@ export const AvoidanceSection = () => {
         </div>
       </div>
 
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
         {isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -241,7 +352,7 @@ export const AvoidanceSection = () => {
               <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-white/5">
                 <div className="text-left max-w-sm md:max-w-md">
                   <p className="text-xs text-text-secondary/60 font-light">
-                    Recuperação Comportamental Proativa: Centro projetado para autocontrole progressivo e resiliência psicológica mental.
+                    Sistema de Consciência: Monitore seu tempo limpo, rituais proativos e mapeie gatilhos sem culpa.
                   </p>
                 </div>
 
@@ -269,469 +380,273 @@ export const AvoidanceSection = () => {
                 </div>
               </div>
 
-      {avoidHabits.length === 0 ? (
-        <div className="p-8 md:p-12 rounded-3xl bg-surface/5 border border-white/5 text-center space-y-4 flex flex-col items-center justify-center">
-          <Brain size={36} className="text-text-secondary/20" />
-          <p className="text-text-secondary/50 font-light italic max-w-md">
-            Ambiente livre de vícios ativos. Crie um canal com autocontrole personalizado para impulsionar sua produtividade.
-          </p>
-          <button
-            onClick={triggerNewAvoidanceModal}
-            className="px-6 py-2 rounded-full border border-white/10 hover:border-primary-green hover:bg-primary-green/10 text-text-primary text-[10px] uppercase font-bold tracking-widest transition-all cursor-pointer"
-          >
-            Começar Agora
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {avoidHabits.map(habit => {
-            // Check if there is an active checkin due for this habit
-            const promptVisible = activePromptHabitId === habit.id;
-            
-            // Stats Calculations
-            const habitCheckins = dataStore.avoidanceCheckins.filter(c => c.habit_id === habit.id);
-            const totalCheckinsObj = habitCheckins.filter(c => c.status !== 'pending');
-            const totalCount = totalCheckinsObj.length;
-            const successCount = totalCheckinsObj.filter(c => c.status === 'success').length;
-            const relapseCount = totalCheckinsObj.filter(c => c.status === 'relapse').length;
-            const consistency = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 100;
-            
-            // Hours Recovered (2 hours per conscious success block resistance win)
-            const hoursRecovered = successCount * 2;
-            
-            // Level designation
-            let controlLevel = "Nível 1 — Iniciante Consciente";
-            if (consistency >= 90 && successCount >= 20) {
-              controlLevel = "Nível 5 — Superconsciência Absoluta";
-            } else if (consistency >= 85 && successCount >= 10) {
-              controlLevel = "Nível 4 — Domínio Inabalável";
-            } else if (consistency >= 70 && successCount >= 4) {
-              controlLevel = "Nível 3 — Resistência Estável";
-            } else if (consistency >= 50 && totalCount >= 2) {
-              controlLevel = "Nível 2 — Autocontrole em Construção";
-            }
+              {avoidHabits.length === 0 ? (
+                <div className="p-8 md:p-12 rounded-3xl bg-surface/5 border border-white/5 text-center space-y-4 flex flex-col items-center justify-center">
+                  <Brain size={36} className="text-text-secondary/20" />
+                  <p className="text-text-secondary/50 font-light italic max-w-md">
+                    Seu espaço para blindagem mental. Adicione o que deseja remover de sua vida e construa uma nova identidade.
+                  </p>
+                  <button
+                    onClick={triggerNewAvoidanceModal}
+                    className="px-6 py-2 rounded-full border border-white/10 hover:border-primary-green hover:bg-primary-green/10 text-text-primary text-[10px] uppercase font-bold tracking-widest transition-all cursor-pointer"
+                  >
+                    Começar Agora
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {avoidHabits.map(habit => {
+                    const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
+                    const promptVisible = activePromptHabitId === habit.id;
+                    const habitCheckins = dataStore.avoidanceCheckins.filter(c => c.habit_id === habit.id);
 
-            // Map checkins to previous 14 days for a beautiful dashboard heatmap grid
-            const today = new Date();
-            const last14Days = Array.from({ length: 14 }, (_, i) => {
-              const d = new Date();
-              d.setDate(today.getDate() - (13 - i));
-              return getLocalDateString(d);
-            });
+                    // Heatmap 14d
+                    const today = new Date();
+                    const last14Days = Array.from({ length: 14 }, (_, i) => {
+                      const d = new Date();
+                      d.setDate(today.getDate() - (13 - i));
+                      return getLocalDateString(d);
+                    });
 
-            return (
-              <div
-                key={habit.id}
-                className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/15 transition-all flex flex-col justify-between gap-6"
-              >
-                <div>
-                  {/* Title & Preferences */}
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <h4 className="text-xl font-semibold text-text-primary tracking-tight">{habit.name}</h4>
-                      <p className="text-[10px] text-text-secondary/60 font-medium uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar size={10} className="text-primary-green/60" />
-                        {habit.avoidance_scope === 'full_day' ? '🛡️ Todo o Dia' : `⏱️ Janela: ${habit.avoidance_window_start} - ${habit.avoidance_window_end}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => triggerEditAvoidanceModal(habit)}
-                        className="p-2 text-text-secondary/40 hover:text-primary-green rounded-full transition-colors cursor-pointer"
-                        title="Configurações de autocontrole"
+                    return (
+                      <div
+                        key={habit.id}
+                        className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/15 transition-all flex flex-col justify-between gap-6"
                       >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteConfirm({ id: habit.id, name: habit.name })}
-                        className="p-2 text-text-secondary/40 hover:text-red-400 rounded-full transition-colors cursor-pointer"
-                        title="Desativar Anti-Vício"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
+                        <div className="space-y-5">
+                          {/* Title block */}
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <h4 className="text-xl font-bold text-text-primary tracking-tight">{habit.name}</h4>
+                              <p className="text-[10px] text-text-secondary/60 font-medium uppercase tracking-widest flex items-center gap-1.5">
+                                <Calendar size={10} className="text-primary-green/60" />
+                                {habit.avoidance_scope === 'full_day' ? '🛡️ Todo o Dia' : `⏱️ Janela: ${habit.avoidance_window_start} - ${habit.avoidance_window_end}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => triggerEditAvoidanceModal(habit)}
+                                className="p-2 text-text-secondary/40 hover:text-primary-green rounded-full transition-colors cursor-pointer"
+                                title="Editar"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                onClick={() => setShowDeleteConfirm({ id: habit.id, name: habit.name })}
+                                className="p-2 text-text-secondary/40 hover:text-red-400 rounded-full transition-colors cursor-pointer"
+                                title="Remover"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
 
-                  {/* Active Prompt overlay inside the card with graceful feedback */}
-                  <AnimatePresence mode="wait">
-                    {promptVisible && activePromptPeriod && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-4 p-4 rounded-2xl bg-primary-green/5 border border-primary-green/20 space-y-3 shadow-sm"
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <Shield size={14} className="text-primary-green mt-0.5 animate-pulse" />
-                          <p className="text-xs text-text-primary font-medium leading-relaxed">
-                            Você conseguiu manter o controle mental sobre <span className="text-primary-green font-bold text-sm">{habit.name}</span> neste período?
-                          </p>
+                          {/* MAIN: THE CLEAN-TIME COUNTER */}
+                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-center relative overflow-hidden">
+                            <div className="absolute top-2 right-3 flex items-center gap-1 text-[8px] uppercase tracking-widest text-primary-green/60 font-bold">
+                              <Flame size={10} className="text-primary-green animate-pulse" /> Tempo Limpo
+                            </div>
+                            <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
+                              Tempo Limpo Atual
+                            </p>
+                            <h3 className="text-2xl md:text-3xl font-extrabold text-primary-green tracking-tight font-mono select-all">
+                              {metrics.tempoLimpoAtualText}
+                            </h3>
+                            <p className="text-[10px] text-text-secondary/65 italic font-light">
+                              · {metrics.tempoLimpoSubtitle}
+                            </p>
+                          </div>
+
+                          {/* Identity Reinforcement Banner */}
+                          <div className="p-3.5 rounded-xl bg-[#6ee7a8]/5 border border-[#6ee7a8]/10 space-y-1">
+                            <p className="text-[10px] font-bold text-primary-green/90 uppercase tracking-wider flex items-center gap-1">
+                              <UserCheck size={11} /> Identidade Ativa
+                            </p>
+                            <p className="text-xs text-text-primary font-medium tracking-tight">
+                              Você está há <span className="text-primary-green font-bold">{metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}</span> no controle de seu comportamento.
+                            </p>
+                            <p className="text-[10px] text-text-secondary/70 font-light leading-relaxed">
+                              "Toda vez que você resiste, você vota na pessoa que quer ser."
+                            </p>
+                          </div>
+
+                          {/* 3 supporting boxes */}
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
+                                Dias Limpo Seguidos
+                              </span>
+                              <span className="text-lg font-bold text-text-primary font-mono mt-1">
+                                {metrics.diasLimpoSeguidos}
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
+                                Dias Limpos no Total
+                              </span>
+                              <span className="text-lg font-bold text-primary-green font-mono mt-1">
+                                {metrics.diasLimposTotal}
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
+                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
+                                Seu Recorde
+                              </span>
+                              <span className="text-lg font-bold text-amber-400 font-mono mt-1">
+                                {metrics.maxStreak}d
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* ON-DEMAND Hybrid Checkin Buttons */}
+                          <div className="grid grid-cols-2 gap-2 pt-2">
+                            <button
+                              onClick={() => handleCheckinSubmit(habit.id, 'window', 'success')}
+                              className="py-2.5 bg-primary-green/10 hover:bg-primary-green/20 border border-primary-green/35 text-primary-green rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
+                            >
+                              ✓ Resisti hoje
+                            </button>
+                            <button
+                              onClick={() => handleCheckinSubmit(habit.id, 'window', 'relapse')}
+                              className="py-2.5 bg-red-400/5 hover:bg-red-400/15 border border-red-400/20 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
+                            >
+                              Caí / recaí
+                            </button>
+                          </div>
+
+                          {/* IN-APP PERIODIC PROMPT BANNER */}
+                          <AnimatePresence mode="wait">
+                            {promptVisible && activePromptPeriod && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -12 }}
+                                className="p-4 rounded-xl bg-[#6ee7a8]/5 border border-[#6ee7a8]/20 space-y-2.5 shadow-sm"
+                              >
+                                <p className="text-xs text-text-primary font-medium leading-relaxed">
+                                  Controle de período programado: você conseguiu resistir a <span className="font-bold text-primary-green">{habit.name}</span> no período de {activePromptPeriod === 'morning' ? 'Manhã' : activePromptPeriod === 'afternoon' ? 'Tarde' : activePromptPeriod === 'evening' ? 'Noite' : 'Janela'}?
+                                </p>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleCheckinSubmit(habit.id, activePromptPeriod as any, 'success')}
+                                    className="flex-1 py-1.5 text-[9px] font-bold uppercase tracking-wider bg-primary-green text-background rounded-lg hover:brightness-110 cursor-pointer"
+                                  >
+                                    Sim, resisti
+                                  </button>
+                                  <button
+                                    onClick={() => handleCheckinSubmit(habit.id, activePromptPeriod as any, 'relapse')}
+                                    className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider border border-red-500/30 text-red-400 rounded-lg cursor-pointer"
+                                  >
+                                    Não
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Heatmap line */}
+                          <div className="space-y-1 bg-white/[0.01] p-2.5 border border-white/5 rounded-xl">
+                            <div className="flex justify-between items-center text-[8px] text-text-secondary/40 font-mono tracking-widest uppercase">
+                              <span>Heatmap de Resistência (14 dias)</span>
+                              <span>Hoje →</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 justify-between">
+                              {last14Days.map((dayStr, index) => {
+                                const dayCheckins = habitCheckins.filter(c => c.checkin_date === dayStr);
+                                let colorClass = 'bg-white/5';
+                                let label = 'Sem registros';
+                                
+                                if (dayCheckins.length > 0) {
+                                  const relapsed = dayCheckins.some(c => c.status === 'relapse');
+                                  const succeeded = dayCheckins.some(c => c.status === 'success');
+                                  if (relapsed) {
+                                    colorClass = 'bg-red-500/50 shadow-sm';
+                                    label = `${dayCheckins.length} check-in(s) - Recaída`;
+                                  } else if (succeeded) {
+                                    colorClass = 'bg-primary-green shadow-xs';
+                                    label = `${dayCheckins.length} check-in(s) - Sucesso`;
+                                  }
+                                }
+
+                                const displayDate = new Date(dayStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`w-3 h-3 rounded-xs transition-colors duration-200 ${colorClass}`}
+                                    title={`${displayDate}: ${label}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleCheckinSubmit('success')}
-                            className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider bg-primary-green text-background rounded-full hover:scale-[1.02] active:scale-95 transition-all cursor-pointer text-center"
-                          >
-                            ✓ Mantive o controle
-                          </button>
-                          <button
-                            onClick={() => handleCheckinSubmit('relapse')}
-                            className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider bg-transparent text-amber-500 hover:text-amber-400 border border-amber-500/20 rounded-full active:scale-95 transition-all cursor-pointer text-center"
-                          >
-                            Tive recaída
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
 
-                  {/* Self-Control Dashboard Grid metrics */}
-                  {!promptVisible && (
-                    <div className="mt-5 grid grid-cols-2 gap-4">
-                      {/* Consistency indicator card */}
-                      <div className="p-3 bg-white/5 rounded-2xl border border-white/5 flex flex-col gap-1">
-                        <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-wider">Consistência</span>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-2xl font-bold text-primary-green font-mono">{consistency}%</span>
-                          {consistency >= 85 && <Sparkles size={11} className="text-primary-green animate-bounce" />}
+                        {/* Intensity footer */}
+                        <div className="text-[9px] text-text-secondary/40 font-mono flex justify-between items-center pt-3 border-t border-white/5 mt-2">
+                          <span>Monitoramento: {{light: 'Leve', balanced: 'Equilibrada', strong: 'Forte'}[habit.avoidance_checkin_intensity || 'balanced']}</span>
+                          <span>Autoevolução Mental</span>
                         </div>
                       </div>
-
-                      {/* Recovered mental energy time card */}
-                      <div className="p-3 bg-white/5 rounded-2xl border border-white/5 flex flex-col gap-1">
-                        <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-wider">Tempo Recuperado</span>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold font-mono text-text-primary">{hoursRecovered}h</span>
-                          <span className="text-[9px] text-text-secondary/50 font-medium">este mês</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Self Control Level Status line */}
-                  <div className="mt-4 flex items-center gap-1.5">
-                    <span className="text-[10px] text-text-secondary/60 font-semibold">• {controlLevel}</span>
-                    <span className="text-[9px] font-semibold text-primary-green/60 uppercase tracking-widest bg-primary-green/5 border border-primary-green/10 px-2 py-0.5 rounded-full ml-auto">
-                      {successCount} blocos vencidos
-                    </span>
-                  </div>
-
-                  {/* github-style heatmap grid rows */}
-                  <div className="mt-5 space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest">Heatmap de Resistência (14d)</span>
-                      <span className="text-[8px] text-text-secondary/40 font-mono">hoje →</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 justify-between py-1 bg-white/[0.02] border border-white/5 rounded-xl px-2">
-                      {last14Days.map((dayStr, index) => {
-                        const dayCheckins = habitCheckins.filter(c => c.checkin_date === dayStr);
-                        let colorClass = 'bg-white/10'; // no checkins yet
-                        let label = 'Sem check-ins';
-                        
-                        if (dayCheckins.length > 0) {
-                          const relapsed = dayCheckins.some(c => c.status === 'relapse');
-                          const succeeded = dayCheckins.some(c => c.status === 'success');
-                          if (relapsed) {
-                            colorClass = 'bg-amber-500/50 shadow-[0_0_6px_rgba(245,158,11,0.3)]';
-                            label = `${dayCheckins.length} sessão(ões) - Recaída contida`;
-                          } else if (succeeded) {
-                            colorClass = 'bg-primary-green shadow-[0_0_6px_rgba(110,231,168,0.4)]';
-                            label = `${dayCheckins.length} check-in(s) - Controle inabalável`;
-                          }
-                        }
-
-                        // format date back to readable label
-                        const displayDate = new Date(dayStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-
-                        return (
-                          <div
-                            key={index}
-                            className={`w-3.5 h-3.5 rounded-md transition-all duration-300 ${colorClass}`}
-                            title={`${displayDate}: ${label}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-
-                {/* Micro Actions line */}
-                <div className="pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-text-secondary/40 font-mono">
-                  <span>Intensidade: {{light: 'Leve', balanced: 'Equilibrada', strong: 'Forte'}[habit.avoidance_checkin_intensity || 'balanced']}</span>
-                  {relapseCount > 0 && (
-                    <span className="text-[9px] text-text-secondary/60">
-                      Recuperação pós-recaída: <span className="text-primary-green font-bold font-sans">Rápida (&lt; 4h)</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 2. Premium History modal implementation */}
+      {/* COMPASSIONATE SHAME-FREE RELAPSE MODAL */}
       <AnimatePresence>
-        {showHistoryModal && (() => {
-          // Calculations
-          const totalCheckins = dataStore.avoidanceCheckins.length;
-          const totalSuccesses = dataStore.avoidanceCheckins.filter(c => c.status === 'success').length;
-          const totalRelapses = dataStore.avoidanceCheckins.filter(c => c.status === 'relapse').length;
-          const successRate = totalCheckins > 0 ? Math.round((totalSuccesses / totalCheckins) * 100) : 100;
-
-          // Streak clean days
-          const checkinsByDay: { [dateStr: string]: 'success' | 'relapse' } = {};
-          dataStore.avoidanceCheckins.forEach(c => {
-            const dStr = c.checkin_date;
-            if (c.status === 'relapse') {
-              checkinsByDay[dStr] = 'relapse';
-            } else if (c.status === 'success' && checkinsByDay[dStr] !== 'relapse') {
-              checkinsByDay[dStr] = 'success';
-            }
-          });
-
-          let currentStreak = 0;
-          const todayObj = new Date();
-          for (let i = 0; i < 30; i++) {
-            const d = new Date();
-            d.setDate(todayObj.getDate() - i);
-            const dStr = getLocalDateString(d);
-            if (checkinsByDay[dStr] === 'success') {
-              currentStreak++;
-            } else if (checkinsByDay[dStr] === 'relapse') {
-              break;
-            } else {
-              if (i === 0) continue;
-              break;
-            }
-          }
-
-          // Mental progress levels
-          let mentalLevel = "Nível 1 — Iniciante Consciente";
-          let mentalLevelDesc = "Você está começando a restabelecer o controle sobre hábitos involuntários.";
-          let nextThreshold = 5;
-          let prevThreshold = 0;
-          if (totalSuccesses >= 50) {
-            mentalLevel = "Nível 5 — Superconsciência Absoluta";
-            mentalLevelDesc = "Domínio total e inabalável sobre desejos involuntários e impulsos primitivos. Consciência plena.";
-            nextThreshold = 100;
-            prevThreshold = 50;
-          } else if (totalSuccesses >= 30) {
-            mentalLevel = "Nível 4 — Domínio Inabalável";
-            mentalLevelDesc = "Excelente resistência. Sua resiliência neurológica está extremamente avançada.";
-            nextThreshold = 50;
-            prevThreshold = 30;
-          } else if (totalSuccesses >= 15) {
-            mentalLevel = "Nível 3 — Resistência Estável";
-            mentalLevelDesc = "Consistência robusta. Você já consegue dominar impulsos de alto estresse com facilidade.";
-            nextThreshold = 30;
-            prevThreshold = 15;
-          } else if (totalSuccesses >= 5) {
-            mentalLevel = "Nível 2 — Autocontrole em Construção";
-            mentalLevelDesc = "Ativação sólida do córtex pré-frontal e bloqueio de comportamentos automáticos.";
-            nextThreshold = 15;
-            prevThreshold = 5;
-          }
-
-          const progressPercent = Math.min(100, Math.round(((totalSuccesses - prevThreshold) / (nextThreshold - prevThreshold)) * 100));
-
-          // 28 days heatmap
-          const last28Days = Array.from({ length: 28 }, (_, i) => {
-            const d = new Date();
-            d.setDate(todayObj.getDate() - (27 - i));
-            const dStr = getLocalDateString(d);
-            const dayCheckins = dataStore.avoidanceCheckins.filter(c => c.checkin_date === dStr);
-            let dayStatus: 'success' | 'relapse' | 'none' = 'none';
-            if (dayCheckins.some(c => c.status === 'relapse')) {
-              dayStatus = 'relapse';
-            } else if (dayCheckins.length > 0) {
-              dayStatus = 'success';
-            }
-            return { dateStr: dStr, status: dayStatus, label: d.getDate() };
-          });
-
-          return (
+        {supportiveModal && supportiveModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-background/85 backdrop-blur-md"
+          >
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md"
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-md bg-surface border border-white/10 rounded-3xl p-6 md:p-8 text-center space-y-5 shadow-2xl relative"
             >
-              <motion.div
-                initial={{ scale: 0.95, y: 15 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, y: 15 }}
-                className="w-full max-w-2xl bg-surface border border-border-white rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-2xl relative max-h-[90vh] overflow-y-auto style-scrollbar"
+              <button
+                onClick={() => setSupportiveModal(null)}
+                className="absolute top-4 right-4 text-text-secondary/40 hover:text-text-primary transition-colors cursor-pointer"
               >
-                <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                  <div className="space-y-1">
-                    <h3 className="text-2xl font-bold text-text-primary tracking-tight flex items-center gap-2">
-                      <Brain className="text-primary-green animate-pulse" size={24} /> Centro de Autoevolução Mental
-                    </h3>
-                    <p className="text-xs text-text-secondary/60 font-light">Métricas operacionais, streaks de autocontrole e progresso neurológico</p>
-                  </div>
-                  <button
-                    onClick={() => setShowHistoryModal(false)}
-                    className="p-2 text-text-secondary/40 hover:text-text-primary hover:bg-white/5 rounded-full transition-all cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <X size={18} />
+              </button>
 
-                {/* Grid de Métricas Principais */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center space-y-1">
-                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Índice Geral</span>
-                    <span className="text-2xl font-semibold text-primary-green tracking-tight">{successRate}%</span>
-                  </div>
-                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center space-y-1">
-                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Clean Streak</span>
-                    <span className="text-2xl font-semibold text-text-primary tracking-tight flex items-center justify-center gap-1">
-                      <Flame size={18} className="text-amber-500 fill-amber-500/20" /> {currentStreak}d
-                    </span>
-                  </div>
-                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center space-y-1">
-                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Controles</span>
-                    <span className="text-2xl font-semibold text-primary-green tracking-tight">{totalSuccesses}</span>
-                  </div>
-                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center space-y-1">
-                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Lapsos</span>
-                    <span className="text-2xl font-semibold text-amber-500 tracking-tight">{totalRelapses}</span>
-                  </div>
-                </div>
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                <Heart size={24} className="fill-amber-500/20" />
+              </div>
 
-                {/* Seção Progresso Mental / Nível */}
-                <div className="p-5 bg-gradient-to-r from-primary-green/5 to-transparent border border-primary-green/15 rounded-2xl space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] font-extrabold text-primary-green uppercase tracking-widest flex items-center gap-1">
-                        <Sparkles size={11} className="animate-pulse" /> Estágio de Resiliência Psicológica
-                      </span>
-                      <h4 className="text-base font-bold text-text-primary">{mentalLevel}</h4>
-                    </div>
-                    <span className="text-[10px] text-text-secondary/50 font-mono tracking-tight self-start sm:self-auto uppercase">
-                      {totalSuccesses} / {nextThreshold} sucessos
-                    </span>
-                  </div>
-                  <p className="text-xs text-text-secondary/70 font-light leading-relaxed">{mentalLevelDesc}</p>
-                  
-                  {/* Barra de Progresso */}
-                  <div className="space-y-1">
-                    <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
-                      <div 
-                        className="bg-primary-green h-full rounded-full shadow-[0_0_10px_rgba(110,231,168,0.4)] transition-all duration-1000" 
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-[9px] text-text-secondary/40 font-mono">
-                      <span>Nível atual</span>
-                      <span>{progressPercent}% para o próximo nível</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-text-primary tracking-tight">
+                  Tudo bem, recomeçar é o caminho.
+                </h4>
+                <p className="text-xs text-primary-green/90 uppercase tracking-widest font-bold">
+                  Sua mente continua evoluindo
+                </p>
+              </div>
 
-                {/* Mapa de Calor - 28 Dias Recentes */}
-                <div className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
-                  <span className="text-[9px] font-extrabold text-text-secondary/50 uppercase tracking-widest flex items-center gap-1.5">
-                    <Calendar size={12} className="text-primary-green/60" /> Mapa de Consistência (Últimos 28 Dias)
-                  </span>
-                  
-                  <div className="grid grid-cols-7 gap-2">
-                    {last28Days.map((day, idx) => {
-                      const colorClass = {
-                        success: 'bg-primary-green/30 border-primary-green text-primary-green font-bold',
-                        relapse: 'bg-amber-500/20 border-amber-500 text-amber-500 font-bold',
-                        none: 'bg-white/5 border-white/5 text-text-secondary/30'
-                      }[day.status];
+              <p className="text-xs text-text-secondary/80 leading-relaxed font-light">
+                Recaída faz parte de qualquer processo de evolução — o que realmente importa é ter retornado agora. Seus <span className="font-bold text-primary-green">{supportiveModal.totalCleanDays} dias limpos</span> acumulados no total não somem. Recomeçar agora mesmo já é uma imensa vitória. Sentir culpa só alimenta o ciclo de fuga; estamos juntos nesse reinício. 💚
+              </p>
 
-                      return (
-                        <div
-                          key={idx}
-                          title={`${day.dateStr}: ${day.status === 'success' ? 'Controle' : day.status === 'relapse' ? 'Lapso' : 'Sem registro'}`}
-                          className={`aspect-square sm:p-2 flex flex-col items-center justify-center rounded-lg border text-[10px] transition-all hover:scale-105 ${colorClass}`}
-                        >
-                          <span className="font-mono">{day.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center justify-center gap-4 text-[9px] text-text-secondary/40 font-mono pt-1">
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-primary-green/30 border border-primary-green rounded-full inline-block" /> Controle</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-amber-500/20 border border-amber-500 rounded-full inline-block" /> Lapso</span>
-                    <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-white/5 border border-white/5 rounded-full inline-block" /> Sem Registro</span>
-                  </div>
-                </div>
-
-                {/* Lista Geral de Registros */}
-                <div className="space-y-3">
-                  <span className="text-[9px] font-extrabold text-text-secondary/50 uppercase tracking-widest flex items-center gap-1.5 px-1">
-                    <BarChart2 size={12} className="text-primary-green/60" /> Histórico Geral de Check-ins
-                  </span>
-
-                  <div className="space-y-2.5 max-h-[25vh] overflow-y-auto pr-1 style-scrollbar">
-                    {dataStore.avoidanceCheckins.length === 0 ? (
-                      <p className="text-center font-light text-text-secondary/40 italic py-6 text-xs">Nenhum check-in registrado no banco de dados.</p>
-                    ) : (
-                      dataStore.avoidanceCheckins.map((checkin) => {
-                        const relatedHabit = avoidHabits.find(h => h.id === checkin.habit_id);
-                        const displayDate = new Date(checkin.checkin_date).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        });
-
-                        const periodLabel = {
-                          morning: 'Manhã',
-                          afternoon: 'Tarde',
-                          evening: 'Noite',
-                          window: 'Janela'
-                        }[checkin.checkin_period] || checkin.checkin_period;
-
-                        return (
-                          <div
-                            key={checkin.id}
-                            className="flex items-center justify-between p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-colors"
-                          >
-                            <div className="space-y-0.5">
-                              <h5 className="text-xs font-semibold text-text-primary">
-                                {relatedHabit?.name || 'Comportamento Excluído'}
-                              </h5>
-                              <p className="text-[9px] text-text-secondary/50 font-mono uppercase tracking-widest">
-                                {displayDate} • {periodLabel}
-                              </p>
-                            </div>
-                            
-                            <span className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                              checkin.status === 'success'
-                                ? 'bg-primary-green/10 text-primary-green border border-primary-green/15 animate-pulse'
-                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/15'
-                            }`}>
-                              {checkin.status === 'success' ? '✓ Controle' : '⚠ Lapso'}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-2 flex justify-end">
-                  <button
-                    onClick={() => setShowHistoryModal(false)}
-                    className="px-6 py-3 border border-border-white rounded-2xl text-[10px] uppercase tracking-widest font-bold hover:bg-white/5 transition-all cursor-pointer"
-                  >
-                    Fechar Histórico
-                  </button>
-                </div>
-              </motion.div>
+              <button
+                onClick={() => setSupportiveModal(null)}
+                className="w-full py-3 bg-primary-green text-background hover:brightness-115 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer shadow-md"
+              >
+                RECOMEÇAR CONSCIENTEMENTE
+              </button>
             </motion.div>
-          );
-        })()}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Delete confirmation overlay */}
@@ -753,21 +668,21 @@ export const AvoidanceSection = () => {
                 <ShieldAlert size={22} className="animate-bounce" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-bold text-text-primary tracking-tight">Remover módulo mental?</h3>
+                <h3 className="text-lg font-bold text-text-primary tracking-tight">Remover as configurações?</h3>
                 <p className="text-xs text-text-secondary font-light leading-relaxed">
-                  Tem certeza que deseja apagar o registro de autocontrole para <span className="font-semibold text-primary-green">{showDeleteConfirm.name}</span>? Esta ação é definitiva.
+                  Tem certeza que deseja apagar o registro de autocontrole para <span className="font-semibold text-primary-green">{showDeleteConfirm.name}</span>? Seus relatórios anteriores serão desvinculados do painel.
                 </p>
               </div>
               <div className="flex gap-3 w-full">
                 <button
                   onClick={() => handleDeleteHabit(showDeleteConfirm.id)}
-                  className="flex-1 py-3.5 bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-2xl font-bold uppercase tracking-widest text-[9px] transition-colors cursor-pointer"
+                  className="flex-1 py-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-2xl font-bold uppercase tracking-widest text-[9px] transition-colors cursor-pointer"
                 >
                   Sim, apagar
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 py-3.5 border border-border-white text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[9px] hover:bg-white/5 transition-colors cursor-pointer"
+                  className="flex-1 py-3 border border-border-white text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[9px] hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -775,6 +690,193 @@ export const AvoidanceSection = () => {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Premium History modal */}
+      <AnimatePresence>
+        {showHistoryModal && (() => {
+          const totalCheckinsList = dataStore.avoidanceCheckins;
+          const totalCheckinsObj = totalCheckinsList.filter(c => c.status !== 'pending');
+          const totalCheckins = totalCheckinsObj.length;
+          const successes = totalCheckinsObj.filter(c => c.status === 'success').length;
+          const relapses = totalCheckinsObj.filter(c => c.status === 'relapse').length;
+          const successRate = totalCheckins > 0 ? Math.round((successes / totalCheckins) * 100) : 100;
+
+          // Estimate streaks and total successes
+          let bestOverallStreak = 0;
+          avoidHabits.forEach(ah => {
+            const hMetrics = calculateAvoidanceMetrics(ah, totalCheckinsList);
+            bestOverallStreak = Math.max(bestOverallStreak, hMetrics.diasLimpoSeguidos);
+          });
+
+          // Leveling
+          let mentalLevel = "Estágio 1 — Consciência Inicial";
+          let mentalLevelDesc = "Você está começando a rastrear seus rituais e fortalecendo o córtex pré-frontal.";
+          let nextThreshold = 10;
+          let prevThreshold = 0;
+
+          if (successes >= 60) {
+            mentalLevel = "Estágio 5 — Consciência Inabalável";
+            mentalLevelDesc = "Controle extremo sobre impulsos. Conexões neurais de recompensa totalmente recalibradas.";
+            nextThreshold = 120;
+            prevThreshold = 60;
+          } else if (successes >= 30) {
+            mentalLevel = "Estágio 4 — Autonomia Psicológica";
+            mentalLevelDesc = "Nível extraordinário de resiliência a gatilhos cotidianos estressores.";
+            nextThreshold = 60;
+            prevThreshold = 30;
+          } else if (successes >= 15) {
+            mentalLevel = "Estágio 3 — Foco Reestruturado";
+            mentalLevelDesc = "Seus novos caminhos neurais de recompensa estão ganhando resistência.";
+            nextThreshold = 30;
+            prevThreshold = 15;
+          } else if (successes >= 5) {
+            mentalLevel = "Estágio 2 — Resistência Consistente";
+            mentalLevelDesc = "Sua capacidade de identificar e desviar do impulso está se consolidando.";
+            nextThreshold = 15;
+            prevThreshold = 5;
+          }
+
+          const progressPercent = Math.min(100, Math.round(((successes - prevThreshold) / (nextThreshold - prevThreshold)) * 100));
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="w-full max-w-2xl bg-surface border border-white/5 rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-2xl relative max-h-[90vh] overflow-y-auto style-scrollbar"
+              >
+                <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-bold text-text-primary tracking-tight flex items-center gap-2">
+                      <Brain className="text-primary-green animate-pulse" size={24} /> Relatórios de Autocontrole
+                    </h3>
+                    <p className="text-xs text-text-secondary/60">Análise de consistência e estágio de resiliência psicológica mental</p>
+                  </div>
+                  <button
+                    onClick={() => setShowHistoryModal(false)}
+                    className="p-2 text-text-secondary/40 hover:text-text-primary hover:bg-white/5 rounded-full transition-all cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center">
+                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Consistência</span>
+                    <span className="text-2xl font-semibold text-primary-green font-mono">{successRate}%</span>
+                  </div>
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center">
+                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Maior Streak</span>
+                    <span className="text-2xl font-semibold text-text-primary font-mono">{bestOverallStreak}d</span>
+                  </div>
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center">
+                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Resistências</span>
+                    <span className="text-2xl font-semibold text-primary-green font-mono">{successes}</span>
+                  </div>
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-center">
+                    <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-widest block">Recaídas</span>
+                    <span className="text-2xl font-semibold text-red-400 font-mono">{relapses}</span>
+                  </div>
+                </div>
+
+                <div className="p-5 bg-gradient-to-r from-primary-green/5 to-transparent border border-primary-green/15 rounded-2xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                    <div>
+                      <span className="text-[9px] font-extrabold text-[#6ee7a8] uppercase tracking-widest flex items-center gap-1">
+                        <Sparkles size={11} className="animate-pulse" /> Estágio de Resiliência Ativo
+                      </span>
+                      <h4 className="text-base font-bold text-text-primary">{mentalLevel}</h4>
+                    </div>
+                    <span className="text-[10px] text-text-secondary/50 font-mono uppercase">
+                      {successes} / {nextThreshold} vitórias
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-secondary/70 font-light leading-relaxed">{mentalLevelDesc}</p>
+                  
+                  <div className="space-y-1">
+                    <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-primary-green h-full rounded-full transition-all duration-1000" 
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Historical records list */}
+                <div className="space-y-3">
+                  <span className="text-[9px] font-extrabold text-text-secondary/50 uppercase tracking-widest flex items-center gap-1.5 px-1">
+                    <BarChart2 size={12} className="text-primary-green/60" /> Histórico Operacional de Lançamentos
+                  </span>
+
+                  <div className="space-y-2.5 max-h-[30vh] overflow-y-auto pr-1 style-scrollbar">
+                    {totalCheckinsList.length === 0 ? (
+                      <p className="text-center font-light text-text-secondary/40 italic py-6 text-xs">Nenhum check-in registrado.</p>
+                    ) : (
+                      totalCheckinsList.map((checkin) => {
+                        const relatedHabit = avoidHabits.find(h => h.id === checkin.habit_id);
+                        const displayDate = new Date(checkin.checkin_date).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        });
+
+                        const periodLabel = {
+                          morning: 'Manhã',
+                          afternoon: 'Tarde',
+                          evening: 'Noite',
+                          window: 'Janela'
+                        }[checkin.checkin_period] || checkin.checkin_period;
+
+                        const isSuccess = checkin.status === 'success';
+
+                        return (
+                          <div
+                            key={checkin.id}
+                            className="flex items-center justify-between p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-colors"
+                          >
+                            <div className="space-y-0.5">
+                              <h5 className="text-xs font-semibold text-text-primary">
+                                {relatedHabit?.name || 'Comportamento Excluído'}
+                              </h5>
+                              <p className="text-[9px] text-text-secondary/50 font-mono uppercase">
+                                {displayDate} • {periodLabel}
+                              </p>
+                            </div>
+                            
+                            <span className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                              isSuccess
+                                ? 'bg-primary-green/10 text-primary-green border border-primary-green/15'
+                                : 'bg-red-400/10 text-red-400 border border-red-400/15'
+                            }`}>
+                              {isSuccess ? '✓ Resisti' : '⚠ Caí'}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={() => setShowHistoryModal(false)}
+                    className="px-6 py-3 border border-border-white rounded-2xl text-[10px] uppercase tracking-widest font-bold hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </section>
   );
