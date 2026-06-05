@@ -358,7 +358,7 @@ export const RecentNotes = () => {
                                 onClick={() => handleUpdateNote(note.id)}
                                 className="px-3 py-1.5 bg-primary-green text-background rounded-lg text-[9px] font-bold uppercase tracking-widest transition-colors animate-pulse"
                               >
-                                Salvar
+                                Ok
                               </button>
                             </div>
                           </div>
@@ -479,7 +479,7 @@ export const RecentNotes = () => {
                     disabled={!noteContent}
                     className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px]"
                   >
-                    Salvar Anotação
+                    Ok
                   </button>
                 </div>
               )}
@@ -670,7 +670,7 @@ export const RecentNotes = () => {
                               onClick={() => handleUpdateNote(note.id)}
                               className="px-4 py-2 bg-primary-green text-background rounded-xl text-xs font-bold uppercase tracking-widest transition-colors min-h-[44px] animate-pulse"
                             >
-                              Salvar
+                              Ok
                             </button>
                           </div>
                         </div>

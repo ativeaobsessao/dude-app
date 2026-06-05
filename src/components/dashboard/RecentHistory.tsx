@@ -528,7 +528,7 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ session, onClose })
             disabled={isSaving}
             className="px-5 py-2 bg-primary-green text-background text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50"
           >
-            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+            {isSaving ? 'Ok...' : 'Ok'}
           </button>
         </div>
       </motion.div>

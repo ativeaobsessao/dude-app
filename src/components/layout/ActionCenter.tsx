@@ -213,11 +213,93 @@ export const ActionCenter = () => {
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
   const [newTaskInput, setNewTaskInput] = useState('');
 
+  // Helper patterns for [HH] | [MM] layout
+  const [recurrenceTimeHours, setRecurrenceTimeHours] = useState('09');
+  const [recurrenceTimeMinutes, setRecurrenceTimeMinutes] = useState('00');
+
+  useEffect(() => {
+    const [h, m] = recurrenceTime.split(':');
+    if (h && m) {
+      setRecurrenceTimeHours(h.padStart(2, '0'));
+      setRecurrenceTimeMinutes(m.padStart(2, '0'));
+    }
+  }, [recurrenceTime]);
+
+  const handleRecurrenceHoursChange = (h: string) => {
+    const val = h.replace(/\D/g, '');
+    const num = Math.min(23, parseInt(val) || 0);
+    const hs = String(num).padStart(2, '0');
+    setRecurrenceTimeHours(hs);
+    setRecurrenceTime(`${hs}:${recurrenceTimeMinutes}`);
+  };
+
+  const handleRecurrenceMinutesChange = (m: string) => {
+    const val = m.replace(/\D/g, '');
+    const num = Math.min(59, parseInt(val) || 0);
+    const ms = String(num).padStart(2, '0');
+    setRecurrenceTimeMinutes(ms);
+    setRecurrenceTime(`${recurrenceTimeHours}:${ms}`);
+  };
+
   // Anti-Vício States
   const [avoidanceName, setAvoidanceName] = useState('');
   const [avoidanceScope, setAvoidanceScope] = useState<'full_day' | 'time_window'>('full_day');
   const [avoidanceStart, setAvoidanceStart] = useState('14:00');
   const [avoidanceEnd, setAvoidanceEnd] = useState('18:00');
+
+  const [avoidanceStartHours, setAvoidanceStartHours] = useState('14');
+  const [avoidanceStartMinutes, setAvoidanceStartMinutes] = useState('00');
+  const [avoidanceEndHours, setAvoidanceEndHours] = useState('18');
+  const [avoidanceEndMinutes, setAvoidanceEndMinutes] = useState('00');
+
+  useEffect(() => {
+    const [h, m] = avoidanceStart.split(':');
+    if (h && m) {
+      setAvoidanceStartHours(h.padStart(2, '0'));
+      setAvoidanceStartMinutes(m.padStart(2, '0'));
+    }
+  }, [avoidanceStart]);
+
+  useEffect(() => {
+    const [h, m] = avoidanceEnd.split(':');
+    if (h && m) {
+      setAvoidanceEndHours(h.padStart(2, '0'));
+      setAvoidanceEndMinutes(m.padStart(2, '0'));
+    }
+  }, [avoidanceEnd]);
+
+  const handleAvoidanceStartHoursChange = (h: string) => {
+    const val = h.replace(/\D/g, '');
+    const num = Math.min(23, parseInt(val) || 0);
+    const hs = String(num).padStart(2, '0');
+    setAvoidanceStartHours(hs);
+    setAvoidanceStart(`${hs}:${avoidanceStartMinutes}`);
+  };
+
+  const handleAvoidanceStartMinutesChange = (m: string) => {
+    const val = m.replace(/\D/g, '');
+    const num = Math.min(59, parseInt(val) || 0);
+    const ms = String(num).padStart(2, '0');
+    setAvoidanceStartMinutes(ms);
+    setAvoidanceStart(`${avoidanceStartHours}:${ms}`);
+  };
+
+  const handleAvoidanceEndHoursChange = (h: string) => {
+    const val = h.replace(/\D/g, '');
+    const num = Math.min(23, parseInt(val) || 0);
+    const hs = String(num).padStart(2, '0');
+    setAvoidanceEndHours(hs);
+    setAvoidanceEnd(`${hs}:${avoidanceEndMinutes}`);
+  };
+
+  const handleAvoidanceEndMinutesChange = (m: string) => {
+    const val = m.replace(/\D/g, '');
+    const num = Math.min(59, parseInt(val) || 0);
+    const ms = String(num).padStart(2, '0');
+    setAvoidanceEndMinutes(ms);
+    setAvoidanceEnd(`${avoidanceEndHours}:${ms}`);
+  };
+
   const [avoidanceDays, setAvoidanceDays] = useState<string[]>([]);
   const [avoidanceIntensity, setAvoidanceIntensity] = useState<'light' | 'balanced' | 'strong'>('balanced');
   const [editingAvoidanceId, setEditingAvoidanceId] = useState<string | null>(null);
@@ -1130,7 +1212,7 @@ export const ActionCenter = () => {
                           onKeyDown={e => e.key === 'Enter' && handleAddProject()}
                         />
                       </div>
-                      <button onClick={handleAddProject} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Salvar Projeto</button>
+                      <button onClick={handleAddProject} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Ok</button>
                     </div>
                     <div className="flex justify-center">
                       <button onClick={() => setShowListModal('projects')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todos os projetos</button>
@@ -1250,7 +1332,7 @@ export const ActionCenter = () => {
                         </div>
                       )}
 
-                      <button onClick={handleAddActivity} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Salvar Atividade</button>
+                      <button onClick={handleAddActivity} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Ok</button>
                     </div>
                     <div className="flex justify-center">
                       <button onClick={() => setShowListModal('activities')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todas as atividades</button>
@@ -1311,7 +1393,7 @@ export const ActionCenter = () => {
                           onChange={e => setNoteText(e.target.value)}
                         />
                       </div>
-                      <button onClick={handleAddNote} disabled={!noteText} className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] transition-all min-h-[44px] disabled:opacity-20 touch-manipulation">Salvar Registro</button>
+                      <button onClick={handleAddNote} disabled={!noteText} className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] transition-all min-h-[44px] disabled:opacity-20 touch-manipulation">Ok</button>
                     </div>
 
                     <div className="flex justify-center text-center pb-20">
@@ -1631,25 +1713,99 @@ export const ActionCenter = () => {
                             exit={{ opacity: 0, height: 0 }}
                             className="grid grid-cols-2 gap-4 overflow-hidden"
                           >
-                            <div className="flex flex-col">
+                            <div className="space-y-1 text-left">
                               <label className={labelClasses}>Início da Janela</label>
-                              <input
-                                type="text"
-                                value={avoidanceStart}
-                                onChange={(e) => setAvoidanceStart(e.target.value)}
-                                placeholder="14:00"
-                                className={inputClasses}
-                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1 text-left">
+                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                  <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={2}
+                                    enterKeyHint="done"
+                                    placeholder="14"
+                                    className={`${inputClasses} text-center text-xl font-bold`}
+                                    value={avoidanceStartHours === '00' && avoidanceStartMinutes === '00' ? '' : avoidanceStartHours}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => handleAvoidanceStartHoursChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1 text-left">
+                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                  <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={2}
+                                    enterKeyHint="done"
+                                    placeholder="00"
+                                    className={`${inputClasses} text-center text-xl font-bold`}
+                                    value={avoidanceStartMinutes}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => handleAvoidanceStartMinutesChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex flex-col">
+                            <div className="space-y-1 text-left">
                               <label className={labelClasses}>Fim da Janela</label>
-                              <input
-                                type="text"
-                                value={avoidanceEnd}
-                                onChange={(e) => setAvoidanceEnd(e.target.value)}
-                                placeholder="18:00"
-                                className={inputClasses}
-                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1 text-left">
+                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                  <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={2}
+                                    enterKeyHint="done"
+                                    placeholder="18"
+                                    className={`${inputClasses} text-center text-xl font-bold`}
+                                    value={avoidanceEndHours === '00' && avoidanceEndMinutes === '00' ? '' : avoidanceEndHours}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => handleAvoidanceEndHoursChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1 text-left">
+                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                  <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={2}
+                                    enterKeyHint="done"
+                                    placeholder="00"
+                                    className={`${inputClasses} text-center text-xl font-bold`}
+                                    value={avoidanceEndMinutes}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => handleAvoidanceEndMinutesChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        (e.target as HTMLInputElement).blur();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -1719,7 +1875,7 @@ export const ActionCenter = () => {
                         onClick={handleAddAvoidance}
                         className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)] cursor-pointer mt-4"
                       >
-                        {editingAvoidanceId ? 'SALVAR ALTERAÇÕES' : 'SALVAR AUTOCONTROLE'}
+                        Ok
                       </button>
 
                       <button
@@ -1926,46 +2082,52 @@ export const ActionCenter = () => {
                                     </div>
                                   </div>
 
-                                  {/* Time Input */}
-                                  <div className="space-y-1">
+                                  {/* Horário Fixo de Execução (HH | MM CONTAINER) */}
+                                  <div className="space-y-1 text-left">
                                     <label className={labelClasses}>Horário Fixo de Execução</label>
-                                    <div className="flex gap-2 items-center">
-                                      <div className="relative flex-1">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      {/* HORAS */}
+                                      <div className="space-y-1 text-left">
+                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
                                         <input
-                                          type="text"
-                                          placeholder="09:00"
-                                          maxLength={5}
-                                          value={recurrenceTime}
-                                          onClick={(e) => (e.target as HTMLInputElement).select()}
-                                          onChange={(e) => {
-                                            let val = e.target.value.replace(/\D/g, '');
-                                            if (val.length > 4) val = val.slice(0, 4);
-                                            if (val.length > 2) {
-                                              val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                                          type="tel"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          maxLength={2}
+                                          enterKeyHint="done"
+                                          placeholder="09"
+                                          className={`${inputClasses} text-center text-xl font-bold`}
+                                          value={recurrenceTimeHours === '00' && recurrenceTimeMinutes === '00' ? '' : recurrenceTimeHours}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => handleRecurrenceHoursChange(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              (e.target as HTMLInputElement).blur();
                                             }
-                                            setRecurrenceTime(val);
                                           }}
-                                          onBlur={() => {
-                                            // Handle validation & autocorrect on Blur
-                                            let clean = recurrenceTime.replace(/\D/g, '');
-                                            if (clean.length === 0) {
-                                              setRecurrenceTime('09:00');
-                                              return;
+                                        />
+                                      </div>
+                                      {/* MINUTOS */}
+                                      <div className="space-y-1 text-left">
+                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                        <input
+                                          type="tel"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          maxLength={2}
+                                          enterKeyHint="done"
+                                          placeholder="00"
+                                          className={`${inputClasses} text-center text-xl font-bold`}
+                                          value={recurrenceTimeMinutes}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => handleRecurrenceMinutesChange(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              (e.target as HTMLInputElement).blur();
                                             }
-                                            if (clean.length < 4) {
-                                              clean = clean.padStart(4, '0');
-                                            }
-                                            let hours = parseInt(clean.slice(0, 2), 10);
-                                            let minutes = parseInt(clean.slice(2, 4), 10);
-
-                                            if (isNaN(hours) || hours > 23) hours = 9;
-                                            if (isNaN(minutes) || minutes > 59) minutes = 0;
-
-                                            const hs = String(hours).padStart(2, '0');
-                                            const ms = String(minutes).padStart(2, '0');
-                                            setRecurrenceTime(`${hs}:${ms}`);
                                           }}
-                                          className={`${inputClasses} font-mono tracking-widest text-center text-lg`}
                                         />
                                       </div>
                                     </div>
@@ -1980,7 +2142,7 @@ export const ActionCenter = () => {
                         </div>
 
                         <button onClick={handleAddHabit} className="w-full py-5 bg-primary-green hover:brightness-110 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-[0_0_30px_rgba(110,231,168,0.2)] cursor-pointer">
-                          {editingHabitId ? 'SALVAR ALTERAÇÕES' : 'SALVAR HÁBITO'}
+                          Ok
                         </button>
                       </div>
                     </div>

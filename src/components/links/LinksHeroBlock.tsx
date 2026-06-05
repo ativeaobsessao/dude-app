@@ -274,7 +274,7 @@ export const LinksHeroBlock = () => {
                     disabled={isSaving}
                     className="flex-1 py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] disabled:opacity-50"
                   >
-                    {isSaving ? 'Salvando...' : 'Salvar'}
+                    {isSaving ? 'Ok...' : 'Ok'}
                   </button>
                 </div>
               </form>

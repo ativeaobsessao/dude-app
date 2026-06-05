@@ -179,7 +179,7 @@ export const SessionEditPanel: React.FC<SessionEditPanelProps> = ({
             color: '#6ee7b7',
           }}
         >
-          SALVAR ALTERAÇÕES
+          Ok
         </button>
       </div>
     </div>

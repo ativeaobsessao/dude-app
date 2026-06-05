@@ -139,7 +139,7 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
             disabled={isSaving}
             className="w-full py-5 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] disabled:opacity-50"
           >
-            {isSaving ? 'Salvando...' : 'Salvar Link'}
+            {isSaving ? 'Ok...' : 'Ok'}
           </button>
 
           <button

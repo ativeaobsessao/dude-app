@@ -568,7 +568,7 @@ export const HeroSection = () => {
                     }}
                     className="flex-1 py-1.5 bg-green hover:brightness-110 rounded-xl text-xs font-bold text-surface-2 uppercase cursor-pointer transition-colors"
                   >
-                    Salvar
+                    Ok
                   </button>
                 </div>
                 

@@ -855,7 +855,7 @@ export const ActiveSession = () => {
                   onClick={handleUpdateLateConfig}
                   className="flex-1 py-3 bg-primary-green text-background rounded-xl text-[10px] font-bold uppercase tracking-widest min-h-[44px]"
                 >
-                  Salvar
+                  Ok
                 </button>
               </div>
             </motion.div>
@@ -951,7 +951,7 @@ export const ActiveSession = () => {
                   onClick={handleAddNote}
                   className="flex-[2] py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_20px_40px_rgba(110,231,168,0.2)]"
                 >
-                  Salvar Anotação
+                  Ok
                 </button>
               </div>
             </motion.div>
