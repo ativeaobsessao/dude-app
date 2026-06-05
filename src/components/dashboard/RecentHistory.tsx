@@ -40,37 +40,14 @@ export const RecentHistory = () => {
   };
 
   return (
-    <section className="w-full max-w-5xl space-y-10">
-      <div className="flex items-center justify-between border-b border-border-white pb-4">
-        <span className="text-text-secondary uppercase tracking-[0.3em] text-[10px] font-bold flex items-center gap-2">
-          <History size={12} className="text-text-secondary/40" />
-          HISTÓRICO RECENTE DAS ÚLTIMAS SESSÕES PROFUNDAS
-        </span>
-      </div>
-
-      <div className="space-y-4">
-        {latestHistory.length === 0 ? (
-          <p className="text-text-secondary/30 italic text-sm font-light">Nenhum histórico operacional encontrado.</p>
-        ) : (
-          latestHistory.map(session => (
-            <HistoryRow 
-              key={session.id} 
-              session={session}
-              onDelete={handleDeleteSession}
-              onEdit={setEditingSession}
-            />
-          ))
-        )}
-      </div>
-
-      <div className="flex justify-center pt-4">
-        <button 
-          onClick={() => setShowFullHistory(true)}
-          className="w-full py-3 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-text-secondary hover:text-primary-green hover:border-primary-green/30 transition-all"
-        >
-          Ver Todo Histórico
-        </button>
-      </div>
+    <div className="w-full max-w-5xl flex justify-center py-4">
+      <button 
+        onClick={() => setShowFullHistory(true)}
+        className="w-full max-w-md py-4 px-6 bg-surface-1 border border-border-custom hover:border-white/10 rounded-2xl text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-text hover:text-green hover:shadow-[0_4px_12px_rgba(110,231,168,0.05)] transition-all flex items-center justify-center gap-2.5 group cursor-pointer"
+      >
+        <History size={13} className="text-text-dim group-hover:text-green transition-colors animate-pulse" />
+        <span>VER TODO HISTÓRICO DAS SESSÕES PROFUNDAS</span>
+      </button>
 
       {/* Full History Modal */}
       <AnimatePresence>
@@ -145,7 +122,7 @@ export const RecentHistory = () => {
           />
         )}
       </AnimatePresence>
-    </section>
+    </div>
   );
 };
 
