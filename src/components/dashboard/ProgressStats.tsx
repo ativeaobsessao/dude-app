@@ -5,7 +5,7 @@ import {
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
   Sun, CheckSquare, Brain
 } from 'lucide-react';
-import { formatHumanTime, getLocalDateString } from '../../lib/utils';
+import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { useState, useMemo } from 'react';
 import { MOODS, MOOD_LIST, MoodKey } from '../../lib/mood';
@@ -31,11 +31,15 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     avoidanceCheckins, 
     habitCompletions,
     scheduledActivities,
-    moodEntries
+    moodEntries,
+    sessionTasks
   } = useDataStore();
 
   // Selected period state
   const [period, setPeriod] = useState<PeriodType>('today');
+
+  // Selected date in Sessions History explorer
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Multi-pillar expander state
   const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | 'mood' | null>(null);
@@ -142,21 +146,24 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     return 'neutral';
   }, [period, currentPeriodMins, previousPeriodMins]);
 
-  // Supporting metrics count inside period
-  const supportingStats = useMemo(() => {
+  // Sessions filtered by selected period
+  const periodSessions = useMemo(() => {
     const targetSet = period === 'all' 
       ? null 
       : getDatesRangeSet(0, period === 'today' ? 1 : (period === 'week' ? 7 : 30));
-    const filteredSessions = targetSet 
+    return targetSet 
       ? sessions.filter(s => targetSet.has(getLocalDateString(new Date(s.started_at))))
       : sessions;
+  }, [period, sessions]);
 
-    const sessionCount = filteredSessions.length;
-    const activeProjectIds = new Set(filteredSessions.map(s => s.project_id).filter(Boolean));
+  // Supporting metrics count inside period
+  const supportingStats = useMemo(() => {
+    const sessionCount = periodSessions.length;
+    const activeProjectIds = new Set(periodSessions.map(s => s.project_id).filter(Boolean));
     const projectsCount = activeProjectIds.size;
 
     return { sessionCount, projectsCount };
-  }, [period, sessions]);
+  }, [periodSessions]);
 
   const overallDailyAverageMins = useMemo(() => {
     const focusDays = new Set(sessions.map(s => getLocalDateString(new Date(s.started_at))));
@@ -608,7 +615,10 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       return {
         dateStr: dStr,
         label: `${formatLabel}: ${mins > 0 ? `${mins}m focados` : 'Nenhum foco'}`,
-        intensity: intensityLevel
+        intensity: intensityLevel,
+        dayOfMonth: d.getDate(),
+        weekday: d.getDay(),
+        mins
       };
     });
   }, [sessions]);
@@ -1166,21 +1176,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               Uma visão completa de como você está utilizando seu tempo e construindo consistência.
             </p>
           </div>
-
-          {/* Interpretive dynamic block */}
-          <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10">
-              <Sparkles size={11} className="text-primary-green" />
-            </div>
-            <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary">
-              "{interpretiveHeadline}"
-            </p>
-          </div>
         </header>
 
         {/* PERIOD SELECTOR */}
         <div className="w-full flex">
-          <div className="w-full grid grid-cols-4 bg-white/[0.02] border border-white/5 p-1 rounded-2xl">
+          <div className="w-full grid grid-cols-4 bg-white/[0.02] border border-white/5 p-1 rounded-2xl font-sans">
             {(['today', 'week', 'month', 'all'] as PeriodType[]).map((pType) => (
               <button
                 key={pType}
@@ -1197,27 +1197,174 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </div>
 
-        {/* TODAY'S FACTUAL SUMMARY */}
-        <section className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 md:p-8 space-y-4 relative overflow-hidden text-left font-sans">
-          {/* Subtle decoration background glow */}
-          <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-primary-green/5 blur-3xl rounded-full pointer-events-none" />
+        {/* Personalized synthesis phrase */}
+        <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-center gap-3">
+          <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10 font-sans">
+            <Sparkles size={11} className="text-primary-green animate-pulse" />
+          </div>
+          <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary font-sans">
+            "{interpretiveHeadline}"
+          </p>
+        </div>
 
-          <div className="space-y-1 select-none cursor-default font-sans">
-            <span className="text-[13px] md:text-sm font-semibold tracking-wide text-text-secondary/75 uppercase block font-sans">
-              Tempo de Foco {period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'Acumulado Total'}
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-fallback font-extrabold tracking-tight text-text-primary whitespace-nowrap inline-block font-mono" style={{ fontSize: 'clamp(2.75rem, 8vw, 4rem)', fontWeight: 800 }}>
-                {formatCompactDuration(period === 'all' ? totalFocusAllTimeMins : currentPeriodMins)}
+        {/* PERIOD NUMBERS BLOCK (foco, sessões, projetos, "dias invictos", "recorde pessoal") */}
+        <div className="space-y-4">
+          <section className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 md:p-8 space-y-4 relative overflow-hidden text-left font-sans">
+            {/* Subtle decoration background glow */}
+            <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-primary-green/5 blur-3xl rounded-full pointer-events-none" />
+
+            <div className="space-y-1 select-none cursor-default font-sans">
+              <span className="text-[13px] md:text-sm font-semibold tracking-wide text-text-secondary/75 uppercase block font-sans">
+                Tempo de Foco {period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'Acumulado Total'}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-fallback font-extrabold tracking-tight text-text-primary whitespace-nowrap inline-block font-mono" style={{ fontSize: 'clamp(2.75rem, 8vw, 4rem)', fontWeight: 800 }}>
+                  {formatCompactDuration(period === 'all' ? totalFocusAllTimeMins : currentPeriodMins)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2 mt-2 font-sans">
+                <span className={`w-2 h-2 rounded-full ${supportingStats.sessionCount > 0 ? 'bg-primary-green animate-pulse' : 'bg-text-secondary/30'}`} />
+                <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary font-sans">
+                  {comparisonLine}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* METRICS BENTO GRID */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
+            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
+              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Sessões</span>
+              <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.sessionCount}</span>
+            </div>
+            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
+              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Projetos</span>
+              <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.projectsCount}</span>
+            </div>
+            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
+              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Dias Invictos</span>
+              <span className="text-2xl font-black text-primary-green font-mono mt-2">
+                {currentStreak} {currentStreak === 1 ? 'dia invicto' : 'dias invictos'}
               </span>
             </div>
-            
-            <div className="flex items-center gap-2 mt-2 font-sans">
-              <span className={`w-2 h-2 rounded-full ${supportingStats.sessionCount > 0 ? 'bg-primary-green animate-pulse' : 'bg-text-secondary/30'}`} />
-              <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary font-sans">
-                {comparisonLine}
-              </p>
+            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
+              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Recorde Pessoal</span>
+              <span className="text-2xl font-black text-text-primary font-mono mt-2">
+                {bestStreak} {bestStreak === 1 ? 'dia seguido' : 'dias seguidos'}
+              </span>
             </div>
+          </section>
+        </div>
+
+        {/* TAREFAS REALIZADAS NO DIA (migrated from HeroSection, respects generator select) */}
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+              <CheckSquare size={12} className="text-primary-green" /> Tarefas Realizadas {
+                period === 'today' ? 'no Dia' : period === 'week' ? 'na Semana' : period === 'month' ? 'no Mês' : 'no Total'
+              }
+            </h3>
+            <span className="text-[10px] md:text-xs font-mono font-medium text-text-secondary/50 bg-white/5 px-2.5 py-0.5 rounded-full">
+              {periodSessions.length} {periodSessions.length === 1 ? 'sessão' : 'sessões'}
+            </span>
+          </div>
+
+          <div className="space-y-4 text-left">
+            {periodSessions.length > 0 ? (
+              periodSessions.map(session => {
+                const resolved = resolverNomeSessao(session, habits, projects);
+                const isPartial = session.parcial === true || 
+                                 (session.actual_duration_minutes !== null && 
+                                  session.actual_duration_minutes !== undefined && 
+                                  session.actual_duration_minutes < session.duration_minutes);
+                const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                const formattedDuration = formatSessionDuration(durationToUse);
+                const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+
+                const tasks = sessionTasks.filter(t => t.session_id === session.id);
+                const completedTasks = tasks.filter(t => t.completed);
+
+                return (
+                  <div key={session.id} className="flex gap-3 text-left items-start border-b border-white/5 pb-3 last:border-b-0 last:pb-0 font-sans">
+                    <CheckSquare 
+                      size={14} 
+                      className="shrink-0 mt-1" 
+                      style={{ color: isPartial ? 'var(--amber)' : '#10b981' }}
+                    />
+                    <div className="flex-1 min-w-0 font-sans">
+                      <div className="flex items-center gap-2 flex-wrap font-sans">
+                        <span className="text-sm font-semibold text-text-primary truncate">
+                          {resolved.titulo}
+                        </span>
+                        <span className="text-text-secondary/30">—</span>
+                        <span className="text-xs text-text-secondary/65 truncate font-light uppercase tracking-widest font-mono font-bold">
+                          {resolved.projeto}
+                        </span>
+                        {session.scheduled_activity_id && (
+                          <span 
+                            className="inline-flex items-center font-bold font-mono"
+                            style={{
+                              backgroundColor: 'rgba(167, 139, 250, 0.12)',
+                              border: '0.5px solid rgba(167, 139, 250, 0.25)',
+                              color: 'var(--violet)',
+                              fontSize: '9px',
+                              letterSpacing: '0.12em',
+                              textTransform: 'uppercase',
+                              padding: '2px 6px',
+                              borderRadius: '999px',
+                              lineHeight: '1'
+                            }}
+                          >
+                            AGENDADA
+                          </span>
+                        )}
+                        {isPartial && (
+                          <span 
+                            className="inline-flex items-center font-bold font-mono"
+                            style={{
+                              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+                              border: '0.5px solid rgba(251, 191, 36, 0.25)',
+                              color: 'var(--amber)',
+                              fontSize: '9px',
+                              letterSpacing: '0.12em',
+                              textTransform: 'uppercase',
+                              padding: '2px 6px',
+                              borderRadius: '999px',
+                              lineHeight: '1'
+                            }}
+                          >
+                            INCOMPLETA
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-secondary/50 font-mono">
+                        <span>{timeRange}</span>
+                        <span className="text-text-secondary/30">·</span>
+                        <span>{formattedDuration}</span>
+                      </div>
+
+                      {/* Checklist */}
+                      {completedTasks.length > 0 && (
+                        <div className="mt-2 space-y-1 pl-1 font-sans">
+                          {completedTasks.map(task => (
+                            <div key={task.id} className="flex items-center gap-2 text-xs text-text-secondary/80 font-sans">
+                              <span className="text-primary-green select-none text-[13px]">☑</span>
+                              <span className="line-through decoration-white/10 text-text-secondary/50 font-sans">{task.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-xs md:text-sm text-text-secondary/40 italic font-light pt-2 text-center font-sans">
+                Nenhuma sessão realizada neste período.
+              </p>
+            )}
           </div>
         </section>
 
@@ -1251,26 +1398,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 </div>
               ))
             )}
-          </div>
-        </section>
-
-        {/* METRICS BENTO GRID */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
-          <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-            <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Sessões</span>
-            <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.sessionCount}</span>
-          </div>
-          <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-            <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Projetos</span>
-            <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.projectsCount}</span>
-          </div>
-          <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-            <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Sequência Atual</span>
-            <span className="text-2xl font-black text-primary-green font-mono mt-2">{currentStreak} dia{currentStreak !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-            <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Recorde Pessoal</span>
-            <span className="text-2xl font-black text-text-primary font-mono mt-2">{bestStreak} dia{bestStreak !== 1 ? 's' : ''}</span>
           </div>
         </section>
 
@@ -1367,6 +1494,214 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               </p>
             )}
           </div>
+        </section>
+
+        {/* SEU HISTÓRICO DE SESSÕES PROFUNDAS POR DATAS */}
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
+          <div className="flex flex-col space-y-1 select-none">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5">
+              <Calendar size={12} className="text-primary-green" /> Seu Histórico de Sessões Profundas por datas
+            </h3>
+            <span className="text-xs text-text-secondary/60 leading-normal">
+              Toque em qualquer dia no mapa de 30 dias abaixo ou use o seletor de data para acessar e detalhar sessões e tarefas de qualquer período.
+            </span>
+          </div>
+
+          {/* Redesigned Clickable Heatmap (30 days) with larger calendar-like cells */}
+          <div className="space-y-3">
+            <span className="text-[10px] uppercase tracking-wider text-text-secondary/50 font-bold block">
+              Mapa do Foco (Últimos 30 Dias)
+            </span>
+            
+            <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-10 gap-2">
+              {heatmapCells30.map((cell) => {
+                const isSelected = selectedDate === cell.dateStr;
+                const bgClass = {
+                  0: 'bg-white/[0.01] border-white/5 hover:bg-white/[0.04]',
+                  1: 'bg-primary-green/15 border-primary-green/10 hover:bg-primary-green/25',
+                  2: 'bg-primary-green/35 border-primary-green/30 hover:bg-primary-green/45',
+                  3: 'bg-primary-green/65 border-primary-green/60 hover:bg-primary-green/75',
+                  4: 'bg-primary-green border-primary-green/90 hover:brightness-110'
+                }[cell.intensity];
+
+                return (
+                  <button
+                    key={cell.dateStr}
+                    onClick={() => setSelectedDate(cell.dateStr)}
+                    className={`aspect-square p-2 rounded-xl border flex flex-col justify-between transition-all duration-150 cursor-pointer ${bgClass} ${
+                      isSelected 
+                        ? 'ring-2 ring-primary-green ring-offset-2 ring-offset-background border-primary-green scale-[1.03] shadow-[0_0_15px_rgba(110,231,168,0.25)]' 
+                        : ''
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono font-black block text-left text-text-primary">
+                      {cell.dayOfMonth}
+                    </span>
+                    <span className="text-[8px] font-sans font-medium text-text-secondary/70 truncate block text-left w-full">
+                      {cell.mins > 0 ? `${cell.mins}m` : '0m'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Heatmap Legend */}
+            <div className="flex items-center justify-between text-[10px] font-medium text-text-secondary/50 pt-1 border-t border-white/5">
+              <span>Menos foco</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-white/[0.01] border border-white/5 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/15 border border-primary-green/10 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/35 border border-primary-green/30 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/65 border border-primary-green/60 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green border border-primary-green rounded-sm" />
+                <span>Mais foco</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Date Picker select details */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.01] border border-white/5 p-4 rounded-2xl">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-bold text-text-secondary/70 uppercase tracking-wide font-sans">Ir para uma data histórica</span>
+              <p className="text-[10px] text-text-secondary/50 leading-tight font-sans">Escolha qualquer dia anterior para auditar.</p>
+            </div>
+            
+            <input 
+              type="date"
+              value={selectedDate || ''}
+              onChange={(e) => setSelectedDate(e.target.value || null)}
+              className="bg-background/80 border border-white/10 rounded-xl px-4 py-2 text-xs text-text-primary font-mono focus:border-primary-green focus:outline-none transition-all cursor-pointer shadow-inner shrink-0"
+            />
+          </div>
+
+          {/* Expanding Details Block */}
+          <AnimatePresence mode="wait">
+            {selectedDate && (() => {
+              const formattedDateString = (() => {
+                try {
+                  const parts = selectedDate.split('-');
+                  const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                  return dObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+                } catch {
+                  return selectedDate;
+                }
+              })();
+
+              const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
+              const dayMins = daySessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
+
+              return (
+                <motion.div
+                  key={selectedDate}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="bg-white/[0.015] border border-primary-green/10 rounded-2.5xl p-5 space-y-4 text-left"
+                >
+                  <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-primary-green font-mono">
+                        Auditoria de Data
+                      </span>
+                      <h4 className="text-sm font-bold text-text-primary">
+                        {formattedDateString}
+                      </h4>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-black text-text-primary block font-mono">
+                        {dayMins} min
+                      </span>
+                      <span className="text-[10px] text-text-secondary/50 block font-light">
+                        Tempo total focado
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 font-sans">
+                    {daySessions.length > 0 ? (
+                      daySessions.map(session => {
+                        const resolved = resolverNomeSessao(session, habits, projects);
+                        const isPartial = session.parcial === true || 
+                                         (session.actual_duration_minutes !== null && 
+                                          session.actual_duration_minutes !== undefined && 
+                                          session.actual_duration_minutes < session.duration_minutes);
+                        const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                        const formattedDuration = formatSessionDuration(durationToUse);
+                        const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+
+                        const tasks = sessionTasks.filter(t => t.session_id === session.id);
+                        const completedTasks = tasks.filter(t => t.completed);
+
+                        return (
+                          <div key={session.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-text-primary">
+                                {resolved.titulo}
+                              </span>
+                              <span className="text-text-secondary/40 text-[10px]">•</span>
+                              <span className="text-[10px] text-text-secondary/70 uppercase tracking-wider font-semibold font-mono">
+                                {resolved.projeto}
+                              </span>
+                              {isPartial && (
+                                <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
+                                  Incompleta
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] text-text-secondary/50 font-mono flex items-center gap-2">
+                              <span>Horário: {timeRange}</span>
+                              <span>•</span>
+                              <span>Duração: {formattedDuration}</span>
+                            </div>
+
+                            {completedTasks.length > 0 && (
+                              <div className="space-y-1 pl-1 border-t border-white/5 pt-2 mt-1">
+                                <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
+                                  Tarefas Completas na Sessão:
+                                </span>
+                                {completedTasks.map(task => (
+                                  <div key={task.id} className="flex items-center gap-1.5 text-[11px] text-text-secondary/80">
+                                    <span className="text-primary-green select-none text-xs">☑</span>
+                                    <span className="line-through decoration-white/10 text-text-secondary/50">{task.description}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs text-text-secondary/40 italic font-light py-4 text-center">
+                        Nenhuma sessão realizada neste dia. O descanso também faz parte do processo consciente!
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-white/5">
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="px-4 py-2 bg-white/[0.03] border border-white/5 hover:bg-white/5 hover:border-primary-green/20 rounded-xl text-[10px] uppercase font-bold tracking-wider transition-all cursor-pointer text-text-primary"
+                    >
+                      Voltar para Visão Geral
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
+
+          {/* Bottom section controls with a general list clear / reset button */}
+          {selectedDate && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary-green/10 border border-primary-green/20 hover:bg-primary-green/15 rounded-2xl text-[11px] uppercase font-bold tracking-wider transition-all cursor-pointer text-primary-green"
+              >
+                Voltar
+              </button>
+            </div>
+          )}
         </section>
 
         {/* PILLARS COLLAPSIBLE SECTIONS */}
@@ -2083,55 +2418,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                   </div>
                 );
               })}
-            </div>
-          </div>
-        </section>
-
-        {/* HEATMAP AT THE BOTTOM OF SCROLL (LAST 30 DAYS ONLY) */}
-        <section className="space-y-4 pt-4 border-t border-white/5 font-sans font-sans">
-          <div className="flex flex-col space-y-1 font-sans">
-            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-              <Calendar size={12} className="text-primary-green" /> Mapa do Foco Diário de 30 dias
-            </h3>
-            <span className="text-xs md:text-[13px] text-text-secondary/60 leading-normal block font-sans">
-              Representação visual compacta da intensidade de foco diário nos últimos 30 dias.
-            </span>
-          </div>
-
-          <div id="30-days-focus-heatmap" className="bg-white/[0.01] border border-white/5 p-5 rounded-2.5xl space-y-4 font-sans font-sans">
-            <div className="select-none py-1 pr-1 font-sans">
-              <div className="flex flex-row justify-between gap-[2px] xs:gap-[3px] sm:gap-[5px] w-full font-sans">
-                {heatmapCells30.map((cell, idx) => {
-                  const bgClass = {
-                    0: 'bg-white/[0.01] border-white/[0.02]',
-                    1: 'bg-primary-green/15 border-primary-green/10 hover:bg-primary-green/30 hover:scale-105',
-                    2: 'bg-primary-green/35 border-primary-green/30 hover:bg-primary-green/50 hover:scale-105',
-                    3: 'bg-primary-green/65 border-primary-green/60 hover:bg-primary-green/80 hover:scale-105',
-                    4: 'bg-primary-green border-primary-green/100 hover:brightness-110 hover:scale-105 hover:shadow-[0_0_8px_rgba(110,231,168,0.4)]'
-                  }[cell.intensity];
-
-                  return (
-                    <div
-                      key={idx}
-                      title={cell.label}
-                      className={`flex-1 min-w-0 aspect-square max-w-[14px] sm:max-w-[20px] rounded-[2px] sm:rounded-[3px] border cursor-crosshair transition-all duration-150 ${bgClass}`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Scale legend */}
-            <div className="flex items-center justify-between text-[10px] md:text-xs font-medium text-text-secondary/60 pt-1 font-sans font-sans">
-              <span>Menos ativo</span>
-              <div className="flex items-center gap-1.5 font-sans">
-                <span className="w-2.5 h-2.5 bg-white/[0.01] border border-white/[0.02] rounded-[1.5px]" />
-                <span className="w-2.5 h-2.5 bg-primary-green/15 border border-primary-green/10 rounded-[1.5px]" />
-                <span className="w-2.5 h-2.5 bg-primary-green/45 border border-primary-green/35 rounded-[1.5px]" />
-                <span className="w-2.5 h-2.5 bg-primary-green/75 border border-primary-green/65 rounded-[1.5px]" />
-                <span className="w-2.5 h-2.5 bg-primary-green border border-primary-green rounded-[1.5px]" />
-                <span>Mais ativo</span>
-              </div>
             </div>
           </div>
         </section>
