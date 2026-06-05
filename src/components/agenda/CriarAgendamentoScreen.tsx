@@ -497,7 +497,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                 placeholder="Selecione o Hábito"
                 options={[
                   { value: '', label: 'Nenhum Hábito' },
-                  ...dataStore.habits.map(h => ({ value: h.id, label: h.name }))
+                  ...dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(h => ({ value: h.id, label: h.name }))
                 ]}
               />
             </div>

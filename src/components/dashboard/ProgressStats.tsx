@@ -1015,7 +1015,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     const streak = profile?.current_streak || 0;
 
     // 3. Steady habits streak (weekly_streak >= 2 or sessions_this_week >= 3)
-    const hasSteadyHabits = habits.some(h => (h.weekly_streak || 0) >= 2 || (h.sessions_this_week || 0) >= 3);
+    const hasSteadyHabits = habits.filter(h => h.habit_mode !== 'avoid').some(h => (h.weekly_streak || 0) >= 2 || (h.sessions_this_week || 0) >= 3);
 
     // 4. Successful avoidance checkins in last 7 days
     let avoidanceDaysCount = 0;
@@ -1082,7 +1082,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     // C) Construtor de Hábitos: At least 1 habit with weekly_streak >= 3 or total completions >= 15
     const totalCompletions = habitCompletions.length;
-    const hasWeeklyStreak3 = habits.some(h => (h.weekly_streak || 0) >= 3);
+    const hasWeeklyStreak3 = habits.filter(h => h.habit_mode !== 'avoid').some(h => (h.weekly_streak || 0) >= 3);
     const isConstrutorUnlocked = hasWeeklyStreak3 || totalCompletions >= 15;
 
     // D) Mente Blindada: At least 5 distinct days of successful avoidance checkins

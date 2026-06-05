@@ -252,7 +252,7 @@ export const LinksHeroBlock = () => {
                   <CustomSelect
                     options={[
                       { value: '', label: 'Nenhum Hábito' },
-                      ...habits.map((h) => ({ value: h.id, label: h.name })),
+                      ...habits.filter(h => h.habit_mode !== 'avoid').map((h) => ({ value: h.id, label: h.name })),
                     ]}
                     value={habitId}
                     onChange={(val) => setHabitId(val)}

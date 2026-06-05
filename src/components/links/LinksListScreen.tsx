@@ -336,7 +336,7 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack }) => {
                 <CustomSelect
                   options={[
                     { value: '', label: 'Nenhum Hábito' },
-                    ...habits.map((h) => ({ value: h.id, label: h.name })),
+                    ...habits.filter(h => h.habit_mode !== 'avoid').map((h) => ({ value: h.id, label: h.name })),
                   ]}
                   value={editHabitId}
                   onChange={(val) => setEditHabitId(val)}

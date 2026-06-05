@@ -115,6 +115,12 @@ export const ActionCenter = () => {
         setEditingActivity(undefined);
       }
 
+      if (e.detail?.showHabitsHistory) {
+        setShowHabitsModal(true);
+      } else {
+        setShowHabitsModal(false);
+      }
+
       // Prefill Anti-Vício editing/creation states
       if (e.detail?.screen === 'anti-vicio' && e.detail?.editHabit) {
         const h = e.detail.editHabit;
@@ -995,7 +1001,7 @@ export const ActionCenter = () => {
                             placeholder="Nenhum"
                             options={[
                               { value: '', label: 'Nenhum' },
-                              ...dataStore.habits.map(h => ({ 
+                              ...dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(h => ({ 
                                 value: h.id, 
                                 label: `${h.name} (${h.sessions_this_week}/${h.sessions_per_week} esta semana)`
                               }))
@@ -2233,12 +2239,12 @@ export const ActionCenter = () => {
               </header>
 
               <div className="space-y-4 pb-20">
-                {dataStore.habits.length === 0 ? (
+                {dataStore.habits.filter(h => h.habit_mode !== 'avoid').length === 0 ? (
                   <p className="text-text-secondary/40 italic text-center py-20">
                     Nenhum hábito cadastrado ainda.
                   </p>
                 ) : (
-                  dataStore.habits.map(h => {
+                  dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(h => {
                     const total = h.sessions_per_week || 3;
                     const current = h.sessions_this_week || 0;
                     const preferredTimeLabel = {

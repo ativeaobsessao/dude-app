@@ -18,7 +18,7 @@ interface SessionEditPanelProps {
   ) => void;
   onCancel: () => void;
   projects: Array<{ id: string; name: string }>;
-  habits: Array<{ id: string; name: string; sessions_this_week: number; sessions_per_week: number }>;
+  habits: Array<{ id: string; name: string; sessions_this_week: number; sessions_per_week: number; habit_mode?: 'build' | 'avoid' }>;
   activities: Array<{ id: string; name: string; project_id?: string | null }>;
 }
 
@@ -63,7 +63,7 @@ export const SessionEditPanel: React.FC<SessionEditPanelProps> = ({
   // Render habit options
   const habitOptions = [
     { value: '', label: 'Nenhum' },
-    ...habits.map((h) => ({
+    ...habits.filter(h => h.habit_mode !== 'avoid').map((h) => ({
       value: h.id,
       label: `${h.name} (${h.sessions_this_week}/${h.sessions_per_week} esta semana)`,
     })),

@@ -218,7 +218,7 @@ export const HabitsSection = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'habits' } }));
+                      window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'habits', showHabitsHistory: true } }));
                     }}
                     className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
                   >
