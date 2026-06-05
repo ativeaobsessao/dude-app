@@ -41,6 +41,10 @@ export type Habit = {
   avoidance_checkin_intensity?: 'light' | 'balanced' | 'strong';
   avoidance_notifications_enabled?: boolean;
   avoidance_recovery_mode?: boolean;
+  monitor_type?: 'dia_todo' | 'janela';
+  monitor_start?: string | null;  // HH:MM
+  monitor_end?: string | null;    // HH:MM
+  monitor_weekdays?: string;      // '1,2,3,4,5' or 'all' etc.
 };
 
 export type AvoidanceCheckin = {
@@ -48,9 +52,11 @@ export type AvoidanceCheckin = {
   user_id: string;
   habit_id: string;
   checkin_date: string;
-  checkin_period: 'morning' | 'afternoon' | 'evening' | 'window';
-  status: 'success' | 'relapse' | 'pending';
+  checkin_period: 'morning' | 'afternoon' | 'evening' | 'window' | string;
+  status: 'success' | 'relapse' | 'pending' | 'resisti' | 'recai' | 'depois' | string;
   created_at: string;
+  window_label?: string | null;
+  prompts_shown?: number;
 };
 
 export type HabitCompletion = {

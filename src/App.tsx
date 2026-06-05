@@ -323,8 +323,15 @@ export default function App() {
     const handleNavigate = () => {
       setShowFullAgenda(true);
     };
+    const handleOpenStats = () => {
+      setShowStats(true);
+    };
     window.addEventListener('navigate-to-agenda', handleNavigate);
-    return () => window.removeEventListener('navigate-to-agenda', handleNavigate);
+    window.addEventListener('open-stats', handleOpenStats);
+    return () => {
+      window.removeEventListener('navigate-to-agenda', handleNavigate);
+      window.removeEventListener('open-stats', handleOpenStats);
+    };
   }, []);
 
   useEffect(() => {

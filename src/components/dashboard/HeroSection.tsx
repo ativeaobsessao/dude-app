@@ -5,6 +5,8 @@ import { useDataStore } from '../../store/useDataStore';
 import { Moon } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
+import { calculateAvoidanceMetrics } from './AvoidanceSection';
+import { Habit, AvoidanceCheckin } from '../../types';
 
 export const HeroSection = () => {
   const timer = useTimerStore();
@@ -121,6 +123,266 @@ export const HeroSection = () => {
   const strokePercent = Math.min(100, percent);
 
   const [tempGoal, setTempGoal] = useState<number>(150);
+
+  const [showSupportiveRelapseModal, setShowSupportiveRelapseModal] = useState(false);
+  const [relapsedHabitName, setRelapsedHabitName] = useState('');
+  const [animatingResistedHabitId, setAnimatingResistedHabitId] = useState<string | null>(null);
+
+  const playVictorySound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const playTone = (freq: number, start: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        osc. oscillators = osc;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, start);
+        
+        gainNode.gain.setValueAtTime(0.12, start);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, start + duration);
+        
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+      
+      const nowTime = ctx.currentTime;
+      playTone(523.25, nowTime, 0.18); // C5
+      playTone(659.25, nowTime + 0.08, 0.18); // E5
+      playTone(783.99, nowTime + 0.16, 0.18); // G5
+      playTone(1046.50, nowTime + 0.24, 0.35); // C6
+    } catch (e) {
+      console.error('Failed to play victory sound', e);
+    }
+  };
+
+  const activeBannerHabit = useMemo(() => {
+    const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
+    if (avoidHabits.length === 0 || !dataStore.profile?.id) return null;
+
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+    const dayOfWeek = now.getDay();
+
+    const getWeekdays = (weekdaysStr?: string): number[] => {
+      if (!weekdaysStr || weekdaysStr === 'all' || weekdaysStr === '') {
+        return [0, 1, 2, 3, 4, 5, 6];
+      }
+      return weekdaysStr.split(',').map(Number);
+    };
+
+    for (const h of avoidHabits) {
+      const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
+      const parsedWeekdays = h.monitor_weekdays
+        ? getWeekdays(h.monitor_weekdays)
+        : (h.recurrence_days && h.recurrence_days.length > 0
+            ? h.recurrence_days.map(d => d === '7' ? 0 : parseInt(d))
+            : [0, 1, 2, 3, 4, 5, 6]);
+
+      if (!parsedWeekdays.includes(dayOfWeek)) {
+        continue;
+      }
+
+      let isActiveUnit = false;
+      let windowLabel = todayStr;
+      let checkinPeriod = 'all';
+
+      if (!isJanela) {
+        isActiveUnit = true;
+        windowLabel = todayStr;
+        checkinPeriod = 'morning';
+      } else {
+        const mStart = h.monitor_start || h.avoidance_window_start || "18:00";
+        const mEnd = h.monitor_end || h.avoidance_window_end || "22:00";
+        const [startH, startM] = mStart.split(':').map(Number);
+        const [endH, endM] = mEnd.split(':').map(Number);
+
+        const wStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startH, startM, 0, 0);
+        const wEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), endH, endM, 0, 0);
+
+        if (wEnd.getTime() < wStart.getTime()) {
+          wEnd.setDate(wEnd.getDate() + 1);
+        }
+
+        if (now.getTime() >= wStart.getTime()) {
+          isActiveUnit = true;
+          windowLabel = `${todayStr}:${mStart}-${mEnd}`;
+          checkinPeriod = 'window';
+        }
+      }
+
+      if (isActiveUnit) {
+        const cks = dataStore.avoidanceCheckins.filter(
+          c => c.habit_id === h.id && 
+          (c.window_label === windowLabel || (c.checkin_date === todayStr && !c.window_label))
+        );
+        const hasDefinitive = cks.some(
+          c => c.status === 'resisti' || c.status === 'recai' || c.status === 'success' || c.status === 'relapse'
+        );
+
+        if (hasDefinitive) {
+          continue;
+        }
+
+        const promptsShown = cks.filter(c => c.status === 'depois').length;
+        if (promptsShown >= 3) {
+          continue;
+        }
+
+        return {
+          habit: h,
+          windowLabel,
+          checkinPeriod,
+          promptsShown,
+        };
+      }
+    }
+
+    return null;
+  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile]);
+
+  const handleResisti = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
+    if (!dataStore.profile?.id) return;
+    playVictorySound();
+    
+    setAnimatingResistedHabitId(habit.id);
+    
+    const todayStr = getLocalDateString(new Date());
+    await dataStore.addAvoidanceCheckin({
+      user_id: dataStore.profile.id,
+      habit_id: habit.id,
+      checkin_date: todayStr,
+      checkin_period: checkinPeriod,
+      status: 'resisti',
+      window_label: windowLabel,
+      prompts_shown: 1
+    });
+
+    dataStore.showNotification('Incrível! Sua força de vontade foi fortalecida. Continue firme! 🛡️', 'success');
+    
+    setTimeout(() => {
+      setAnimatingResistedHabitId(null);
+    }, 1500);
+  };
+
+  const handleRecai = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
+    if (!dataStore.profile?.id) return;
+    
+    const todayStr = getLocalDateString(new Date());
+    await dataStore.addAvoidanceCheckin({
+      user_id: dataStore.profile.id,
+      habit_id: habit.id,
+      checkin_date: todayStr,
+      checkin_period: checkinPeriod,
+      status: 'recai',
+      window_label: windowLabel,
+      prompts_shown: 1
+    });
+
+    setRelapsedHabitName(habit.name);
+    setShowSupportiveRelapseModal(true);
+  };
+
+  const handleDepois = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
+    if (!dataStore.profile?.id) return;
+    
+    const todayStr = getLocalDateString(new Date());
+    await dataStore.addAvoidanceCheckin({
+      user_id: dataStore.profile.id,
+      habit_id: habit.id,
+      checkin_date: todayStr,
+      checkin_period: checkinPeriod,
+      status: 'depois',
+      window_label: windowLabel,
+      prompts_shown: 1
+    });
+
+    dataStore.showNotification('Acompanhamento adiado silenciosamente.', 'success');
+  };
+
+  const bannerRender = useMemo(() => {
+    if (!activeBannerHabit) return null;
+    const { habit, windowLabel, checkinPeriod } = activeBannerHabit;
+    const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
+    const isAnimating = animatingResistedHabitId === habit.id;
+    const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
+    const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
+    const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
+
+    return (
+      <motion.div
+        key={habit.id}
+        initial={{ opacity: 0, y: -10, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.98 }}
+        className="w-full max-w-sm sm:max-w-md mx-auto p-5 rounded-2xl bg-surface-1/90 border border-green/30 shadow-[0_0_20px_rgba(110,231,168,0.12)] flex flex-col gap-4 text-center select-none relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-green/5 animate-pulse opacity-40 pointer-events-none" />
+
+        <div className="flex justify-between items-center relative z-10 w-full">
+          <p className="text-[9px] uppercase tracking-widest font-bold text-green flex items-center gap-1.5 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-green animate-ping shrink-0" />
+            ● Acompanhamento · {habit.name}
+          </p>
+          <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
+            <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
+            <AnimatePresence mode="popLayout">
+              <motion.span
+                key={isAnimating ? 'anim' : 'static'}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1.1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="text-xs font-mono font-black text-green inline-block"
+              >
+                {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        <div className="space-y-1 relative z-10 text-left">
+          <h4 className="text-sm font-bold text-text-primary leading-tight">
+            Como você está com seu autocontrole de <span className="text-green font-extrabold">{habit.name}</span> agora?
+          </h4>
+          {isJanela && (
+            <p className="text-[10px] font-mono text-text-secondary/50 uppercase tracking-wider">
+              Janela Programada: {mStart} às {mEnd}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 relative z-10 font-sans">
+          <button
+            type="button"
+            onClick={() => handleResisti(habit, windowLabel, checkinPeriod)}
+            className="py-2.5 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+          >
+            ✓ Resisti
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRecai(habit, windowLabel, checkinPeriod)}
+            className="py-2.5 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+          >
+            Recaí
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
+            className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary/65 rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
+          >
+            Depois
+          </button>
+        </div>
+      </motion.div>
+    );
+  }, [activeBannerHabit, dataStore.avoidanceCheckins, animatingResistedHabitId]);
 
   let stateType: 'above' | 'on_pace' | 'below' | 'neutral' = 'neutral';
   if (percent > 110) {
@@ -347,7 +609,7 @@ export const HeroSection = () => {
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(11px,2.85vw,14px)] md:text-sm lg:text-base text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
+          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
@@ -432,6 +694,11 @@ export const HeroSection = () => {
             "{smartPhrase}"
           </p>
         </div>
+
+        {/* PRECISION CONSCIOUSNESS BANNER */}
+        <AnimatePresence mode="wait">
+          {bannerRender}
+        </AnimatePresence>
 
         {/* Bloco 4 — Botão de ação (The primary action centered with generous breathing room) */}
         <motion.div 
@@ -595,6 +862,66 @@ export const HeroSection = () => {
           </div>
         )}
       </motion.div>
+
+      {/* SUPPORTIVE RELAPSE OCCURRENCE MODAL */}
+      <AnimatePresence>
+        {showSupportiveRelapseModal && (
+          <div 
+            onClick={() => setShowSupportiveRelapseModal(false)}
+            className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md cursor-pointer"
+          >
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-surface-1 border border-white/5 shadow-2xl text-center relative z-10 cursor-default"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-[60px] bg-red-500/10 pointer-events-none" />
+              
+              <span className="text-3xl sm:text-4xl block mb-4 select-none">🤍</span>
+              
+              <h3 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                Tudo bem, respire fundo.
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-text-secondary/80 mt-3 leading-relaxed">
+                Sem culpa nenhuma. O autocontrole de <strong className="text-red-400 font-bold">{relapsedHabitName}</strong> é uma habilidade que você treina dia após dia, não um castigo. Recaídas são dados de aprendizado para amanhã, e nunca definem sua identidade.
+              </p>
+
+              <p className="text-[11px] text-text-secondary/50 font-mono mt-4 italic uppercase tracking-wide">
+                Que tal registrar o que causou isso hoje?
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowSupportiveRelapseModal(false);
+                    window.dispatchEvent(new CustomEvent('open-stats'));
+                    setTimeout(() => {
+                      const el = document.getElementById('stats-block');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth' });
+                      } else {
+                        window.scrollTo({ top: document.body.scrollHeight / 3, behavior: 'smooth' });
+                      }
+                    }, 100);
+                  }}
+                  className="py-3 px-4 bg-red-400/20 hover:bg-red-400/30 text-red-300 font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center"
+                >
+                  Mapear Gatilho 🧬
+                </button>
+                <button
+                  onClick={() => setShowSupportiveRelapseModal(false)}
+                  className="py-3 px-4 bg-white/5 hover:bg-white/10 text-text-secondary font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center border border-white/5"
+                >
+                  Continuar Firme
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">

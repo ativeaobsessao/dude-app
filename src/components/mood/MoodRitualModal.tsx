@@ -36,6 +36,8 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
     setIsSaving(true);
     try {
       await addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
+      // Give 500ms delay so the user clearly sees the selected mood visual highlight
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (e) {
       console.error(e);
     } finally {
@@ -136,6 +138,8 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
                         '--hover-glow': item.color,
                         '--selected-glow': item.glow,
                         borderColor: isEnergySelected ? item.color : undefined,
+                        backgroundColor: isEnergySelected ? `${item.color}25` : undefined,
+                        borderWidth: isEnergySelected ? '2px' : '1px',
                       } as React.CSSProperties}
                     >
                       <div
@@ -206,6 +210,8 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
                           '--hover-glow': m.color,
                           '--selected-glow': m.glow || 'rgba(110, 231, 168, 0.4)',
                           borderColor: isCurrentSelected ? m.color : undefined,
+                          backgroundColor: isCurrentSelected ? `${m.color}25` : undefined,
+                          borderWidth: isCurrentSelected ? '2px' : '1px',
                         } as React.CSSProperties}
                       >
                         <div

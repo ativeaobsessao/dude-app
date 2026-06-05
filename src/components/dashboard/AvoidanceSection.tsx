@@ -19,8 +19,8 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
   const todayStr = getLocalDateString();
   
   // Normalize victories and relapses
-  const isVictory = (status: 'success' | 'relapse' | 'pending') => status === 'success';
-  const isRelapse = (status: 'success' | 'relapse' | 'pending') => status === 'relapse';
+  const isVictory = (status: string) => status === 'success' || status === 'resisti';
+  const isRelapse = (status: string) => status === 'relapse' || status === 'recai';
 
   // Sort relapses in ascending order of date/time
   const relapseCheckins = checkins
@@ -31,7 +31,7 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
       return aTime - bTime;
     });
   
-  // 1. Tempo Limpo Atual
+  // 1. Determine start limit (last relapse or creation)
   let lastRelapseTimestamp = 0;
   const lastRelapse = relapseCheckins[relapseCheckins.length - 1];
   if (lastRelapse) {
@@ -42,66 +42,166 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
     lastRelapseTimestamp = new Date(ah.created_at).getTime();
   }
 
-  const currentCleanMs = Math.max(0, Date.now() - lastRelapseTimestamp);
-  
-  const currentCleanDays = Math.floor(currentCleanMs / (1000 * 60 * 60 * 24));
-  const currentCleanHours = Math.floor((currentCleanMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const currentCleanMins = Math.floor((currentCleanMs % (1000 * 60 * 60)) / (1000 * 60));
-  const currentCleanSecs = Math.floor((currentCleanMs % (1000 * 60)) / 1000);
-  
-  let tempoLimpoAtualText = "";
-  if (currentCleanDays > 0) {
-    tempoLimpoAtualText = `${currentCleanDays}d ${currentCleanHours}h ${currentCleanMins}min`;
-  } else if (currentCleanHours > 0) {
-    tempoLimpoAtualText = `${currentCleanHours}h ${currentCleanMins}min`;
-  } else if (currentCleanMins > 0) {
-    tempoLimpoAtualText = `${currentCleanMins}min ${currentCleanSecs}s`;
-  } else {
-    tempoLimpoAtualText = `${currentCleanSecs}s`;
-  }
-  
-  const tempoLimpoSubtitle = lastRelapse ? "desde a última recaída" : "desde o início do controle";
+  const startLimit = lastRelapseTimestamp;
 
-  // Days between calculator
+  // 2. Identify if Janela specific
+  const isJanela = ah.monitor_type === 'janela' || ah.avoidance_scope === 'time_window';
+  
+  const getWeekdays = (weekdaysStr?: string): number[] => {
+    if (!weekdaysStr || weekdaysStr === 'all' || weekdaysStr === '') {
+      return [0, 1, 2, 3, 4, 5, 6];
+    }
+    return weekdaysStr.split(',').map(Number);
+  };
+
+  const mStart = ah.monitor_start || ah.avoidance_window_start || "18:00";
+  const mEnd = ah.monitor_end || ah.avoidance_window_end || "22:00";
+  const mWeekdays = ah.monitor_weekdays || "all";
+  
+  const parsedWeekdays = ah.monitor_weekdays 
+    ? getWeekdays(ah.monitor_weekdays)
+    : (ah.recurrence_days && ah.recurrence_days.length > 0
+        ? ah.recurrence_days.map(d => d === '7' ? 0 : parseInt(d))
+        : [0, 1, 2, 3, 4, 5, 6]);
+
+  const [startH, startM] = mStart.split(':').map(Number);
+  const [endH, endM] = mEnd.split(':').map(Number);
+
+  let currentCleanMs = 0;
+  let diasLimpoSeguidos = 0;
+  let maxStreak = 0;
+
   const getDaysBetween = (d1Str: string, d2Str: string) => {
     const d1 = new Date(d1Str + 'T12:00:00');
     const d2 = new Date(d2Str + 'T12:00:00');
     return Math.max(0, Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
   };
 
-  // 2. Dias Limpo Seguidos (consecutive clean days - resets to 0 upon relapse on the day)
-  const todayHasRelapse = relapseCheckins.some(c => c.checkin_date === todayStr);
-  let diasLimpoSeguidos = 0;
-  if (!todayHasRelapse) {
-    if (lastRelapse) {
-      diasLimpoSeguidos = getDaysBetween(lastRelapse.checkin_date, todayStr);
-    } else {
-      diasLimpoSeguidos = getDaysBetween(ah.created_at.split('T')[0], todayStr) + 1;
+  if (isJanela) {
+    // A. Clean time is total duration of windows occurring and clean
+    const limitDate = new Date(startLimit);
+    const nowDate = new Date();
+    
+    const cursor = new Date(limitDate.getFullYear(), limitDate.getMonth(), limitDate.getDate(), 0, 0, 0, 0);
+    const endCursorLimit = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + 1, 0, 0, 0, 0);
+    
+    let totalOverlapMs = 0;
+    let completedCount = 0;
+    
+    while (cursor.getTime() < endCursorLimit.getTime()) {
+      if (parsedWeekdays.includes(cursor.getDay())) {
+        const wStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), startH, startM, 0, 0);
+        const wEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), endH, endM, 0, 0);
+        if (wEnd.getTime() < wStart.getTime()) {
+          wEnd.setDate(wEnd.getDate() + 1);
+        }
+        
+        const activeStart = Math.max(wStart.getTime(), startLimit);
+        const activeEnd = Math.min(wEnd.getTime(), Date.now());
+        
+        if (activeEnd > activeStart) {
+          totalOverlapMs += (activeEnd - activeStart);
+        }
+        
+        // Count fully completed windows since startLimit
+        if (wStart.getTime() >= startLimit && wEnd.getTime() <= Date.now()) {
+          completedCount++;
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
     }
+    
+    currentCleanMs = totalOverlapMs;
+    diasLimpoSeguidos = completedCount;
+
+    // Calculate max streak of completed windows
+    const startDayTime = new Date(ah.created_at).getTime();
+    const relapseTimes = relapseCheckins.map(c => c.created_at ? new Date(c.created_at).getTime() : new Date(c.checkin_date + 'T12:00:00').getTime());
+    
+    const getCompletedWindowsBetweenObjs = (t1: number, t2: number) => {
+      const lDate = new Date(t1);
+      const cur = new Date(lDate.getFullYear(), lDate.getMonth(), lDate.getDate(), 0, 0, 0, 0);
+      const endLimit = new Date(t2);
+      let count = 0;
+      while (cur.getTime() <= endLimit.getTime()) {
+        if (parsedWeekdays.includes(cur.getDay())) {
+          const wStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), startH, startM, 0, 0);
+          const wEnd = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), endH, endM, 0, 0);
+          if (wEnd.getTime() < wStart.getTime()) {
+            wEnd.setDate(wEnd.getDate() + 1);
+          }
+          if (wStart.getTime() >= t1 && wEnd.getTime() <= t2) {
+            count++;
+          }
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      return count;
+    };
+
+    let times = [startDayTime, ...relapseTimes, Date.now()];
+    let streaks: number[] = [];
+    for (let i = 0; i < times.length - 1; i++) {
+      streaks.push(getCompletedWindowsBetweenObjs(times[i], times[i+1]));
+    }
+    maxStreak = Math.max(...streaks, diasLimpoSeguidos);
+
+  } else {
+    // B. Dia todo
+    currentCleanMs = Math.max(0, Date.now() - startLimit);
+    
+    const todayHasRelapse = relapseCheckins.some(c => c.checkin_date === todayStr);
+    if (!todayHasRelapse) {
+      if (lastRelapse) {
+        diasLimpoSeguidos = getDaysBetween(lastRelapse.checkin_date, todayStr);
+      } else {
+        diasLimpoSeguidos = getDaysBetween(ah.created_at.split('T')[0], todayStr) + 1;
+      }
+    }
+
+    const startDay = ah.created_at.split('T')[0];
+    const relapseDates = relapseCheckins.map(c => c.checkin_date);
+    
+    if (relapseDates.length === 0) {
+      maxStreak = getDaysBetween(startDay, todayStr) + 1;
+    } else {
+      maxStreak = Math.max(maxStreak, getDaysBetween(startDay, relapseDates[0]));
+      for (let i = 0; i < relapseDates.length - 1; i++) {
+        const gap = getDaysBetween(relapseDates[i], relapseDates[i+1]) - 1;
+        maxStreak = Math.max(maxStreak, gap);
+      }
+      const lastGap = getDaysBetween(relapseDates[relapseDates.length - 1], todayStr);
+      maxStreak = Math.max(maxStreak, lastGap);
+    }
+    maxStreak = Math.max(maxStreak, diasLimpoSeguidos);
   }
 
-  // 3. Dias Limpos no Total (never resets, counts unique clean days logged)
+  // 3. Format text representation
+  let tempoLimpoAtualText = "";
+  if (isJanela && currentCleanMs <= 0) {
+    tempoLimpoAtualText = "Aguardando janela...";
+  } else {
+    const currentCleanDays = Math.floor(currentCleanMs / (1000 * 60 * 60 * 24));
+    const currentCleanHours = Math.floor((currentCleanMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const currentCleanMins = Math.floor((currentCleanMs % (1000 * 60 * 60)) / (1000 * 60));
+    const currentCleanSecs = Math.floor((currentCleanMs % (1000 * 60)) / 1000);
+    
+    if (currentCleanDays > 0) {
+      tempoLimpoAtualText = `${currentCleanDays}d ${currentCleanHours}h ${currentCleanMins}m`;
+    } else if (currentCleanHours > 0) {
+      tempoLimpoAtualText = `${currentCleanHours}h ${currentCleanMins}m`;
+    } else if (currentCleanMins > 0) {
+      tempoLimpoAtualText = `${currentCleanMins}m ${currentCleanSecs}s`;
+    } else {
+      tempoLimpoAtualText = `${currentCleanSecs}s`;
+    }
+  }
+  
+  const tempoLimpoSubtitle = lastRelapse ? "desde a última recaída" : "desde o início do controle";
+
+  // 4. Dias Limpos no Total
   const rawVictoryDates = checkins.filter(c => isVictory(c.status)).map(c => c.checkin_date);
   const diasLimposTotal = new Set(rawVictoryDates).size;
-
-  // 4. Recorde de Dias Limpo (longest clean span)
-  const startDay = ah.created_at.split('T')[0];
-  const relapseDates = relapseCheckins.map(c => c.checkin_date);
-  
-  let maxStreak = 0;
-  if (relapseDates.length === 0) {
-    maxStreak = getDaysBetween(startDay, todayStr) + 1;
-  } else {
-    maxStreak = Math.max(maxStreak, getDaysBetween(startDay, relapseDates[0]));
-    for (let i = 0; i < relapseDates.length - 1; i++) {
-      const gap = getDaysBetween(relapseDates[i], relapseDates[i+1]) - 1;
-      maxStreak = Math.max(maxStreak, gap);
-    }
-    const lastGap = getDaysBetween(relapseDates[relapseDates.length - 1], todayStr);
-    maxStreak = Math.max(maxStreak, lastGap);
-  }
-
-  maxStreak = Math.max(maxStreak, diasLimpoSeguidos);
 
   return {
     tempoLimpoAtualText,
@@ -420,7 +520,10 @@ export const AvoidanceSection = () => {
                               <h4 className="text-xl font-bold text-text-primary tracking-tight">{habit.name}</h4>
                               <p className="text-[10px] text-text-secondary/60 font-medium uppercase tracking-widest flex items-center gap-1.5">
                                 <Calendar size={10} className="text-primary-green/60" />
-                                {habit.avoidance_scope === 'full_day' ? '🛡️ Todo o Dia' : `⏱️ Janela: ${habit.avoidance_window_start} - ${habit.avoidance_window_end}`}
+                                {!(habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window')
+                                  ? '◷ Dia todo'
+                                  : `◷ Janela específica · ${habit.monitor_start || habit.avoidance_window_start || '18:00'}–${habit.monitor_end || habit.avoidance_window_end || '22:00'}`
+                                }
                               </p>
                             </div>
                             <div className="flex items-center gap-1">

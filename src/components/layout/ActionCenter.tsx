@@ -126,10 +126,19 @@ export const ActionCenter = () => {
         const h = e.detail.editHabit;
         setEditingAvoidanceId(h.id);
         setAvoidanceName(h.name);
-        setAvoidanceScope(h.avoidance_scope || 'full_day');
-        setAvoidanceStart(h.avoidance_window_start || '14:00');
-        setAvoidanceEnd(h.avoidance_window_end || '18:00');
-        setAvoidanceDays(h.recurrence_days || []);
+        
+        const resolvedScope = h.monitor_type ? (h.monitor_type === 'janela' ? 'time_window' : 'full_day') : (h.avoidance_scope || 'full_day');
+        setAvoidanceScope(resolvedScope);
+        setAvoidanceStart(h.monitor_start || h.avoidance_window_start || '14:00');
+        setAvoidanceEnd(h.monitor_end || h.avoidance_window_end || '18:00');
+        
+        let days: string[] = [];
+        if (h.monitor_weekdays && h.monitor_weekdays !== 'all') {
+          days = h.monitor_weekdays.split(',').map(d => d === '0' ? '7' : d);
+        } else if (h.recurrence_days) {
+          days = h.recurrence_days;
+        }
+        setAvoidanceDays(days);
         setAvoidanceIntensity(h.avoidance_checkin_intensity || 'balanced');
       } else if (e.detail?.screen === 'anti-vicio') {
         setEditingAvoidanceId(null);
@@ -729,6 +738,10 @@ export const ActionCenter = () => {
         avoidance_window_start: avoidanceScope === 'time_window' ? avoidanceStart : null,
         avoidance_window_end: avoidanceScope === 'time_window' ? avoidanceEnd : null,
         avoidance_checkin_intensity: avoidanceIntensity,
+        monitor_type: (avoidanceScope === 'time_window' ? 'janela' : 'dia_todo') as 'janela' | 'dia_todo',
+        monitor_start: avoidanceScope === 'time_window' ? avoidanceStart : null,
+        monitor_end: avoidanceScope === 'time_window' ? avoidanceEnd : null,
+        monitor_weekdays: avoidanceDays.length === 0 ? 'all' : avoidanceDays.map(d => d === '7' ? '0' : d).join(','),
       };
 
       if (editingAvoidanceId) {
@@ -1816,32 +1829,6 @@ export const ActionCenter = () => {
                           </motion.div>
                         )}
                       </AnimatePresence>
-
-                      {/* Intensity options */}
-                      <div className="flex flex-col">
-                        <label className={labelClasses}>Intensidade do Monitoramento (Check-ins Diários)</label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {(['light', 'balanced', 'strong'] as const).map((level) => {
-                            const label = { light: 'Leve (1x)', balanced: 'Equilibrada (2x)', strong: 'Forte (3x)' }[level];
-                            return (
-                              <button
-                                key={level}
-                                onClick={() => setAvoidanceIntensity(level)}
-                                className={`py-3.5 px-3 rounded-xl font-bold text-[10px] uppercase tracking-wider border transition-all ${
-                                  avoidanceIntensity === level
-                                    ? 'bg-primary-green/15 border-primary-green text-primary-green'
-                                    : 'bg-white/5 border-white/10 text-text-secondary/60 hover:border-white/15'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[10px] text-text-secondary/40 mt-2">
-                          * Sistema envia alertas proativos distribuídos de acordo com a intensidade escolhida.
-                        </p>
-                      </div>
 
                       {/* Recurrence days */}
                       <div className="flex flex-col">
