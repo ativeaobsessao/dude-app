@@ -1530,6 +1530,18 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
 
     try {
+      await supabase.from('day_closures').upsert({
+        user_id: userId,
+        closure_date: date,
+        closed_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,closure_date'
+      });
+    } catch (err) {
+      console.warn('Supabase sync warning for day_closures table:', err);
+    }
+
+    try {
       await supabase.from('daily_shutdowns').delete().eq('user_id', userId).eq('date', date);
       const { data, error } = await supabase
         .from('daily_shutdowns')

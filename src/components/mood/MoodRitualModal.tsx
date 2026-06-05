@@ -2,111 +2,34 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { getCurrentPeriodAndDate } from '../../lib/utils';
 import { MOOD_LIST, MoodKey } from '../../lib/mood';
 import { X, Heart } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { MoodEntry } from '../../types';
 
-export const MoodRitualModal = () => {
+interface MoodRitualModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentPeriod: 'manha' | 'tarde' | 'noite';
+  currentDate: string;
+}
+
+export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }: MoodRitualModalProps) => {
   const { user } = useAuthStore();
-  const { moodEntries, addMoodEntry, initialFetchDone } = useDataStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const [resolved, setResolved] = useState(false);
-  const [currentPeriod, setCurrentPeriod] = useState<'manha' | 'tarde' | 'noite' | null>(null);
-  const [currentDate, setCurrentDate] = useState<string | null>(null);
+  const { addMoodEntry } = useDataStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedEnergy, setSelectedEnergy] = useState<'cansado' | 'normal' | 'energizado' | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-
-    const runCheck = async () => {
-      const { period, dateStr } = getCurrentPeriodAndDate(new Date());
-      setCurrentPeriod(period);
-      setCurrentDate(dateStr);
-
-      const hasAnsweredLocal = moodEntries.some(
-        m => m.date === dateStr && m.period === period
-      );
-
-      let isSkippedLocal = false;
-      try {
-        isSkippedLocal = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
-      } catch (e) {
-        console.error(e);
-      }
-
-      if (hasAnsweredLocal || isSkippedLocal) {
-        setIsOpen(false);
-        setResolved(true);
-      } else if (initialFetchDone) {
-        setIsOpen(true);
-        setStep(1);
-        setSelectedEnergy(null);
-        setResolved(true);
-      } else {
-        setIsOpen(false);
-        setResolved(false);
-      }
-
-      // Background revalidation
-      try {
-        const { data, error } = await supabase
-          .from('mood_entries')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('date', dateStr)
-          .eq('period', period);
-
-        if (!error && data) {
-          const serverHasAnswered = data.length > 0;
-          if (serverHasAnswered) {
-            // Already answered on another device
-            setIsOpen(false);
-            setResolved(true);
-            
-            // Reconcile store if missing locally
-            const localHasEntry = moodEntries.some(m => m.date === dateStr && m.period === period);
-            if (!localHasEntry) {
-              const serverEntry = data[0] as MoodEntry;
-              const updated = [serverEntry, ...moodEntries.filter(m => !(m.date === dateStr && m.period === period))];
-              useDataStore.setState({ moodEntries: updated });
-              localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
-            }
-          } else {
-            // Server has not answered. If local cache was wrong (falsely claimed answered), fix it
-            if (hasAnsweredLocal) {
-              const updated = moodEntries.filter(m => !(m.date === dateStr && m.period === period));
-              useDataStore.setState({ moodEntries: updated });
-              localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
-              
-              if (!isSkippedLocal && initialFetchDone) {
-                setIsOpen(true);
-                setStep(1);
-                setSelectedEnergy(null);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Background mood check failed:', e);
-      }
-    };
-
-    runCheck();
-
-    window.addEventListener('focus', runCheck);
-    return () => {
-      window.removeEventListener('focus', runCheck);
-    };
-  }, [user, moodEntries, initialFetchDone]);
+    if (isOpen) {
+      setStep(1);
+      setSelectedEnergy(null);
+    }
+  }, [isOpen]);
 
   const handleSelectMood = async (moodKey: MoodKey) => {
     if (!user || !currentDate || !currentPeriod) return;
 
     await addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
-    setIsOpen(false);
+    onClose();
   };
 
   const handleSkip = () => {
@@ -117,7 +40,7 @@ export const MoodRitualModal = () => {
     } catch (e) {
       console.error(e);
     }
-    setIsOpen(false);
+    onClose();
   };
 
   const getPeriodLabel = () => {
@@ -126,7 +49,7 @@ export const MoodRitualModal = () => {
     return 'da noite';
   };
 
-  if (!resolved || !isOpen) return null;
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>

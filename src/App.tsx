@@ -15,7 +15,8 @@ import { ProgressStats } from './components/dashboard/ProgressStats';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
-import { getLocalDateString } from './lib/utils';
+import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
+import { supabase } from './lib/supabase';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -31,10 +32,162 @@ import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
-  const { hasCompletedFirstSession, profile, notification, sessions, initialFetchDone, moodEntries } = useDataStore();
+  const { 
+    hasCompletedFirstSession, 
+    profile, 
+    notification, 
+    sessions, 
+    initialFetchDone, 
+    moodEntries,
+    habitCompletions,
+    avoidanceCheckins,
+    scheduledActivities
+  } = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
+
+  const [popupState, setPopupState] = useState<{
+    serverChecked: boolean;
+    yesterdayClosed: boolean;
+    todayMoodDone: boolean;
+    yesterdayStr: string;
+    todayStr: string;
+    currentPeriod: 'manha' | 'tarde' | 'noite' | null;
+  }>({
+    serverChecked: false,
+    yesterdayClosed: false,
+    todayMoodDone: false,
+    yesterdayStr: '',
+    todayStr: '',
+    currentPeriod: null,
+  });
+
+  const [manualShutdownOpen, setManualShutdownOpen] = useState(false);
+  const [manualShutdownDate, setManualShutdownDate] = useState('');
+
+  const runServerPopupCheck = async () => {
+    if (!user) return;
+    
+    try {
+      const yesterdayStr = getLocalYesterdayDateString(new Date());
+      const { period, dateStr: todayStr } = getCurrentPeriodAndDate(new Date());
+
+      const [closureRes, moodRes] = await Promise.all([
+        supabase
+          .from('day_closures')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('closure_date', yesterdayStr),
+        supabase
+          .from('mood_entries')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('date', todayStr)
+          .eq('period', period)
+      ]);
+
+      const yesterdayClosed = !!(closureRes.data && closureRes.data.length > 0);
+      const todayMoodDone = !!(moodRes.data && moodRes.data.length > 0);
+
+      // Reconcile and write-through to local storage is okay, but serverChecked is the true key
+      if (yesterdayClosed) {
+        localStorage.setItem(`dude-shutdown-completed-${yesterdayStr}`, 'true');
+      }
+
+      setPopupState({
+        serverChecked: true,
+        yesterdayClosed,
+        todayMoodDone,
+        yesterdayStr,
+        todayStr,
+        currentPeriod: period,
+      });
+    } catch (err) {
+      console.error('Error running authoritative server popup checks:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user || !initialFetchDone) return;
+
+    runServerPopupCheck();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        runServerPopupCheck();
+      }
+    };
+
+    const handleFocus = () => {
+      runServerPopupCheck();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, initialFetchDone]);
+
+  // Listen to manual shutdown triggers
+  useEffect(() => {
+    const handleManualShutdown = () => {
+      const todayStr = getLocalDateString(new Date());
+      setManualShutdownDate(todayStr);
+      setManualShutdownOpen(true);
+    };
+
+    window.addEventListener('trigger-daily-shutdown', handleManualShutdown);
+    return () => {
+      window.removeEventListener('trigger-daily-shutdown', handleManualShutdown);
+    };
+  }, []);
+
+  const isMoodActive = (() => {
+    if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.currentPeriod || !popupState.todayStr) {
+      return false;
+    }
+    if (popupState.todayMoodDone) {
+      return false;
+    }
+    const isSkippedLocal = localStorage.getItem(`dude-mood-skipped-${popupState.todayStr}-${popupState.currentPeriod}`) === 'true';
+    if (isSkippedLocal) {
+      return false;
+    }
+    return true;
+  })();
+
+  const isCatchUpActive = (() => {
+    if (isMoodActive) return false;
+
+    if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.yesterdayStr) {
+      return false;
+    }
+    if (popupState.yesterdayClosed) {
+      return false;
+    }
+
+    const isCompletedLocal = localStorage.getItem(`dude-shutdown-completed-${popupState.yesterdayStr}`) === 'true';
+    const isDismissedLocal = localStorage.getItem(`dude-shutdown-dismissed-${popupState.yesterdayStr}`) === 'true';
+    if (isCompletedLocal || isDismissedLocal) {
+      return false;
+    }
+
+    const yesterdaySessionsObj = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === popupState.yesterdayStr && s.completed);
+    const yesterdayHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(popupState.yesterdayStr));
+    const yesterdayAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === popupState.yesterdayStr);
+    const yesterdayScheduled = scheduledActivities.filter(sa => sa.scheduled_date === popupState.yesterdayStr && sa.status === 'completed');
+
+    const hasActivityYesterday = yesterdaySessionsObj.length > 0 ||
+                                 yesterdayHabitComps.length > 0 ||
+                                 yesterdayAvoidance.length > 0 ||
+                                 yesterdayScheduled.length > 0;
+
+    return hasActivityYesterday;
+  })();
 
   // Dynamically set --mood CSS variable based on current today's mood
   useEffect(() => {
@@ -190,8 +343,21 @@ export default function App() {
     <ErrorBoundary>
       <ProtectedRoute>
         <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
-        <MoodRitualModal />
-        <DailyShutdownModal />
+        <MoodRitualModal 
+          isOpen={isMoodActive} 
+          onClose={runServerPopupCheck} 
+          currentPeriod={popupState.currentPeriod || 'manha'} 
+          currentDate={popupState.todayStr || ''}
+        />
+        <DailyShutdownModal 
+          isOpen={manualShutdownOpen || isCatchUpActive} 
+          onClose={() => {
+            setManualShutdownOpen(false);
+            runServerPopupCheck();
+          }} 
+          targetDate={manualShutdownOpen ? manualShutdownDate : popupState.yesterdayStr}
+          isCatchUp={manualShutdownOpen ? false : isCatchUpActive}
+        />
         <CinematicBackground />
         <ActiveSession />
         <ActionCenter />

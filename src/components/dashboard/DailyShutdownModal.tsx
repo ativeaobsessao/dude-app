@@ -8,7 +8,14 @@ import { X, Moon, Check, Calendar, ChevronDown, ChevronUp, Folder } from 'lucide
 import { supabase } from '../../lib/supabase';
 import { DailyShutdown } from '../../types';
 
-export const DailyShutdownModal = () => {
+interface DailyShutdownModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  targetDate: string;
+  isCatchUp: boolean;
+}
+
+export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: DailyShutdownModalProps) => {
   const { user } = useAuthStore();
   const { 
     sessions, 
@@ -17,24 +24,25 @@ export const DailyShutdownModal = () => {
     scheduledActivities, 
     sessionTasks, 
     addSessionTask, 
-    toggleSessionTask,
     moodEntries, 
-    initialFetchDone,
-    profile,
-    dailyShutdowns,
-    addDailyShutdown,
-    projects
+    profile, 
+    projects,
+    addDailyShutdown
   } = useDataStore();
 
-  const [isOpen, setIsOpen] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [taskInputs, setTaskInputs] = useState<{ [sessionId: string]: string }>({});
-  const [targetDate, setTargetDate] = useState<string>(() => getLocalDateString(new Date()));
-  const [isCatchUp, setIsCatchUp] = useState<boolean>(false);
 
-  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
+  useEffect(() => {
+    if (isOpen) {
+      setIsCompleted(false);
+      setShowAllSessions(false);
+      setShowConfirmPopup(false);
+    }
+  }, [isOpen]);
+
   const firstName = profile?.full_name?.split(' ')[0] || 'Gustavo';
 
   // Summarize stats for the targetDate
@@ -103,31 +111,6 @@ export const DailyShutdownModal = () => {
     return Object.values(map).sort((a, b) => b.minutes - a.minutes);
   }, [todaySessions, projects]);
 
-  // Have any activity on the target date?
-  const hasActivityOnTargetDay = useMemo(() => {
-    if (todaySessions.length > 0) return true;
-
-    const todaysHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(targetDate));
-    if (todaysHabitComps.length > 0) return true;
-
-    const todaysAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === targetDate);
-    if (todaysAvoidance.length > 0) return true;
-
-    const todaysScheduled = scheduledActivities.filter(sa => sa.scheduled_date === targetDate && sa.status === 'completed');
-    if (todaysScheduled.length > 0) return true;
-
-    return false;
-  }, [todaySessions, habitCompletions, avoidanceCheckins, scheduledActivities, targetDate]);
-
-  // Check for completed sessions from target day that have NO checklist tasks marked / look incomplete
-  const incompleteSessions = useMemo(() => {
-    return todaySessions.filter(session => {
-      const tasks = sessionTasks.filter(t => t.session_id === session.id);
-      const hasAnyCompleted = tasks.some(t => t.completed);
-      return tasks.length === 0 || !hasAnyCompleted;
-    });
-  }, [todaySessions, sessionTasks]);
-
   // Target day's logged mood (if any)
   const todayMoodObj = useMemo(() => {
     const todayMoodsList = moodEntries.filter(m => m.date === targetDate);
@@ -137,116 +120,12 @@ export const DailyShutdownModal = () => {
     return null;
   }, [moodEntries, targetDate]);
 
-  // Determine if we should trigger the modal automatically for yesterday
-  useEffect(() => {
-    if (!user || !initialFetchDone) return;
-
-    const checkRequirement = async () => {
-      const yesterdayStr = getLocalYesterdayDateString(new Date());
-
-      // Yesterday was completed or dismissed in cache/store?
-      const isYesterdayDone = localStorage.getItem(`dude-shutdown-completed-${yesterdayStr}`) === 'true' ||
-                              dailyShutdowns.some(d => d.date === yesterdayStr && d.status === 'completed');
-      const isYesterdayDismissed = localStorage.getItem(`dude-shutdown-dismissed-${yesterdayStr}`) === 'true' ||
-                                   dailyShutdowns.some(d => d.date === yesterdayStr && d.status === 'dismissed');
-
-      if (isYesterdayDone || isYesterdayDismissed) {
-        setIsOpen(false);
-        return;
-      }
-
-      // Check if yesterday had activity
-      const yesterdaySessionsObj = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === yesterdayStr && s.completed);
-      const yesterdayHabitComps = habitCompletions.filter(hc => hc.completed_at.startsWith(yesterdayStr));
-      const yesterdayAvoidance = avoidanceCheckins.filter(ac => ac.checkin_date === yesterdayStr);
-      const yesterdayScheduled = scheduledActivities.filter(sa => sa.scheduled_date === yesterdayStr && sa.status === 'completed');
-
-      const hasActivityYesterday = yesterdaySessionsObj.length > 0 ||
-                                   yesterdayHabitComps.length > 0 ||
-                                   yesterdayAvoidance.length > 0 ||
-                                   yesterdayScheduled.length > 0;
-
-      if (!hasActivityYesterday) {
-        setIsOpen(false);
-        return;
-      }
-
-      // Mood ritual overlay check: wait for it if not completed or skipped
-      const { period, dateStr } = getCurrentPeriodAndDate(new Date());
-      const hasAnsweredMood = moodEntries.some(m => m.date === dateStr && m.period === period);
-      const isMoodSkipped = localStorage.getItem(`dude-mood-skipped-${dateStr}-${period}`) === 'true';
-      const isMoodActive = !hasAnsweredMood && !isMoodSkipped;
-
-      if (isMoodActive) {
-        setIsOpen(false);
-        return;
-      }
-
-      // Trigger automatic catch-up for yesterday (initial state)
-      setTargetDate(yesterdayStr);
-      setIsCatchUp(true);
-      setIsCompleted(false);
-      setIsOpen(true);
-
-      // Background revalidation
-      try {
-        const { data, error } = await supabase
-          .from('daily_shutdowns')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('date', yesterdayStr);
-
-        if (!error && data) {
-          const serverEntry = data[0];
-          if (serverEntry) {
-            // Already handled on another device! Close silently
-            setIsOpen(false);
-
-            // Reconcile and update cache/store
-            const hasInStore = dailyShutdowns.some(d => d.date === yesterdayStr && d.status === serverEntry.status);
-            if (!hasInStore) {
-              const updated = [serverEntry, ...dailyShutdowns.filter(d => d.date !== yesterdayStr)];
-              useDataStore.setState({ dailyShutdowns: updated });
-              localStorage.setItem('dude-daily-shutdowns', JSON.stringify(updated));
-              localStorage.setItem(`dude-shutdown-completed-${yesterdayStr}`, serverEntry.status === 'completed' ? 'true' : 'false');
-              localStorage.setItem(`dude-shutdown-dismissed-${yesterdayStr}`, serverEntry.status === 'dismissed' ? 'true' : 'false');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Background daily shutdown check failed:', err);
-      }
-    };
-
-    checkRequirement();
-
-    window.addEventListener('focus', checkRequirement);
-    return () => {
-      window.removeEventListener('focus', checkRequirement);
-    };
-  }, [user, initialFetchDone, sessions, habitCompletions, avoidanceCheckins, scheduledActivities, moodEntries, dailyShutdowns]);
-
-  // Listen to custom event for manual trigger
-  useEffect(() => {
-    const handleManualTrigger = () => {
-      setTargetDate(todayStr);
-      setIsCatchUp(false);
-      setIsCompleted(false);
-      setIsOpen(true);
-    };
-
-    window.addEventListener('trigger-daily-shutdown', handleManualTrigger);
-    return () => {
-      window.removeEventListener('trigger-daily-shutdown', handleManualTrigger);
-    };
-  }, [todayStr]);
-
   const handleDismiss = async () => {
     localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
-    setIsOpen(false);
     if (user) {
       await addDailyShutdown(user.id, targetDate, 'dismissed');
     }
+    onClose();
   };
 
   const handleCompleteShutdown = async () => {
@@ -256,7 +135,7 @@ export const DailyShutdownModal = () => {
       await addDailyShutdown(user.id, targetDate, 'completed');
     }
     setTimeout(() => {
-      setIsOpen(false);
+      onClose();
     }, 1800);
   };
 
