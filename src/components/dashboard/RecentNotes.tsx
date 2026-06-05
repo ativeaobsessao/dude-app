@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown, Plus, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
-import { getLocalDateString } from '../../lib/utils';
+import { getLocalDateString, safeParseDate } from '../../lib/utils';
 import JSZip from 'jszip';
 
 export const RecentNotes = () => {
@@ -118,7 +118,7 @@ export const RecentNotes = () => {
     if (project) tags.push(`#projeto/${project.name.toLowerCase().replace(/\s+/g, '-')}`);
     if (activity) tags.push(`#atividade/${activity.name.toLowerCase().replace(/\s+/g, '-')}`);
     
-    const formattedDate = new Date(note.target_date || note.created_at).toLocaleDateString('pt-BR', {
+    const formattedDate = safeParseDate(note.target_date || note.created_at).toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -189,7 +189,7 @@ export const RecentNotes = () => {
 
   const filteredAllNotes = dataStore.notes.filter(note => {
     const matchesProject = filterProject ? note.project_id === filterProject : true;
-    const noteDateStr = note.target_date || getLocalDateString(new Date(note.created_at));
+    const noteDateStr = note.target_date || getLocalDateString(note.created_at);
     const matchesDate = filterDate ? noteDateStr === filterDate : true;
     return matchesProject && matchesDate;
   });
@@ -226,7 +226,7 @@ export const RecentNotes = () => {
 
   const formatDate = (date: string | null) => {
     if (!date) return '';
-    return new Date(date).toLocaleDateString('pt-BR', {
+    return safeParseDate(date).toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

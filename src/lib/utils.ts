@@ -88,8 +88,31 @@ export function formatTimeRange(startedAt: string, completedAt?: string | null, 
   return `${startStr} → ${endStr}`;
 }
 
+export function safeParseDate(dateStr: string | null | undefined): Date {
+  if (!dateStr) return new Date();
+  
+  const trimmed = dateStr.trim();
+  // Match only 'YYYY-MM-DD'
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  
+  // Match 'YYYY/MM/DD'
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  const d = new Date(trimmed);
+  if (isNaN(d.getTime())) {
+    return new Date();
+  }
+  return d;
+}
+
 export function getLocalDateString(date_or_str?: Date | string): string {
-  const d = !date_or_str ? new Date() : (typeof date_or_str === 'string' ? new Date(date_or_str) : date_or_str);
+  const d = !date_or_str ? new Date() : (typeof date_or_str === 'string' ? safeParseDate(date_or_str) : date_or_str);
   // Guard against invalid Date parsing
   if (isNaN(d.getTime())) return '';
   const year = d.getFullYear();
