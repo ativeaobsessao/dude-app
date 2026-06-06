@@ -17,6 +17,10 @@ export const HeroSection = () => {
   // Greeting Logic
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
+  const [dismissedAntiVicioId, setDismissedAntiVicioId] = useState<string | null>(() => {
+    return sessionStorage.getItem('dude_dismissed_anti_vicio_id') || null;
+  });
+
   const [dismissedScheduleId, setDismissedScheduleId] = useState<string | null>(() => {
     return sessionStorage.getItem('dude_dismissed_schedule_id') || null;
   });
@@ -224,6 +228,9 @@ export const HeroSection = () => {
     };
 
     for (const h of avoidHabits) {
+      if (h.id === dismissedAntiVicioId) {
+        continue;
+      }
       const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
       const parsedWeekdays = h.monitor_weekdays
         ? getWeekdays(h.monitor_weekdays)
@@ -291,13 +298,15 @@ export const HeroSection = () => {
     }
 
     return null;
-  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile]);
+  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioId]);
 
   const handleResisti = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     playVictorySound();
     
     setAnimatingResistedHabitId(habit.id);
+    setDismissedAntiVicioId(habit.id);
+    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
     
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -320,6 +329,9 @@ export const HeroSection = () => {
   const handleRecai = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     
+    setDismissedAntiVicioId(habit.id);
+    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
+
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
       user_id: dataStore.profile.id,
@@ -338,16 +350,8 @@ export const HeroSection = () => {
   const handleDepois = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     
-    const todayStr = getLocalDateString(new Date());
-    await dataStore.addAvoidanceCheckin({
-      user_id: dataStore.profile.id,
-      habit_id: habit.id,
-      checkin_date: todayStr,
-      checkin_period: checkinPeriod,
-      status: 'depois',
-      window_label: windowLabel,
-      prompts_shown: 1
-    });
+    setDismissedAntiVicioId(habit.id);
+    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
 
     dataStore.showNotification('Acompanhamento adiado silenciosamente.', 'success');
   };
