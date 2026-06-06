@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
-import { Moon } from 'lucide-react';
+import { Moon, X, Calendar } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -16,6 +16,52 @@ export const HeroSection = () => {
 
   // Greeting Logic
   const [isEditingGoal, setIsEditingGoal] = useState(false);
+
+  const [dismissedScheduleId, setDismissedScheduleId] = useState<string | null>(() => {
+    return sessionStorage.getItem('dude_dismissed_schedule_id') || null;
+  });
+
+  // TRANSIENT ALERT BANNER LIFECYCLE
+  // Compute imminent or overdue scheduled activity for today
+  const alertSchedule = useMemo(() => {
+    const todayStr = getLocalDateString(new Date());
+    const nowTime = new Date();
+    const currentHH = nowTime.getHours();
+    const currentMM = nowTime.getMinutes();
+    const currentTotalMins = currentHH * 60 + currentMM;
+
+    // Filter today's activities with pending/agendada status
+    const todaysPendingSchedules = (dataStore.scheduledActivities || []).filter(sa => {
+      return sa.scheduled_date === todayStr && 
+             (sa.status === 'pending' || sa.status === 'agendada') &&
+             sa.id !== dismissedScheduleId;
+    });
+
+    if (todaysPendingSchedules.length === 0) return null;
+
+    // Standard rule: overdue or imminent (starts in less than 15 mins)
+    for (const sa of todaysPendingSchedules) {
+      const [sh, sm] = (sa.scheduled_time || '00:00').split(':').map(Number);
+      const schedMins = sh * 60 + sm;
+      const diffMins = currentTotalMins - schedMins;
+
+      // Imminent: scheduled in the next 15 mins (diffMins between -15 and 0)
+      // Overdue: past its start time (diffMins > 0)
+      const isOverdue = diffMins > 0;
+      const isImminent = diffMins >= -15 && diffMins <= 0;
+
+      if (isOverdue || isImminent) {
+        return {
+          activity: sa,
+          isOverdue,
+          isImminent,
+          scheduled_time: sa.scheduled_time
+        };
+      }
+    }
+
+    return null;
+  }, [dataStore.scheduledActivities, dismissedScheduleId]);
 
   const hour = new Date().getHours();
   let greeting = 'Boa noite';
@@ -609,7 +655,7 @@ export const HeroSection = () => {
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
+          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
@@ -694,6 +740,83 @@ export const HeroSection = () => {
             "{smartPhrase}"
           </p>
         </div>
+
+        {/* TRANSIENT SCHEDULE BANNER (below the ring) */}
+        <AnimatePresence mode="wait">
+          {alertSchedule && (
+            <motion.div
+              layout={false}
+              key={alertSchedule.activity.id}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98, y: -10 }}
+              className={`w-full max-w-[340px] sm:max-w-md mx-auto p-5 rounded-2xl border text-center select-none relative overflow-hidden flex flex-col gap-3 font-sans transition-all z-20 ${
+                alertSchedule.isOverdue 
+                  ? 'bg-amber-500/5 border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.08)]' 
+                  : 'bg-[#6ee7a8]/5 border-[#6ee7a8]/20 shadow-[0_0_20px_rgba(110,231,168,0.08)]'
+              }`}
+            >
+              {/* Dismiss button */}
+              <button 
+                onClick={() => {
+                  setDismissedScheduleId(alertSchedule.activity.id);
+                  sessionStorage.setItem('dude_dismissed_schedule_id', alertSchedule.activity.id);
+                }}
+                className="absolute top-3 right-3 text-text-secondary/40 hover:text-text-primary transition-all p-1 cursor-pointer"
+                title="Dispensar"
+              >
+                <X size={14} />
+              </button>
+
+              <div className="flex justify-between items-center w-full">
+                <p className={`text-[9px] uppercase tracking-widest font-bold flex items-center gap-1.5 font-mono ${
+                  alertSchedule.isOverdue ? 'text-amber-400' : 'text-[#6ee7a8]'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${alertSchedule.isOverdue ? 'bg-amber-400 animate-pulse' : 'bg-[#6ee7a8] animate-ping'}`} />
+                  ● {alertSchedule.isOverdue ? 'Foco Atrasado' : 'Foco Iminente'}
+                </p>
+                <span className="text-[9px] font-mono font-bold bg-white/5 border border-white/5 px-2.5 py-0.5 rounded-full text-text-secondary/60">
+                  {alertSchedule.scheduled_time}
+                </span>
+              </div>
+
+              <div className="space-y-1 text-left">
+                <h4 className="text-sm font-bold text-text-primary leading-tight">
+                  {alertSchedule.isOverdue ? (
+                    <>Seu bloco de foco está atrasado! <span className="text-amber-400 font-extrabold">"{alertSchedule.activity.title}"</span> deveria ter começado.</>
+                  ) : (
+                    <>Você tem um foco agendado em breve: <span className="text-[#6ee7a8] font-extrabold">"{alertSchedule.activity.title}"</span>.</>
+                  )}
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('start-scheduled-session', { detail: alertSchedule.activity }));
+                  }}
+                  className={`py-2 px-3 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center ${
+                    alertSchedule.isOverdue 
+                      ? 'bg-amber-400 text-background hover:brightness-110' 
+                      : 'bg-green text-background hover:brightness-110'
+                  }`}
+                >
+                  🚀 Iniciar Foco
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-reagendar', { detail: alertSchedule.activity }));
+                  }}
+                  className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary/60 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer text-center"
+                >
+                  📅 Reagendar
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* PRECISION CONSCIOUSNESS BANNER */}
         <AnimatePresence mode="wait">

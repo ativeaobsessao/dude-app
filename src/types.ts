@@ -98,11 +98,12 @@ export type ScheduledActivity = {
   scheduled_date: string;
   scheduled_time: string;
   duration_minutes: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'agendada' | 'concluida' | 'cancelada' | 'expirada' | 'pending' | 'completed' | 'cancelled';
   tasks: string[];
   notes: string | null;
   created_at: string;
   completed_session_id?: string | null;
+  resolved_at?: string | null;
 };
 
 export type PendingTask = {

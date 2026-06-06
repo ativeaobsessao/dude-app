@@ -493,7 +493,25 @@ export const useDataStore = create<DataState>((set, get) => ({
         .order('scheduled_date', { ascending: true })
         .order('scheduled_time', { ascending: true });
       if (error) throw error;
-      if (data) set({ scheduledActivities: data });
+      if (data) {
+        // Run expiry check for past days where activity is still pending/agendada
+        const todayStr = getLocalDateString(new Date());
+        const mapped = await Promise.all(data.map(async (sa) => {
+          const isPending = sa.status === 'pending' || sa.status === 'agendada';
+          const isPastDate = sa.scheduled_date < todayStr;
+          if (isPending && isPastDate) {
+            // Update on server database
+            await supabase
+              .from('scheduled_activities')
+              .update({ status: 'expirada', resolved_at: new Date().toISOString() })
+              .eq('id', sa.id);
+            return { ...sa, status: 'expirada', resolved_at: new Date().toISOString() };
+          }
+          return sa;
+        }));
+        
+        set({ scheduledActivities: mapped });
+      }
     } catch (err) {
       console.error('Error fetching scheduled activities:', err);
     }
@@ -578,7 +596,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         .from('scheduled_activities')
         .insert({
           ...activity,
-          status: 'pending'
+          status: 'agendada'
         })
         .select()
         .single();

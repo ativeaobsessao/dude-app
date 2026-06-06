@@ -21,7 +21,7 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
 
   const todayActivities = useMemo(() => {
     return dataStore.scheduledActivities.filter(item => {
-      return item.scheduled_date === todayStr && item.status === 'pending';
+      return item.scheduled_date === todayStr && (item.status === 'pending' || item.status === 'agendada');
     });
   }, [dataStore.scheduledActivities, todayStr]);
 
@@ -105,6 +105,7 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
                     key={activity.id}
                     activity={activity}
                     onStartSession={handleStart}
+                    isHeroAgenda={true}
                   />
                 ))}
               </div>

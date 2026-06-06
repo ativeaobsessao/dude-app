@@ -1,13 +1,14 @@
 import { useDataStore } from '../../store/useDataStore';
 import { ScheduledActivity } from '../../types';
-import { Play, CheckCircle, Ban } from 'lucide-react';
+import { Play, CheckCircle, Ban, Hourglass } from 'lucide-react';
 
 interface AgendamentoCardProps {
   activity: ScheduledActivity;
   onStartSession?: (activity: ScheduledActivity) => void;
+  isHeroAgenda?: boolean;
 }
 
-export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardProps) => {
+export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false }: AgendamentoCardProps) => {
   const dataStore = useDataStore();
 
   // Resolve title prioritizing cataloged activities, then manual text
@@ -31,9 +32,17 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
     ? dataStore.projects.find(p => p.id === activity.project_id)
     : null;
 
+  const isCompleted = activity.status === 'completed' || activity.status === 'concluida';
+  const isCancelled = activity.status === 'cancelled' || activity.status === 'cancelada';
+  const isExpirada = activity.status === 'expirada';
+  const isPending = activity.status === 'pending' || activity.status === 'agendada';
+
   const handleCancel = async () => {
     if (confirm('Ficou tarde? Deseja realmente cancelar este agendamento?')) {
-      await dataStore.updateScheduledActivity(activity.id, { status: 'cancelled' });
+      await dataStore.updateScheduledActivity(activity.id, { 
+        status: 'cancelada',
+        resolved_at: new Date().toISOString()
+      });
     }
   };
 
@@ -67,8 +76,8 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
 
   // Calculate end times
   const startTime = activity.scheduled_time;
-  const [h, m] = startTime.split(':').map(Number);
-  const totalMin = h * 60 + m + activity.duration_minutes;
+  const [sh, sm] = startTime?.split(':').map(Number) || [0, 0];
+  const totalMin = sh * 60 + sm + activity.duration_minutes;
   const endH = Math.floor(totalMin / 60) % 24;
   const endM = totalMin % 60;
   const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
@@ -79,11 +88,13 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
     <div
       id={`agenda-card-${activity.id}`}
       className={`relative p-5 rounded-3xl border transition-all duration-200 flex flex-col justify-between gap-4 ${
-        activity.status === 'completed'
+        isCompleted
           ? 'bg-emerald-500/5 border-emerald-500/10 opacity-75'
-          : activity.status === 'cancelled'
-          ? 'bg-zinc-500/5 border-white/5 opacity-50'
-          : 'bg-surface/5 border-white/5 hover:border-white/10 hover:bg-surface/10'
+          : isCancelled
+          ? 'bg-red-400/5 border-red-400/10 opacity-60'
+          : isExpirada
+          ? 'bg-zinc-500/5 border-white/5 opacity-40'
+          : 'bg-surface/5 border-white/5 hover:border-[#6ee7a8]/20 hover:bg-surface/10'
       }`}
     >
       <div className="space-y-3">
@@ -98,17 +109,22 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
           </span>
 
           <div className="shrink-0">
-            {activity.status === 'completed' && (
+            {isCompleted && (
               <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/10">
                 <CheckCircle size={9} /> Concluída
               </span>
             )}
-            {activity.status === 'cancelled' && (
-              <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+            {isCancelled && (
+              <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-red-400 bg-red-400/10 px-2.5 py-1 rounded-full border border-red-400/10">
                 <Ban size={9} /> Cancelada
               </span>
             )}
-            {activity.status === 'pending' && (
+            {isExpirada && (
+              <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.15em] text-text-secondary/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+                <Hourglass size={9} /> Expirada
+              </span>
+            )}
+            {isPending && (
               <span className="text-[8px] font-bold uppercase tracking-[0.15em] text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/10">
                 Agendada
               </span>
@@ -120,7 +136,7 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
         <div className="text-left space-y-1">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <h4 className={`text-base font-semibold text-text-primary tracking-tight leading-snug ${
-              activity.status === 'cancelled' ? 'line-through text-text-secondary/60' : ''
+              isCancelled || isExpirada ? 'line-through text-text-secondary/60' : ''
             }`}>
               {title}
             </h4>
@@ -155,27 +171,46 @@ export const AgendamentoCard = ({ activity, onStartSession }: AgendamentoCardPro
           <span>{formatClockTime(endTime)}</span>
         </div>
 
-        {activity.status === 'pending' && (
+        {isPending && (
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={handleEdit}
-              className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
-              title="Editar Agendamento"
-            >
-              Editar
-            </button>
-            <button
-              onClick={handleCancel}
-              className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
-            >
-              Cancelar
-            </button>
+            {isHeroAgenda ? (
+              <>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-reagendar', { detail: activity }))}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-amber-400/80 hover:text-amber-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                >
+                  Reagendar
+                </button>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-reconfigurar', { detail: activity }))}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                >
+                  Reconfigurar
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleEdit}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                  title="Editar Agendamento"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                >
+                  Cancelar
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
 
       {/* LINHA 4: Botão INICIAR em linha exclusiva inferior */}
-      {activity.status === 'pending' && onStartSession && (
+      {isPending && onStartSession && (
         <div className="pt-2 w-full flex justify-center border-t border-white/5">
           <button
             onClick={() => onStartSession(activity)}

@@ -355,8 +355,9 @@ export const ActiveSession = () => {
         // Se houver uma atividade agendada vinculada, marcá-la como concluída
         if (timer.scheduledActivityId) {
           await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
-            status: 'completed',
-            completed_session_id: savedSession.id
+            status: 'concluida',
+            completed_session_id: savedSession.id,
+            resolved_at: new Date().toISOString()
           });
         }
         if (sessionTasksLocal.length > 0) {

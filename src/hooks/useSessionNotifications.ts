@@ -77,6 +77,38 @@ export const playSound = async (type: 'warning' | 'complete') => {
   }
 };
 
+export const playScheduleSound = async (type: 'start' | 'overdue') => {
+  console.log(`[SP Audio] playScheduleSound entered with type: "${type}"`);
+  try {
+    if (!sharedAudioContext) {
+      sharedAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (sharedAudioContext.state === 'suspended') {
+      await sharedAudioContext.resume().catch(() => {});
+    }
+    const ctx = sharedAudioContext;
+    const frequencies = type === 'start'
+      ? [587, 659, 880]  // bright rising
+      : [220, 220, 196]; // graver alarm
+
+    frequencies.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = type === 'start' ? 'sine' : 'triangle';
+      const startTime = ctx.currentTime + i * 0.25;
+      gain.gain.setValueAtTime(0.65, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+      osc.start(startTime);
+      osc.stop(startTime + 0.4);
+    });
+  } catch (err) {
+    console.warn('[SP Audio] playScheduleSound error:', err);
+  }
+};
+
 export const useSessionNotifications = () => {
   const triggerNotification = (type: 'warning' | 'complete') => {
     console.log(`[SP Audio] triggerNotification called with type: "${type}"`);

@@ -17,48 +17,75 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
   const dataStore = useDataStore();
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
 
-  // Filter schedules
-  const filteredSchedules = useMemo(() => {
-    return dataStore.scheduledActivities.filter(sa => {
-      if (activeTab === 'all') return true;
-      return sa.status === activeTab;
+  // Filter, sort, and group schedules into PRÓXIMOS and JÁ PASSARAM
+  const splitSchedules = useMemo(() => {
+    const filtered = dataStore.scheduledActivities.filter(sa => {
+      const matchStatus = (saStatus: string, filterTab: TabFilter): boolean => {
+        if (filterTab === 'all') return true;
+        if (filterTab === 'pending') return saStatus === 'pending' || saStatus === 'agendada';
+        if (filterTab === 'completed') return saStatus === 'completed' || saStatus === 'concluida';
+        if (filterTab === 'cancelled') return saStatus === 'cancelled' || saStatus === 'cancelada' || saStatus === 'expirada';
+        return saStatus === filterTab;
+      };
+      return matchStatus(sa.status, activeTab);
     });
-  }, [dataStore.scheduledActivities, activeTab]);
 
-  // Group schedules by Date
-  const groupedSchedules = useMemo(() => {
-    const groups: { [key: string]: ScheduledActivity[] } = {};
-    
-    // Sort chronological: future first, completed/old second.
-    // Let's sort by date and time
-    const sorted = [...filteredSchedules].sort((a, b) => {
+    // Upcoming: pending/agendada
+    const upcomingList = filtered.filter(sa => sa.status === 'pending' || sa.status === 'agendada');
+    // Resolved/Past: completed, concluida, cancelled, cancelada, expirada
+    const pastList = filtered.filter(sa => sa.status !== 'pending' && sa.status !== 'agendada');
+
+    // Sort upcoming ascending: soonest first
+    const sortedUpcoming = [...upcomingList].sort((a, b) => {
       if (a.scheduled_date !== b.scheduled_date) {
         return a.scheduled_date.localeCompare(b.scheduled_date);
       }
       return a.scheduled_time.localeCompare(b.scheduled_time);
     });
 
-    sorted.forEach(sa => {
-      const date = sa.scheduled_date;
-      if (!groups[date]) {
-        groups[date] = [];
+    // Sort past descending: most recent first
+    const sortedPast = [...pastList].sort((a, b) => {
+      if (a.scheduled_date !== b.scheduled_date) {
+        return b.scheduled_date.localeCompare(a.scheduled_date);
       }
-      groups[date].push(sa);
+      return b.scheduled_time.localeCompare(a.scheduled_time);
     });
 
-    return groups;
-  }, [filteredSchedules]);
+    // Group upcoming by date
+    const upcomingGroups: { date: string; activities: ScheduledActivity[] }[] = [];
+    sortedUpcoming.forEach(sa => {
+      let group = upcomingGroups.find(g => g.date === sa.scheduled_date);
+      if (!group) {
+        group = { date: sa.scheduled_date, activities: [] };
+        upcomingGroups.push(group);
+      }
+      group.activities.push(sa);
+    });
+
+    // Group past by date
+    const pastGroups: { date: string; activities: ScheduledActivity[] }[] = [];
+    sortedPast.forEach(sa => {
+      let group = pastGroups.find(g => g.date === sa.scheduled_date);
+      if (!group) {
+        group = { date: sa.scheduled_date, activities: [] };
+        pastGroups.push(group);
+      }
+      group.activities.push(sa);
+    });
+
+    return { upcomingGroups, pastGroups, totalFiltered: filtered.length };
+  }, [dataStore.scheduledActivities, activeTab]);
 
   // Dynamic Statistics Counters
   const stats = useMemo(() => {
     let total = dataStore.scheduledActivities.length;
-    let pending = dataStore.scheduledActivities.filter(sa => sa.status === 'pending').length;
-    let completed = dataStore.scheduledActivities.filter(sa => sa.status === 'completed').length;
-    let cancelled = dataStore.scheduledActivities.filter(sa => sa.status === 'cancelled').length;
+    let pending = dataStore.scheduledActivities.filter(sa => sa.status === 'pending' || sa.status === 'agendada').length;
+    let completed = dataStore.scheduledActivities.filter(sa => sa.status === 'completed' || sa.status === 'concluida').length;
+    let cancelled = dataStore.scheduledActivities.filter(sa => sa.status === 'cancelled' || sa.status === 'cancelada' || sa.status === 'expirada').length;
     
     // Total scheduled minutes calculated
     let totalMinutes = dataStore.scheduledActivities
-      .filter(sa => sa.status === 'completed')
+      .filter(sa => sa.status === 'completed' || sa.status === 'concluida')
       .reduce((acc, curr) => acc + curr.duration_minutes, 0);
 
     return { total, pending, completed, cancelled, totalHours: Math.round(totalMinutes / 60) };
@@ -157,7 +184,7 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
       </div>
 
       {/* Group List rendering */}
-      {Object.keys(groupedSchedules).length === 0 ? (
+      {splitSchedules.totalFiltered === 0 ? (
         <div className="p-16 rounded-[2.5rem] bg-surface/5 border border-white/5 text-center flex flex-col items-center justify-center gap-4">
           <Calendar className="text-text-secondary/30" size={40} />
           <div className="space-y-1">
@@ -168,26 +195,60 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
           </div>
         </div>
       ) : (
-        <div className="space-y-10">
-          {Object.keys(groupedSchedules).map(dateKey => (
-            <div key={dateKey} className="space-y-4">
-              {/* Date Group Heading */}
-              <h2 className="text-md font-bold tracking-widest text-[#6ee7a8] uppercase border-l-2 border-[#6ee7a8] pl-3">
-                {formatDateHeader(dateKey)}
-              </h2>
-
-              {/* Grid of activities on this day */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {groupedSchedules[dateKey].map(activity => (
-                  <AgendamentoCard
-                    key={activity.id}
-                    activity={activity}
-                    onStartSession={onStartSession}
-                  />
+        <div className="space-y-12">
+          {/* PRÓXIMOS SECTION */}
+          {splitSchedules.upcomingGroups.length > 0 && (
+            <div className="space-y-6">
+              <h3 className="text-xs font-bold tracking-[0.25em] text-[#6ee7a8] uppercase border-b border-[#6ee7a8]/20 pb-2">
+                PRÓXIMOS AGENDAMENTOS ⏳
+              </h3>
+              <div className="space-y-8">
+                {splitSchedules.upcomingGroups.map(group => (
+                  <div key={`upcoming-${group.date}`} className="space-y-4">
+                    <h4 className="text-sm font-bold tracking-widest text-[#6ee7a8]/80 uppercase border-l-2 border-[#6ee7a8] pl-3 text-left">
+                      {formatDateHeader(group.date)}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                      {group.activities.map(activity => (
+                        <AgendamentoCard
+                          key={activity.id}
+                          activity={activity}
+                          onStartSession={onStartSession}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* JÁ PASSARAM SECTION */}
+          {splitSchedules.pastGroups.length > 0 && (
+            <div className="space-y-6">
+              <h3 className="text-xs font-bold tracking-[0.25em] text-text-dim uppercase border-b border-white/10 pb-2">
+                HISTÓRICO / PASSADOS ⚡
+              </h3>
+              <div className="space-y-8">
+                {splitSchedules.pastGroups.map(group => (
+                  <div key={`past-${group.date}`} className="space-y-4">
+                    <h4 className="text-sm font-bold tracking-widest text-text-dim/80 uppercase border-l-2 border-text-dim/50 pl-3 text-left">
+                      {formatDateHeader(group.date)}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                      {group.activities.map(activity => (
+                        <AgendamentoCard
+                          key={activity.id}
+                          activity={activity}
+                          onStartSession={onStartSession}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

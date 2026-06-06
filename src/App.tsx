@@ -24,6 +24,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AgendaHoje } from './components/agenda/AgendaHoje';
 import { ProximasAtividades } from './components/agenda/ProximasAtividades';
 import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
+import { ReagendarModal, ReconfigurarModal } from './components/agenda/SchedulePopups';
 
 // Mood Ritual Integration
 import { MoodRitualModal } from './components/mood/MoodRitualModal';
@@ -44,9 +45,15 @@ export default function App() {
     avoidanceCheckins,
     scheduledActivities
   } = useDataStore();
+  const dataStore = useDataStore();
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
+
+  // Reagendar & Reconfigurar popup controllers
+  const [selectedPopupActivity, setSelectedPopupActivity] = useState<any | null>(null);
+  const [isReagendarOpen, setIsReagendarOpen] = useState(false);
+  const [isReconfigurarOpen, setIsReconfigurarOpen] = useState(false);
 
   const [popupState, setPopupState] = useState<{
     serverChecked: boolean;
@@ -109,19 +116,67 @@ export default function App() {
     }
   };
 
+  // Trigger sound alerts on app open/focus
+  const hasPlayedScheduleSoundRef = useRef(false);
+
   useEffect(() => {
     if (!user || !initialFetchDone) return;
 
     runServerPopupCheck();
+    dataStore.fetchScheduledActivities(user.id);
+
+    // Play schedule state sound (app open)
+    const playLoadedScheduleSounds = async () => {
+      if (hasPlayedScheduleSoundRef.current) return;
+      hasPlayedScheduleSoundRef.current = true;
+      
+      const todayStr = getLocalDateString(new Date());
+      const nowTime = new Date();
+      const currentHH = nowTime.getHours();
+      const currentMM = nowTime.getMinutes();
+      const currentTotalMins = currentHH * 60 + currentMM;
+
+      const todaysSchedules = (dataStore.scheduledActivities || []).filter(sa => {
+        return sa.scheduled_date === todayStr && (sa.status === 'pending' || sa.status === 'agendada');
+      });
+
+      if (todaysSchedules.length === 0) return;
+
+      let hasStart = false;
+      let hasOverdue = false;
+
+      todaysSchedules.forEach(sa => {
+        const [sh, sm] = (sa.scheduled_time || '00:00').split(':').map(Number);
+        const schedMins = sh * 60 + sm;
+        const diffMins = currentTotalMins - schedMins;
+
+        if (diffMins >= 0 && diffMins <= 5) {
+          hasStart = true;
+        } else if (diffMins > 5) {
+          hasOverdue = true;
+        }
+      });
+
+      const { playScheduleSound } = await import('./hooks/useSessionNotifications');
+      if (hasStart) {
+        playScheduleSound('start');
+      } else if (hasOverdue) {
+        playScheduleSound('overdue');
+      }
+    };
+
+    playLoadedScheduleSounds();
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         runServerPopupCheck();
+        dataStore.fetchScheduledActivities(user.id);
       }
     };
 
     const handleFocus = () => {
       runServerPopupCheck();
+      dataStore.fetchScheduledActivities(user.id);
     };
 
     window.addEventListener('visibilitychange', handleVisibility);
@@ -131,7 +186,36 @@ export default function App() {
       window.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [user, initialFetchDone]);
+  }, [user, initialFetchDone, dataStore.scheduledActivities.length]);
+
+  // Listen to custom popups & session startup events
+  useEffect(() => {
+    if (!user) return;
+
+    const handleReagendarEvent = (e: any) => {
+      setSelectedPopupActivity(e.detail);
+      setIsReagendarOpen(true);
+    };
+    const handleReconfigurarEvent = (e: any) => {
+      setSelectedPopupActivity(e.detail);
+      setIsReconfigurarOpen(true);
+    };
+    const handleStartSessionEvent = (e: any) => {
+      if (e.detail) {
+        handleStartSessionFromAgenda(e.detail);
+      }
+    };
+
+    window.addEventListener('open-reagendar', handleReagendarEvent);
+    window.addEventListener('open-reconfigurar', handleReconfigurarEvent);
+    window.addEventListener('start-scheduled-session', handleStartSessionEvent);
+
+    return () => {
+      window.removeEventListener('open-reagendar', handleReagendarEvent);
+      window.removeEventListener('open-reconfigurar', handleReconfigurarEvent);
+      window.removeEventListener('start-scheduled-session', handleStartSessionEvent);
+    };
+  }, [user]);
 
   // Listen to manual shutdown triggers
   useEffect(() => {
@@ -365,6 +449,26 @@ export default function App() {
           }} 
           targetDate={manualShutdownOpen ? manualShutdownDate : popupState.yesterdayStr}
           isCatchUp={manualShutdownOpen ? false : isCatchUpActive}
+        />
+        <ReagendarModal
+          isOpen={isReagendarOpen}
+          onClose={() => {
+            setIsReagendarOpen(false);
+            setSelectedPopupActivity(null);
+          }}
+          activity={selectedPopupActivity}
+          onOpenReconfigurar={(act) => {
+            setIsReconfigurarOpen(true);
+            setSelectedPopupActivity(act);
+          }}
+        />
+        <ReconfigurarModal
+          isOpen={isReconfigurarOpen}
+          onClose={() => {
+            setIsReconfigurarOpen(false);
+            setSelectedPopupActivity(null);
+          }}
+          activity={selectedPopupActivity}
         />
         <CinematicBackground />
         <ActiveSession />
