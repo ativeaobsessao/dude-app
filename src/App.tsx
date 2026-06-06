@@ -140,13 +140,42 @@ export default function App() {
         return sa.scheduled_date === todayStr && (sa.status === 'pending' || sa.status === 'agendada');
       });
 
-      if (todaysSchedules.length === 0) return;
+      const today = new Date();
+      let dayOfWeek = today.getDay();
+      if (dayOfWeek === 0) dayOfWeek = 7;
+      const dayOfWeekStr = String(dayOfWeek);
+
+      const activeHabits = (dataStore.habits || [])
+        .filter(h => {
+          if (!h.is_scheduled) return false;
+          if (h.sched_weekdays === 'all') return true;
+          const days = (h.sched_weekdays || '').split(',');
+          return days.includes(dayOfWeekStr);
+        })
+        .filter(h => {
+          const isCompleted = (dataStore.habitCompletions || []).some(hc => {
+            if (hc.habit_id !== h.id) return false;
+            const compDateStr = getLocalDateString(new Date(hc.completed_at));
+            return compDateStr === todayStr;
+          });
+          return !isCompleted;
+        });
+
+      const times: { time: string }[] = [];
+      todaysSchedules.forEach(sa => {
+        times.push({ time: sa.scheduled_time || '00:00' });
+      });
+      activeHabits.forEach(h => {
+        times.push({ time: h.sched_start || '09:00' });
+      });
+
+      if (times.length === 0) return;
 
       let hasStart = false;
       let hasOverdue = false;
 
-      todaysSchedules.forEach(sa => {
-        const [sh, sm] = (sa.scheduled_time || '00:00').split(':').map(Number);
+      times.forEach(t => {
+        const [sh, sm] = t.time.split(':').map(Number);
         const schedMins = sh * 60 + sm;
         const diffMins = currentTotalMins - schedMins;
 
@@ -314,6 +343,27 @@ export default function App() {
         return item.scheduled_date === todayStr && item.status === 'pending';
       });
 
+      // Find active scheduled habits for today that are not completed yet
+      let dayOfWeek = now.getDay();
+      if (dayOfWeek === 0) dayOfWeek = 7;
+      const dayOfWeekStr = String(dayOfWeek);
+
+      const activeHabits = useDataStore.getState().habits
+        .filter(habit => {
+          if (!habit.is_scheduled) return false;
+          if (habit.sched_weekdays === 'all') return true;
+          const days = (habit.sched_weekdays || '').split(',');
+          return days.includes(dayOfWeekStr);
+        })
+        .filter(habit => {
+          const isCompleted = useDataStore.getState().habitCompletions.some(hc => {
+            if (hc.habit_id !== habit.id) return false;
+            const compDateStr = getLocalDateString(new Date(hc.completed_at));
+            return compDateStr === todayStr;
+          });
+          return !isCompleted;
+        });
+
       const triggerNotification = (alertTitle: string, alertBody: string) => {
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
@@ -329,38 +379,49 @@ export default function App() {
         useDataStore.getState().showNotification(`⏰ ${alertBody}`, 'success');
       };
 
-      todayPending.forEach(activity => {
-        // Convert scheduled_time "HH:MM" to minutes from start of day
-        const [h, m] = activity.scheduled_time.split(':').map(Number);
+      const virtualActivities = activeHabits.map(habit => {
+        return {
+          id: `habit-sched-${habit.id}`,
+          title: habit.name,
+          scheduled_time: habit.sched_start || '09:00',
+        };
+      });
+
+      const allTargets = [
+        ...todayPending.map(ap => ({ id: ap.id, title: ap.title || 'Seu bloco de foco programado', scheduled_time: ap.scheduled_time })),
+        ...virtualActivities
+      ];
+
+      allTargets.forEach(target => {
+        const [h, m] = (target.scheduled_time || '09:00').split(':').map(Number);
         const scheduledMinutes = h * 60 + m;
 
         const diffMinutes = scheduledMinutes - currentMinutes;
-        const title = activity.title || 'Seu bloco de foco programado';
 
         // ALERTA 1: 5 minutos antes
         if (diffMinutes === 5) {
-          const key = `${activity.id}-5min`;
+          const key = `${target.id}-5min`;
           if (!notifiedActivityIdsRef.current.has(key)) {
             notifiedActivityIdsRef.current.add(key);
-            triggerNotification(`⏰ Foco aproximando!`, `Sua atividade começará em 5 minutos.`);
+            triggerNotification(`⏰ Foco aproximando!`, `Sua atividade "${target.title}" começará em 5 minutos.`);
           }
         }
 
         // ALERTA 2: 1 minuto antes
         if (diffMinutes === 1) {
-          const key = `${activity.id}-1min`;
+          const key = `${target.id}-1min`;
           if (!notifiedActivityIdsRef.current.has(key)) {
             notifiedActivityIdsRef.current.add(key);
-            triggerNotification(`⏰ Quase na hora!`, `Prepare-se. Sua atividade começará em instantes.`);
+            triggerNotification(`⏰ Quase na hora!`, `Prepare-se. Sua atividade "${target.title}" começará em instantes.`);
           }
         }
 
         // ALERTA 3: Hora exata (0 minutos)
         if (diffMinutes === 0) {
-          const key = `${activity.id}-now`;
+          const key = `${target.id}-now`;
           if (!notifiedActivityIdsRef.current.has(key)) {
             notifiedActivityIdsRef.current.add(key);
-            triggerNotification(`⚡ Atividade iniciada!`, `Está na hora de iniciar sua atividade.`);
+            triggerNotification(`⚡ Atividade iniciada!`, `Está na hora de iniciar sua atividade "${target.title}".`);
           }
         }
       });

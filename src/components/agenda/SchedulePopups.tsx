@@ -114,10 +114,15 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
                   min="0"
                   max="23"
                   placeholder="HH"
-                  value={startHH}
+                  value={startHH || ''}
                   onChange={(e) => {
-                    const val = e.target.value.slice(0, 2);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                     setStartHH(val);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={() => {
+                    const num = Math.min(23, parseInt(startHH, 10) || 0);
+                    setStartHH(String(num).padStart(2, '0'));
                   }}
                   className="w-1/2 text-center bg-transparent text-text-primary focus:outline-none text-sm font-mono"
                 />
@@ -126,10 +131,15 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
                   min="0"
                   max="59"
                   placeholder="MM"
-                  value={startMM}
+                  value={startMM || ''}
                   onChange={(e) => {
-                    const val = e.target.value.slice(0, 2);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                     setStartMM(val);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={() => {
+                    const num = Math.min(59, parseInt(startMM, 10) || 0);
+                    setStartMM(String(num).padStart(2, '0'));
                   }}
                   className="w-1/2 text-center bg-transparent text-text-primary focus:outline-none text-sm font-mono"
                 />
@@ -140,7 +150,7 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
 
           {/* Campo Duração — TWO CONTAINER [HH]|[MM] */}
           <div className="space-y-1.5 text-left">
-            <label className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">Duração Estimada</label>
+            <label className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block font-sans">Duração Estimada</label>
             <div className="flex items-center gap-2">
               <div className="flex-1 flex bg-surface-2 border border-border-custom rounded-xl divide-x divide-border-custom overflow-hidden h-[48px]">
                 <input
@@ -148,10 +158,15 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
                   min="0"
                   max="23"
                   placeholder="HH"
-                  value={durHH}
+                  value={durHH || ''}
                   onChange={(e) => {
-                    const val = e.target.value.slice(0, 2);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                     setDurHH(val);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={() => {
+                    const num = Math.min(23, parseInt(durHH, 10) || 0);
+                    setDurHH(String(num).padStart(2, '0'));
                   }}
                   className="w-1/2 text-center bg-transparent text-text-primary focus:outline-none text-sm font-mono"
                 />
@@ -160,10 +175,15 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
                   min="0"
                   max="59"
                   placeholder="MM"
-                  value={durMM}
+                  value={durMM || ''}
                   onChange={(e) => {
-                    const val = e.target.value.slice(0, 2);
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 2);
                     setDurMM(val);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={() => {
+                    const num = Math.min(59, parseInt(durMM, 10) || 0);
+                    setDurMM(String(num).padStart(2, '0'));
                   }}
                   className="w-1/2 text-center bg-transparent text-text-primary focus:outline-none text-sm font-mono"
                 />

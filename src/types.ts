@@ -45,6 +45,10 @@ export type Habit = {
   monitor_start?: string | null;  // HH:MM
   monitor_end?: string | null;    // HH:MM
   monitor_weekdays?: string;      // '1,2,3,4,5' or 'all' etc.
+  is_scheduled?: boolean;
+  sched_start?: string | null;    // 'HH:MM'
+  sched_duration?: number | null; // in minutes
+  sched_weekdays?: string | null; // '1,2,3,4,5' or 'all' or list of weekdays
 };
 
 export type AvoidanceCheckin = {

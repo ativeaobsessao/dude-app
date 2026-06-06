@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown } from '../types';
 import { useTimerStore } from './useTimerStore';
+import { useAuthStore } from './useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
 function getLocalMondayStr(): string {
@@ -614,6 +615,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateScheduledActivity: async (id, updates) => {
     try {
+      if (id.startsWith('habit-sched-')) {
+        const habitId = id.replace('habit-sched-', '');
+        const isCompleting = updates.status === 'concluida' || updates.status === 'completed';
+        if (isCompleting) {
+          const userId = useAuthStore.getState().user?.id;
+          if (userId) {
+            await get().completeHabitSession(habitId, userId, updates.duration_minutes || 45, updates.completed_session_id || undefined);
+          }
+        }
+        return true;
+      }
       const { data, error } = await supabase
         .from('scheduled_activities')
         .update(updates)

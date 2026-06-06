@@ -22,6 +22,10 @@ ALTER TABLE habits ADD COLUMN IF NOT EXISTS avoidance_window_end TIME;
 ALTER TABLE habits ADD COLUMN IF NOT EXISTS avoidance_checkin_intensity TEXT DEFAULT 'balanced' CHECK (avoidance_checkin_intensity IN ('light', 'balanced', 'strong'));
 ALTER TABLE habits ADD COLUMN IF NOT EXISTS avoidance_notifications_enabled BOOLEAN DEFAULT TRUE;
 ALTER TABLE habits ADD COLUMN IF NOT EXISTS avoidance_recovery_mode BOOLEAN DEFAULT TRUE;
+ALTER TABLE habits ADD COLUMN IF NOT EXISTS is_scheduled BOOLEAN DEFAULT FALSE;
+ALTER TABLE habits ADD COLUMN IF NOT EXISTS sched_start TEXT;
+ALTER TABLE habits ADD COLUMN IF NOT EXISTS sched_duration INTEGER;
+ALTER TABLE habits ADD COLUMN IF NOT EXISTS sched_weekdays TEXT;
 
 -- Table: focus_sessions
 ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS all_tasks_completed BOOLEAN DEFAULT FALSE;

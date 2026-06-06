@@ -40,6 +40,10 @@ CREATE TABLE habits (
   recurrence_days TEXT[],
   recurrence_time TEXT,
   last_generated_week TEXT,
+  is_scheduled BOOLEAN DEFAULT FALSE,
+  sched_start TEXT,
+  sched_duration INTEGER,
+  sched_weekdays TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -173,7 +173,24 @@ export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false
 
         {isPending && (
           <div className="flex items-center gap-1 shrink-0">
-            {isHeroAgenda ? (
+            {activity.id.startsWith('habit-sched-') ? (
+              <button
+                onClick={() => {
+                  const habit = dataStore.habits.find(h => h.id === activity.habit_id);
+                  if (habit) {
+                    window.dispatchEvent(new CustomEvent('open-action-center', { 
+                      detail: { 
+                        screen: 'habits',
+                        editingHabit: habit 
+                      } 
+                    }));
+                  }
+                }}
+                className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
+              >
+                Ajustar Hábito
+              </button>
+            ) : isHeroAgenda ? (
               <>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('open-reagendar', { detail: activity }))}

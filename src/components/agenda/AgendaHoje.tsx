@@ -20,10 +20,57 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
   }, []);
 
   const todayActivities = useMemo(() => {
-    return dataStore.scheduledActivities.filter(item => {
+    const rawEvents = dataStore.scheduledActivities.filter(item => {
       return item.scheduled_date === todayStr && (item.status === 'pending' || item.status === 'agendada');
     });
-  }, [dataStore.scheduledActivities, todayStr]);
+
+    // Translate scheduled habits for today to on-the-fly Agenda de Hoje events
+    const today = new Date();
+    let dayOfWeek = today.getDay();
+    if (dayOfWeek === 0) dayOfWeek = 7;
+    const dayOfWeekStr = String(dayOfWeek);
+
+    const mappedHabits = dataStore.habits
+      .filter(habit => {
+        if (!habit.is_scheduled) return false;
+        if (habit.sched_weekdays === 'all') return true;
+        const days = (habit.sched_weekdays || '').split(',');
+        return days.includes(dayOfWeekStr);
+      })
+      .map(habit => {
+        // Is completed today?
+        const isCompleted = dataStore.habitCompletions.some(hc => {
+          if (hc.habit_id !== habit.id) return false;
+          const compDateStr = getLocalDateString(new Date(hc.completed_at));
+          return compDateStr === todayStr;
+        });
+
+        return {
+          id: `habit-sched-${habit.id}`,
+          user_id: habit.user_id,
+          habit_id: habit.id,
+          project_id: null,
+          activity_id: null,
+          atividade_avulsa: habit.name,
+          scheduled_date: todayStr,
+          scheduled_time: habit.sched_start || '09:00',
+          duration_minutes: habit.sched_duration || 45,
+          status: isCompleted ? 'concluida' : 'pending',
+          notes: 'Hábito Atômico Programado',
+          tasks: []
+        } as unknown as ScheduledActivity;
+      });
+
+    // Filter out completed mapped habits from Agenda de hoje or show them in card grid
+    const allMerged = [...rawEvents, ...mappedHabits];
+    
+    // Sort chronologically by scheduled_time
+    return allMerged.sort((a, b) => {
+      const ta = a.scheduled_time || '00:00';
+      const tb = b.scheduled_time || '00:00';
+      return ta.localeCompare(tb);
+    });
+  }, [dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions, todayStr]);
 
   const handleStart = (activity: ScheduledActivity) => {
     onStartSession(activity);
