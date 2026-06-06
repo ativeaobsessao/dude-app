@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { Moon, X, Calendar } from 'lucide-react';
@@ -7,6 +7,7 @@ import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDat
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { Habit, AvoidanceCheckin } from '../../types';
+import { playScheduleSound } from '../../hooks/useSessionNotifications';
 
 interface HeroSectionProps {
   tasks?: any[];
@@ -31,7 +32,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   });
 
   // TRANSIENT ALERT BANNER LIFECYCLE
-  // Compute imminent or overdue scheduled activity for today
+  // Compute imminent or overdue scheduled activity/habit for today
   const alertSchedule = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
     const nowTime = new Date();
@@ -39,14 +40,48 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     const currentMM = nowTime.getMinutes();
     const currentTotalMins = currentHH * 60 + currentMM;
 
-    // Filter today's activities with pending/agendada status, excluding the one currently active in timer
-    const todaysPendingSchedules = (dataStore.scheduledActivities || []).filter(sa => {
+    // A) Get database schedules
+    const rawSchedules = (dataStore.scheduledActivities || []).filter(sa => {
       const isBeingRun = timer.isActive && timer.scheduledActivityId === sa.id;
       return sa.scheduled_date === todayStr && 
              (sa.status === 'pending' || sa.status === 'agendada') &&
              sa.id !== dismissedScheduleId &&
              !isBeingRun;
     });
+
+    // B) Get dynamic scheduled habits for today uncompleted, mapped to ScheduledActivity schema
+    const scheduledHabits = (dataStore.habits || [])
+      .filter(h => h.habit_mode === 'build' && h.is_scheduled)
+      .map(habit => {
+        const isCompleted = (dataStore.habitCompletions || []).some(hc => {
+          if (hc.habit_id !== habit.id) return false;
+          const compDateStr = getLocalDateString(new Date(hc.completed_at));
+          return compDateStr === todayStr;
+        });
+
+        return {
+          id: `habit-sched-${habit.id}`,
+          user_id: habit.user_id,
+          habit_id: habit.id,
+          project_id: null,
+          activity_id: null,
+          atividade_avulsa: habit.name,
+          title: habit.name, // Ensure title is populated for prompt display
+          scheduled_date: todayStr,
+          scheduled_time: habit.sched_start || '09:00',
+          duration_minutes: habit.sched_duration || 45,
+          status: isCompleted ? 'completed' : 'pending',
+          notes: 'Hábito Atômico Programado',
+          tasks: []
+        };
+      })
+      .filter(sh => {
+        const isBeingRun = timer.isActive && timer.scheduledActivityId === sh.id;
+        return sh.status === 'pending' && sh.id !== dismissedScheduleId && !isBeingRun;
+      });
+
+    // Combine both into single array of active items
+    const todaysPendingSchedules = [...rawSchedules, ...scheduledHabits];
 
     if (todaysPendingSchedules.length === 0) return null;
 
@@ -63,7 +98,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
       if (isOverdue || isImminent) {
         return {
-          activity: sa,
+          activity: {
+            ...sa,
+            title: sa.title || sa.atividade_avulsa || 'Foco Planejado'
+          } as any,
           isOverdue,
           isImminent,
           scheduled_time: sa.scheduled_time
@@ -72,7 +110,19 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
 
     return null;
-  }, [dataStore.scheduledActivities, dismissedScheduleId, timer.isActive, timer.scheduledActivityId]);
+  }, [dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions, dismissedScheduleId, timer.isActive, timer.scheduledActivityId]);
+
+  // Trigger alarm sounds for overdue or imminent focal blocks on mount/foreground
+  const playedSoundScheduleIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (alertSchedule && alertSchedule.activity.id !== playedSoundScheduleIdRef.current) {
+      playedSoundScheduleIdRef.current = alertSchedule.activity.id;
+      const type = alertSchedule.isOverdue ? 'overdue' : 'start';
+      playScheduleSound(type).catch(err => console.warn('Failed to play alarm chime:', err));
+    } else if (!alertSchedule) {
+      playedSoundScheduleIdRef.current = null;
+    }
+  }, [alertSchedule]);
 
   const hour = new Date().getHours();
   let greeting = 'Boa noite';

@@ -22,6 +22,34 @@ function parseLocalDate(dateStr: string): Date {
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
+const VALID_SCHEDULED_COLUMNS = [
+  'id',
+  'user_id',
+  'title',
+  'project_id',
+  'activity_id',
+  'atividade_avulsa',
+  'habit_id',
+  'scheduled_date',
+  'scheduled_time',
+  'duration_minutes',
+  'status',
+  'tasks',
+  'notes',
+  'completed_session_id',
+  'created_at'
+];
+
+function sanitizeScheduledActivity(payload: any) {
+  const sanitized: any = {};
+  for (const key of VALID_SCHEDULED_COLUMNS) {
+    if (payload[key] !== undefined) {
+      sanitized[key] = payload[key];
+    }
+  }
+  return sanitized;
+}
+
 interface DataState {
   profile: Profile | null;
   projects: Project[];
@@ -549,7 +577,7 @@ export const useDataStore = create<DataState>((set, get) => ({
             // Update on server database to 'cancelled' so it fits the DB constraint
             await supabase
               .from('scheduled_activities')
-              .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
+              .update({ status: 'cancelled' })
               .eq('id', sa.id);
             return { ...sa, status: 'expirada', resolved_at: new Date().toISOString() };
           }
@@ -638,12 +666,16 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addScheduledActivity: async (activity) => {
     try {
+      const rawPayload = {
+        ...activity,
+        status: 'pending'
+      };
+      
+      const dbPayload = sanitizeScheduledActivity(rawPayload);
+      
       const { data, error } = await supabase
         .from('scheduled_activities')
-        .insert({
-          ...activity,
-          status: 'pending'
-        })
+        .insert(dbPayload)
         .select()
         .single();
       if (error) throw error;
@@ -683,16 +715,18 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
       }
 
+      const dbUpdates = sanitizeScheduledActivity(mappedUpdates);
+
       const { data, error } = await supabase
         .from('scheduled_activities')
-        .update(mappedUpdates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
       if (error) throw error;
       if (data) {
         set({
-          scheduledActivities: get().scheduledActivities.map(sa => sa.id === id ? data : sa)
+          scheduledActivities: get().scheduledActivities.map(sa => sa.id === id ? { ...sa, ...updates, ...data } : sa)
         });
         return true;
       }
