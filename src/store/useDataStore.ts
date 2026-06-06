@@ -546,10 +546,10 @@ export const useDataStore = create<DataState>((set, get) => ({
           const isPending = sa.status === 'pending' || sa.status === 'agendada';
           const isPastDate = sa.scheduled_date < todayStr;
           if (isPending && isPastDate) {
-            // Update on server database
+            // Update on server database to 'cancelled' so it fits the DB constraint
             await supabase
               .from('scheduled_activities')
-              .update({ status: 'expirada', resolved_at: new Date().toISOString() })
+              .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
               .eq('id', sa.id);
             return { ...sa, status: 'expirada', resolved_at: new Date().toISOString() };
           }
@@ -642,7 +642,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         .from('scheduled_activities')
         .insert({
           ...activity,
-          status: 'agendada'
+          status: 'pending'
         })
         .select()
         .single();
@@ -671,9 +671,21 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
         return true;
       }
+      
+      const mappedUpdates = { ...updates };
+      if (mappedUpdates.status) {
+        if (mappedUpdates.status === 'concluida' || mappedUpdates.status === 'completed') {
+          mappedUpdates.status = 'completed';
+        } else if (mappedUpdates.status === 'cancelada' || mappedUpdates.status === 'cancelled' || mappedUpdates.status === 'expirada') {
+          mappedUpdates.status = 'cancelled';
+        } else if (mappedUpdates.status === 'agendada' || mappedUpdates.status === 'pending') {
+          mappedUpdates.status = 'pending';
+        }
+      }
+
       const { data, error } = await supabase
         .from('scheduled_activities')
-        .update(updates)
+        .update(mappedUpdates)
         .eq('id', id)
         .select()
         .single();

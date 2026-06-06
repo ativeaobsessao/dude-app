@@ -39,11 +39,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     const currentMM = nowTime.getMinutes();
     const currentTotalMins = currentHH * 60 + currentMM;
 
-    // Filter today's activities with pending/agendada status
+    // Filter today's activities with pending/agendada status, excluding the one currently active in timer
     const todaysPendingSchedules = (dataStore.scheduledActivities || []).filter(sa => {
+      const isBeingRun = timer.isActive && timer.scheduledActivityId === sa.id;
       return sa.scheduled_date === todayStr && 
              (sa.status === 'pending' || sa.status === 'agendada') &&
-             sa.id !== dismissedScheduleId;
+             sa.id !== dismissedScheduleId &&
+             !isBeingRun;
     });
 
     if (todaysPendingSchedules.length === 0) return null;
@@ -70,7 +72,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
 
     return null;
-  }, [dataStore.scheduledActivities, dismissedScheduleId]);
+  }, [dataStore.scheduledActivities, dismissedScheduleId, timer.isActive, timer.scheduledActivityId]);
 
   const hour = new Date().getHours();
   let greeting = 'Boa noite';
