@@ -14,6 +14,7 @@ export const RecentNotes = () => {
   const [showAddNote, setShowAddNote] = useState(false);
   const [filterProject, setFilterProject] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [filterActivity, setFilterActivity] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   // Handle external trigger to open history modal
@@ -191,7 +192,8 @@ export const RecentNotes = () => {
     const matchesProject = filterProject ? note.project_id === filterProject : true;
     const noteDateStr = note.target_date || getLocalDateString(note.created_at);
     const matchesDate = filterDate ? noteDateStr === filterDate : true;
-    return matchesProject && matchesDate;
+    const matchesActivity = filterActivity ? note.activity_id === filterActivity : true;
+    return matchesProject && matchesDate && matchesActivity;
   });
 
   const handleAddNote = async () => {
@@ -313,30 +315,44 @@ export const RecentNotes = () => {
                         className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/30 transition-all flex flex-col group relative overflow-hidden"
                       >
                         {editingNoteId !== note.id && (
-                          <>
-                            <button 
-                              onClick={() => handleCopyNote(note)}
-                              title="Copiar para área de transferência"
-                              className="absolute top-4 right-20 p-2 text-text-secondary opacity-0 group-hover:opacity-100 hover:text-primary-green hover:bg-white/5 rounded-lg transition-all cursor-pointer max-md:opacity-100 max-md:text-text-secondary/60"
-                            >
-                              <Copy size={14} />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setEditingNoteId(note.id);
-                                setEditingNoteContent(note.content);
-                              }}
-                              className="absolute top-4 right-12 p-2 text-primary-green opacity-0 group-hover:opacity-100 hover:bg-primary-green/10 rounded-lg transition-all"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteConfirm(note.id, note.content)}
-                              className="absolute top-4 right-4 p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded-lg transition-all"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
+                          <div className="flex justify-between items-center gap-4 mb-3 border-b border-white/5 pb-2">
+                            <div className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest flex items-center gap-2">
+                              Anotação
+                            </div>
+                            <div className="flex items-center gap-1.5 relative z-10 transition-opacity duration-200">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyNote(note);
+                                }}
+                                title="Copiar para área de transferência"
+                                className="p-1 text-text-secondary/60 hover:text-primary-green hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Copy size={14} />
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                   e.stopPropagation();
+                                   setEditingNoteId(note.id);
+                                   setEditingNoteContent(note.content);
+                                }}
+                                title="Editar Anotação"
+                                className="p-1 text-primary-green/60 hover:text-primary-green hover:bg-primary-green/10 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteConfirm(note.id, note.content);
+                                }}
+                                title="Excluir Anotação"
+                                className="p-1 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
                         )}
 
                         {editingNoteId === note.id ? (
@@ -512,7 +528,7 @@ export const RecentNotes = () => {
                   </div>
                 </div>
                 
-                <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto flex-wrap md:flex-nowrap">
                    <CustomSelect 
                     className="w-full md:w-64"
                     value={filterProject}
@@ -521,6 +537,16 @@ export const RecentNotes = () => {
                     options={[
                       { value: '', label: 'Filtrar Projeto' },
                       ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                  />
+                  <CustomSelect 
+                    className="w-full md:w-64"
+                    value={filterActivity}
+                    onChange={val => setFilterActivity(val)}
+                    placeholder="Filtrar Atividade"
+                    options={[
+                      { value: '', label: 'Filtrar Atividade' },
+                      ...dataStore.activities.map(a => ({ value: a.id, label: a.name }))
                     ]}
                   />
                   <input
@@ -617,37 +643,44 @@ export const RecentNotes = () => {
                       )}
 
                       {editingNoteId !== note.id && (
-                        <>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCopyNote(note);
-                            }}
-                            title="Copiar para área de transferência"
-                            className="absolute top-6 right-26 p-3 text-text-secondary/40 hover:text-primary-green hover:bg-white/5 rounded-xl transition-all cursor-pointer"
-                          >
-                            <Copy size={20} />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingNoteId(note.id);
-                              setEditingNoteContent(note.content);
-                            }}
-                            className="absolute top-6 right-16 p-3 text-primary-green/40 hover:text-primary-green hover:bg-primary-green/10 rounded-xl transition-all"
-                          >
-                            <Pencil size={20} />
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteConfirm(note.id, note.content);
-                            }}
-                            className="absolute top-6 right-6 p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </>
+                        <div className="flex justify-between items-center gap-4 mb-3 border-b border-white/5 pb-2">
+                          <div className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest flex items-center gap-2">
+                            Anotação
+                          </div>
+                          <div className="flex items-center gap-1.5 relative z-10">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyNote(note);
+                              }}
+                              title="Copiar para área de transferência"
+                              className="p-1.5 text-text-secondary/50 hover:text-primary-green hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+                            >
+                              <Copy size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingNoteId(note.id);
+                                setEditingNoteContent(note.content);
+                              }}
+                              title="Editar Anotação"
+                              className="p-1.5 text-primary-green/50 hover:text-primary-green hover:bg-primary-green/10 rounded-lg transition-all cursor-pointer"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteConfirm(note.id, note.content);
+                              }}
+                              title="Excluir Anotação"
+                              className="p-1.5 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
                       )}
                       
                       {editingNoteId === note.id ? (

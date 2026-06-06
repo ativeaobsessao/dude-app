@@ -659,7 +659,7 @@ export const HeroSection = () => {
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-[#6ee7a8] italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
+          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-primary-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
