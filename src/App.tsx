@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Target, X, AlertTriangle, Check } from 'lucide-react';
+import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon } from 'lucide-react';
+import { TaskListScreen, DailyTask } from './components/dashboard/TaskListScreen';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
@@ -46,6 +47,35 @@ export default function App() {
     scheduledActivities
   } = useDataStore();
   const dataStore = useDataStore();
+  const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'centro' | 'menu'>('home');
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
+
+  // Load and save daily tasks
+  useEffect(() => {
+    if (!user) return;
+    const todayStr = getLocalDateString(new Date());
+    const storageKey = `dude_daily_tasks_${user.id}_${todayStr}`;
+    const cached = localStorage.getItem(storageKey);
+    if (cached) {
+      try {
+        setDailyTasks(JSON.parse(cached));
+      } catch (err) {
+        console.error('Error parsing daily tasks', err);
+      }
+    } else {
+      setDailyTasks([]);
+    }
+  }, [user]);
+
+  const handleTasksChange = (newTasks: DailyTask[]) => {
+    setDailyTasks(newTasks);
+    if (user) {
+      const todayStr = getLocalDateString(new Date());
+      const storageKey = `dude_daily_tasks_${user.id}_${todayStr}`;
+      localStorage.setItem(storageKey, JSON.stringify(newTasks));
+    }
+  };
+
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
@@ -629,7 +659,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <header className="fixed top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex justify-between items-center">
+        <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex justify-between items-center">
           <motion.div 
             layout={false}
             initial={{ opacity: 0, x: -20 }}
@@ -677,59 +707,75 @@ export default function App() {
             />
           </div>
         ) : (
-          <main className="min-h-screen pb-40 flex flex-col items-center">
-            <HeroSection />
+          <main className="min-h-screen pb-40 flex flex-col items-center pt-24">
+            {activeTab === 'home' && (
+              <>
+                <HeroSection tasks={dailyTasks} onNavigateToLists={() => setActiveTab('listas')} />
 
-            <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-16 flex flex-col items-center">
-              
-              {/* AGENDA HOJE BRANCH */}
-              <AgendaHoje 
+                <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-16 flex flex-col items-center">
+                  {/* AGENDA HOJE BRANCH */}
+                  <AgendaHoje 
+                    onStartSession={handleStartSessionFromAgenda}
+                    onOpenNewSchedule={handleOpenNewSchedule}
+                  />
+
+                  {/* 9. Seção Histórico Recente */}
+                  <RecentHistory />
+
+                  {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
+                  {initialFetchDone && sessions && sessions.length > 0 && (
+                    <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-t border-white/5 pt-12 mt-12">
+                      <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
+                        Tenha Controle Total Sobre Seu Tempo
+                      </h3>
+                      <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
+                        Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'listas' && (
+              <TaskListScreen 
+                tasks={dailyTasks} 
+                onTasksChange={handleTasksChange}
                 onStartSession={handleStartSessionFromAgenda}
-                onOpenNewSchedule={handleOpenNewSchedule}
               />
+            )}
 
-              {/* 6. Botão "CENTRO DE INTELIGÊNCIA" repositioned right above Hábitos */}
-              <div className="flex justify-center w-full max-w-5xl">
-                <button 
-                  onClick={() => setShowStats(true)}
-                  className="px-16 py-5 bg-green rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(110,231,168,0.25)] hover:shadow-[0_0_60px_rgba(110,231,168,0.4)] active:scale-95 transition-all duration-300 w-full"
-                >
-                  <span className="text-base text-xl font-bold tracking-tight text-background">Centro de Inteligência</span>
-                  <span className="text-background/60 text-[10px] font-bold uppercase tracking-[0.3em]">Veja para onde seu tempo está indo</span>
-                </button>
-              </div>
+            {activeTab === 'centro' && (
+              <ProgressStats onClose={() => setActiveTab('home')} />
+            )}
 
-              {/* 7. Seção Hábitos Atômicos */}
-              <HabitsSection />
+            {activeTab === 'menu' && (
+              <div className="w-full max-w-6xl mx-auto px-6 py-6 space-y-12 md:space-y-16 flex flex-col items-center">
+                <div className="text-center space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6e7572]">DUDE MÓDULOS</span>
+                  <h2 className="text-3xl font-black tracking-tight text-text-primary uppercase font-sans">Menu do Sistema</h2>
+                  <p className="text-xs text-text-secondary/70 font-medium max-w-md mx-auto leading-normal">
+                    Seus eixos integrados em uma visão única e unificada.
+                  </p>
+                </div>
 
-              {/* Anti-Vício (Módulo Premium Separado) */}
-              <AvoidanceSection />
+                {/* Seção Hábitos Atômicos */}
+                <HabitsSection />
 
-              {/* 8. Seção Anotações */}
-              <RecentNotes />
+                {/* Anti-Vício (Módulo Premium Separado) */}
+                <AvoidanceSection />
 
-              {/* Organizador de Links Section */}
-              <LinksHeroBlock />
+                {/* Seção Anotações */}
+                <RecentNotes />
 
-              {/* 9. Seção Histórico Recente */}
-              <RecentHistory />
-
-            {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
-            {initialFetchDone && sessions && sessions.length > 0 && (
-              <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-t border-white/5 pt-12 mt-12">
-                <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
-                  Tenha Controle Total Sobre Seu Tempo
-                </h3>
-                <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
-                  Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
-                </p>
+                {/* Organizador de Links Section */}
+                <LinksHeroBlock />
               </div>
             )}
-          </div>
-        </main>
-      )}
+          </main>
+        )}
 
-        <footer className="w-full py-12 border-t border-border-white/5 flex flex-col items-center gap-4">
+        <footer className="w-full py-12 border-t border-border-white/5 flex flex-col items-center gap-4 pb-32">
           <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary">
             Premium Personal Evolution System
           </div>
@@ -737,6 +783,88 @@ export default function App() {
             Build v2.0.0 — Powered by Supabase
           </div>
         </footer>
+
+        {/* FIXED BOTTOM NAVIGATION BAR */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0f0e]/85 backdrop-blur-xl border-t border-white/5 pb-safe">
+          <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-between">
+            {/* 1. Início */}
+            <button 
+              onClick={() => {
+                setShowFullAgenda(false);
+                setActiveTab('home');
+              }}
+              className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all cursor-pointer ${
+                activeTab === 'home' 
+                  ? 'text-green scale-105' 
+                  : 'text-text-secondary/40 hover:text-text-primary'
+              }`}
+            >
+              <Home size={20} className="transition-all" />
+              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Início</span>
+            </button>
+
+            {/* 2. Listas */}
+            <button 
+              onClick={() => {
+                setShowFullAgenda(false);
+                setActiveTab('listas');
+              }}
+              className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all cursor-pointer ${
+                activeTab === 'listas' 
+                  ? 'text-green scale-105' 
+                  : 'text-text-secondary/40 hover:text-text-primary'
+              }`}
+            >
+              <ListTodo size={20} className="transition-all" />
+              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Listas</span>
+            </button>
+
+            {/* 3. CENTER HIGHLIGHTED FOCAR ACTION */}
+            <div className="flex-1 flex justify-center -mt-8 relative z-50">
+              <button 
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'session' } }));
+                }}
+                className="w-14 h-14 bg-green hover:brightness-110 shadow-[0_4px_20px_rgba(110,231,168,0.4)] hover:shadow-[0_8px_30px_rgba(110,231,168,0.6)] rounded-full flex items-center justify-center text-background transition-all active:scale-95 duration-200 cursor-pointer transform hover:-translate-y-0.5"
+                title="Sessão Profunda"
+              >
+                <Play size={24} fill="currentColor" className="ml-1 text-background" />
+              </button>
+            </div>
+
+            {/* 4. Centro */}
+            <button 
+              onClick={() => {
+                setShowFullAgenda(false);
+                setActiveTab('centro');
+              }}
+              className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all cursor-pointer ${
+                activeTab === 'centro' 
+                  ? 'text-green scale-105' 
+                  : 'text-text-secondary/40 hover:text-text-primary'
+              }`}
+            >
+              <BarChart2 size={20} className="transition-all" />
+              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Centro</span>
+            </button>
+
+            {/* 5. Menu */}
+            <button 
+              onClick={() => {
+                setShowFullAgenda(false);
+                setActiveTab('menu');
+              }}
+              className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all cursor-pointer ${
+                activeTab === 'menu' 
+                  ? 'text-green scale-105' 
+                  : 'text-text-secondary/40 hover:text-text-primary'
+              }`}
+            >
+              <MenuIcon size={20} className="transition-all" strokeWidth={2.5} />
+              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Menu</span>
+            </button>
+          </div>
+        </div>
       </div>
     </ProtectedRoute>
   </ErrorBoundary>

@@ -8,7 +8,12 @@ import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { Habit, AvoidanceCheckin } from '../../types';
 
-export const HeroSection = () => {
+interface HeroSectionProps {
+  tasks?: any[];
+  onNavigateToLists?: () => void;
+}
+
+export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps) => {
   const timer = useTimerStore();
   const dataStore = useDataStore();
   
@@ -898,6 +903,17 @@ export const HeroSection = () => {
                 {streak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
               </span>
             </div>
+          </div>
+
+          {/* Summary Card for Today's Task List */}
+          <div 
+            onClick={() => onNavigateToLists?.()}
+            className="w-full p-4 rounded-2xl bg-surface-1/40 hover:bg-surface-1/75 border border-border-custom hover:border-green/20 transition-all cursor-pointer text-center flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 group select-none mt-2"
+          >
+            <span className="text-base sm:text-lg group-hover:scale-110 transition-transform">📋</span>
+            <span className="text-[11px] sm:text-xs md:text-sm font-medium text-text-primary leading-relaxed">
+              Você fez <span className="text-green font-bold">{tasks.filter(t => t.completed).length}</span> das <span className="text-text-primary font-bold">{tasks.length}</span> tarefas que planejou para hoje
+            </span>
           </div>
 
           {/* Prominent Adjust Goal Control */}
