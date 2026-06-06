@@ -586,6 +586,7 @@ export const ActionCenter = () => {
           }
 
           showSuccess('✅ Sessão registrada com sucesso!');
+          timer.reset();
           resetSPState();
           setIsOpen(false);
         }
@@ -2753,7 +2754,18 @@ export const ActionCenter = () => {
                 <p className="text-text-secondary font-light">Seu progresso atual será descartado.</p>
               </div>
               <div className="flex flex-col gap-4">
-                <button onClick={() => { sendToServiceWorker('CANCEL_TIMER'); timer.reset(); setShowCancelConfirm(false); setIsOpen(false); }} className="w-full py-5 text-red-500 font-bold uppercase tracking-widest text-[10px]">Sim, cancelar</button>
+                <button onClick={async () => { 
+                  sendToServiceWorker('CANCEL_TIMER'); 
+                  if (timer.scheduledActivityId) {
+                    await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+                      status: 'cancelada',
+                      resolved_at: new Date().toISOString()
+                    });
+                  }
+                  timer.reset(); 
+                  setShowCancelConfirm(false); 
+                  setIsOpen(false); 
+                }} className="w-full py-5 text-red-500 font-bold uppercase tracking-widest text-[10px]">Sim, cancelar</button>
                 <button onClick={() => setShowCancelConfirm(false)} className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px]">Continuar Sessão</button>
               </div>
             </div>

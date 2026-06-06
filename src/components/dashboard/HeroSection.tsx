@@ -8,6 +8,7 @@ import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
+import { useAgendaAlertEngine } from '../../hooks/useAgendaAlertEngine';
 
 interface HeroSectionProps {
   tasks?: any[];
@@ -27,91 +28,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     return sessionStorage.getItem('dude_dismissed_anti_vicio_id') || null;
   });
 
-  const [dismissedScheduleId, setDismissedScheduleId] = useState<string | null>(() => {
-    return sessionStorage.getItem('dude_dismissed_schedule_id') || null;
-  });
+  const { alertSchedule, dismissSchedule } = useAgendaAlertEngine();
 
   // TRANSIENT ALERT BANNER LIFECYCLE
-  // Compute imminent or overdue scheduled activity/habit for today
-  const alertSchedule = useMemo(() => {
-    const todayStr = getLocalDateString(new Date());
-    const nowTime = new Date();
-    const currentHH = nowTime.getHours();
-    const currentMM = nowTime.getMinutes();
-    const currentTotalMins = currentHH * 60 + currentMM;
-
-    // A) Get database schedules
-    const rawSchedules = (dataStore.scheduledActivities || []).filter(sa => {
-      const isBeingRun = timer.isActive && timer.scheduledActivityId === sa.id;
-      return sa.scheduled_date === todayStr && 
-             (sa.status === 'pending' || sa.status === 'agendada') &&
-             sa.id !== dismissedScheduleId &&
-             !isBeingRun;
-    });
-
-    // B) Get dynamic scheduled habits for today uncompleted, mapped to ScheduledActivity schema
-    const scheduledHabits = (dataStore.habits || [])
-      .filter(h => h.habit_mode === 'build' && h.is_scheduled)
-      .map(habit => {
-        const isCompleted = (dataStore.habitCompletions || []).some(hc => {
-          if (hc.habit_id !== habit.id) return false;
-          const compDateStr = getLocalDateString(new Date(hc.completed_at));
-          return compDateStr === todayStr;
-        });
-
-        return {
-          id: `habit-sched-${habit.id}`,
-          user_id: habit.user_id,
-          habit_id: habit.id,
-          project_id: null,
-          activity_id: null,
-          atividade_avulsa: habit.name,
-          title: habit.name, // Ensure title is populated for prompt display
-          scheduled_date: todayStr,
-          scheduled_time: habit.sched_start || '09:00',
-          duration_minutes: habit.sched_duration || 45,
-          status: isCompleted ? 'completed' : 'pending',
-          notes: 'Hábito Atômico Programado',
-          tasks: []
-        };
-      })
-      .filter(sh => {
-        const isBeingRun = timer.isActive && timer.scheduledActivityId === sh.id;
-        return sh.status === 'pending' && sh.id !== dismissedScheduleId && !isBeingRun;
-      });
-
-    // Combine both into single array of active items
-    const todaysPendingSchedules = [...rawSchedules, ...scheduledHabits];
-
-    if (todaysPendingSchedules.length === 0) return null;
-
-    // Standard rule: overdue or imminent (starts in less than 15 mins)
-    for (const sa of todaysPendingSchedules) {
-      const [sh, sm] = (sa.scheduled_time || '00:00').split(':').map(Number);
-      const schedMins = sh * 60 + sm;
-      const diffMins = currentTotalMins - schedMins;
-
-      // Imminent: scheduled in the next 15 mins (diffMins between -15 and 0)
-      // Overdue: past its start time (diffMins > 0)
-      const isOverdue = diffMins > 0;
-      const isImminent = diffMins >= -15 && diffMins <= 0;
-
-      if (isOverdue || isImminent) {
-        return {
-          activity: {
-            ...sa,
-            title: sa.title || sa.atividade_avulsa || 'Foco Planejado'
-          } as any,
-          isOverdue,
-          isImminent,
-          scheduled_time: sa.scheduled_time
-        };
-      }
-    }
-
-    return null;
-  }, [dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions, dismissedScheduleId, timer.isActive, timer.scheduledActivityId]);
-
   // Trigger alarm sounds for overdue or imminent focal blocks on mount/foreground
   const playedSoundScheduleIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -824,8 +743,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               {/* Dismiss button */}
               <button 
                 onClick={() => {
-                  setDismissedScheduleId(alertSchedule.activity.id);
-                  sessionStorage.setItem('dude_dismissed_schedule_id', alertSchedule.activity.id);
+                  dismissSchedule(alertSchedule.activity.id);
                 }}
                 className="absolute top-3 right-3 text-text-secondary/40 hover:text-text-primary transition-all p-1 cursor-pointer"
                 title="Dispensar"
@@ -838,7 +756,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   alertSchedule.isOverdue ? 'text-amber-400' : 'text-[#6ee7a8]'
                 }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${alertSchedule.isOverdue ? 'bg-amber-400 animate-pulse' : 'bg-[#6ee7a8] animate-ping'}`} />
-                  ● {alertSchedule.isOverdue ? 'Foco Atrasado' : 'Foco Iminente'}
+                  ● {alertSchedule.isOverdue ? 'Sessão Profunda Atrasada' : 'Sessão Profunda Iminente'}
                 </p>
                 <span className="text-[9px] font-mono font-bold bg-white/5 border border-white/5 px-2.5 py-0.5 rounded-full text-text-secondary/60">
                   {alertSchedule.scheduled_time}
@@ -846,11 +764,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </div>
 
               <div className="space-y-1 text-left">
-                <h4 className="text-sm font-bold text-text-primary leading-tight">
+                <h4 className="text-sm font-bold text-text-primary leading-tight font-sans">
                   {alertSchedule.isOverdue ? (
-                    <>Seu bloco de foco está atrasado! <span className="text-amber-400 font-extrabold">"{alertSchedule.activity.title}"</span> deveria ter começado.</>
+                    <>Sua Sessão Profunda está atrasada! <span className="text-amber-400 font-extrabold">"{alertSchedule.activity.title}"</span> deveria ter começado.</>
                   ) : (
-                    <>Você tem um foco agendado em breve: <span className="text-[#6ee7a8] font-extrabold">"{alertSchedule.activity.title}"</span>.</>
+                    <>Você tem uma Sessão Profunda agendada em breve: <span className="text-[#6ee7a8] font-extrabold">"{alertSchedule.activity.title}"</span>.</>
                   )}
                 </h4>
               </div>
@@ -861,20 +779,20 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('start-scheduled-session', { detail: alertSchedule.activity }));
                   }}
-                  className={`py-2 px-3 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center ${
+                  className={`py-2 px-3 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center font-sans ${
                     alertSchedule.isOverdue 
                       ? 'bg-amber-400 text-background hover:brightness-110' 
                       : 'bg-green text-background hover:brightness-110'
                   }`}
                 >
-                  🚀 Iniciar Foco
+                  🚀 Iniciar Sessão
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('open-reagendar', { detail: alertSchedule.activity }));
                   }}
-                  className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary/60 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer text-center"
+                  className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary/60 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer text-center font-sans"
                 >
                   📅 Reagendar
                 </button>

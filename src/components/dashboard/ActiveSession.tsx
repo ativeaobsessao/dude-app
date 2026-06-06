@@ -445,8 +445,14 @@ export const ActiveSession = () => {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     sendToServiceWorker('CANCEL_TIMER');
+    if (timer.scheduledActivityId) {
+      await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+        status: 'cancelada',
+        resolved_at: new Date().toISOString()
+      });
+    }
     timer.reset();
     setShowCancelConfirm(false);
     setShowEarlyCompleteConfirm(false);
@@ -1169,7 +1175,7 @@ export const ActiveSession = () => {
               <div className="space-y-4">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Encerrar com segurança?</h3>
                 <p className="text-text-secondary font-light">
-                  Deseja encerrar o foco agora? Isso registrará uma sessão incompleta de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
+                  Deseja encerrar a Sessão Profunda agora? Isso registrará uma sessão incompleta de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
                 </p>
               </div>
               
@@ -1178,13 +1184,13 @@ export const ActiveSession = () => {
                   onClick={handleEarlyComplete}
                   className="w-full py-4 bg-amber-400 text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                  Sim, encerrar foco
+                  Sim, encerrar Sessão Profunda
                 </button>
                 <button
                   onClick={() => setShowEarlyCompleteConfirm(false)}
                   className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs transition-all hover:bg-white/10"
                 >
-                  Continuar Focado
+                  Continuar Sessão
                 </button>
               </div>
             </motion.div>
@@ -1213,7 +1219,7 @@ export const ActiveSession = () => {
               </div>
               <div className="space-y-4">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Tem certeza?</h3>
-                <p className="text-text-secondary font-light">Este tempo focado será perdido e não contabilizado no seu histórico.</p>
+                <p className="text-text-secondary font-light">Este tempo de Sessão Profunda será perdido e não contabilizado no seu histórico.</p>
               </div>
               
               <div className="flex flex-col gap-3">

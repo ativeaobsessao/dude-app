@@ -90,7 +90,7 @@ export const ReagendarModal = ({ isOpen, onClose, activity, onOpenReconfigurar }
         </button>
 
         <h3 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">Reagendar Atividade</h3>
-        <p className="text-xs text-text-secondary/60 mt-1 mb-6">Ajuste a data, horário e duração para o seu bloco de foco.</p>
+        <p className="text-xs text-text-secondary/60 mt-1 mb-6">Ajuste a data, horário e duração para a sua Sessão Profunda.</p>
 
         <div className="space-y-5">
           {/* Campo Data */}
@@ -364,7 +364,7 @@ export const ReconfigurarModal = ({ isOpen, onClose, activity }: ReconfigurarMod
                   setHabitId('');
                 }
               }}
-              placeholder="Digite o foco da sessão..."
+              placeholder="Digite o objetivo da sessão..."
               className="w-full h-[48px] px-4 rounded-xl bg-surface-2 border border-border-custom text-text-primary focus:border-[#6ee7a8]/50 focus:outline-none transition-all font-sans text-sm"
             />
           </div>

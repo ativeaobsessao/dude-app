@@ -371,7 +371,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
           </h3>
           <p className="text-xs text-text-secondary/60 mt-1">
             {editingActivity 
-              ? 'Atualize as configurações e o horário do seu foco planejado.' 
+              ? 'Atualize as configurações e o horário da sua Sessão Profunda planejada.' 
               : 'Configure o dia e horário para a sua atividade inteligente.'}
           </p>
         </div>
@@ -393,7 +393,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
               <div className="space-y-1">
                 <span className="font-bold text-base text-amber-200">Aviso de Conflito de Horário</span>
                 <p className="text-xs opacity-90 leading-relaxed">
-                  ⚠️ Já existe a atividade de foco <strong className="text-amber-100">"{conflictWarning.name}"</strong> agendada para este mesmo dia, das <strong className="text-amber-100">{conflictWarning.time} às {conflictWarning.end}</strong>.
+                  ⚠️ Já existe a Sessão Profunda <strong className="text-amber-100">"{conflictWarning.name}"</strong> agendada para este mesmo dia, das <strong className="text-amber-100">{conflictWarning.time} às {conflictWarning.end}</strong>.
                 </p>
               </div>
             </div>
