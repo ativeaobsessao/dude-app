@@ -254,3 +254,26 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 13. DAILY TASKS
+CREATE TABLE daily_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  task_date TEXT NOT NULL, -- local YYYY-MM-DD
+  title TEXT NOT NULL,
+  project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+  activity_id UUID REFERENCES activities(id) ON DELETE SET NULL,
+  activity_avulsa TEXT,
+  habit_id UUID REFERENCES habits(id) ON DELETE SET NULL,
+  checklist JSONB DEFAULT '[]',
+  is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  rolled_from_date TEXT, -- local YYYY-MM-DD of the previous status
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_user ON daily_tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_date ON daily_tasks(task_date);
+
+ALTER TABLE daily_tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own daily tasks" ON daily_tasks FOR ALL USING (auth.uid() = user_id);

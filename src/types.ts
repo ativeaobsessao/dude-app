@@ -182,3 +182,19 @@ export type SavedLink = {
   last_accessed_at: string | null;
   created_at: string;
 };
+
+export type DailyTask = {
+  id: string;
+  user_id: string;
+  task_date: string;
+  title: string;
+  project_id: string | null;
+  activity_id: string | null;
+  activity_avulsa: string | null;
+  habit_id: string | null;
+  checklist: { text: string; completed: boolean }[] | null;
+  is_completed: boolean;
+  completed_at: string | null;
+  rolled_from_date: string | null;
+  created_at: string;
+};

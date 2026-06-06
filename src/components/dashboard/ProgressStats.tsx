@@ -32,7 +32,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     habitCompletions,
     scheduledActivities,
     moodEntries,
-    sessionTasks
+    sessionTasks,
+    dailyTasks
   } = useDataStore();
 
   // Selected period state
@@ -61,6 +62,42 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   // ----------------------------------------------------
   // TOTAL RETRIEVED STATISTICS (All-time metrics)
   // ----------------------------------------------------
+  const rolloverAnalysis = useMemo(() => {
+    const today = getLocalDateString(new Date());
+    const tasks = dailyTasks || [];
+    const todayTasks = tasks.filter(t => t.task_date === today);
+    const rolloverCount = todayTasks.filter(t => t.rolled_from_date !== null && !t.is_completed).length;
+    const completedCount = todayTasks.filter(t => t.is_completed).length;
+    const totalCount = todayTasks.length;
+    
+    let coachingMsg = "Seu planejamento de hoje está equilibrado. Lembre-se: menos tarefas bem executadas valem mais que listas infinitas.";
+    let coachingTitle = "Planejamento sob Controle 🎯";
+    let coachingStyle = "text-green bg-green/5 border-green/10";
+    
+    if (totalCount > 7) {
+      coachingTitle = "Gargalo por Hiper-Planejamento! ⚠️";
+      coachingMsg = `Você programou ${totalCount} tarefas para hoje. Estresses de sobrecarga geram adiamento. Considere reavaliar e focar estritamente nas 3 principais metas cruciais de hoje, arquivando ou reprogramando o restante.`;
+      coachingStyle = "text-orange-400 bg-orange-400/5 border-orange-400/10";
+    } else if (rolloverCount > 2) {
+      coachingTitle = "Alerta de Efeito Rollover ↩";
+      coachingMsg = `Você possui ${rolloverCount} tarefas acumuladas que vieram de dias anteriores sem conclusão. Elas consomem energia mental passiva. Priorize eliminá-las hoje antes de acumular mais tarefas!`;
+      coachingStyle = "text-amber-500 bg-[#df8a13]/5 border-amber-500/10";
+    } else if (totalCount > 0 && completedCount === totalCount) {
+      coachingTitle = "Metas Gabaritadas! 🎉";
+      coachingMsg = "Sensacional! Você concluiu 100% de tudo que se propôs a fazer hoje. Sua dosagem de planejamento e execução estão impecáveis.";
+      coachingStyle = "text-green bg-green/5 border-green/10";
+    }
+    
+    return {
+      rolloverCount,
+      totalCount,
+      completedCount,
+      coachingTitle,
+      coachingMsg,
+      coachingStyle
+    };
+  }, [dailyTasks]);
+
   const totalFocusAllTimeMins = useMemo(() => {
     return sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
   }, [sessions]);
@@ -1993,6 +2030,23 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                               </div>
                             </div>
                           )}
+                        </div>
+
+                        {/* 3. Centro de Inteligência — Mapeador de Rollover e Coaching de Planejamento */}
+                        <div className="p-4 bg-white/[0.015] border border-white/5 rounded-2xl space-y-4 font-sans text-left">
+                          <span className="text-[9px] font-extrabold text-[#6ee7a8] uppercase tracking-widest flex items-center gap-1">
+                            <Brain size={12} className="animate-pulse" /> Mapeamento de Rollover e Sobrecarga de Metas
+                          </span>
+
+                          <div className={`p-4 rounded-xl border ${rolloverAnalysis.coachingStyle} space-y-2`}>
+                            <span className="text-[90%] font-black uppercase tracking-wider block">{rolloverAnalysis.coachingTitle}</span>
+                            <p className="text-xs text-text-primary font-medium leading-relaxed">
+                              {rolloverAnalysis.coachingMsg}
+                            </p>
+                            <p className="text-[10px] text-text-secondary/70 font-light leading-relaxed">
+                              💡 <strong>Status de Hoje:</strong> Você tem <strong>{rolloverAnalysis.totalCount}</strong> tarefas planejadas, sendo <strong>{rolloverAnalysis.rolloverCount}</strong> herdadas sem conclusão de ciclos anteriores.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )}

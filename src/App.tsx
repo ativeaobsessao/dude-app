@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon } from 'lucide-react';
-import { TaskListScreen, DailyTask } from './components/dashboard/TaskListScreen';
+import { TaskListScreen } from './components/dashboard/TaskListScreen';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
@@ -48,33 +48,6 @@ export default function App() {
   } = useDataStore();
   const dataStore = useDataStore();
   const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'centro' | 'menu'>('home');
-  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
-
-  // Load and save daily tasks
-  useEffect(() => {
-    if (!user) return;
-    const todayStr = getLocalDateString(new Date());
-    const storageKey = `dude_daily_tasks_${user.id}_${todayStr}`;
-    const cached = localStorage.getItem(storageKey);
-    if (cached) {
-      try {
-        setDailyTasks(JSON.parse(cached));
-      } catch (err) {
-        console.error('Error parsing daily tasks', err);
-      }
-    } else {
-      setDailyTasks([]);
-    }
-  }, [user]);
-
-  const handleTasksChange = (newTasks: DailyTask[]) => {
-    setDailyTasks(newTasks);
-    if (user) {
-      const todayStr = getLocalDateString(new Date());
-      const storageKey = `dude_daily_tasks_${user.id}_${todayStr}`;
-      localStorage.setItem(storageKey, JSON.stringify(newTasks));
-    }
-  };
 
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -710,7 +683,7 @@ export default function App() {
           <main className="min-h-screen pb-40 flex flex-col items-center pt-24">
             {activeTab === 'home' && (
               <>
-                <HeroSection tasks={dailyTasks} onNavigateToLists={() => setActiveTab('listas')} />
+                <HeroSection onNavigateToLists={() => setActiveTab('listas')} />
 
                 <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-16 flex flex-col items-center">
                   {/* AGENDA HOJE BRANCH */}
@@ -739,8 +712,8 @@ export default function App() {
 
             {activeTab === 'listas' && (
               <TaskListScreen 
-                tasks={dailyTasks} 
-                onTasksChange={handleTasksChange}
+                tasks={[]}
+                onTasksChange={() => {}}
                 onStartSession={handleStartSessionFromAgenda}
               />
             )}

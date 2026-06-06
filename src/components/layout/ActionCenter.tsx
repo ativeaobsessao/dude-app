@@ -542,11 +542,22 @@ export const ActionCenter = () => {
 
         if (savedSession?.id) {
           if (timer.scheduledActivityId) {
-            await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
-              status: 'concluida',
-              completed_session_id: savedSession.id,
-              resolved_at: new Date().toISOString()
-            });
+            const isScheduled = dataStore.scheduledActivities.some(sa => sa.id === timer.scheduledActivityId);
+            if (isScheduled) {
+              await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+                status: 'concluida',
+                completed_session_id: savedSession.id,
+                resolved_at: new Date().toISOString()
+              });
+            } else {
+              const isDailyTask = dataStore.dailyTasks.some(dt => dt.id === timer.scheduledActivityId);
+              if (isDailyTask) {
+                await dataStore.updateDailyTask(timer.scheduledActivityId, {
+                  is_completed: true,
+                  completed_at: new Date().toISOString()
+                });
+              }
+            }
           }
 
           if (pendingTasks.length > 0) {

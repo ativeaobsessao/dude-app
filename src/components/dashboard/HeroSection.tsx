@@ -89,6 +89,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const todayMoods = dataStore.moodEntries ? dataStore.moodEntries.filter(m => m.date === today) : [];
   const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
 
+  const todayTasks = (dataStore.dailyTasks || []).filter(t => t.task_date === today);
+  const completedTasksCount = todayTasks.filter(t => t.is_completed).length;
+  const totalTasksCount = todayTasks.length;
+
   const todaySessions = dataStore.sessions.filter(s => getLocalDateString(new Date(s.started_at)) === today);
   const totalMinutes = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
   const hours = Math.floor(totalMinutes / 60);
@@ -912,7 +916,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           >
             <span className="text-base sm:text-lg group-hover:scale-110 transition-transform">📋</span>
             <span className="text-[11px] sm:text-xs md:text-sm font-medium text-text-primary leading-relaxed">
-              Você fez <span className="text-green font-bold">{tasks.filter(t => t.completed).length}</span> das <span className="text-text-primary font-bold">{tasks.length}</span> tarefas que planejou para hoje
+              Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
             </span>
           </div>
 

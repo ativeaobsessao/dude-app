@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { useAuthStore } from './useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
@@ -40,6 +40,13 @@ interface DataState {
   moodEntries: MoodEntry[];
   savedLinks: SavedLink[];
   dailyShutdowns: DailyShutdown[];
+  dailyTasks: DailyTask[];
+  
+  fetchDailyTasks: (userId: string) => Promise<void>;
+  addDailyTask: (task: Omit<DailyTask, 'id' | 'created_at'>) => Promise<DailyTask | null>;
+  updateDailyTask: (id: string, updates: Partial<DailyTask>) => Promise<boolean>;
+  deleteDailyTask: (id: string) => Promise<boolean>;
+  syncDailyTasksRollover: (userId: string) => Promise<void>;
   
   addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null, energy?: 'cansado' | 'normal' | 'energizado' | null) => Promise<MoodEntry | null>;
   addDailyShutdown: (userId: string, date: string, status: 'completed' | 'dismissed') => Promise<DailyShutdown | null>;
@@ -129,6 +136,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   })(),
   savedLinks: [],
+  dailyTasks: [],
   dailyShutdowns: (() => {
     try {
       const cached = localStorage.getItem('dude-daily-shutdowns');
@@ -214,7 +222,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds, dt] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -267,6 +275,23 @@ export const useDataStore = create<DataState>((set, get) => ({
             return { data: [] };
           }
         })(),
+        (async () => {
+          try {
+            const res = await supabase
+              .from('daily_tasks')
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false });
+            if (res.error) {
+              console.warn('Silent fallback: daily_tasks table lookup failed with error', res.error);
+              return { data: [] };
+            }
+            return res;
+          } catch (err) {
+            console.warn('Silent fallback: daily_tasks table lookup threw an exception', err);
+            return { data: [] };
+          }
+        })(),
       ]);
 
       const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as MoodEntry[]) : [];
@@ -305,24 +330,44 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.error('Error writing merged shutdowns cache:', err);
       }
 
+      const fetchedDailyTasks = (dt && 'data' in dt && dt.data) ? (dt.data as DailyTask[]) : [];
+      let combinedDailyTasks = [...fetchedDailyTasks];
+      try {
+        const cachedStr = localStorage.getItem(`dude-daily-tasks-${userId}`);
+        const cachedDailyTasks = cachedStr ? (JSON.parse(cachedStr) as DailyTask[]) : [];
+        const fetchedIds = new Set(fetchedDailyTasks.map(x => x.id));
+        const missingFromRemote = cachedDailyTasks.filter(x => !fetchedIds.has(x.id));
+        combinedDailyTasks = [...combinedDailyTasks, ...missingFromRemote];
+      } catch (err) {
+        console.error('Error merging local daily_tasks cache:', err);
+      }
+      combinedDailyTasks.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      try {
+        localStorage.setItem(`dude-daily-tasks-${userId}`, JSON.stringify(combinedDailyTasks));
+      } catch (err) {
+        console.error('Error writing merged daily_tasks cache:', err);
+      }
+
       set({ 
-        projects: p.data || [], 
-        habits: h.data || [], 
-        sessions: s.data || [], 
-        notes: n.data || [],
-        activities: a.data || [],
-        habitCompletions: hc.data || [],
-        pendingTasks: pt.data || [],
-        scheduledActivities: sa.data || [],
-        avoidanceCheckins: ac.data || [],
-        moodEntries: combinedMoods,
-        savedLinks: sl.data || [],
-        dailyShutdowns: combinedShutdowns,
-        loading: false,
-        initialFetchDone: true 
-      });
+         projects: p.data || [], 
+         habits: h.data || [], 
+         sessions: s.data || [], 
+         notes: n.data || [],
+         activities: a.data || [],
+         habitCompletions: hc.data || [],
+         pendingTasks: pt.data || [],
+         scheduledActivities: sa.data || [],
+         avoidanceCheckins: ac.data || [],
+         moodEntries: combinedMoods,
+         savedLinks: sl.data || [],
+         dailyShutdowns: combinedShutdowns,
+         dailyTasks: combinedDailyTasks,
+         loading: false,
+         initialFetchDone: true 
+       });
 
       await get().fetchSessionTasks(userId);
+      await get().syncDailyTasksRollover(userId);
       await get().syncHabitsRollover(userId);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -1738,5 +1783,144 @@ export const useDataStore = create<DataState>((set, get) => ({
     } catch (err) {
       console.error('Error in registerLinkAccess:', err);
     }
+  },
+
+  fetchDailyTasks: async (userId) => {
+    try {
+      const { data, error } = await supabase.from('daily_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      if (!error && data) {
+        set({ dailyTasks: data });
+        localStorage.setItem(`dude-daily-tasks-${userId}`, JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('Error fetching daily tasks:', err);
+    }
+  },
+
+  addDailyTask: async (task) => {
+    const tempId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const tempTask: DailyTask = {
+      id: tempId,
+      created_at: new Date().toISOString(),
+      ...task
+    } as DailyTask;
+    
+    // Optimistic update
+    const currentTasks = get().dailyTasks;
+    const nextTasks = [tempTask, ...currentTasks];
+    set({ dailyTasks: nextTasks });
+    localStorage.setItem(`dude-daily-tasks-${task.user_id}`, JSON.stringify(nextTasks));
+
+    try {
+      const { data, error } = await supabase
+        .from('daily_tasks')
+        .insert({
+          user_id: task.user_id,
+          task_date: task.task_date,
+          title: task.title,
+          project_id: task.project_id,
+          activity_id: task.activity_id,
+          activity_avulsa: task.activity_avulsa,
+          habit_id: task.habit_id,
+          checklist: task.checklist,
+          is_completed: task.is_completed,
+          completed_at: task.completed_at,
+          rolled_from_date: task.rolled_from_date
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        const updated = get().dailyTasks.map(t => t.id === tempId ? data : t);
+        set({ dailyTasks: updated });
+        localStorage.setItem(`dude-daily-tasks-${task.user_id}`, JSON.stringify(updated));
+        return data;
+      }
+      return tempTask;
+    } catch (err) {
+      console.warn('Supabase addDailyTask failed, keeping local-only version', err);
+      return tempTask;
+    }
+  },
+
+  updateDailyTask: async (id, updates) => {
+    const currentTasks = get().dailyTasks;
+    const taskObj = currentTasks.find(t => t.id === id);
+    if (!taskObj) return false;
+
+    const updatedTask = { ...taskObj, ...updates };
+    const updatedTasks = currentTasks.map(t => t.id === id ? updatedTask : t);
+    set({ dailyTasks: updatedTasks });
+    localStorage.setItem(`dude-daily-tasks-${taskObj.user_id}`, JSON.stringify(updatedTasks));
+
+    try {
+      const { error } = await supabase
+        .from('daily_tasks')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('Supabase updateDailyTask failed, kept local-only updates', err);
+      return true;
+    }
+  },
+
+  deleteDailyTask: async (id) => {
+    const currentTasks = get().dailyTasks;
+    const taskObj = currentTasks.find(t => t.id === id);
+    if (!taskObj) return false;
+
+    const updatedTasks = currentTasks.filter(t => t.id !== id);
+    set({ dailyTasks: updatedTasks });
+    localStorage.setItem(`dude-daily-tasks-${taskObj.user_id}`, JSON.stringify(updatedTasks));
+
+    try {
+      const { error } = await supabase
+        .from('daily_tasks')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('Supabase deleteDailyTask failed, completed local-only deletion', err);
+      return true;
+    }
+  },
+
+  syncDailyTasksRollover: async (userId) => {
+    try {
+      const todayStr = getLocalDateString(new Date());
+      const currentTasks = [...get().dailyTasks];
+      let hasChanges = false;
+
+      for (let i = 0; i < currentTasks.length; i++) {
+        const task = currentTasks[i];
+        if (task.task_date < todayStr && !task.is_completed) {
+          const originalDate = task.rolled_from_date || task.task_date;
+          task.task_date = todayStr;
+          task.rolled_from_date = originalDate;
+          
+          hasChanges = true;
+          
+          await supabase
+            .from('daily_tasks')
+            .update({
+              task_date: todayStr,
+              rolled_from_date: originalDate
+            })
+            .eq('id', task.id);
+        }
+      }
+
+      if (hasChanges) {
+        set({ dailyTasks: currentTasks });
+        localStorage.setItem(`dude-daily-tasks-${userId}`, JSON.stringify(currentTasks));
+      }
+    } catch (err) {
+      console.error('Error syncing daily tasks rollover:', err);
+    }
   }
+
 }));
