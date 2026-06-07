@@ -878,21 +878,15 @@ export default function App() {
 
         <footer className="w-full py-12 border-t border-white/5 flex flex-col items-center justify-center gap-3 pb-32 px-4 text-center">
           <div className="flex items-center gap-2 select-none justify-center">
-            <img 
-              src="/logo-dude-oficial.svg" 
-              alt="DUDE Logo" 
-              className="w-5 h-5 object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <span className="text-[10px] font-bold tracking-widest text-text-dim uppercase">
-              DUDE <span className="text-[#6ee7b7] text-[8px]">v2.1.0</span>
+            <span className="text-[11px] tracking-widest uppercase text-[#6a7570]/80">
+              <span className="text-[#6EE7B7] font-bold tracking-wider">DUDE</span> <span className="text-[9px] font-mono opacity-80">V2.1.0</span>
             </span>
           </div>
           <p className="text-[10px] text-[#6a7570] max-w-md font-light tracking-wide leading-relaxed">
             Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
           </p>
           <div className="text-[8px] text-[#6a7570]/40 font-mono tracking-wider select-none uppercase mt-1">
-            Personal Evolution System • Powered by Supabase
+            POWERED BY SUPABASE
           </div>
         </footer>
 

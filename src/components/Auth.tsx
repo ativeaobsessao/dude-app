@@ -53,21 +53,12 @@ export const Auth = () => {
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="flex flex-col items-center gap-4"
+            className="flex flex-col items-center justify-center font-sans select-none"
           >
-            <img 
-              src="/logo-dude-oficial.svg" 
-              alt="DUDE Logo Oficial"
-              className="w-16 h-16 object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <span className="text-3xl font-black tracking-[0.2em] text-text font-sans select-none">
+            <span className="text-[#6EE7B7] text-5xl font-bold tracking-[0.2em]">
               DUDE
             </span>
           </motion.div>
-          <p className="text-text-dim font-light tracking-wide opacity-60 uppercase text-[10px]">
-            Personal Operational System
-          </p>
         </div>
 
         <div className="bg-surface-1 border border-border-custom p-8 md:p-12 rounded-[2.5rem] space-y-8">
@@ -164,12 +155,6 @@ export const Auth = () => {
         </div>
 
         <div className="flex flex-col items-center gap-3 mt-4">
-          <img 
-            src="/logo-dude-oficial.svg" 
-            alt="DUDE Logo"
-            className="w-5 h-5 object-contain"
-            referrerPolicy="no-referrer"
-          />
           <p className="text-center text-[9px] text-text-dimmer/40 font-mono tracking-widest uppercase select-none">
             SYSTEM SECURED BY SUPABASE SHIELD
           </p>
