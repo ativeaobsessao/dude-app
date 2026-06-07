@@ -652,7 +652,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(10px,2.7vw,14px)] md:text-sm lg:text-base text-green italic font-medium text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight">
+          <p className="text-[clamp(8px,2.2vw,14px)] xs:text-[clamp(9.5px,2.5vw,14px)] md:text-sm lg:text-base text-[#6ee7b7] italic font-medium text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tighter xs:tracking-tight">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
