@@ -7,7 +7,7 @@ import { X, Heart } from 'lucide-react';
 
 interface MoodRitualModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (wasAnswered?: boolean) => void;
   currentPeriod: 'manha' | 'tarde' | 'noite';
   currentDate: string;
 }
@@ -34,16 +34,22 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
 
     setSelectedMood(moodKey);
     setIsSaving(true);
+    
+    // Immediate clear feedback to the user via notification toast
+    const { showNotification } = useDataStore.getState();
+    showNotification('Sintonização de período concluída! 🌟', 'success');
+
     try {
-      await addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
-      // Give 500ms delay so the user clearly sees the selected mood visual highlight
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Persist the mood entry across the client store and database
+      addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
+      // Brief delay to showcase selection highlight feedback before unmounting
+      await new Promise(resolve => setTimeout(resolve, 200));
     } catch (e) {
       console.error(e);
     } finally {
       setIsSaving(false);
     }
-    onClose();
+    onClose(true);
   };
 
   const handleSkip = () => {

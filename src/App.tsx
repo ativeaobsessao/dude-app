@@ -270,6 +270,10 @@ export default function App() {
     if (popupState.todayMoodDone) {
       return false;
     }
+    const hasInStore = moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
+    if (hasInStore) {
+      return false;
+    }
     const isSkippedLocal = localStorage.getItem(`dude-mood-skipped-${popupState.todayStr}-${popupState.currentPeriod}`) === 'true';
     if (isSkippedLocal) {
       return false;
@@ -508,7 +512,15 @@ export default function App() {
         <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <MoodRitualModal 
           isOpen={isMoodActive} 
-          onClose={runServerPopupCheck} 
+          onClose={(wasAnswered?: boolean) => {
+            if (wasAnswered) {
+              setPopupState(prev => ({
+                ...prev,
+                todayMoodDone: true
+              }));
+            }
+            runServerPopupCheck();
+          }} 
           currentPeriod={popupState.currentPeriod || 'manha'} 
           currentDate={popupState.todayStr || ''}
         />
