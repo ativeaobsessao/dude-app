@@ -743,15 +743,15 @@ export default function App() {
                 <div className="w-full max-w-4xl mx-auto p-6 rounded-3xl bg-surface/5 border border-white/5 space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="space-y-1 text-left">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green">Blocos Temporais</span>
-                      <h3 className="text-xl font-bold text-text-primary uppercase tracking-tight font-sans">Sua Agenda de Foco</h3>
-                      <p className="text-xs text-text-secondary leading-relaxed">Explore, audite e planeje seus agendamentos diários, rituais periódicos e compromissos estruturados.</p>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green">REALIZAR AGENDAMENTO</span>
+                      <h3 className="text-xl font-bold text-text-primary uppercase tracking-tight font-sans">REALIZAR AGENDAMENTO</h3>
+                      <p className="text-xs text-text-secondary leading-relaxed">Crie agendamentos e consulte o histórico.</p>
                     </div>
                     <button
                       onClick={() => setShowFullAgenda(true)}
                       className="px-5 py-3 bg-green text-background hover:brightness-110 active:scale-95 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)] shrink-0 self-start sm:self-center font-sans"
                     >
-                      Acessar Agenda
+                      Acessar
                     </button>
                   </div>
                 </div>

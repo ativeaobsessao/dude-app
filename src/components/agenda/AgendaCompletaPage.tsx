@@ -15,7 +15,7 @@ type TabFilter = 'all' | 'pending' | 'completed' | 'cancelled';
 
 export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }: AgendaCompletaPageProps) => {
   const dataStore = useDataStore();
-  const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [activeTab, setActiveTab] = useState<TabFilter>('pending');
 
   // Filter, sort, and group schedules into PRÓXIMOS and JÁ PASSARAM
   const splitSchedules = useMemo(() => {
@@ -121,53 +121,26 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
           >
             <ArrowLeft size={12} /> Voltar ao Dashboard
           </button>
-          <h1 className="text-4xl font-extrabold tracking-tight text-text-primary">
-            Sua Agenda de Foco
+          <h1 className="text-4xl font-extrabold tracking-tight text-text-primary uppercase">
+            REALIZAR AGENDAMENTO
           </h1>
-          <p className="text-sm text-text-secondary/60">
-            Gerencie, execute e audite seus blocos temporais e prioridades.
-          </p>
         </div>
 
         <button
           onClick={onOpenNewSchedule}
           className="flex items-center gap-2 px-5 py-3.5 text-xs uppercase font-bold tracking-widest text-background bg-[#6ee7a8] hover:brightness-110 rounded-2xl shadow-[0_0_30px_rgba(110,231,168,0.2)] transition-all"
         >
-          <Plus size={14} /> Agendar Nova Sessão
+          <Plus size={14} /> + NOVO AGENDAMENTO
         </button>
-      </div>
-
-      {/* Metrics Section */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-surface/5 border border-white/5 p-5 rounded-3xl text-left space-y-1">
-          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">HORAS FOCO REALIZADAS</span>
-          <span className="text-3xl font-extrabold text-[#6ee7a8] font-mono block">🔥 {stats.totalHours}h</span>
-        </div>
-        <div className="bg-surface/5 border border-white/5 p-5 rounded-3xl text-left space-y-1">
-          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">AGENDAMENTOS ATIVOS</span>
-          <span className="text-3xl font-extrabold text-amber-400 font-mono block">⏳ {stats.pending}</span>
-        </div>
-        <div className="bg-surface/5 border border-white/5 p-5 rounded-3xl text-left space-y-1">
-          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">SESSÕES COMPLETAS</span>
-          <span className="text-3xl font-extrabold text-emerald-400 font-mono block">✅ {stats.completed}</span>
-        </div>
-        <div className="bg-surface/5 border border-white/5 p-5 rounded-3xl text-left space-y-1">
-          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">AGENDAMENTOS CANCELADOS</span>
-          <span className="text-3xl font-extrabold text-zinc-400 font-mono block">🚫 {stats.cancelled}</span>
-        </div>
-        <div className="bg-surface/5 border border-white/5 p-5 rounded-3xl col-span-2 md:col-span-1 text-left space-y-1">
-          <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">TOTAL REGISTRADO</span>
-          <span className="text-3xl font-extrabold text-text-primary font-mono block">📊 {stats.total}</span>
-        </div>
       </div>
 
       {/* Tabs list filter */}
       <div className="flex border-b border-white/10 gap-1 overflow-x-auto pb-px">
         {[
-          { key: 'all', label: 'Todos os Agendamentos' },
-          { key: 'pending', label: 'Agendados (Ativos)' },
-          { key: 'completed', label: 'Concluídos' },
-          { key: 'cancelled', label: 'Cancelados' }
+          { key: 'pending', label: 'AGENDADOS' },
+          { key: 'completed', label: 'CONCLUÍDOS' },
+          { key: 'cancelled', label: 'CANCELADOS' },
+          { key: 'all', label: 'TODOS' }
         ].map(tab => (
           <button
             key={tab.key}
@@ -190,7 +163,7 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
           <div className="space-y-1">
             <h3 className="text-lg font-semibold text-text-primary">Nenhum agendamento encontrado</h3>
             <p className="text-sm text-text-secondary/50 max-w-sm">
-              Não há agendamentos cadastrados nesta seção do filtro. Crie um agora clicando em "Agendar Nova Sessão" acima.
+              Não há agendamentos cadastrados nesta seção do filtro. Crie um agora clicando em "+ NOVO AGENDAMENTO" acima.
             </p>
           </div>
         </div>
