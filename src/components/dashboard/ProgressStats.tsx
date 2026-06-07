@@ -1184,21 +1184,13 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   }, [sessions, habits, profile, avoidanceCheckins, habitCompletions, scheduledActivities]);
 
   return (
-    <div className="fixed inset-0 z-[500] overflow-y-auto bg-background/95 backdrop-blur-xl p-4 md:p-6 flex items-start justify-center">
+    <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 15 }}
-        className="w-full max-w-4xl bg-surface border border-primary-green/10 rounded-[2rem] p-6 md:p-10 relative my-auto shadow-[0_0_100px_rgba(110,231,168,0.06)] space-y-8"
+        className="w-full bg-surface border border-primary-green/10 rounded-[2rem] p-6 md:p-10 relative shadow-[0_0_100px_rgba(110,231,168,0.06)] space-y-8"
       >
-        {/* Close Button top-right */}
-        <button 
-          onClick={onClose}
-          className="absolute top-6 right-6 w-11 h-11 rounded-full bg-white/[0.02] border border-border-white flex items-center justify-center text-text-secondary hover:text-primary-green hover:border-primary-green hover:bg-primary-green/5 transition-all cursor-pointer z-50"
-        >
-          <X size={18} />
-        </button>
-
         {/* HEADER SECTION */}
         <header className="space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
@@ -2475,16 +2467,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </div>
           </div>
         </section>
-
-        {/* FOOTER BUTTON */}
-        <footer className="flex justify-end pt-4 font-sans">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-white/[0.02] border border-border-white hover:bg-white/5 rounded-2xl text-[11px] uppercase font-bold tracking-wider transition-all cursor-pointer text-text-primary font-sans"
-          >
-            Fechar Centro de Inteligência
-          </button>
-        </footer>
 
       </motion.div>
     </div>

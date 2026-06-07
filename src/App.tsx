@@ -13,6 +13,7 @@ import { ActionCenter } from './components/layout/ActionCenter';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { ProgressStats } from './components/dashboard/ProgressStats';
+import { SessaoProfundaTab } from './components/session/SessaoProfundaTab';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
@@ -47,7 +48,7 @@ export default function App() {
     scheduledActivities
   } = useDataStore();
   const dataStore = useDataStore();
-  const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'centro' | 'menu'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
 
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -506,6 +507,106 @@ export default function App() {
     }
   }, [user]);
 
+  // SWIPE & DISPATCH MAPPING EFFECT
+  useEffect(() => {
+    const handleOpenActionCenter = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.screen === 'session') {
+        setActiveTab('session');
+      }
+    };
+    window.addEventListener('open-action-center', handleOpenActionCenter);
+    return () => {
+      window.removeEventListener('open-action-center', handleOpenActionCenter);
+    };
+  }, []);
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  useEffect(() => {
+    const isInteractiveElementActive = () => {
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || activeEl.getAttribute('contenteditable') === 'true') {
+          return true;
+        }
+      }
+
+      const modalSelectors = [
+        '[role="dialog"]',
+        '.modal',
+        '.popup',
+        '.dropdown-content',
+        '[id^="radix-"]',
+        'pre',
+        '.select-content'
+      ];
+      for (const selector of modalSelectors) {
+        if (document.querySelector(selector)) {
+          return true;
+        }
+      }
+
+      if (showSignOutConfirm || isReagendarOpen || isReconfigurarOpen || showFullAgenda) {
+        return true;
+      }
+
+      return false;
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      if (isInteractiveElementActive()) return;
+
+      const touch = e.touches[0];
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now()
+      };
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchStartRef.current) return;
+      if (e.changedTouches.length !== 1) return;
+      if (isInteractiveElementActive()) return;
+
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - touchStartRef.current.x;
+      const diffY = touch.clientY - touchStartRef.current.y;
+      const duration = Date.now() - touchStartRef.current.time;
+
+      touchStartRef.current = null;
+
+      // Swipe requirements: duration < 400ms, X distance > 70px, Y distance < 50% of X distance
+      if (duration < 400 && Math.abs(diffX) > 70 && Math.abs(diffY) < Math.abs(diffX) * 0.5) {
+        const order: ('home' | 'listas' | 'session' | 'centro' | 'menu')[] = ['home', 'listas', 'session', 'centro', 'menu'];
+        const currentIndex = order.indexOf(activeTab);
+
+        if (diffX < 0) {
+          // Swipe left -> advance
+          if (currentIndex < order.length - 1) {
+            setActiveTab(order[currentIndex + 1]);
+          }
+        } else {
+          // Swipe right -> reverse
+          if (currentIndex > 0) {
+            setActiveTab(order[currentIndex - 1]);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [activeTab, showSignOutConfirm, isReagendarOpen, isReconfigurarOpen, showFullAgenda]);
+
   return (
     <ErrorBoundary>
       <ProtectedRoute>
@@ -725,6 +826,10 @@ export default function App() {
               />
             )}
 
+            {activeTab === 'session' && (
+              <SessaoProfundaTab />
+            )}
+
             {activeTab === 'centro' && (
               <ProgressStats onClose={() => setActiveTab('home')} />
             )}
@@ -815,16 +920,21 @@ export default function App() {
               }`}
             >
               <ListTodo size={20} className="transition-all" />
-              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Listas</span>
+              <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Tarefas</span>
             </button>
 
             {/* 3. CENTER HIGHLIGHTED FOCAR ACTION */}
             <div className="flex-1 flex justify-center -mt-8 relative z-50">
               <button 
                 onClick={() => {
-                  window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'session' } }));
+                  setShowFullAgenda(false);
+                  setActiveTab('session');
                 }}
-                className="w-14 h-14 bg-green hover:brightness-110 shadow-[0_4px_20px_rgba(110,231,168,0.4)] hover:shadow-[0_8px_30px_rgba(110,231,168,0.6)] rounded-full flex items-center justify-center text-background transition-all active:scale-95 duration-200 cursor-pointer transform hover:-translate-y-0.5"
+                className={`w-14 h-14 hover:brightness-110 rounded-full flex items-center justify-center text-background transition-all active:scale-95 duration-200 cursor-pointer transform hover:-translate-y-0.5 ${
+                  activeTab === 'session'
+                    ? 'bg-gradient-to-br from-green to-[#34d399] text-background shadow-[0_0_30px_rgba(110,231,168,0.6)] ring-4 ring-green/20 scale-110'
+                    : 'bg-green text-background shadow-[0_4px_20px_rgba(110,231,168,0.4)]'
+                }`}
                 title="Sessão Profunda"
               >
                 <Play size={24} fill="currentColor" className="ml-1 text-background" />
