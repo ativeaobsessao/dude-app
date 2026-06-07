@@ -24,6 +24,64 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   // Greeting Logic
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
+  // PWA Install states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showiOSInstructions, setShowiOSInstructions] = useState(false);
+
+  useEffect(() => {
+    // 1. Check if already running in standalone mode (installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+      || (window.navigator as any).standalone === true;
+
+    if (isStandalone) {
+      setShowInstallBtn(false);
+      return;
+    }
+
+    // 2. Identify OS platform
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIPhoneOrIPod = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isIPhoneOrIPod);
+
+    if (isIPhoneOrIPod) {
+      // iOS doesn't fire beforeinstallprompt. We always show the install guide option.
+      setShowInstallBtn(true);
+      return;
+    }
+
+    // 3. Android / PC browser event
+    const handleBeforePrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforePrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
+    };
+  }, []);
+
+  const handlePWAInstallClick = async () => {
+    if (isIOS) {
+      setShowiOSInstructions(true);
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallBtn(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      dataStore.showNotification('Dispositivo compatível! Para instalar, toque nos três pontos do seu navegador e selecione "Instalar" ou "Adicionar à tela de início".', 'success');
+    }
+  };
+
   const [dismissedAntiVicioKeys, setDismissedAntiVicioKeys] = useState<string[]>(() => {
     try {
       const saved = sessionStorage.getItem('dude_dismissed_anti_vicio_keys');
@@ -652,7 +710,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[#6EE7B7] text-sm whitespace-nowrap truncate text-center italic font-medium leading-relaxed select-none max-w-full px-1 tracking-tighter xs:tracking-tight">
+          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(10px,3.2vw,14px)] text-center italic font-medium leading-relaxed select-none max-w-full px-1 tracking-tighter xs:tracking-tight">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
@@ -991,7 +1049,80 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </button>
           </div>
         )}
+
+        {/* PWA CTA Button at the absolute end of Scroll */}
+        {showInstallBtn && (
+          <div className="w-full flex justify-center pt-4 animate-fade-in">
+            <button
+              onClick={handlePWAInstallClick}
+              className="w-full max-w-[340px] py-3.5 border border-[#6ee7a8]/10 hover:border-[#6ee7a8]/35 bg-[#6ee7a8]/5 hover:bg-[#6ee7a8]/10 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span className="text-sm">📱</span>
+              <span>Instalar Aplicativo DUDE</span>
+            </button>
+          </div>
+        )}
       </motion.div>
+
+      {/* iOS PWA INSTALL INSTRUCTIONS MODAL */}
+      <AnimatePresence>
+        {showiOSInstructions && (
+          <div 
+            onClick={() => setShowiOSInstructions(false)}
+            className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md cursor-pointer"
+          >
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-sm p-6 sm:p-7 rounded-3xl bg-surface-1 border border-white/5 shadow-2xl text-center relative z-15 cursor-default"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full blur-[40px] bg-green/10 pointer-events-none" />
+              
+              <button 
+                onClick={() => setShowiOSInstructions(false)}
+                className="absolute top-4 right-4 text-text-dim hover:text-text duration-150 cursor-pointer p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+
+              <span className="text-3xl block mb-4 select-none">📱</span>
+              
+              <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                Instalar DUDE no seu iPhone
+              </h3>
+              
+              <div className="text-left text-xs text-text-secondary/90 mt-4 space-y-3 leading-relaxed">
+                <p>
+                  Siga os passos simplificados abaixo para fixar a <strong className="text-text font-bold">DUDE</strong> na tela inicial do seu celular, com visual nativo em tela cheia:
+                </p>
+                
+                <ol className="list-decimal list-inside space-y-2 mt-2 bg-surface-2/40 p-3 rounded-xl border border-border-custom font-sans">
+                  <li>
+                    Toque no ícone de <strong className="text-[#6EE7B7] font-bold">Compartilhar</strong> (retângulo com uma seta apontando para cima) no Safari.
+                  </li>
+                  <li>
+                    Role as opções e toque em <strong className="text-text font-bold">"Adicionar à Tela de Início"</strong>.
+                  </li>
+                  <li>
+                    Confirme tocando em <strong className="text-[#6EE7B7] font-bold">"Adicionar"</strong> no canto superior direito.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowiOSInstructions(false)}
+                  className="w-full py-3.5 bg-[#6ee7a8] hover:brightness-105 active:scale-98 text-black font-sans font-bold uppercase text-[10px] tracking-widest rounded-2xl transition-all cursor-pointer text-center"
+                >
+                  Entendi, vou fazer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* SUPPORTIVE RELAPSE OCCURRENCE MODAL */}
       <AnimatePresence>
