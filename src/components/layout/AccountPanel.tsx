@@ -1,0 +1,365 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from '../../lib/supabase';
+import { useDataStore } from '../../store/useDataStore';
+import { X, Camera, User, Mail, Lock, LogOut, Check } from 'lucide-react';
+
+interface AccountPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  userEmail: string | undefined;
+  user: any;
+  onSignOut: () => void;
+}
+
+export const AccountPanel: React.FC<AccountPanelProps> = ({
+  isOpen,
+  onClose,
+  userEmail,
+  user,
+  onSignOut
+}) => {
+  const dataStore = useDataStore();
+  const profile = dataStore.profile;
+
+  const [fullName, setFullName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+  
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const [isRequestingRecovery, setIsRequestingRecovery] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronize initially loaded full_name
+  useEffect(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  }, [profile]);
+
+  if (!isOpen) return null;
+
+  // Handle name update
+  const handleSaveName = async () => {
+    if (!user?.id || !fullName.trim()) return;
+    setIsSavingName(true);
+    try {
+      await dataStore.updateProfileData(user.id, { full_name: fullName.trim() });
+      dataStore.showNotification('Nome atualizado com sucesso!', 'success');
+    } catch (err: any) {
+      console.error('Error updating name:', err);
+      dataStore.showNotification('Erro ao salvar nome: ' + err.message, 'error');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  // Handle avatar upload to Supabase Storage
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!user?.id) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop() || 'png';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Upload file to the 'avatars' bucket
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update backend & store state immediately
+      await dataStore.updateProfileData(user.id, { avatar_url: publicUrl });
+      dataStore.showNotification('Foto de perfil atualizada com sucesso!', 'success');
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err);
+      dataStore.showNotification('Erro ao carregar imagem: ' + err.message, 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Trigger input file dialog
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle custom user password change
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordFeedback({ message: 'A senha deve conter no mínimo 6 caracteres.', type: 'error' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordFeedback({ message: 'As senhas não conferem.', type: 'error' });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordFeedback(null);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      
+      setPasswordFeedback({ message: 'Senha atualizada com sucesso!', type: 'success' });
+      setNewPassword('');
+      setConfirmPassword('');
+      dataStore.showNotification('Sua senha foi alterada.', 'success');
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      setPasswordFeedback({ message: err.message || 'Erro ao alterar a senha.', type: 'error' });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Handle password recovery email
+  const handleSendRecoveryEmail = async () => {
+    if (!userEmail) return;
+    setIsRequestingRecovery(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: window.location.origin
+      });
+      if (error) throw error;
+      dataStore.showNotification('Email de recuperação enviado!', 'success');
+      setPasswordFeedback({ message: 'Email de recuperação enviado para sua caixa de entrada.', type: 'success' });
+    } catch (err: any) {
+      console.error('Error resetting password:', err);
+      dataStore.showNotification('Não foi possível enviar email de recuperação.', 'error');
+      setPasswordFeedback({ message: err.message || 'Erro ao encaminhar email.', type: 'error' });
+    } finally {
+      setIsRequestingRecovery(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[600] flex justify-end">
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-base/80 backdrop-blur-md"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+        className="relative w-full max-w-md h-full bg-surface-1 border-l border-border-custom shadow-2xl flex flex-col z-10 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-border-custom flex items-center justify-between">
+          <span className="text-xs font-black uppercase tracking-widest text-[#6ee7a8]">Conta do Usuário</span>
+          <button
+            onClick={onClose}
+            className="p-2 text-text-dim hover:text-text rounded-full transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 select-none">
+          {/* Avatar Section */}
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full border border-border-custom overflow-hidden bg-surface-2 flex items-center justify-center relative shadow-lg">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Foto do perfil"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.15)_0%,transparent_70%)] flex items-center justify-center text-[#6ee7a8] font-bold text-3xl">
+                    {fullName?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
+
+                {uploading && (
+                  <div className="absolute inset-0 bg-base/70 flex items-center justify-center">
+                    <span className="text-[10px] text-[#6ee7a8] font-mono animate-pulse">CARREGANDO...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Button */}
+              <button
+                onClick={triggerFileInput}
+                disabled={uploading}
+                className="absolute bottom-0 right-0 p-2 bg-[#6ee7a8] text-base rounded-full border border-surface-1 shadow hover:scale-105 active:scale-95 transition-all text-black cursor-pointer"
+              >
+                <Camera size={14} />
+              </button>
+            </div>
+
+            {/* Input File hidden */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleAvatarUpload}
+              accept="image/*"
+              className="hidden"
+            />
+
+            <div>
+              <h3 className="text-base font-bold text-text tracking-tight">
+                {profile?.full_name || 'Usuário DUDE'}
+              </h3>
+              <span className="text-[10px] font-mono text-text-dim bg-surface-2 px-3 py-1.5 rounded-full border border-border-custom mt-2.5 inline-block">
+                {userEmail || 'email@exemplo.com'}
+              </span>
+            </div>
+          </div>
+
+          <hr className="border-border-custom" />
+
+          {/* Edit Profile Form */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Dados da Conta</label>
+            
+            {/* Campo Nome */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Nome do Usuário</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><User size={14} /></span>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Seu nome"
+                    className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={isSavingName || !fullName.trim()}
+                  className="px-4 py-3.5 bg-green hover:brightness-105 rounded-2xl text-[10px] font-bold tracking-wider text-base uppercase transition-all disabled:opacity-40 min-h-[44px] touch-manipulation"
+                >
+                  {isSavingName ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Campo Email - Read-Only */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Email Cadastrado (Somente Leitura)</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><Mail size={14} /></span>
+                <input
+                  type="text"
+                  value={userEmail || ''}
+                  readOnly
+                  className="w-full bg-surface-2/40 border border-border-custom/50 rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text-dim select-all focus:outline-none min-h-[44px]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-border-custom" />
+
+          {/* Alterar Senha */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Segurança</label>
+            
+            <form onSubmit={handlePasswordChange} className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Nova Senha</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><Lock size={14} /></span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Confirmar Nova Senha</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><Lock size={14} /></span>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirme a senha"
+                    className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isChangingPassword}
+                className="w-full py-3.5 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/50 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+              >
+                {isChangingPassword ? 'ALTERANDO...' : 'ALTERAR SENHA'}
+              </button>
+            </form>
+
+            {/* Esqueci Minha Senha */}
+            <button
+              onClick={handleSendRecoveryEmail}
+              disabled={isRequestingRecovery}
+              className="w-full py-3.5 border border-border-custom hover:bg-surface-2 text-text-dim rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+            >
+              {isRequestingRecovery ? 'ENVIANDO EMAIL...' : 'ESQUECI MINHA SENHA'}
+            </button>
+
+            {passwordFeedback && (
+              <p className={`text-[11px] text-center px-1 font-sans ${passwordFeedback.type === 'success' ? 'text-green' : 'text-coral'}`}>
+                {passwordFeedback.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer with discret SignOut Button */}
+        <div className="p-6 border-t border-border-custom bg-surface-2/30 flex items-center justify-center">
+          <button
+            onClick={() => {
+              onSignOut();
+              onClose();
+            }}
+            className="flex items-center gap-2.5 px-6 py-3 border border-coral/15 bg-coral/5 hover:bg-coral/10 hover:border-coral/20 text-coral rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer min-h-[40px] shadow"
+          >
+            <LogOut size={12} />
+            Sair
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};

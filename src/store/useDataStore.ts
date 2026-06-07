@@ -87,6 +87,7 @@ interface DataState {
   
   fetchProfile: (userId: string) => Promise<void>;
   updateDailyGoal: (userId: string, minutes: number | null) => Promise<boolean>;
+  updateProfileData: (userId: string, updates: { full_name?: string; avatar_url?: string | null }) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
   syncHabitsRollover: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;
@@ -244,6 +245,23 @@ export const useDataStore = create<DataState>((set, get) => ({
     } catch (err) {
       console.warn('Supabase profile focus goal update failed with exception:', err);
       return false;
+    }
+  },
+
+  updateProfileData: async (userId, updates) => {
+    const currentProfile = get().profile;
+    if (currentProfile) {
+      set({ profile: { ...currentProfile, ...updates } });
+    }
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating profile data:', err);
+      throw err;
     }
   },
 

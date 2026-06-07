@@ -17,6 +17,7 @@ import { SessaoProfundaTab } from './components/session/SessaoProfundaTab';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
+import { AccountPanel } from './components/layout/AccountPanel';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -53,6 +54,7 @@ export default function App() {
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
+  const [showAccountPanel, setShowAccountPanel] = useState(false);
 
   // Reagendar & Reconfigurar popup controllers
   const [selectedPopupActivity, setSelectedPopupActivity] = useState<any | null>(null);
@@ -710,6 +712,18 @@ export default function App() {
         </AnimatePresence>
 
         <AnimatePresence>
+          {showAccountPanel && (
+            <AccountPanel
+              isOpen={showAccountPanel}
+              onClose={() => setShowAccountPanel(false)}
+              userEmail={user?.email}
+              user={user}
+              onSignOut={() => setShowSignOutConfirm(true)}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
           {showSignOutConfirm && (
             <motion.div 
               layout={false}
@@ -752,43 +766,35 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex justify-between items-center">
-          <motion.div 
-            layout={false}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-xl font-bold tracking-tighter text-text cursor-default"
-          >
-            DUDE <span className="text-green">.</span>
-          </motion.div>
+        <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex items-center justify-between">
+          {/* Left Spacer to perfectly balance the avatar on the right */}
+          <div className="w-10 h-10 md:block hidden" />
+
+          {/* Centered DUDE Brand (Text-only as required) */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center pointer-events-none select-none">
+            <span className="text-xl font-black tracking-[0.2em] text-text font-sans">
+              DUDE
+            </span>
+          </div>
           
-          <motion.nav 
-            layout={false}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-8"
+          {/* Right User Avatar (Opening the AccountPanel) */}
+          <button 
+            onClick={() => setShowAccountPanel(true)}
+            className="w-10 h-10 rounded-full border border-border-custom overflow-hidden hover:border-green active:scale-95 transition-all cursor-pointer focus:outline-none flex items-center justify-center ml-auto shrink-0"
           >
-            <button 
-              onClick={() => setShowSignOutConfirm(true)}
-              className="text-[10px] font-bold uppercase tracking-widest text-text-dim/40 hover:text-coral transition-colors"
-            >
-              Sair
-            </button>
-            <div className="w-10 h-10 rounded-full border border-border-custom overflow-hidden hover:border-green transition-colors cursor-pointer">
-              {profile?.avatar_url ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)] flex items-center justify-center text-green font-bold text-sm">
-                  {profile?.full_name?.charAt(0).toUpperCase() || '?'}
-                </div>
-              )}
-            </div>
-          </motion.nav>
+            {profile?.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt="Avatar"
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(110,231,168,0.2)_0%,transparent_70%)] flex items-center justify-center text-green font-bold text-sm">
+                {profile?.full_name?.charAt(0).toUpperCase() || '?'}
+              </div>
+            )}
+          </button>
         </header>
 
         {showFullAgenda ? (
@@ -871,9 +877,9 @@ export default function App() {
         <footer className="w-full py-12 border-t border-white/5 flex flex-col items-center justify-center gap-3 pb-32 px-4 text-center">
           <div className="flex items-center gap-2 select-none justify-center">
             <img 
-              src="/dudelogobrandsquare.png" 
+              src="/logo-dude-oficial.svg" 
               alt="DUDE Logo" 
-              className="w-5 h-5 rounded-md object-contain filter brightness-110"
+              className="w-5 h-5 object-contain"
               referrerPolicy="no-referrer"
             />
             <span className="text-[10px] font-bold tracking-widest text-text-dim uppercase">

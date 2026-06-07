@@ -49,13 +49,21 @@ export const Auth = () => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md space-y-12"
       >
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 flex flex-col items-center">
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="text-4xl font-bold tracking-tighter text-text"
+            className="flex flex-col items-center gap-4"
           >
-            DUDE <span className="text-green">.</span>
+            <img 
+              src="/logo-dude-oficial.svg" 
+              alt="DUDE Logo Oficial"
+              className="w-16 h-16 object-contain"
+              referrerPolicy="no-referrer"
+            />
+            <span className="text-3xl font-black tracking-[0.2em] text-text font-sans select-none">
+              DUDE
+            </span>
           </motion.div>
           <p className="text-text-dim font-light tracking-wide opacity-60 uppercase text-[10px]">
             Personal Operational System
@@ -155,9 +163,17 @@ export const Auth = () => {
           </button>
         </div>
 
-        <p className="text-center text-[9px] text-text-dimmer/40 font-mono tracking-widest">
-          SYSTEM SECURED BY SUPABASE SHIELD
-        </p>
+        <div className="flex flex-col items-center gap-3 mt-4">
+          <img 
+            src="/logo-dude-oficial.svg" 
+            alt="DUDE Logo"
+            className="w-5 h-5 object-contain"
+            referrerPolicy="no-referrer"
+          />
+          <p className="text-center text-[9px] text-text-dimmer/40 font-mono tracking-widest uppercase select-none">
+            SYSTEM SECURED BY SUPABASE SHIELD
+          </p>
+        </div>
       </motion.div>
     </div>
   );
