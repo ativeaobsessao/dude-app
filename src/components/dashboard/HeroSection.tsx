@@ -637,25 +637,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   if (timer.isActive) return null;
 
   return (
-    <section className="relative pt-20 pb-4 md:pt-32 md:pb-12 px-4 sm:px-6 flex flex-col items-center text-center w-full max-w-5xl mx-auto overflow-hidden">
+    <section className="relative pt-2 pb-4 md:pt-6 md:pb-12 px-4 sm:px-6 flex flex-col items-center text-center w-full max-w-5xl mx-auto overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="w-full max-w-3xl space-y-6 md:space-y-8 py-2 md:py-4"
       >
-        {/* Block B — MARKETING (Only rendered here if user has ZERO SP recorded) */}
-        {dataStore.initialFetchDone && !hasSessions && (
-          <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-b border-white/5 pb-8 mb-6">
-            <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
-              Tenha Controle Total Sobre Seu Tempo
-            </h3>
-            <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
-              Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
-            </p>
-          </div>
-        )}
-
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden relative">
           <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2 relative z-10">
@@ -664,7 +652,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[clamp(12.5px,3.15vw,15px)] md:text-sm lg:text-base text-primary-green italic font-semibold text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight sm:tracking-normal">
+          <p className="text-[clamp(10px,2.7vw,14px)] md:text-sm lg:text-base text-green italic font-medium text-center leading-relaxed whitespace-nowrap select-none overflow-hidden max-w-full px-1 tracking-tight">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 

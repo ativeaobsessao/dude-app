@@ -1066,15 +1066,6 @@ export const ActionCenter = () => {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        data-action-center-trigger="true"
-        className="fixed bottom-12 right-12 z-[100] w-16 h-16 bg-primary-green text-background rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(110,231,168,0.3)] hover:scale-110 active:scale-95 transition-all duration-300 group touch-manipulation"
-      >
-        <Plus size={32} className={`transition-transform duration-500 ${isOpen ? 'rotate-45' : ''}`} />
-        <div className="absolute inset-0 rounded-full bg-primary-green animate-ping opacity-20 pointer-events-none" />
-      </button>
-
       <AnimatePresence>
         {isOpen && (
           <motion.div

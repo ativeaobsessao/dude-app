@@ -699,7 +699,7 @@ export default function App() {
             />
           </div>
         ) : (
-          <main className="min-h-screen pb-40 flex flex-col items-center pt-24">
+          <main className="min-h-screen pb-40 flex flex-col items-center pt-16">
             {activeTab === 'home' && (
               <>
                 <HeroSection onNavigateToLists={() => setActiveTab('listas')} />
@@ -713,18 +713,6 @@ export default function App() {
 
                   {/* 9. Seção Histórico Recente */}
                   <RecentHistory />
-
-                  {/* Block B — MARKETING (Only rendered here if user has >= 1 SP recorded) */}
-                  {initialFetchDone && sessions && sessions.length > 0 && (
-                    <div id="marketing-block" className="w-full max-w-4xl mx-auto text-center py-6 select-none border-t border-white/5 pt-12 mt-12">
-                      <h3 className="font-semibold tracking-[-0.04em] leading-tight text-text-primary mb-2 text-center text-2xl md:text-3xl">
-                        Tenha Controle Total Sobre Seu Tempo
-                      </h3>
-                      <p className="text-[10px] md:text-xs text-text-secondary font-light text-center uppercase tracking-[0.2em] leading-relaxed">
-                        Com a DUDE você controla o seu presente, registra o seu passado — otimizando ao máximo o seu tempo.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -784,12 +772,20 @@ export default function App() {
           </main>
         )}
 
-        <footer className="w-full py-12 border-t border-border-white/5 flex flex-col items-center gap-4 pb-32">
-          <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-text-secondary">
-            Premium Personal Evolution System
+        <footer className="w-full py-12 border-t border-white/5 flex flex-col items-center justify-center gap-2 pb-32">
+          <div className="flex items-center gap-2 select-none">
+            <img 
+              src="/dudelogobrandsquare.png" 
+              alt="DUDE Logo" 
+              className="w-5 h-5 rounded-md object-contain filter brightness-90"
+              referrerPolicy="no-referrer"
+            />
+            <span className="text-[10px] font-bold tracking-widest text-[#6a7570] uppercase">
+              DUDE <span className="text-green text-[8px]">v2.1.0</span>
+            </span>
           </div>
-          <div className="text-[8px] text-text-secondary/40 font-mono">
-            Build v2.0.0 — Powered by Supabase
+          <div className="text-[8px] text-[#6a7570]/40 font-mono tracking-wider select-none uppercase">
+            Personal Evolution System • Powered by Supabase
           </div>
         </footer>
 
