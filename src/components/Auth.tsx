@@ -55,7 +55,7 @@ export const Auth = () => {
             animate={{ scale: 1 }}
             className="flex flex-col items-center justify-center font-sans select-none"
           >
-            <span className="text-[#6EE7B7] text-5xl font-bold tracking-[0.2em]">
+            <span className="text-[#F3F4F6] text-5xl font-bold tracking-[0.2em]">
               DUDE
             </span>
           </motion.div>
