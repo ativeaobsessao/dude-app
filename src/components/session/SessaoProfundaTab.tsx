@@ -21,6 +21,37 @@ export const SessaoProfundaTab = () => {
   const [minutes, setMinutes] = useState(45); // default 45 mins
   const [newTaskInput, setNewTaskInput] = useState('');
   const [pendingTasks, setPendingTasks] = useState<string[]>([]);
+  const [registrationMode, setRegistrationMode] = useState<'timer' | 'manual'>('timer');
+
+  useEffect(() => {
+    const handlePrefill = (e: any) => {
+      const p = e.detail?.prefill;
+      if (p) {
+        setProjectId(p.projectId || '');
+        setActivityId(p.activityId || '');
+        setActivityManual(p.activityManual || '');
+        setHabitId(p.habitId || '');
+        setHours(p.hours !== undefined ? p.hours : 0);
+        setMinutes(p.minutes !== undefined ? p.minutes : 45);
+        if (p.tasks) {
+          setPendingTasks(p.tasks);
+        }
+        if (p.scheduledActivityId) {
+          timer.setScheduledActivityId(p.scheduledActivityId);
+        }
+      } else if (e.detail?.projectId) {
+        setProjectId(e.detail.projectId);
+        setActivityId('');
+        setActivityManual('');
+        setHabitId('');
+        setHours(0);
+        setMinutes(45);
+        setPendingTasks([]);
+      }
+    };
+    window.addEventListener('open-action-center', handlePrefill);
+    return () => window.removeEventListener('open-action-center', handlePrefill);
+  }, [timer]);
 
   // Filter activities by project
   const filteredActivities = useMemo(() => {
@@ -29,7 +60,7 @@ export const SessaoProfundaTab = () => {
   }, [dataStore.activities, projectId]);
 
   // Handle setting/resetting when starting
-  const handleStartSession = (e: FormEvent) => {
+  const handleStartSession = async (e: FormEvent) => {
     e.preventDefault();
 
     let finalActivityName = '';
@@ -46,35 +77,117 @@ export const SessaoProfundaTab = () => {
       return;
     }
 
-    // Unlock audio context
-    unlockAudio();
+    if (registrationMode === 'manual') {
+      if (!user) return;
 
-    // Start timer with configured fields
-    timer.start(
-      totalMinutes,
-      activityName,
-      projectId || undefined,
-      habitId || undefined,
-      '', // description
-      String(new Date().toISOString().split('T')[0]), // today date
-      activityId || undefined,
-      undefined // scheduledActivityId
-    );
+      const now = new Date();
+      const startedAt = new Date(now.getTime() - totalMinutes * 60 * 1000).toISOString();
+      const completedAt = now.toISOString();
 
-    // Save subtasks to the timer
-    timer.setPendingTasks(pendingTasks);
+      const sessionToSave = {
+        user_id: user.id,
+        project_id: projectId || null,
+        habit_id: habitId || null,
+        activity_name: activityName,
+        description: '',
+        duration_minutes: totalMinutes,
+        started_at: startedAt,
+        completed_at: completedAt,
+        completed: true,
+        all_tasks_completed: true,
+        actual_duration_minutes: totalMinutes,
+        activity_id: activityId || null,
+        scheduled_activity_id: timer.scheduledActivityId || null,
+      };
 
-    // Reset setup form
-    setProjectId('');
-    setActivityId('');
-    setActivityManual('');
-    setHabitId('');
-    setHours(0);
-    setMinutes(45);
-    setPendingTasks([]);
-    setNewTaskInput('');
+      try {
+        const savedSession = await dataStore.addSession(sessionToSave);
 
-    dataStore.showNotification('🚀 Sessão Profunda iniciada! Foco total ativado.', 'success');
+        if (savedSession?.id) {
+          if (timer.scheduledActivityId) {
+            const isScheduled = dataStore.scheduledActivities.some(sa => sa.id === timer.scheduledActivityId);
+            if (isScheduled) {
+              await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+                status: 'concluida',
+                completed_session_id: savedSession.id,
+                resolved_at: new Date().toISOString()
+              });
+            } else {
+              const isDailyTask = dataStore.dailyTasks.some(dt => dt.id === timer.scheduledActivityId);
+              if (isDailyTask) {
+                await dataStore.updateDailyTask(timer.scheduledActivityId, {
+                  is_completed: true,
+                  completed_at: new Date().toISOString()
+                });
+              }
+            }
+          }
+
+          if (pendingTasks.length > 0) {
+            for (const task of pendingTasks) {
+              await dataStore.addSessionTask(
+                savedSession.id,
+                user.id,
+                task,
+                true // Mark as completed
+              );
+            }
+          }
+
+          if (!dataStore.hasCompletedFirstSession) {
+            dataStore.completeFirstSession();
+          }
+
+          dataStore.showNotification('✅ Sessão registrada com sucesso!', 'success');
+          timer.reset();
+
+          // Reset setup form
+          setProjectId('');
+          setActivityId('');
+          setActivityManual('');
+          setHabitId('');
+          setHours(0);
+          setMinutes(45);
+          setPendingTasks([]);
+          setNewTaskInput('');
+          setRegistrationMode('timer');
+        }
+      } catch (err) {
+        console.error('Erro ao registrar sessão manual:', err);
+        dataStore.showNotification('Erro ao registrar sessão manualmente.', 'error');
+      }
+    } else {
+      // TIMER MODE
+      // Unlock audio context
+      unlockAudio();
+
+      // Start timer with configured fields
+      timer.start(
+        totalMinutes,
+        activityName,
+        projectId || undefined,
+        habitId || undefined,
+        '', // description
+        String(new Date().toISOString().split('T')[0]), // today date
+        activityId || undefined,
+        timer.scheduledActivityId || undefined
+      );
+
+      // Save subtasks to the timer
+      timer.setPendingTasks(pendingTasks);
+
+      // Reset setup form
+      setProjectId('');
+      setActivityId('');
+      setActivityManual('');
+      setHabitId('');
+      setHours(0);
+      setMinutes(45);
+      setPendingTasks([]);
+      setNewTaskInput('');
+
+      dataStore.showNotification('🚀 Sessão Profunda iniciada! Foco total ativado.', 'success');
+    }
   };
 
   // Add a task to the checklist in the preparation step
@@ -328,13 +441,44 @@ export const SessaoProfundaTab = () => {
             </AnimatePresence>
           </div>
 
+          {/* COMO DESEJA REGISTRAR */}
+          <div className="space-y-3 pt-4 border-t border-white/5 text-left">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-text-secondary/60">
+              Como deseja registrar?
+            </label>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setRegistrationMode('timer')}
+                className={`flex-grow md:flex-1 py-3.5 px-4 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all duration-200 min-h-[44px] cursor-pointer ${
+                  registrationMode === 'timer'
+                    ? 'bg-primary-green/10 border-primary-green/40 text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
+                    : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                }`}
+              >
+                Sessão com Timer
+              </button>
+              <button
+                type="button"
+                onClick={() => setRegistrationMode('manual')}
+                className={`flex-grow md:flex-1 py-3.5 px-4 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all duration-200 min-h-[44px] cursor-pointer ${
+                  registrationMode === 'manual'
+                    ? 'bg-white/5 border-white/30 text-text-primary'
+                    : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
+                }`}
+              >
+                Registrar Manualmente
+              </button>
+            </div>
+          </div>
+
           {/* SUBMIT BUTTON */}
           <div className="pt-4">
             <button
               type="submit"
               className="w-full h-13 bg-green hover:brightness-110 active:scale-95 text-background rounded-2xl flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-[0_4px_25px_rgba(110,231,168,0.25)] font-sans"
             >
-              <Play size={13} fill="currentColor" /> INICIAR SESSÃO PROFUNDA
+              <Play size={13} fill="currentColor" /> {registrationMode === 'timer' ? 'INICIAR SESSÃO PROFUNDA' : 'REGISTRAR SESSÃO'}
             </button>
           </div>
         </form>

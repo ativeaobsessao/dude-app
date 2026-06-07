@@ -311,12 +311,34 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
   // Save or Update Daily Task
   const handleSaveTask = async () => {
-    if (!taskTitle.trim() || !user) return;
+    if (!user) return;
+
+    let computedTitle = '';
+    if (activityManualText.trim()) {
+      computedTitle = activityManualText.trim();
+    } else if (selectedActivityId) {
+      const act = dataStore.activities.find(a => a.id === selectedActivityId);
+      computedTitle = act ? act.name : 'Meta de Atividade';
+    } else if (selectedHabitId) {
+      const habit = dataStore.habits.find(h => h.id === selectedHabitId);
+      computedTitle = habit ? habit.name : 'Meta de Hábito';
+    } else if (selectedProjectId) {
+      const proj = dataStore.projects.find(p => p.id === selectedProjectId);
+      computedTitle = proj ? `Meta: ${proj.name}` : 'Meta de Projeto';
+    } else if (subtasksList.length > 0) {
+      computedTitle = subtasksList[0].text;
+    } else {
+      computedTitle = 'Nova Tarefa';
+    }
+
+    if (editingTask && !activityManualText.trim() && !selectedActivityId && !selectedHabitId && !selectedProjectId && subtasksList.length === 0) {
+      computedTitle = editingTask.title;
+    }
 
     const payload = {
       user_id: user.id,
       task_date: todayStr,
-      title: taskTitle.trim(),
+      title: computedTitle.trim(),
       project_id: selectedProjectId || null,
       habit_id: selectedHabitId || null,
       activity_id: selectedActivityId || null,
@@ -715,7 +737,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
                       {task.checklist && task.checklist.length > 0 && (
                         <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
-                          <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Subtarefas ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})</p>
+                          <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Sessão Profunda ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})</p>
                           <div className="grid grid-cols-1 gap-1.5">
                             {task.checklist.map((sub, sIdx) => (
                               <div 
@@ -909,18 +931,6 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
               {/* Form Areas */}
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
-                
-                {/* Título */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">Título da Tarefa <span className="text-green">*</span></label>
-                  <input 
-                    type="text" 
-                    value={taskTitle}
-                    onChange={(e) => setTaskTitle(e.target.value)}
-                    placeholder="Ex: Resolver documentação de arquitetura"
-                    className="w-full bg-[#161817] border border-white/5 rounded-2xl px-4 py-3.5 text-sm text-text-primary outline-none focus:border-green/50 placeholder:text-text-secondary/30"
-                  />
-                </div>
 
                 {/* Projeto Selector */}
                 <div className="space-y-1.5">
@@ -970,38 +980,24 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                   />
                 </div>
 
-                {/* Checklist (Subtarefas) */}
-                <div className="space-y-2 border-t border-white/5 pt-4">
-                  <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase block mb-1">Checklist de Subtarefas</label>
+                {/* Checklist (Sessão Profunda checklist) */}
+                <div className="space-y-3.5 border-t border-white/5 pt-4 text-left">
+                  <label className="text-[10px] font-bold tracking-wider text-[#6ee7a8] uppercase block mb-1">
+                    Liste tudo que pretende realizar nesta Sessão Profunda
+                  </label>
                   
-                  <form onSubmit={handleFormAddSubtask} className="flex gap-2">
-                    <input 
-                      type="text" 
-                      value={newSubtaskText}
-                      onChange={(e) => setNewSubtaskText(e.target.value)}
-                      placeholder="Adicionar subtarefa..."
-                      className="flex-1 bg-[#161817] border border-white/5 rounded-2xl px-4 py-3 text-xs text-text-primary outline-none focus:border-green/50"
-                    />
-                    <button 
-                      type="submit"
-                      className="px-4 bg-[#1e2220] hover:bg-green hover:text-background text-text-primary rounded-2xl text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer"
-                    >
-                      + Sub
-                    </button>
-                  </form>
-
                   {subtasksList.length > 0 && (
-                    <div className="space-y-1.5 mt-2 bg-white/[0.01] border border-white/5 p-3 rounded-2xl max-h-32 overflow-y-auto">
+                    <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                       {subtasksList.map((st, sIdx) => (
-                        <div key={sIdx} className="flex justify-between items-center text-xs gap-3">
+                        <div key={sIdx} className="flex justify-between items-center text-xs gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
                           <div className="flex items-center gap-2">
-                            <span className="text-green text-[8px]">●</span>
-                            <span className="font-medium text-text-secondary">{st.text}</span>
+                            <span className="text-text-secondary/40 select-none">☐</span>
+                            <span className="font-semibold text-text-primary font-sans">{st.text}</span>
                           </div>
                           <button 
                             type="button" 
                             onClick={() => handleFormRemoveSubtask(sIdx)}
-                            className="text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded transition-all cursor-pointer"
+                            className="text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded transition-all cursor-pointer font-bold"
                           >
                             <X size={12} />
                           </button>
@@ -1009,6 +1005,23 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                       ))}
                     </div>
                   )}
+
+                  <form onSubmit={handleFormAddSubtask} className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={newSubtaskText}
+                      onChange={(e) => setNewSubtaskText(e.target.value)}
+                      placeholder="Adicionar item..."
+                      className="flex-1 bg-[#161817] border border-white/5 rounded-2xl px-4 py-3 text-xs text-text-primary outline-none focus:border-green/50 placeholder:text-text-secondary/30"
+                    />
+                    <button 
+                      type="submit"
+                      className="px-4 py-3 bg-[#1e2220] hover:bg-green hover:text-background text-text-primary rounded-2xl text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
+                    >
+                      <Plus size={12} />
+                      <span>+ ADICIONAR ITEM</span>
+                    </button>
+                  </form>
                 </div>
 
               </div>
@@ -1026,8 +1039,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                 </button>
                 <button
                   onClick={handleSaveTask}
-                  disabled={!taskTitle.trim()}
-                  className="px-6 py-3.5 bg-green text-background disabled:opacity-40 disabled:pointer-events-none font-bold text-xs uppercase tracking-wider rounded-2xl transition-all hover:brightness-110 cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)]"
+                  className="px-6 py-3.5 bg-green text-background font-bold text-xs uppercase tracking-wider rounded-2xl transition-all hover:brightness-110 cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)]"
                 >
                   Confirmar Ok
                 </button>
