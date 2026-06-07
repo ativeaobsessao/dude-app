@@ -63,8 +63,9 @@ export const ActionCenter = () => {
         if (currentScreen === 'links-list') {
           setCurrentScreen('saved-links');
         } else {
-          setCurrentScreen(null);
+          setIsOpen(false);
           setEditingActivity(undefined);
+          setCurrentScreen(null);
         }
       } else {
         setIsOpen(false);
@@ -79,8 +80,9 @@ export const ActionCenter = () => {
           if (currentScreen === 'links-list') {
             setCurrentScreen('saved-links');
           } else {
-            setCurrentScreen(null);
+            setIsOpen(false);
             setEditingActivity(undefined);
+            setCurrentScreen(null);
           }
         }}
         className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
@@ -693,6 +695,7 @@ export const ActionCenter = () => {
       setNewActivityHabitDuration(0);
       setNewActivityHabitTime('morning');
       showSuccess('Atividade salva com sucesso!');
+      setIsOpen(false);
       setCurrentScreen(null);
     } catch (err) {
       console.error('Erro crítico ao salvar atividade:', err);
@@ -714,6 +717,7 @@ export const ActionCenter = () => {
       await dataStore.addProject(user.id, nameTrimmed);
       setNewProjectName('');
       showSuccess('Projeto salvo com sucesso!');
+      setIsOpen(false);
       setCurrentScreen(null);
     } catch (err) {
       console.error('Erro ao adicionar projeto:', err);
@@ -827,6 +831,7 @@ export const ActionCenter = () => {
         if (success) {
           showSuccess('✅ Hábito atualizado com sucesso!');
           setEditingHabitId(null);
+          setIsOpen(false);
           setCurrentScreen(null);
         } else {
           showSuccess('Erro ao atualizar hábito.');
@@ -846,6 +851,7 @@ export const ActionCenter = () => {
           }
         );
         showSuccess('✅ Hábito criado com sucesso!');
+        setIsOpen(false);
         setCurrentScreen(null);
       }
 
@@ -907,6 +913,7 @@ export const ActionCenter = () => {
         });
         if (success) {
           dataStore.showNotification('Módulo Anti-Vício atualizado com sucesso.', 'success');
+          setIsOpen(false);
           setCurrentScreen(null);
         } else {
           dataStore.showNotification('Não foi possível atualizar as configurações.', 'error');
@@ -925,6 +932,7 @@ export const ActionCenter = () => {
         );
         if (result) {
           dataStore.showNotification('Módulo Anti-Vício cadastrado com sucesso!', 'success');
+          setIsOpen(false);
           setCurrentScreen(null);
         } else {
           dataStore.showNotification('Erro ao criar módulo Anti-Vício.', 'error');
@@ -961,6 +969,7 @@ export const ActionCenter = () => {
       setNoteProject('');
       setNoteActivityId('');
       showSuccess('✅ Anotação salva!');
+      setIsOpen(false);
       setCurrentScreen(null);
     } catch (err) {
       console.error('Erro ao salvar anotação:', err);
@@ -1081,7 +1090,14 @@ export const ActionCenter = () => {
                 <div className="flex items-center gap-4">
                   {currentScreen !== null && (
                     <button 
-                      onClick={() => setCurrentScreen(null)}
+                      onClick={() => {
+                        if (currentScreen === 'links-list') {
+                          setCurrentScreen('saved-links');
+                        } else {
+                          setIsOpen(false);
+                          setCurrentScreen(null);
+                        }
+                      }}
                       className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"
                     >
                       <ArrowLeft size={16} /> Voltar
@@ -1803,7 +1819,10 @@ export const ActionCenter = () => {
                 {currentScreen === 'anti-vicio' && (
                   <div className="w-full max-w-2xl space-y-10 flex flex-col items-stretch">
                     <button
-                      onClick={() => setCurrentScreen(null)}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setCurrentScreen(null);
+                      }}
                       className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px] self-start"
                     >
                       ← Voltar
@@ -1827,7 +1846,6 @@ export const ActionCenter = () => {
                               setAvoidanceScope('full_day');
                               setAvoidanceDays([]);
                               setAvoidanceIntensity('balanced');
-                              setCurrentScreen(null);
                             }}
                             className="text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-widest px-3 py-1 bg-red-400/10 rounded-full"
                           >
@@ -2050,7 +2068,10 @@ export const ActionCenter = () => {
                 {currentScreen === 'habits' && (
                   <div className="w-full max-w-2xl space-y-10 flex flex-col items-stretch">
                     <button
-                      onClick={() => setCurrentScreen(null)}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setCurrentScreen(null);
+                      }}
                       className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px] self-start"
                     >
                       ← Voltar
@@ -2522,6 +2543,7 @@ export const ActionCenter = () => {
                   <div className="w-full max-w-2xl flex flex-col items-stretch">
                     <CriarAgendamentoScreen
                       onBack={() => {
+                        setIsOpen(false);
                         setCurrentScreen(null);
                         setEditingActivity(undefined);
                       }}
@@ -2538,7 +2560,10 @@ export const ActionCenter = () => {
                 {currentScreen === 'saved-links' && (
                   <div className="w-full max-w-2xl flex flex-col items-stretch">
                     <SavedLinksConfigScreen
-                      onBack={() => setCurrentScreen(null)}
+                      onBack={() => {
+                        setIsOpen(false);
+                        setCurrentScreen(null);
+                      }}
                       onNavigateToViewAll={() => setCurrentScreen('links-list')}
                     />
                     {renderBottomBackButton()}
