@@ -1,11 +1,78 @@
-const CACHE_NAME = 'dude-v6';
+const CACHE_NAME = 'dude-v7';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/web-app-manifest-192x192.png',
+  '/web-app-manifest-512x512.png',
+  '/logo-dude-oficial.svg'
+];
+
 let sessionData = { activity: '', project: '', endTime: 0 };
 let warningFired = false;
 let completeFired = false;
 let checkTimeout = null;
 
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
+        console.error('PWA early pre-caching failed:', err);
+      });
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log('Clearing old Cache:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+
+  const url = new URL(e.request.url);
+  const isDynamicAPI = url.pathname.startsWith('/api') || 
+                       url.hostname.includes('supabase') || 
+                       url.hostname.includes('googleapis');
+
+  if (isDynamicAPI) {
+    return;
+  }
+
+  e.respondWith(
+    fetch(e.request)
+      .then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, responseToCache);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(e.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          if (e.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+        });
+      })
+  );
+});
 
 function scheduleCheck() {
   if (checkTimeout) clearTimeout(checkTimeout);

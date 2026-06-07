@@ -19,6 +19,7 @@ import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
 import { AccountPanel } from './components/layout/AccountPanel';
 import { PWAInstallPrompt } from './components/layout/PWAInstallPrompt';
+import { PWAProvider } from './context/PWAContext';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -613,7 +614,8 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ProtectedRoute>
-        <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
+        <PWAProvider>
+          <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <MoodRitualModal 
           isOpen={isMoodActive} 
           onClose={(wasAnswered?: boolean) => {
@@ -977,6 +979,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      </PWAProvider>
     </ProtectedRoute>
   </ErrorBoundary>
 );

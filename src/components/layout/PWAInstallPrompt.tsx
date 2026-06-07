@@ -1,140 +1,205 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Share } from 'lucide-react';
+import { X, Download, Share, Smartphone, Monitor } from 'lucide-react';
+import { usePWA } from '../../context/PWAContext';
 
 export const PWAInstallPrompt: React.FC = () => {
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isIOS, setIsIOS] = useState(false);
+  const {
+    showInstallPrompt,
+    installApp,
+    dismissInstallPrompt,
+    isIOS,
+    isAndroid,
+    isDesktop,
+    showTutorialModal,
+    setShowTutorialModal,
+  } = usePWA();
 
-  useEffect(() => {
-    // 1. Check if already running in standalone mode (installed)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone === true;
-
-    if (isStandalone) {
-      return;
-    }
-
-    // 2. Check if dismissed recently (within 15 days)
-    const dismissedAt = localStorage.getItem('dude_pwa_dismissed');
-    if (dismissedAt) {
-      const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
-      const parsedTime = Number(dismissedAt);
-      if (!isNaN(parsedTime) && (Date.now() - parsedTime < fifteenDaysInMs)) {
-        return;
-      }
-    }
-
-    // 3. Detect iOS agent
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIPhoneOrIPod = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIPhoneOrIPod);
-
-    // Show prompt if on mobile or if deferred prompt fires
-    if (isIPhoneOrIPod) {
-      // iOS doesn't fire beforeinstallprompt, show prompt on delay if conditions are met
-      const timer = setTimeout(() => {
-        setShowPrompt(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-
-    // 4. Capture native beforeinstallprompt event for Android / Chrome / PC
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      // Wait a little bit to offer installation
-      const timer = setTimeout(() => {
-        setShowPrompt(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-    };
-  }, []);
-
-  const handleDismiss = () => {
-    localStorage.setItem('dude_pwa_dismissed', String(Date.now()));
-    setShowPrompt(false);
-  };
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    
-    // Show native prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user response
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User responded to installation prompt: ${outcome}`);
-    
-    // Clear deferred event
-    setDeferredPrompt(null);
-    setShowPrompt(false);
-  };
-
-  if (!showPrompt) return null;
+  // Return nothing if neither the banner nor the tutorial is active
+  if (!showInstallPrompt && !showTutorialModal) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -50 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 180 }}
-        className="fixed top-24 left-4 right-4 md:left-auto md:right-6 md:w-96 z-[999] bg-[#161922] border border-[#6ee7a8]/20 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_15px_rgba(110,231,168,0.05)] p-4 select-none"
-      >
-        <div className="flex gap-3 items-start">
-          {/* Brand Mark or Icon */}
-          <div className="w-9 h-9 rounded-xl bg-[#6ee7a8]/10 flex items-center justify-center shrink-0 border border-[#6ee7a8]/20">
-            <Download className="w-4 h-4 text-[#6ee7a8]" />
-          </div>
+    <>
+      {/* Top Ambient PWA Banner */}
+      <AnimatePresence>
+        {showInstallPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: -80 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -80 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+            className="fixed top-6 left-4 right-4 md:left-auto md:right-6 md:w-[420px] z-[9999] bg-[#0E131F]/95 border border-[#6ee7a8]/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7),0_0_20px_rgba(110,231,168,0.1)] p-5 select-none backdrop-blur-md"
+          >
+            <div className="flex gap-4 items-start">
+              {/* Icon Container */}
+              <div className="w-10 h-10 rounded-xl bg-[#6ee7a8]/10 flex items-center justify-center shrink-0 border border-[#6ee7a8]/25 group">
+                <Download className="w-5 h-5 text-[#6ee7a8] animate-bounce" />
+              </div>
 
-          {/* Info Text */}
-          <div className="flex-1 space-y-1.5 min-w-0">
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-[#6ee7a8]">DUDE nos seus Apps</h4>
-            {isIOS ? (
-              <p className="text-[10px] text-text-dim leading-relaxed">
-                Para instalar a <strong className="text-text font-bold">DUDE</strong> no seu iPhone: toque em <strong className="text-text font-bold inline-flex items-center gap-0.5"><Share size={10} className="text-[#6ee7a8] inline" /> Compartilhar</strong> e depois em <strong className="text-text font-bold">"Adicionar à Tela de Início"</strong>.
-              </p>
-            ) : (
-              <p className="text-[10px] text-text-dim leading-relaxed">
-                Instale a <strong className="text-text font-bold">DUDE</strong> para acesso offline rápido, notificações instantâneas e visual nativo ultra imersivo.
-              </p>
-            )}
+              {/* Inner Information block */}
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-[#6ee7a8]">
+                    🚀 Instalar a DUDE
+                  </h4>
+                </div>
+                <p className="text-[11px] text-text-dim leading-relaxed font-sans">
+                  Acesse mais rápido, receba notificações e mantenha seu progresso sempre por perto.
+                </p>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 pt-1">
-              {!isIOS && (
-                <button
-                  onClick={handleInstall}
-                  className="px-3.5 py-2 bg-[#6ee7a8] text-black font-sans font-bold uppercase text-[9px] tracking-wider rounded-lg hover:brightness-105 active:scale-95 transition-all text-center cursor-pointer min-h-[28px]"
-                >
-                  Instalar App
-                </button>
-              )}
+                {/* Micro Actions Block */}
+                <div className="flex items-center gap-4 pt-1.5">
+                  <button
+                    onClick={installApp}
+                    id="pwa-install-cta-btn"
+                    className="px-4 py-2 bg-[#6ee7a8] hover:bg-[#52d693] text-black font-sans font-bold uppercase text-[9px] tracking-widest rounded-xl hover:brightness-105 active:scale-95 transition-all text-center cursor-pointer min-h-[32px] shadow-sm flex items-center gap-1.5"
+                  >
+                    Instalar
+                  </button>
+                  <button
+                    onClick={dismissInstallPrompt}
+                    id="pwa-dismiss-cta-btn"
+                    className="text-[9px] font-bold uppercase tracking-widest text-text-dim/60 hover:text-text duration-150 py-1.5 cursor-pointer"
+                  >
+                    Agora não
+                  </button>
+                </div>
+              </div>
+
+              {/* Dismiss X icon */}
               <button
-                onClick={handleDismiss}
-                className="text-[9px] font-bold uppercase tracking-widest text-text-dim/60 hover:text-text duration-150 py-1 cursor-pointer"
+                onClick={dismissInstallPrompt}
+                id="pwa-dismiss-x-btn"
+                className="p-1 hover:bg-white/5 rounded-lg text-text-dim/50 hover:text-text transition-colors duration-200 cursor-pointer"
+                title="Fechar"
               >
-                Talvez mais tarde
+                <X size={15} />
               </button>
             </div>
-          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Dismiss Icon */}
-          <button
-            onClick={handleDismiss}
-            className="p-1 hover:bg-white/5 rounded-lg text-text-dim/50 hover:text-text transition-colors duration-200 cursor-pointer"
+      {/* Tutorial Contextual Modal/Popup Fallback */}
+      <AnimatePresence>
+        {showTutorialModal && (
+          <div
+            onClick={() => setShowTutorialModal(false)}
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md cursor-pointer"
           >
-            <X size={14} />
-          </button>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm p-6 sm:p-8 rounded-[2rem] bg-[#0E131F] border border-white/5 shadow-2xl text-center relative cursor-default"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full blur-[40px] bg-[#6ee7a8]/10 pointer-events-none" />
+
+              <button
+                onClick={() => setShowTutorialModal(false)}
+                className="absolute top-5 right-5 text-text-dim hover:text-text duration-150 cursor-pointer p-1 rounded-lg"
+                title="Fechar"
+              >
+                <X size={16} />
+              </button>
+
+              <span className="text-3xl block mb-4 select-none">📱</span>
+
+              {/* IOS Conditional instructions */}
+              {isIOS && (
+                <>
+                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                    Instalar DUDE no seu iPhone / iPad
+                  </h3>
+
+                  <div className="text-left text-xs text-text-secondary/90 mt-4 space-y-3 leading-relaxed">
+                    <p className="font-sans">
+                      Siga os passos simplificados abaixo para fixar a <strong className="text-text font-bold">DUDE</strong> na tela inicial do seu celular, com visual nativo em tela cheia:
+                    </p>
+
+                    <ol className="list-decimal list-inside space-y-2.5 mt-2 bg-white/5 p-4 rounded-2xl border border-white/5 font-sans">
+                      <li>
+                        Toque no ícone de <strong className="text-[#6ee7a8] font-bold">Compartilhar</strong> (ícone de retângulo com uma seta apontando para cima <Share size={12} className="inline mx-0.5 text-[#6ee7a8]" />) no Safari.
+                      </li>
+                      <li>
+                        Role a lista e selecione a opção <strong className="text-text font-bold">"Adicionar à Tela de Início"</strong>.
+                      </li>
+                      <li>
+                        Confirme tocando em <strong className="text-[#6ee7a8] font-bold">"Adicionar"</strong> no canto superior direito.
+                      </li>
+                    </ol>
+                  </div>
+                </>
+              )}
+
+              {/* Android Fallback instruction */}
+              {isAndroid && (
+                <>
+                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                    Instalar DUDE no seu Android
+                  </h3>
+
+                  <div className="text-left text-xs text-text-secondary/90 mt-4 space-y-3 leading-relaxed">
+                    <p className="font-sans">
+                      Como o prompt automático não iniciou, você pode instalar facilmente via menu do navegador:
+                    </p>
+
+                    <ol className="list-decimal list-inside space-y-2.5 mt-2 bg-white/5 p-4 rounded-2xl border border-white/5 font-sans">
+                      <li>
+                        Toque no menu de <strong className="text-[#6ee7a8] font-bold">Configurações</strong> (ícone de três pontos empilhados ⋮ no topo ou base do navegador).
+                      </li>
+                      <li>
+                        Selecione a opção <strong className="text-text font-bold">"Instalar aplicativo"</strong> ou <strong className="text-text font-bold">"Adicionar à tela inicial"</strong>.
+                      </li>
+                      <li>
+                        Confirme a instalação para criar o atalho oficial.
+                      </li>
+                    </ol>
+                  </div>
+                </>
+              )}
+
+              {/* Desktop Chromium platform instruction */}
+              {isDesktop && (
+                <>
+                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                    Instalar DUDE no Computador
+                  </h3>
+
+                  <div className="text-left text-xs text-text-secondary/90 mt-4 space-y-3 leading-relaxed">
+                    <p className="font-sans">
+                      Adicione a <strong className="text-text font-bold">DUDE</strong> na sua barra de tarefas/aplicativos de desktop:
+                    </p>
+
+                    <ol className="list-decimal list-inside space-y-2.5 mt-2 bg-white/5 p-4 rounded-2xl border border-white/5 font-sans">
+                      <li>
+                        Observe a <strong className="text-[#6ee7a8] font-bold">barra de endereço</strong> no topo do seu navegador Chrome/Edge.
+                      </li>
+                      <li>
+                        A direita, localize e clique no <strong className="text-text font-bold inline-flex items-center gap-1">ícone de instalação <Monitor size={12} className="inline text-[#6ee7a8]" /></strong> (um computador com seta para baixo ou sinal de adição +).
+                      </li>
+                      <li>
+                        Ou clique nos três pontos (⋮) e selecione <strong className="text-text font-bold">"Salvar e compartilhar"</strong> &rarr; <strong className="text-text font-bold">"Instalar..."</strong>.
+                      </li>
+                    </ol>
+                  </div>
+                </>
+              )}
+
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowTutorialModal(false)}
+                  id="pwa-tutorial-close-btn"
+                  className="w-full py-3.5 bg-[#6ee7a8] hover:bg-[#52d693] active:scale-98 text-black font-sans font-bold uppercase text-[10px] tracking-widest rounded-2xl transition-all cursor-pointer text-center outline-none"
+                >
+                  Entendi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
