@@ -46,6 +46,12 @@ export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false
     }
   };
 
+  const handleDelete = async () => {
+    if (confirm('Deseja realmente excluir este agendamento do banco de dados permanentemente?')) {
+      await dataStore.deleteScheduledActivity(activity.id);
+    }
+  };
+
   const handleEdit = () => {
     window.dispatchEvent(new CustomEvent('open-action-center', { 
       detail: { 
@@ -171,59 +177,90 @@ export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false
           <span>{formatClockTime(endTime)}</span>
         </div>
 
-        {isPending && (
-          <div className="flex items-center gap-1 shrink-0">
-            {activity.id.startsWith('habit-sched-') ? (
-              <button
-                onClick={() => {
-                  const habit = dataStore.habits.find(h => h.id === activity.habit_id);
-                  if (habit) {
-                    window.dispatchEvent(new CustomEvent('open-action-center', { 
-                      detail: { 
-                        screen: 'habits',
-                        editingHabit: habit 
-                      } 
-                    }));
-                  }
-                }}
-                className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
-              >
-                Ajustar Hábito
-              </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {isPending ? (
+            activity.id.startsWith('habit-sched-') ? (
+              <>
+                <button
+                  onClick={() => {
+                    const habit = dataStore.habits.find(h => h.id === activity.habit_id);
+                    if (habit) {
+                      window.dispatchEvent(new CustomEvent('open-action-center', { 
+                        detail: { 
+                          screen: 'habits',
+                          editingHabit: habit 
+                        } 
+                      }));
+                    }
+                  }}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
+                >
+                  Ajustar Hábito
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
+                  title="Excluir Permanentemente"
+                >
+                  Excluir
+                </button>
+              </>
             ) : isHeroAgenda ? (
               <>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('open-reagendar', { detail: activity }))}
-                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-amber-400/80 hover:text-amber-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-amber-400/80 hover:text-amber-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
                 >
                   Reagendar
                 </button>
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('open-reconfigurar', { detail: activity }))}
-                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
                 >
                   Reconfigurar
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
+                  title="Excluir Permanentemente"
+                >
+                  Excluir
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={handleEdit}
-                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-[#6ee7a8]/60 hover:text-[#6ee7a8] transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
                   title="Editar Agendamento"
                 >
                   Editar
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md"
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
                 >
                   Cancelar
                 </button>
+                <button
+                  onClick={handleDelete}
+                  className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
+                  title="Excluir Permanentemente"
+                >
+                  Excluir
+                </button>
               </>
-            )}
-          </div>
-        )}
+            )
+          ) : (
+            <button
+              onClick={handleDelete}
+              className="px-2 py-1 text-[9px] font-semibold tracking-wider uppercase text-red-400/60 hover:text-red-400 transition-all bg-white/5 hover:bg-white/10 rounded-md cursor-pointer"
+              title="Excluir Permanentemente"
+            >
+              Excluir
+            </button>
+          )}
+        </div>
       </div>
 
       {/* LINHA 4: Botão INICIAR em linha exclusiva inferior */}

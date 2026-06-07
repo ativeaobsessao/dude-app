@@ -20,6 +20,7 @@ import { CustomSelect } from '../ui/CustomSelect';
 import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
 import { SavedLinksConfigScreen } from '../links/SavedLinksConfigScreen';
 import { LinksListScreen } from '../links/LinksListScreen';
+import { EditSessionModal } from '../shared/EditSessionModal';
 
 export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,6 +29,7 @@ export const ActionCenter = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'project' | 'activity' | 'habit' | 'note' | 'session', name: string } | null>(null);
   const [showListModal, setShowListModal] = useState<'projects' | 'activities' | null>(null);
   const [editingActivity, setEditingActivity] = useState<ScheduledActivity | undefined>(undefined);
+  const [editingSession, setEditingSession] = useState<any>(null);
 
   const touchStartRef = useRef<{ x: number, y: number } | null>(null);
 
@@ -1783,10 +1785,18 @@ export const ActionCenter = () => {
                                         </p>
                                       </div>
                                       <button
-                                        onClick={() => setDeleteConfirm({ id: session.id, type: 'session', name: session.activity_name })}
-                                        className="p-2 text-red-500/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                        onClick={() => setEditingSession(session)}
+                                        className="p-2 text-primary-green/60 hover:text-primary-green hover:bg-[#6ee7a8]/10 rounded-lg transition-all lg:opacity-0 lg:group-hover:opacity-100 opacity-80 hover:opacity-100 duration-150 cursor-pointer"
+                                        title="Editar Sessão"
                                       >
-                                        <Trash2 size={16} />
+                                        <Pencil size={15} />
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirm({ id: session.id, type: 'session', name: session.activity_name })}
+                                        className="p-2 text-red-500/50 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all lg:opacity-0 lg:group-hover:opacity-100 opacity-80 hover:opacity-100 duration-150 cursor-pointer"
+                                        title="Excluir Sessão"
+                                      >
+                                        <Trash2 size={15} />
                                       </button>
                                     </div>
                                   </div>
@@ -2826,6 +2836,15 @@ export const ActionCenter = () => {
             </motion.div>
           );
         })()}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingSession && (
+          <EditSessionModal
+            session={editingSession}
+            onClose={() => setEditingSession(null)}
+          />
+        )}
       </AnimatePresence>
     </>
   );
