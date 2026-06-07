@@ -31,27 +31,23 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const [showiOSInstructions, setShowiOSInstructions] = useState(false);
 
   useEffect(() => {
-    // 1. Check if already running in standalone mode (installed)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone === true;
-
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
     if (isStandalone) {
       setShowInstallBtn(false);
       return;
     }
 
-    // 2. Identify OS platform
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIPhoneOrIPod = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroid = /android/.test(userAgent);
+    
     setIsIOS(isIPhoneOrIPod);
 
-    if (isIPhoneOrIPod) {
-      // iOS doesn't fire beforeinstallprompt. We always show the install guide option.
+    // Forçamos o botão a aparecer se for iOS ou Android, independente do evento ter passado ou não.
+    if (isIPhoneOrIPod || isAndroid) {
       setShowInstallBtn(true);
-      return;
     }
 
-    // 3. Android / PC browser event
     const handleBeforePrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -59,9 +55,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforePrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
   }, []);
 
   const handlePWAInstallClick = async () => {
@@ -710,9 +704,21 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(10px,3.2vw,14px)] text-center italic font-medium leading-relaxed select-none max-w-full px-1 tracking-tighter xs:tracking-tight">
+          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-tight select-none max-w-full tracking-[[-0.05em]]">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
+
+          {showInstallBtn && (
+            <div className="w-full flex justify-center pt-2 animate-fade-in relative z-20">
+              <button
+                onClick={handlePWAInstallClick}
+                className="w-full max-w-[340px] py-3 border border-[#6ee7a8]/10 hover:border-[#6ee7a8]/35 bg-[#6ee7a8]/5 hover:bg-[#6ee7a8]/10 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span className="text-sm">📱</span>
+                <span>Instalar Aplicativo DUDE</span>
+              </button>
+            </div>
+          )}
 
           {/* Seu tom de hoje: [label] chip */}
           {activeMoodEntry && (
@@ -1050,18 +1056,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           </div>
         )}
 
-        {/* PWA CTA Button at the absolute end of Scroll */}
-        {showInstallBtn && (
-          <div className="w-full flex justify-center pt-4 animate-fade-in">
-            <button
-              onClick={handlePWAInstallClick}
-              className="w-full max-w-[340px] py-3.5 border border-[#6ee7a8]/10 hover:border-[#6ee7a8]/35 bg-[#6ee7a8]/5 hover:bg-[#6ee7a8]/10 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span className="text-sm">📱</span>
-              <span>Instalar Aplicativo DUDE</span>
-            </button>
-          </div>
-        )}
+
       </motion.div>
 
       {/* iOS PWA INSTALL INSTRUCTIONS MODAL */}
