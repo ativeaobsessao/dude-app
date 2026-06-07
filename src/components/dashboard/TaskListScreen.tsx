@@ -20,6 +20,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const todayStr = useMemo(() => getLocalDateString(new Date()), []);
 
   const [isProximosDiasOpen, setIsProximosDiasOpen] = useState(false);
+  const [isHojeOpen, setIsHojeOpen] = useState(true);
 
   // 1. GATHER ALL ITEMS OF TODAY
   const todayItems = useMemo(() => {
@@ -455,226 +456,349 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
       {/* HEADER WITH ACTION */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-white/5 pb-6">
         <div className="text-center sm:text-left space-y-1.5 flex-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green">
-            Organizador Diário
-          </span>
           <h2 className="text-3xl font-black tracking-tight text-text-primary uppercase font-sans">
-            Lista de Hoje
+            TAREFAS
           </h2>
           <p className="text-xs text-text-secondary font-medium leading-relaxed max-w-md">
-            O que você quer fazer hoje — <span className="text-green">sem hora marcada, no seu ritmo</span>.
+            Organize o que precisa ser feito hoje.
           </p>
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="px-6 py-3.5 bg-green hover:brightness-110 active:scale-95 text-background rounded-2xl font-bold uppercase tracking-wider text-xs transition-all flex items-center gap-2 select-none cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)]"
+          className="px-6 py-3.5 bg-green hover:brightness-110 active:scale-95 text-background rounded-2xl font-bold uppercase tracking-widest text-xs transition-with-all flex items-center gap-2 select-none cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)] font-sans"
         >
           <Plus size={16} strokeWidth={2.5} />
-          <span>+ Tarefa</span>
+          <span>+ NOVA TAREFA</span>
         </button>
       </div>
 
-      {/* STATS AREA */}
-      <div className="p-6 rounded-3xl bg-surface/10 border border-border-white flex flex-col md:flex-row gap-6 justify-between items-center">
-        <div className="space-y-1.5 text-center md:text-left">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary/60">Aproveitamento Diario</p>
-          <h3 className="text-xl font-bold text-text-primary tracking-tight">
-            Você fez <span className="text-green font-extrabold">{completedCount}</span> de <span className="text-text-primary font-extrabold">{totalCount}</span> tarefas que planejou para hoje
-          </h3>
-        </div>
-        
-        <div className="w-full md:w-64 space-y-2 shrink-0">
-          <div className="flex justify-between items-center text-[10px] font-mono font-bold text-text-secondary">
-            <span>METAS DIÁRIAS</span>
-            <span className="text-green">{progressPercent}%</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
-            <motion.div 
-              className="h-full bg-green rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-            />
-          </div>
-        </div>
-      </div>
+      {/* TAREFAS A SEREM FEITAS HOJE COLLAPSIBLE BRANCH */}
+      <div className="space-y-4">
+        <button
+          onClick={() => setIsHojeOpen(!isHojeOpen)}
+          className="flex items-center gap-2.5 w-full text-left py-3 border-b border-white/5 font-sans font-black text-xs uppercase tracking-widest text-[#6ee7a8] hover:text-green transition-all cursor-pointer select-none"
+        >
+          <span className="text-[10px]">{isHojeOpen ? '▼' : '▶'}</span> TAREFAS A SEREM FEITAS HOJE
+        </button>
 
-      {/* TASKS LIST */}
-      <div className="space-y-3">
-        <AnimatePresence mode="popLayout">
-          {todayItems.length > 0 ? (
-            todayItems.map((item) => {
-              if (item.type !== 'daily_task') {
-                return (
-                  <AgendamentoCard
-                    key={item.id}
-                    activity={item.raw}
-                    onStartSession={onStartSession}
-                  />
-                );
-              }
+        <AnimatePresence>
+          {isHojeOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-3 overflow-hidden text-left"
+            >
+              {todayItems.length > 0 ? (
+                todayItems.map((item) => {
+                  if (item.type !== 'daily_task') {
+                    const activity = item.raw;
+                    const isHabit = !!activity.habit_id;
+                    const contextLabel = isHabit ? 'Hábito Atômico' : 'Atividade';
+                    const isCompleted = activity.status === 'completed' || activity.status === 'concluida';
+                    const isCancelled = activity.status === 'cancelled' || activity.status === 'cancelada';
 
-              const task: DailyTask = item.raw;
-              const isRolledOver = task.rolled_from_date !== null;
-              const isYesterday = task.rolled_from_date === getLocalYesterdayDateString(todayStr);
-              const rolloverLabel = isYesterday ? "↩ veio de ontem" : "veio de dias anteriores";
+                    let title = activity.atividade_avulsa || 'Sessão Sem Título';
+                    if (activity.habit_id) {
+                      const habit = dataStore.habits.find(h => h.id === activity.habit_id);
+                      title = habit?.name || title;
+                    } else if (activity.activity_id) {
+                      const act = dataStore.activities.find(a => a.id === activity.activity_id);
+                      title = act?.name || title;
+                    }
 
-              return (
-                <motion.div
-                  key={task.id}
-                  layoutId={task.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 relative group ${
-                    task.is_completed 
-                      ? 'bg-white/[0.01] border-white/5 text-text-secondary/40' 
-                      : isRolledOver
-                        ? 'bg-[#1a1711]/40 border-amber-500/20 hover:border-amber-500/40 shadow-[0_4px_20px_rgba(245,158,11,0.02)]'
-                        : 'bg-surface/5 border-border-white hover:border-green/20'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    {/* Checkbox and Title */}
-                    <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={(e) => handleToggleTaskCompletion(task, e)}>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleTaskCompletion(task, e);
-                        }}
-                        className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                          task.is_completed 
-                            ? 'bg-green text-background' 
-                            : 'border-2 border-text-secondary/40 hover:border-green/50 text-transparent'
+                    const formatClockTime = (timeStr: string): string => {
+                      if (!timeStr) return '';
+                      const [h, m] = timeStr.split(':').map(Number);
+                      return `${String(h || 0).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+                    };
+
+                    const startTime = activity.scheduled_time;
+                    const [sh, sm] = startTime?.split(':').map(Number) || [0, 0];
+                    const totalMin = sh * 60 + sm + activity.duration_minutes;
+                    const endH = Math.floor(totalMin / 60) % 24;
+                    const endM = totalMin % 60;
+                    const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 relative group ${
+                          isCompleted
+                            ? 'bg-emerald-500/5 border-emerald-500/10 opacity-75 text-text-secondary/40'
+                            : isCancelled
+                            ? 'bg-red-400/5 border-red-400/10 opacity-60'
+                            : 'bg-surface/5 border-border-white hover:border-[#6ee7a8]/20'
                         }`}
                       >
-                        <Check size={14} strokeWidth={3} />
-                      </button>
-                      
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`text-sm font-semibold leading-relaxed ${task.is_completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-primary'}`}>
-                            {task.title}
-                          </span>
-                          
-                          {/* Rollover badge */}
-                          {isRolledOver && !task.is_completed && (
-                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider rounded border border-amber-500/10 shrink-0">
-                              {rolloverLabel}
-                            </span>
-                          )}
-                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 flex-1">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const nextStatus = isCompleted ? 'pending' : 'concluida';
+                                await dataStore.updateScheduledActivity(activity.id, {
+                                  status: nextStatus,
+                                  resolved_at: nextStatus === 'concluida' ? new Date().toISOString() : null
+                                });
+                                dataStore.showNotification(
+                                  nextStatus === 'concluida' ? 'Atividade concluída com sucesso! 🎉' : 'Atividade reaberta.',
+                                  'success'
+                                );
+                              }}
+                              className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                                isCompleted
+                                  ? 'bg-green text-background'
+                                  : 'border-2 border-text-secondary/40 hover:border-green/50 text-transparent'
+                              }`}
+                            >
+                              <Check size={14} strokeWidth={3} />
+                            </button>
 
-                        {/* Breadcrumbs metadata */}
-                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-sans font-bold text-text-secondary/50 uppercase tracking-wider">
-                          {task.project_id && (
-                            <span>📁 {dataStore.projects.find(p => p.id === task.project_id)?.name}</span>
-                          )}
-                          {task.habit_id && (
-                            <span>• 🔁 {dataStore.habits.find(h => h.id === task.habit_id)?.name}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Meta Action Elements */}
-                    <div className="flex items-center gap-1 shrink-0 relative z-10">
-                      {/* Edit Button */}
-                      <button
-                        onClick={(e) => handleOpenEditModal(task, e)}
-                        className="p-2 text-text-secondary hover:text-green hover:bg-green/10 rounded-lg transition-all cursor-pointer"
-                        title="Editar"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-
-                      {/* Delete Button */}
-                      <button
-                        onClick={(e) => handleDeleteTask(task.id, e)}
-                        className="p-2 text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100 max-md:opacity-100"
-                        title="Excluir"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Checklist of Subtasks inside card */}
-                  {task.checklist && task.checklist.length > 0 && (
-                    <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2">
-                      <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Subtarefas ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})</p>
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {task.checklist.map((sub, sIdx) => (
-                          <div 
-                            key={sIdx}
-                            onClick={(e) => handleToggleSubtaskActive(task, sIdx, e)}
-                            className="flex items-center gap-2 cursor-pointer text-xs select-none"
-                          >
-                            <span className={sub.completed ? 'text-green' : 'text-text-secondary/40'}>
-                              {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <Square size={13} />}
-                            </span>
-                            <span className={`font-medium ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
-                              {sub.text}
-                            </span>
+                            <div className="flex flex-col gap-1 text-left">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`text-sm font-semibold leading-relaxed ${isCompleted ? 'line-through text-text-secondary/35 font-light' : 'text-text-primary'}`}>
+                                  {title}
+                                </span>
+                                <span className="px-2 py-0.5 bg-white/5 text-[9px] font-bold uppercase tracking-wider rounded text-text-secondary/60 font-sans">
+                                  {contextLabel}
+                                </span>
+                                {startTime && (
+                                  <span className="px-2 py-0.5 bg-green/10 text-green text-[9px] font-semibold tracking-wider rounded font-mono">
+                                    🕒 {formatClockTime(startTime)} - {formatClockTime(endTime)} ({activity.duration_minutes} min)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
 
-                  {/* BOTTOM ACTION BUTTONS connecting Macro to Execution */}
-                  {!task.is_completed && (
-                    <div className="border-t border-white/5 pt-3 pl-9.5 flex flex-wrap gap-2.5">
-                      <button
-                        onClick={(e) => handleStartSessaoProfunda(task, e)}
-                        className="px-3.5 py-2 bg-green/10 hover:bg-green/20 text-green rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Play size={11} fill="currentColor" />
-                        <span>Iniciar SP</span>
-                      </button>
-                      <button
-                        onClick={(e) => handleConvertTaskToSchedule(task, e)}
-                        className="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 border border-white/5"
-                      >
-                        <Calendar size={11} />
-                        <span>Agendar</span>
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-20 border border-dashed border-white/5 rounded-3xl select-none"
-            >
-              <div className="text-4xl block mb-4">🔮</div>
-              <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-1">Nenhuma meta para hoje</h4>
-              <p className="text-xs text-text-secondary leading-relaxed font-light max-w-xs mx-auto">
-                Seu dia está livre de obrigações macro. Toque em <span className="text-green font-medium">+ Tarefa</span> para planejar seu dia estruturado.
-              </p>
+                        {activity.tasks && activity.tasks.length > 0 && (
+                          <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
+                            <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Subtarefas ({activity.tasks.length})</p>
+                            <div className="grid grid-cols-1 gap-1.5">
+                              {activity.tasks.map((taskStr: string, tIdx: number) => (
+                                <div key={tIdx} className="flex items-center gap-2 text-xs">
+                                  <span className="text-text-secondary/40">
+                                    <Square size={13} />
+                                  </span>
+                                  <span className="text-text-secondary/80 font-medium font-sans">
+                                    {taskStr}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="border-t border-white/5 pt-3 pl-9.5 flex flex-wrap gap-2.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.dispatchEvent(new CustomEvent('open-action-center', {
+                                detail: {
+                                  screen: 'agenda',
+                                  editingActivity: activity
+                                }
+                              }));
+                            }}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                          >
+                            EDITAR
+                          </button>
+
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm('Ficou tarde? Deseja realmente cancelar este agendamento?')) {
+                                await dataStore.updateScheduledActivity(activity.id, {
+                                  status: 'cancelada',
+                                  resolved_at: new Date().toISOString()
+                                });
+                                dataStore.showNotification('Agendamento cancelado com sucesso.', 'success');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-coral/10 text-coral rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                          >
+                            CANCELAR
+                          </button>
+
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm('Deseja realmente excluir este agendamento permanentemente?')) {
+                                await dataStore.deleteScheduledActivity(activity.id);
+                                dataStore.showNotification('Agendamento excluído do sistema.', 'success');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-red-500 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                          >
+                            EXCLUIR
+                          </button>
+
+                          {!isCompleted && !isCancelled && (
+                            <button
+                              onClick={() => onStartSession(activity)}
+                              className="px-3.5 py-1.5 bg-green/10 hover:bg-green/20 text-green rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                            >
+                              <Play size={11} fill="currentColor" />
+                              <span>SESSÃO PROFUNDA</span>
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  }
+
+                  const task: DailyTask = item.raw;
+                  const isRolledOver = task.rolled_from_date !== null;
+                  const isYesterday = task.rolled_from_date === getLocalYesterdayDateString(todayStr);
+                  const rolloverLabel = isYesterday ? "↩ veio de ontem" : "veio de dias anteriores";
+
+                  return (
+                    <motion.div
+                      key={task.id}
+                      layoutId={task.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 relative group ${
+                        task.is_completed 
+                          ? 'bg-white/[0.01] border-white/5 text-text-secondary/40' 
+                          : isRolledOver
+                            ? 'bg-[#1a1711]/40 border-amber-500/20 hover:border-amber-500/40 shadow-[0_4px_20px_rgba(245,158,11,0.02)]'
+                            : 'bg-surface/5 border-border-white hover:border-green/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={(e) => handleToggleTaskCompletion(task, e)}>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleTaskCompletion(task, e);
+                            }}
+                            className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                              task.is_completed 
+                                ? 'bg-green text-background' 
+                                : 'border-2 border-text-secondary/40 hover:border-green/50 text-transparent'
+                            }`}
+                          >
+                            <Check size={14} strokeWidth={3} />
+                          </button>
+                          
+                          <div className="flex flex-col gap-1 text-left font-sans">
+                            <div className="flex flex-wrap items-center gap-2 font-sans overflow-hidden">
+                              <span className={`text-sm font-semibold leading-relaxed font-sans ${task.is_completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-primary'}`}>
+                                {task.title}
+                              </span>
+                              
+                              {isRolledOver && !task.is_completed && (
+                                <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider rounded border border-amber-500/10 shrink-0 font-sans">
+                                  {rolloverLabel}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-sans font-bold text-text-secondary/50 uppercase tracking-wider">
+                              {task.project_id && (
+                                <span className="font-sans">📁 {dataStore.projects.find(p => p.id === task.project_id)?.name}</span>
+                              )}
+                              {task.habit_id && (
+                                <span className="font-sans">• 🔁 {dataStore.habits.find(h => h.id === task.habit_id)?.name}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {task.checklist && task.checklist.length > 0 && (
+                        <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
+                          <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Subtarefas ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})</p>
+                          <div className="grid grid-cols-1 gap-1.5">
+                            {task.checklist.map((sub, sIdx) => (
+                              <div 
+                                key={sIdx}
+                                onClick={(e) => handleToggleSubtaskActive(task, sIdx, e)}
+                                className="flex items-center gap-2 cursor-pointer text-xs select-none"
+                              >
+                                <span className={sub.completed ? 'text-green' : 'text-text-secondary/40'}>
+                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <Square size={13} />}
+                                </span>
+                                <span className={`font-semibold font-sans ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
+                                  {sub.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="border-t border-white/5 pt-3 pl-9.5 flex flex-wrap gap-2.5">
+                        <button
+                          onClick={(e) => handleOpenEditModal(task, e)}
+                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                        >
+                          EDITAR
+                        </button>
+
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm('Deseja realmente cancelar esta tarefa?')) {
+                              await dataStore.deleteDailyTask(task.id);
+                              dataStore.showNotification('Tarefa cancelada.', 'success');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-white/5 hover:bg-coral/10 text-coral rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                        >
+                          CANCELAR
+                        </button>
+
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm('Deseja realmente excluir esta tarefa permanentemente?')) {
+                              await dataStore.deleteDailyTask(task.id);
+                              dataStore.showNotification('Tarefa excluída permanentemente.', 'success');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-red-500 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
+                        >
+                          EXCLUIR
+                        </button>
+
+                        {!task.is_completed && (
+                          <button
+                            onClick={(e) => handleStartSessaoProfunda(task, e)}
+                            className="px-3.5 py-1.5 bg-green/10 hover:bg-green/20 text-green rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                          >
+                            <Play size={11} fill="currentColor" />
+                            <span>SESSÃO PROFUNDA</span>
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-10 border border-dashed border-white/5 rounded-3xl select-none">
+                  <p className="text-xs text-text-secondary/40 italic font-sans">Nenhuma tarefa ou atividade ativa para hoje.</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* PRÓXIMOS DIAS RAMAL COLAPSÁVEL */}
+      {/* PRÓXIMAS TAREFAS COLLAPSIBLE BRANCH */}
       <div className="pt-4 border-t border-white/5 space-y-4">
         <button
           onClick={() => setIsProximosDiasOpen(!isProximosDiasOpen)}
-          className="flex items-center gap-2.5 px-4 py-3 bg-surface/5 hover:bg-surface/10 border border-white/5 rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer select-none"
+          className="flex items-center gap-2.5 w-full text-left py-3 border-b border-white/5 font-sans font-black text-xs uppercase tracking-widest text-[#6ee7a8] hover:text-green transition-all cursor-pointer select-none"
         >
-          {isProximosDiasOpen ? (
-            <span className="flex items-center gap-1.5 text-green">
-              <span>▼</span> PRÓXIMOS DIAS
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary">
-              <span>▶</span> PRÓXIMOS DIAS
-            </span>
-          )}
+          <span className="text-[10px]">{isProximosDiasOpen ? '▼' : '▶'}</span> PRÓXIMAS TAREFAS
         </button>
 
         <AnimatePresence>
@@ -684,153 +808,73 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6 overflow-hidden pl-2"
+              className="space-y-6 overflow-hidden text-left"
             >
               {(() => {
                 const formatGroupDate = (dateStr: string) => {
                   const parts = dateStr.split('-');
                   if (parts.length !== 3) return dateStr.toUpperCase();
                   const dateObj = new Date(dateStr + 'T00:00:00');
+                  
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  const tomorrowStr = getLocalDateString(tomorrow);
+                  if (dateStr === tomorrowStr) {
+                    return "AMANHÃ";
+                  }
+
                   const weekday = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' }).toUpperCase();
-                  const dayMonth = `${parts[2]}/${parts[1]}`;
-                  return `${weekday} (${dayMonth})`;
+                  return weekday;
                 };
 
                 return futureGroups.length > 0 ? (
                   futureGroups.map((group) => (
-                    <div key={group.date} className="space-y-3">
-                      <h4 className="text-[10px] font-extrabold text-[#6ee7a8]/80 uppercase tracking-[0.2em] border-b border-white/5 pb-1">
-                        {formatGroupDate(group.date)}
+                    <div key={group.date} className="space-y-2 p-4 bg-surface/5 border border-white/5 rounded-2xl">
+                      <h4 className="text-[11px] font-black text-text-primary uppercase tracking-[0.2em] border-b border-white/5 pb-1.5 flex justify-between items-center">
+                        <span>{formatGroupDate(group.date)}</span>
+                        <span className="text-[9px] font-mono text-text-secondary/40 font-bold">{group.date.split('-').reverse().slice(0,2).join('/')}</span>
                       </h4>
                       
-                      <div className="space-y-3 pl-1">
+                      <div className="space-y-2 pt-1 text-left font-sans">
                         {group.items.map((item) => {
-                          if (item.type !== 'daily_task') {
-                            return (
-                              <AgendamentoCard
-                                key={item.id}
-                                activity={item.raw}
-                                onStartSession={onStartSession}
-                              />
-                            );
+                          let itemTitle = item.title;
+                          if (item.type === 'schedule' || item.type === 'habit_virtual') {
+                            const activity = item.raw;
+                            if (activity.habit_id) {
+                              const habit = dataStore.habits.find(h => h.id === activity.habit_id);
+                              itemTitle = habit?.name || itemTitle;
+                            } else if (activity.activity_id) {
+                              const act = dataStore.activities.find(a => a.id === activity.activity_id);
+                              itemTitle = act?.name || itemTitle;
+                            }
                           }
-
-                          const task: DailyTask = item.raw;
-                          const isRolledOver = task.rolled_from_date !== null;
-                          const isYesterday = task.rolled_from_date === getLocalYesterdayDateString(todayStr);
-                          const rolloverLabel = isYesterday ? "↩ veio de ontem" : "veio de dias anteriores";
-
+                          
                           return (
-                            <motion.div
-                              key={task.id}
-                              initial={{ opacity: 0, y: 5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className={`p-5 rounded-2xl border transition-all flex flex-col gap-4 relative group ${
-                                task.is_completed 
-                                  ? 'bg-white/[0.01] border-white/5 text-text-secondary/40' 
-                                  : isRolledOver
-                                    ? 'bg-[#1a1711]/40 border-amber-500/20 shadow-[0_4px_20px_rgba(245,158,11,0.02)]'
-                                    : 'bg-surface/5 border-border-white hover:border-green/20'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={(e) => handleToggleTaskCompletion(task, e)}>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleTaskCompletion(task, e);
-                                    }}
-                                    className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                                      task.is_completed 
-                                        ? 'bg-green text-background' 
-                                        : 'border-2 border-text-secondary/40 hover:border-green/50 text-transparent'
-                                    }`}
-                                  >
-                                    {task.is_completed && <Check size={12} strokeWidth={3} />}
-                                  </button>
-                                  <div className="text-left">
-                                    <span className={`text-sm font-semibold tracking-tight transition-all leading-snug block ${
-                                      task.is_completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-primary'
-                                    }`}>
-                                      {task.title}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    onClick={(e) => handleOpenEditModal(task, e)}
-                                    className="p-2 text-text-secondary hover:text-green hover:bg-green/10 rounded-lg transition-all cursor-pointer"
-                                    title="Editar"
-                                  >
-                                    <Edit2 size={13} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleDeleteTask(task.id, e)}
-                                    className="p-2 text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer opacity-0 group-hover:opacity-100 max-md:opacity-100"
-                                    title="Excluir"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
+                            <div key={item.id} className="flex items-start gap-2 py-0.5 text-xs text-text-secondary font-sans overflow-hidden">
+                              <span className="text-green text-[10px] mt-0.5 font-sans">•</span>
+                              <div className="flex-1 flex flex-wrap items-center gap-2 text-left font-sans">
+                                <span className={`font-semibold font-sans ${item.is_completed ? 'line-through text-text-secondary/40 font-light' : 'text-text-primary'}`}>
+                                  {itemTitle}
+                                </span>
+                                {item.time && (
+                                  <span className="text-[9px] font-mono text-text-secondary/40 font-bold bg-white/5 px-1.5 py-0.5 rounded">
+                                    🕒 {item.time}
+                                  </span>
+                                )}
                               </div>
-                            </motion.div>
+                            </div>
                           );
                         })}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-text-secondary/40 italic py-2 pl-2">Nenhum compromisso ou tarefa agendados para os próximos dias.</p>
+                  <p className="text-xs text-text-secondary/45 italic py-2 pl-2 font-sans">Nenhuma tarefa futura agendada.</p>
                 );
               })()}
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* QUICK SUGGESTIONS BLOCK */}
-      <div className="p-6 rounded-3xl bg-surface/5 border border-white/5 space-y-4">
-        <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-secondary/40">Ideias de Foco Diário</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {[
-            'Trabalho ininterrupto (Deep Work)',
-            'Estudar programação por 1 hora',
-            'Leitura silenciosa sem distrações',
-            'Sessão de exercícios ou Alongamento',
-            'Planejamento Semanal / Check-in',
-            'Organização da Área de Trabalho'
-          ].map((item, idx) => (
-            <button
-              key={idx}
-              onClick={async () => {
-                if (!user) return;
-                const matches = todayItems.some(t => t.title === item);
-                if (matches) {
-                  dataStore.showNotification('Esta sugestão já está cadastrada para hoje!', 'error');
-                  return;
-                }
-                const payload = {
-                  user_id: user.id,
-                  task_date: todayStr,
-                  title: item,
-                  project_id: null,
-                  habit_id: null,
-                  activity_id: null,
-                  activity_avulsa: null,
-                  checklist: null,
-                  is_completed: false,
-                  completed_at: null,
-                  rolled_from_date: null
-                };
-                await dataStore.addDailyTask(payload);
-                dataStore.showNotification(`"${item}" adicionada à sua Lista de Hoje!`);
-              }}
-              className="text-left text-xs bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 rounded-xl px-4 py-3.5 text-text-secondary hover:text-text-primary transition-all cursor-pointer truncate"
-            >
-              ➕ {item}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* MODAL OVERLAY: CREATE OR EDIT TASK */}
