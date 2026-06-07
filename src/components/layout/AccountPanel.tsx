@@ -25,13 +25,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [fullName, setFullName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
   
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
   const [isRequestingRecovery, setIsRequestingRecovery] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,52 +97,22 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     fileInputRef.current?.click();
   };
 
-  // Handle custom user password change
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordFeedback({ message: 'A senha deve conter no mínimo 6 caracteres.', type: 'error' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordFeedback({ message: 'As senhas não conferem.', type: 'error' });
-      return;
-    }
-
-    setIsChangingPassword(true);
-    setPasswordFeedback(null);
-
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      
-      setPasswordFeedback({ message: 'Senha atualizada com sucesso!', type: 'success' });
-      setNewPassword('');
-      setConfirmPassword('');
-      dataStore.showNotification('Sua senha foi alterada.', 'success');
-    } catch (err: any) {
-      console.error('Error changing password:', err);
-      setPasswordFeedback({ message: err.message || 'Erro ao alterar a senha.', type: 'error' });
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
   // Handle password recovery email
   const handleSendRecoveryEmail = async () => {
     if (!userEmail) return;
     setIsRequestingRecovery(true);
+    setPasswordFeedback(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
         redirectTo: window.location.origin
       });
       if (error) throw error;
-      dataStore.showNotification('Email de recuperação enviado!', 'success');
-      setPasswordFeedback({ message: 'Email de recuperação enviado para sua caixa de entrada.', type: 'success' });
+      dataStore.showNotification('E-mail de redefinição enviado com sucesso!', 'success');
+      setPasswordFeedback({ message: 'E-mail de redefinição enviado com sucesso!', type: 'success' });
     } catch (err: any) {
       console.error('Error resetting password:', err);
-      dataStore.showNotification('Não foi possível enviar email de recuperação.', 'error');
-      setPasswordFeedback({ message: err.message || 'Erro ao encaminhar email.', type: 'error' });
+      dataStore.showNotification('Não foi possível enviar o email de redefinição.', 'error');
+      setPasswordFeedback({ message: err.message || 'Erro ao encaminhar e-mail.', type: 'error' });
     } finally {
       setIsRequestingRecovery(false);
     }
@@ -285,61 +251,25 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
           <hr className="border-border-custom" />
 
-          {/* Alterar Senha */}
+          {/* Segurança */}
           <div className="space-y-4">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Segurança</label>
             
-            <form onSubmit={handlePasswordChange} className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Nova Senha</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><Lock size={14} /></span>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
-                    required
-                  />
-                </div>
-              </div>
+            <p className="text-[10px] text-text-dim/60 leading-relaxed px-1">
+              Para sua segurança, caso precise alterar ou recuperar sua senha da DUDE, clique no botão abaixo e nós enviaremos um e-mail com instruções para você definir uma nova credencial com total sigilo.
+            </p>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Confirmar Nova Senha</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><Lock size={14} /></span>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirme a senha"
-                    className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
-                    required
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className="w-full py-3.5 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/50 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
-              >
-                {isChangingPassword ? 'ALTERANDO...' : 'ALTERAR SENHA'}
-              </button>
-            </form>
-
-            {/* Esqueci Minha Senha */}
             <button
               onClick={handleSendRecoveryEmail}
               disabled={isRequestingRecovery}
-              className="w-full py-3.5 border border-border-custom hover:bg-surface-2 text-text-dim rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+              className="w-full h-12 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/60 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
             >
-              {isRequestingRecovery ? 'ENVIANDO EMAIL...' : 'ESQUECI MINHA SENHA'}
+              <Lock size={12} />
+              {isRequestingRecovery ? 'ENVIANDO E-MAIL...' : 'REDEFINIR SENHA'}
             </button>
 
             {passwordFeedback && (
-              <p className={`text-[11px] text-center px-1 font-sans ${passwordFeedback.type === 'success' ? 'text-green' : 'text-coral'}`}>
+              <p className={`text-[10px] text-center px-1 font-mono uppercase tracking-wider ${passwordFeedback.type === 'success' ? 'text-green' : 'text-coral'}`}>
                 {passwordFeedback.message}
               </p>
             )}

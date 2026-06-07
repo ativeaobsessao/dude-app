@@ -18,6 +18,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
 import { useTimerStore } from './store/useTimerStore';
 import { AccountPanel } from './components/layout/AccountPanel';
+import { PWAInstallPrompt } from './components/layout/PWAInstallPrompt';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -657,6 +658,7 @@ export default function App() {
           activity={selectedPopupActivity}
         />
         <CinematicBackground />
+        <PWAInstallPrompt />
         <ActiveSession />
         <ActionCenter />
 
