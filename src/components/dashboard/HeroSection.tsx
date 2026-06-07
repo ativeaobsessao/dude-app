@@ -24,9 +24,23 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   // Greeting Logic
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
-  const [dismissedAntiVicioId, setDismissedAntiVicioId] = useState<string | null>(() => {
-    return sessionStorage.getItem('dude_dismissed_anti_vicio_id') || null;
+  const [dismissedAntiVicioKeys, setDismissedAntiVicioKeys] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('dude_dismissed_anti_vicio_keys');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
+
+  const dismissAntiVicio = (habitId: string, windowLabel: string) => {
+    const key = `${habitId}:${windowLabel}`;
+    setDismissedAntiVicioKeys(prev => {
+      const next = prev.includes(key) ? prev : [...prev, key];
+      sessionStorage.setItem('dude_dismissed_anti_vicio_keys', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const { alertSchedule, dismissSchedule } = useAgendaAlertEngine();
 
@@ -208,9 +222,6 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     };
 
     for (const h of avoidHabits) {
-      if (h.id === dismissedAntiVicioId) {
-        continue;
-      }
       const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
       const parsedWeekdays = h.monitor_weekdays
         ? getWeekdays(h.monitor_weekdays)
@@ -250,6 +261,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         }
       }
 
+      // Check key-based dismissal
+      const dismissalKey = `${h.id}:${windowLabel}`;
+      if (dismissedAntiVicioKeys.includes(dismissalKey)) {
+        continue;
+      }
+
       if (isActiveUnit) {
         const cks = dataStore.avoidanceCheckins.filter(
           c => c.habit_id === h.id && 
@@ -278,15 +295,14 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
 
     return null;
-  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioId]);
+  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioKeys]);
 
   const handleResisti = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     playVictorySound();
     
     setAnimatingResistedHabitId(habit.id);
-    setDismissedAntiVicioId(habit.id);
-    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
+    dismissAntiVicio(habit.id, windowLabel);
     
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -309,8 +325,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const handleRecai = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     
-    setDismissedAntiVicioId(habit.id);
-    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
+    dismissAntiVicio(habit.id, windowLabel);
 
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -330,8 +345,18 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const handleDepois = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
     
-    setDismissedAntiVicioId(habit.id);
-    sessionStorage.setItem('dude_dismissed_anti_vicio_id', habit.id);
+    dismissAntiVicio(habit.id, windowLabel);
+
+    const todayStr = getLocalDateString(new Date());
+    await dataStore.addAvoidanceCheckin({
+      user_id: dataStore.profile.id,
+      habit_id: habit.id,
+      checkin_date: todayStr,
+      checkin_period: checkinPeriod,
+      status: 'depois',
+      window_label: windowLabel,
+      prompts_shown: 1
+    });
 
     dataStore.showNotification('Acompanhamento adiado silenciosamente.', 'success');
   };

@@ -37,6 +37,13 @@ export const AgendaHoje = ({ onStartSession, onOpenNewSchedule }: AgendaHojeProp
         const days = (habit.sched_weekdays || '').split(',');
         return days.includes(dayOfWeekStr);
       })
+      .filter(habit => {
+        // Exclude virtual/dynamic mapping if a real database scheduled activity exists for this habit today
+        const dbScheduleExists = dataStore.scheduledActivities.some(
+          sa => sa.habit_id === habit.id && sa.scheduled_date === todayStr
+        );
+        return !dbScheduleExists;
+      })
       .map(habit => {
         // Is completed today?
         const isCompleted = dataStore.habitCompletions.some(hc => {

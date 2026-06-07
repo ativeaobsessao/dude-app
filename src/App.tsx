@@ -359,6 +359,13 @@ export default function App() {
           return days.includes(dayOfWeekStr);
         })
         .filter(habit => {
+          // Exclude virtual/dynamic mapping if a real database scheduled activity exists for this habit today (whether pending or completed)
+          const dbScheduleExists = useDataStore.getState().scheduledActivities.some(
+            sa => sa.habit_id === habit.id && sa.scheduled_date === todayStr
+          );
+          return !dbScheduleExists;
+        })
+        .filter(habit => {
           const isCompleted = useDataStore.getState().habitCompletions.some(hc => {
             if (hc.habit_id !== habit.id) return false;
             const compDateStr = getLocalDateString(new Date(hc.completed_at));

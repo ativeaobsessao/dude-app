@@ -68,6 +68,14 @@ export const useAgendaAlertEngine = () => {
     // B) Get dynamic scheduled habits for today uncompleted
     const scheduledHabits = (dataStore.habits || [])
       .filter(h => h.habit_mode === 'build' && h.is_scheduled)
+      .filter(habit => {
+        // STRICT RULE to prevent duplicate: If there's already a real database scheduled activity for this habit today (e.g. from recurrence generation),
+        // we skip the dynamic entry since the database one handles it perfectly.
+        const dbScheduleExists = (dataStore.scheduledActivities || []).some(
+          sa => sa.habit_id === habit.id && sa.scheduled_date === todayStr
+        );
+        return !dbScheduleExists;
+      })
       .map(habit => {
         const isCompleted = (dataStore.habitCompletions || []).some(hc => {
           if (hc.habit_id !== habit.id) return false;
