@@ -27,7 +27,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   // PWA Install states
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [isIOS, setIsIOS] = useState(() => typeof window !== 'undefined' && /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()));
   const [showiOSInstructions, setShowiOSInstructions] = useState(false);
 
   useEffect(() => {
@@ -37,25 +37,19 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       return;
     }
 
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIPhoneOrIPod = /iphone|ipad|ipod/.test(userAgent);
-    const isAndroid = /android/.test(userAgent);
+    // Função para exibir o botão caso o evento já tenha ocorrido ou ocorra agora
+    const showBtn = () => setShowInstallBtn(true);
     
-    setIsIOS(isIPhoneOrIPod);
-
-    // Forçamos o botão a aparecer se for iOS ou Android, independente do evento ter passado ou não.
-    if (isIPhoneOrIPod || isAndroid) {
-      setShowInstallBtn(true);
-    }
-
-    const handleBeforePrompt = (e: Event) => {
+    window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowInstallBtn(true);
-    };
+      showBtn();
+    });
 
-    window.addEventListener('beforeinstallprompt', handleBeforePrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforePrompt);
+    // iOS sempre mostra a instrução
+    if (/iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase())) {
+      showBtn();
+    }
   }, []);
 
   const handlePWAInstallClick = async () => {
@@ -704,7 +698,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-tight select-none max-w-full tracking-[[-0.05em]]">
+          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-tight select-none max-w-full tracking-[[-0.05em]] mb-6">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 
