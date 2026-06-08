@@ -336,7 +336,7 @@ const AvoidanceCard = ({
             <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
               Recorde
             </span>
-            <span className="text-base font-sans font-medium text-amber-400">
+            <span className="text-base font-sans font-bold text-white">
               {metrics.maxStreak}d
             </span>
           </div>
@@ -411,20 +411,20 @@ const AvoidanceCard = ({
               {/* Heatmap line */}
               <div className="space-y-1.5 bg-white/[0.01] p-3 border border-white/5 rounded-2xl">
                 <div className="flex justify-between items-center text-[8px] text-text-secondary/40 font-mono tracking-widest uppercase">
-                  <span>Heatmap de Resistência (14 dias)</span>
+                  <span>ÚLTIMOS 14 DIAS</span>
                   <span>Hoje →</span>
                 </div>
                 <div className="flex items-center gap-1.5 justify-between">
                   {last14Days.map((dayStr, index) => {
                     const dayCheckins = habitCheckins.filter(c => c.checkin_date === dayStr);
-                    let colorClass = 'bg-white/5';
+                    let colorClass = 'bg-gray-800';
                     let label = 'Sem registros';
                     
                     if (dayCheckins.length > 0) {
-                      const relapsed = dayCheckins.some(c => c.status === 'relapse');
-                      const succeeded = dayCheckins.some(c => c.status === 'success');
+                      const relapsed = dayCheckins.some(c => c.status === 'relapse' || c.status === 'recai');
+                      const succeeded = dayCheckins.some(c => c.status === 'success' || c.status === 'resisti');
                       if (relapsed) {
-                        colorClass = 'bg-red-500/50 shadow-sm';
+                        colorClass = 'bg-red-500 shadow-sm';
                         label = `${dayCheckins.length} check-in(s) - Recaída`;
                       } else if (succeeded) {
                         colorClass = 'bg-primary-green shadow-xs';
