@@ -114,6 +114,14 @@ interface DataState {
   generateRecurringHabitInstances: (userId: string) => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
+  addManualSession: (data: {
+    activityName: string;
+    projectId?: string | null;
+    activityId?: string | null;
+    durationMinutes: number;
+    sessionTasks: string[];
+    completed_at?: string;
+  }) => Promise<FocusSession | null>;
   addActivity: (userId: string, name: string, projectId?: string, habitId?: string | null) => Promise<Activity | null>;
   addSessionTask: (sessionId: string, userId: string, description: string, completed?: boolean) => Promise<SessionTask | null>;
   toggleSessionTask: (taskId: string) => Promise<void>;
@@ -1346,6 +1354,52 @@ export const useDataStore = create<DataState>((set, get) => ({
       return null;
     } catch (err) {
       console.error('Error adding session:', err);
+      return null;
+    }
+  },
+
+  addManualSession: async ({ activityName, projectId, activityId, durationMinutes, sessionTasks, completed_at }) => {
+    try {
+      const userId = useAuthStore.getState().user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const now = completed_at || new Date().toISOString();
+      const startedAt = new Date(new Date(now).getTime() - durationMinutes * 60 * 1000).toISOString();
+
+      const sessionToSave = {
+        user_id: userId,
+        project_id: projectId || null,
+        habit_id: null,
+        activity_name: activityName,
+        description: '',
+        duration_minutes: durationMinutes,
+        started_at: startedAt,
+        completed_at: now,
+        completed: true,
+        all_tasks_completed: true,
+        actual_duration_minutes: durationMinutes,
+        activity_id: null,
+        scheduled_activity_id: activityId || null,
+      };
+
+      const savedSession = await get().addSession(sessionToSave);
+
+      if (savedSession?.id && sessionTasks && sessionTasks.length > 0) {
+        for (const task of sessionTasks) {
+          await get().addSessionTask(
+            savedSession.id,
+            userId,
+            task,
+            true // Mark as completed
+          );
+        }
+      }
+
+      return savedSession;
+    } catch (err) {
+      console.error('Error adding manual session via addManualSession:', err);
       return null;
     }
   },

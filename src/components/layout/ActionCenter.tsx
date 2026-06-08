@@ -74,7 +74,7 @@ export const ActionCenter = () => {
     }
   };
 
-  const renderBottomBackButton = () => (
+  const renderBottomBackButton = (customLabel?: string) => (
     <div className="pt-10 w-full flex justify-center pb-6">
       <button
         onClick={() => {
@@ -84,7 +84,7 @@ export const ActionCenter = () => {
         }}
         className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
       >
-        <ArrowLeft size={14} /> Voltar ao Menu
+        <ArrowLeft size={14} /> {customLabel || "Voltar ao Menu"}
       </button>
     </div>
   );
@@ -538,8 +538,8 @@ export const ActionCenter = () => {
     dataStore.showNotification(msg, 'success');
   };
 
-  const handleStartSession = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleStartSession = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
     let finalActivityName = '';
     if (sessionData.activityId) {
       finalActivityName = dataStore.activities.find(a => a.id === sessionData.activityId)?.name || '';
@@ -1392,7 +1392,37 @@ export const ActionCenter = () => {
                           )}
 
                           <button
-                            onClick={handleStartSession}
+                            onClick={async () => {
+                              if (isPrefilled) {
+                                try {
+                                  // 1. Salva a sessão manual com o tempo informado e as tarefas da sessão
+                                  await dataStore.addManualSession({
+                                    activityName: sessionData.activityManual,
+                                    projectId: sessionData.project || null,
+                                    activityId: timer.scheduledActivityId,
+                                    durationMinutes: (Number(sessionData.hours) * 60) + Number(sessionData.minutes),
+                                    sessionTasks: customUserTasks,
+                                    completed_at: new Date().toISOString()
+                                  });
+                                  
+                                  // 2. Atualiza a tarefa original para concluída no banco de dados
+                                  if (timer.scheduledActivityId) {
+                                    await dataStore.updateDailyTask(timer.scheduledActivityId, { 
+                                      is_completed: true, 
+                                      completed_at: new Date().toISOString() 
+                                    });
+                                  }
+                                  
+                                  // 3. Fecha o modal instantaneamente para retornar à tela de TAREFAS
+                                  setIsOpen(false);
+                                  
+                                } catch (err) {
+                                  console.error("Erro ao registrar sessão:", err);
+                                }
+                              } else {
+                                handleStartSession();
+                              }
+                            }}
                             disabled={(sessionData.hours === 0 && sessionData.minutes === 0)}
                             className="w-full py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_40px_rgba(110,231,168,0.2)] disabled:opacity-20 transition-all duration-200 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
                           >
@@ -1402,7 +1432,7 @@ export const ActionCenter = () => {
                         </div>
                       </div>
                     )}
-                    {renderBottomBackButton()}
+                    {isPrefilled ? renderBottomBackButton("VOLTAR PARA TAREFAS") : renderBottomBackButton()}
                   </div>
                 )}
 
