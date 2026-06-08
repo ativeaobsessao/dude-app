@@ -1621,8 +1621,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       created_at: new Date().toISOString()
     };
 
-    const existing = get().moodEntries.filter(m => !(m.date === date && m.period === period));
-    const updated = [newEntry, ...existing];
+    const updated = [newEntry, ...get().moodEntries];
     set({ moodEntries: updated });
     try {
       localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
@@ -1631,7 +1630,6 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
 
     try {
-      await supabase.from('mood_entries').delete().eq('user_id', userId).eq('date', date).eq('period', period);
       const { data, error } = await supabase
         .from('mood_entries')
         .insert({
