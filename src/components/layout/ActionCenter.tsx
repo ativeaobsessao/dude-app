@@ -233,8 +233,35 @@ export const ActionCenter = () => {
         setRestoredTasks([]);
       }
     };
+    const handleOpenSessionSetup = (e: any) => {
+      setIsOpen(true);
+      setCurrentScreen('session');
+      setSessionData({
+        project: e.detail?.projectId || '',
+        activityId: '',
+        activityManual: e.detail?.activityName || '',
+        habit: '',
+        description: '',
+        hours: 0,
+        minutes: 25,
+        date: getLocalDateString(new Date())
+      });
+      setCustomUserTasks([]);
+      setRestoredTasks([]);
+      timer.updateConfig(
+        e.detail?.projectId || undefined,
+        undefined,
+        e.detail?.activityName || undefined,
+        undefined,
+        e.detail?.activityId
+      );
+    };
     window.addEventListener('open-action-center', handleOpen);
-    return () => window.removeEventListener('open-action-center', handleOpen);
+    window.addEventListener('open-session-setup', handleOpenSessionSetup);
+    return () => {
+      window.removeEventListener('open-action-center', handleOpen);
+      window.removeEventListener('open-session-setup', handleOpenSessionSetup);
+    };
   }, []);
 
   // Session States
@@ -1160,7 +1187,7 @@ export const ActionCenter = () => {
                           />
                         </div>
                         <div className="space-y-3 text-left">
-                          <label className={labelClasses}>TAREFAS DA SESSÃO (opcional)</label>
+                          <label className={labelClasses}>TAREFAS DA SESSÃO (OPCIONAL)</label>
                           <div className="flex gap-2">
                             <input
                               type="text"

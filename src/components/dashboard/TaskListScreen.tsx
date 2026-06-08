@@ -367,13 +367,13 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     const nextCompleted = !task.is_completed;
 
     if (nextCompleted) {
-      // Intercepta a conclusão e força o usuário para o pop-up da Sessão Profunda
-      dataStore.showNotification('Registre o tempo de execução para concluir a tarefa.', 'success');
-      window.dispatchEvent(new CustomEvent('open-action-center', {
+      // Preenche o formulário com dados da tarefa e abre o modal parcial
+      window.dispatchEvent(new CustomEvent('open-session-setup', {
         detail: {
-          screen: 'session',
+          activityName: task.title,
+          projectId: task.project_id || null,
           activityId: task.id,
-          activityName: task.title
+          prefilled: true 
         }
       }));
       return;
@@ -609,7 +609,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
                         {activity.tasks && activity.tasks.length > 0 && (
                           <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
-                            <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Subtarefas ({activity.tasks.length})</p>
+                            <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">TAREFAS DA SESSÃO ({activity.tasks.length})</p>
                             <div className="grid grid-cols-1 gap-1.5">
                               {activity.tasks.map((taskStr: string, tIdx: number) => (
                                 <div key={tIdx} className="flex items-center gap-2 text-xs">
