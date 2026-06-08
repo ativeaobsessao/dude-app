@@ -1187,12 +1187,17 @@ export const useDataStore = create<DataState>((set, get) => ({
         ? null 
         : session.activity_name.trim();
 
+      const isValidScheduledActivity = session.scheduled_activity_id 
+        ? get().scheduledActivities.some(sa => sa.id === session.scheduled_activity_id)
+        : false;
+
       const sessionToSave = {
         ...session,
         duration_minutes,
         actual_duration_minutes,
         activity_name: activityNameLimpo,
-        parcial: isPartial
+        parcial: isPartial,
+        scheduled_activity_id: isValidScheduledActivity ? session.scheduled_activity_id : null
       };
 
       const { data, error } = await supabase.from('focus_sessions').insert(sessionToSave).select().single();
@@ -1375,6 +1380,11 @@ export const useDataStore = create<DataState>((set, get) => ({
         return trimmed;
       };
 
+      const schId = valOrNull(activityId);
+      const isValidScheduledActivity = schId
+        ? get().scheduledActivities.some(sa => sa.id === schId)
+        : false;
+
       const sessionToSave: any = {
         user_id: userId,
         project_id: valOrNull(projectId),
@@ -1388,7 +1398,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         all_tasks_completed: true,
         actual_duration_minutes: durationMinutes,
         activity_id: null,
-        scheduled_activity_id: valOrNull(activityId),
+        scheduled_activity_id: isValidScheduledActivity ? schId : null,
       };
 
       // Sanitize the payload to completely remove empty strings, null, or undefined values
