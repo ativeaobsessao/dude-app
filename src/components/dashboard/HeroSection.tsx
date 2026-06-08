@@ -613,20 +613,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const isInHabitualWindow = matchingCount >= 2;
 
   // Cascade Cases for SP Button
-  let buttonLabel = 'Iniciar Sessão Profunda';
+  let buttonLabel = 'INICIAR SESSÃO PROFUNDA';
   let buttonSubline = '';
-  let suggestedProjectId = '';
+  let suggestedProjectId = recentProjectId || '';
 
-  if (recentProjectName && isInHabitualWindow) {
-    buttonLabel = `Continuar ${recentProjectName}`;
-    buttonSubline = 'Seu horário de foco';
-    suggestedProjectId = recentProjectId;
-  } else if (recentProjectName && !isInHabitualWindow) {
-    buttonLabel = `Continuar ${recentProjectName}`;
-    suggestedProjectId = recentProjectId;
-  } else if (!recentProjectName && isInHabitualWindow) {
-    buttonLabel = 'Iniciar Sessão Profunda';
-    buttonSubline = 'Bom horário pra focar';
+  if (recentProjectName) {
+    buttonSubline = `continuar ${recentProjectName}`;
   }
 
   const openDeepSession = () => {
@@ -656,7 +648,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-tight select-none max-w-full tracking-[[-0.05em]] mb-6">
+          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-tight select-none max-w-full tracking-[[-0.05em]] mb-6 pr-2">
             Se organize para passar mais tempo com as pessoas que importam ❤️
           </p>
 

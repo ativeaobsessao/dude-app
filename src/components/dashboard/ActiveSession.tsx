@@ -442,6 +442,8 @@ export const ActiveSession = () => {
       setShowCompleteModal(false);
       timer.reset();
       setIsSaving(false);
+      // Redirecionar usuário para a Hero/Início
+      window.dispatchEvent(new CustomEvent('close-action-center'));
     }
   };
 
