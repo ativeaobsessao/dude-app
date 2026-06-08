@@ -215,6 +215,254 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
   };
 }
 
+interface AvoidanceCardProps {
+  habit: Habit;
+  metrics: any;
+  promptVisible: boolean;
+  activePromptPeriod: string | null;
+  onCheckinSubmit: (habitId: string, period: any, status: 'success' | 'relapse', triggerTag?: string, triggerNote?: string) => Promise<void>;
+  onEdit: (habit: Habit) => void;
+  onDelete: (id: string, name: string) => void;
+  onOpenRelapseModal: (habitId: string, habitName: string) => void;
+  onSetUrgeTimer: (value: number) => void;
+  habitCheckins: any[];
+  last14Days: string[];
+}
+
+const AvoidanceCard = ({
+  habit,
+  metrics,
+  promptVisible,
+  activePromptPeriod,
+  onCheckinSubmit,
+  onEdit,
+  onDelete,
+  onOpenRelapseModal,
+  onSetUrgeTimer,
+  habitCheckins,
+  last14Days
+}: AvoidanceCardProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div
+      id={`avoidance-card-${habit.id}`}
+      onClick={() => setIsExpanded(!isExpanded)}
+      className={`p-6 rounded-3xl bg-surface/10 border transition-all flex flex-col justify-between gap-4 cursor-pointer select-none ${
+        isExpanded ? 'border-primary-green/30 bg-surface/25 shadow-lg' : 'border-border-white hover:border-primary-green/20'
+      }`}
+    >
+      <div className="space-y-4">
+        {/* Header Title Block */}
+        <div className="flex justify-between items-start">
+          <div className="space-y-1 text-left">
+            <h4 className="text-xl font-bold text-text-primary tracking-tight flex items-center gap-2">
+              {habit.name}
+              <span className={`text-[10px] transform transition-transform duration-200 text-text-secondary/30 ${isExpanded ? 'rotate-180 text-primary-green' : ''}`}>
+                ▼
+              </span>
+            </h4>
+            <p className="text-[10px] text-text-secondary/60 font-medium uppercase tracking-widest flex items-center gap-1.5">
+              <Calendar size={10} className="text-primary-green/60" />
+              {!(habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window')
+                ? '◷ Dia todo'
+                : `◷ Janela específica · ${habit.monitor_start || habit.avoidance_window_start || '18:00'}–${habit.monitor_end || habit.avoidance_window_end || '22:00'}`
+              }
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => onEdit(habit)}
+                  className="p-2 text-text-secondary/50 hover:text-[#6ee7a8] hover:bg-white/5 rounded-full transition-colors cursor-pointer"
+                  title="Editar"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => onDelete(habit.id, habit.name)}
+                  className="p-2 text-text-secondary/50 hover:text-red-400 hover:bg-white/5 rounded-full transition-colors cursor-pointer"
+                  title="Remover"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* MAIN: THE CLEAN-TIME COUNTER */}
+        <div className="py-4 text-center relative overflow-hidden">
+          <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest mb-1 font-sans">
+            Tempo Limpo Atual
+          </p>
+          <h3 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6ee7a8] to-[#10b981] bg-clip-text text-transparent font-mono tracking-tight drop-shadow-[0_0_15px_rgba(110,231,168,0.25)] select-all leading-none py-1">
+            {metrics.tempoLimpoAtualText}
+          </h3>
+          <p className="text-[10px] text-text-secondary/50 italic font-light mt-1.5">
+            · {metrics.tempoLimpoSubtitle}
+          </p>
+        </div>
+
+        {/* 3-column supporting boxes */}
+        <div className="grid grid-cols-3 gap-3 text-center border-t border-b border-white/5 py-4 my-1">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
+              Seguidos
+            </span>
+            <span className="text-base font-sans font-medium text-text-primary">
+              {metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1 border-x border-white/5">
+            <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
+              Total Limpo
+            </span>
+            <span className="text-base font-sans font-medium text-primary-green">
+              {metrics.diasLimposTotal} {metrics.diasLimposTotal === 1 ? 'dia' : 'dias'}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
+              Recorde
+            </span>
+            <span className="text-base font-sans font-medium text-amber-400">
+              {metrics.maxStreak}d
+            </span>
+          </div>
+        </div>
+
+        {/* ON-DEMAND Hybrid Checkin Buttons */}
+        <div className="space-y-2 pt-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => onSetUrgeTimer(300)}
+            className="py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-background rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer text-center w-full shadow-md"
+          >
+            🚨 ESTOU NO LIMITE (AJUDA)
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onCheckinSubmit(habit.id, 'window', 'success')}
+              className="py-3 bg-[#6ee7a8] hover:bg-[#6ee7a8]/90 text-background rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer text-center shadow-sm"
+            >
+              ✓ Resisti hoje
+            </button>
+            <button
+              onClick={() => onOpenRelapseModal(habit.id, habit.name)}
+              className="py-3 bg-red-400/10 hover:bg-red-400/15 text-red-400 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer text-center shadow-xs"
+            >
+              Caí / recaí
+            </button>
+          </div>
+        </div>
+
+        {/* IN-APP PERIODIC PROMPT BANNER */}
+        <AnimatePresence mode="wait">
+          {promptVisible && activePromptPeriod && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="p-4 rounded-xl bg-[#6ee7a8]/5 border border-[#6ee7a8]/20 space-y-2.5 shadow-sm text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-xs text-text-primary font-medium leading-relaxed">
+                Controle de período programado: você conseguiu resistir a <span className="font-bold text-primary-green">{habit.name}</span> no período de {activePromptPeriod === 'morning' ? 'Manhã' : activePromptPeriod === 'afternoon' ? 'Tarde' : activePromptPeriod === 'evening' ? 'Noite' : 'Janela'}?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onCheckinSubmit(habit.id, activePromptPeriod as any, 'success')}
+                  className="flex-1 py-1.5 text-[9px] font-bold uppercase tracking-wider bg-primary-green text-background rounded-lg hover:brightness-110 cursor-pointer"
+                >
+                  Sim, resisti
+                </button>
+                <button
+                  onClick={() => onCheckinSubmit(habit.id, activePromptPeriod as any, 'relapse')}
+                  className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider border border-red-500/30 text-red-400 rounded-lg cursor-pointer"
+                >
+                  Não
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Collapsible expanded section of details */}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden space-y-3 pt-2 animate-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Heatmap line */}
+              <div className="space-y-1.5 bg-white/[0.01] p-3 border border-white/5 rounded-2xl">
+                <div className="flex justify-between items-center text-[8px] text-text-secondary/40 font-mono tracking-widest uppercase">
+                  <span>Heatmap de Resistência (14 dias)</span>
+                  <span>Hoje →</span>
+                </div>
+                <div className="flex items-center gap-1.5 justify-between">
+                  {last14Days.map((dayStr, index) => {
+                    const dayCheckins = habitCheckins.filter(c => c.checkin_date === dayStr);
+                    let colorClass = 'bg-white/5';
+                    let label = 'Sem registros';
+                    
+                    if (dayCheckins.length > 0) {
+                      const relapsed = dayCheckins.some(c => c.status === 'relapse');
+                      const succeeded = dayCheckins.some(c => c.status === 'success');
+                      if (relapsed) {
+                        colorClass = 'bg-red-500/50 shadow-sm';
+                        label = `${dayCheckins.length} check-in(s) - Recaída`;
+                      } else if (succeeded) {
+                        colorClass = 'bg-primary-green shadow-xs';
+                        label = `${dayCheckins.length} check-in(s) - Sucesso`;
+                      }
+                    }
+
+                    const displayDate = new Date(dayStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+
+                    return (
+                      <div
+                        key={index}
+                        className={`w-3 h-3 rounded-xs transition-colors duration-200 ${colorClass}`}
+                        title={`${displayDate}: ${label}`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Intensity block */}
+              <div className="text-[9px] text-text-secondary/40 font-mono flex justify-between items-center px-1">
+                <span>Monitoramento: {{light: 'Leve', balanced: 'Equilibrada', strong: 'Forte'}[habit.avoidance_checkin_intensity || 'balanced']}</span>
+                <span>Autoevolução Mental</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Discreet Footer Description (previously Identity Reinforcement Banner) */}
+      <div className="text-[10px] text-text-secondary/50 font-light leading-relaxed font-sans text-center px-2 py-1.5 border-t border-white/5 pt-3">
+        <span className="text-primary-green font-semibold">Identidade Ativa:</span> Você está há <span className="text-primary-green font-bold">{metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}</span> no controle. "Toda vez que você resiste, você vota na pessoa que quer ser."
+      </div>
+    </div>
+  );
+};
+
 export const AvoidanceSection = () => {
   const { user } = useAuthStore();
   const dataStore = useDataStore();
@@ -495,16 +743,6 @@ export const AvoidanceSection = () => {
                     <Plus size={14} />
                     Adicionar Controle
                   </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowHistoryModal(true);
-                    }}
-                    className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                  >
-                    Ver Histórico
-                  </button>
                 </div>
               </div>
 
@@ -537,198 +775,20 @@ export const AvoidanceSection = () => {
                     });
 
                     return (
-                      <div
+                      <AvoidanceCard
                         key={habit.id}
-                        className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/15 transition-all flex flex-col justify-between gap-6"
-                      >
-                        <div className="space-y-5">
-                          {/* Title block */}
-                          <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                              <h4 className="text-xl font-bold text-text-primary tracking-tight">{habit.name}</h4>
-                              <p className="text-[10px] text-text-secondary/60 font-medium uppercase tracking-widest flex items-center gap-1.5">
-                                <Calendar size={10} className="text-primary-green/60" />
-                                {!(habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window')
-                                  ? '◷ Dia todo'
-                                  : `◷ Janela específica · ${habit.monitor_start || habit.avoidance_window_start || '18:00'}–${habit.monitor_end || habit.avoidance_window_end || '22:00'}`
-                                }
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => triggerEditAvoidanceModal(habit)}
-                                className="p-2 text-text-secondary/40 hover:text-primary-green rounded-full transition-colors cursor-pointer"
-                                title="Editar"
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              <button
-                                onClick={() => setShowDeleteConfirm({ id: habit.id, name: habit.name })}
-                                className="p-2 text-text-secondary/40 hover:text-red-400 rounded-full transition-colors cursor-pointer"
-                                title="Remover"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* MAIN: THE CLEAN-TIME COUNTER */}
-                          <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 text-center relative overflow-hidden">
-                            <div className="absolute top-2 right-3 flex items-center gap-1 text-[8px] uppercase tracking-widest text-primary-green/60 font-bold">
-                              <Flame size={10} className="text-primary-green animate-pulse" /> Tempo Limpo
-                            </div>
-                            <p className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
-                              Tempo Limpo Atual
-                            </p>
-                            <h3 className="text-2xl md:text-3xl font-extrabold text-primary-green tracking-tight font-mono select-all">
-                              {metrics.tempoLimpoAtualText}
-                            </h3>
-                            <p className="text-[10px] text-text-secondary/65 italic font-light">
-                              · {metrics.tempoLimpoSubtitle}
-                            </p>
-                          </div>
-
-                          {/* Identity Reinforcement Banner */}
-                          <div className="p-3.5 rounded-xl bg-[#6ee7a8]/5 border border-[#6ee7a8]/10 space-y-1">
-                            <p className="text-[10px] font-bold text-primary-green/90 uppercase tracking-wider flex items-center gap-1">
-                              <UserCheck size={11} /> Identidade Ativa
-                            </p>
-                            <p className="text-xs text-text-primary font-medium tracking-tight">
-                              Você está há <span className="text-primary-green font-bold">{metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}</span> no controle de seu comportamento.
-                            </p>
-                            <p className="text-[10px] text-text-secondary/70 font-light leading-relaxed">
-                              "Toda vez que você resiste, você vota na pessoa que quer ser."
-                            </p>
-                          </div>
-
-                          {/* 3 supporting boxes */}
-                          <div className="grid grid-cols-3 gap-2 text-center">
-                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
-                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
-                                Dias Limpo Seguidos
-                              </span>
-                              <span className="text-lg font-bold text-text-primary font-mono mt-1">
-                                {metrics.diasLimpoSeguidos}
-                              </span>
-                            </div>
-
-                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
-                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
-                                Dias Limpos no Total
-                              </span>
-                              <span className="text-lg font-bold text-primary-green font-mono mt-1">
-                                {metrics.diasLimposTotal}
-                              </span>
-                            </div>
-
-                            <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">
-                              <span className="text-[8px] font-bold text-text-secondary/50 uppercase tracking-widest leading-tight block">
-                                Seu Recorde
-                              </span>
-                              <span className="text-lg font-bold text-amber-400 font-mono mt-1">
-                                {metrics.maxStreak}d
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* ON-DEMAND Hybrid Checkin Buttons */}
-                          <div className="flex flex-col gap-2 pt-2">
-                            <button
-                              onClick={() => setUrgeTimer(300)}
-                              className="py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center w-full"
-                            >
-                              🚨 ESTOU NO LIMITE (AJUDA)
-                            </button>
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={() => handleCheckinSubmit(habit.id, 'window', 'success')}
-                                className="py-2.5 bg-primary-green/10 hover:bg-primary-green/20 border border-primary-green/35 text-primary-green rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
-                              >
-                                ✓ Resisti hoje
-                              </button>
-                              <button
-                                onClick={() => setRelapseModal({ isOpen: true, habitId: habit.id, habitName: habit.name, step: 'trigger' })}
-                                className="py-2.5 bg-red-400/5 hover:bg-red-400/15 border border-red-400/20 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
-                              >
-                                Caí / recaí
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* IN-APP PERIODIC PROMPT BANNER */}
-                          <AnimatePresence mode="wait">
-                            {promptVisible && activePromptPeriod && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -12 }}
-                                className="p-4 rounded-xl bg-[#6ee7a8]/5 border border-[#6ee7a8]/20 space-y-2.5 shadow-sm"
-                              >
-                                <p className="text-xs text-text-primary font-medium leading-relaxed">
-                                  Controle de período programado: você conseguiu resistir a <span className="font-bold text-primary-green">{habit.name}</span> no período de {activePromptPeriod === 'morning' ? 'Manhã' : activePromptPeriod === 'afternoon' ? 'Tarde' : activePromptPeriod === 'evening' ? 'Noite' : 'Janela'}?
-                                </p>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleCheckinSubmit(habit.id, activePromptPeriod as any, 'success')}
-                                    className="flex-1 py-1.5 text-[9px] font-bold uppercase tracking-wider bg-primary-green text-background rounded-lg hover:brightness-110 cursor-pointer"
-                                  >
-                                    Sim, resisti
-                                  </button>
-                                  <button
-                                    onClick={() => handleCheckinSubmit(habit.id, activePromptPeriod as any, 'relapse')}
-                                    className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider border border-red-500/30 text-red-400 rounded-lg cursor-pointer"
-                                  >
-                                    Não
-                                  </button>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          {/* Heatmap line */}
-                          <div className="space-y-1 bg-white/[0.01] p-2.5 border border-white/5 rounded-xl">
-                            <div className="flex justify-between items-center text-[8px] text-text-secondary/40 font-mono tracking-widest uppercase">
-                              <span>Heatmap de Resistência (14 dias)</span>
-                              <span>Hoje →</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 justify-between">
-                              {last14Days.map((dayStr, index) => {
-                                const dayCheckins = habitCheckins.filter(c => c.checkin_date === dayStr);
-                                let colorClass = 'bg-white/5';
-                                let label = 'Sem registros';
-                                
-                                if (dayCheckins.length > 0) {
-                                  const relapsed = dayCheckins.some(c => c.status === 'relapse');
-                                  const succeeded = dayCheckins.some(c => c.status === 'success');
-                                  if (relapsed) {
-                                    colorClass = 'bg-red-500/50 shadow-sm';
-                                    label = `${dayCheckins.length} check-in(s) - Recaída`;
-                                  } else if (succeeded) {
-                                    colorClass = 'bg-primary-green shadow-xs';
-                                    label = `${dayCheckins.length} check-in(s) - Sucesso`;
-                                  }
-                                }
-
-                                const displayDate = new Date(dayStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-
-                                return (
-                                  <div
-                                    key={index}
-                                    className={`w-3 h-3 rounded-xs transition-colors duration-200 ${colorClass}`}
-                                    title={`${displayDate}: ${label}`}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Intensity footer */}
-                        <div className="text-[9px] text-text-secondary/40 font-mono flex justify-between items-center pt-3 border-t border-white/5 mt-2">
-                          <span>Monitoramento: {{light: 'Leve', balanced: 'Equilibrada', strong: 'Forte'}[habit.avoidance_checkin_intensity || 'balanced']}</span>
-                          <span>Autoevolução Mental</span>
-                        </div>
-                      </div>
+                        habit={habit}
+                        metrics={metrics}
+                        promptVisible={promptVisible}
+                        activePromptPeriod={activePromptPeriod}
+                        onCheckinSubmit={handleCheckinSubmit}
+                        onEdit={triggerEditAvoidanceModal}
+                        onDelete={(id, name) => setShowDeleteConfirm({ id, name })}
+                        onOpenRelapseModal={(id, name) => setRelapseModal({ isOpen: true, habitId: id, habitName: name, step: 'trigger' })}
+                        onSetUrgeTimer={setUrgeTimer}
+                        habitCheckins={habitCheckins}
+                        last14Days={last14Days}
+                      />
                     );
                   })}
                 </div>
