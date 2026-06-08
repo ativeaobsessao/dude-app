@@ -1372,7 +1372,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         user_id: userId,
         project_id: projectId || null,
         habit_id: null,
-        activity_name: activityName,
+        activity_name: activityName || 'Tarefa Concluída',
         description: '',
         duration_minutes: durationMinutes,
         started_at: startedAt,
@@ -1384,23 +1384,90 @@ export const useDataStore = create<DataState>((set, get) => ({
         scheduled_activity_id: activityId || null,
       };
 
-      const savedSession = await get().addSession(sessionToSave);
+      const { data, error } = await supabase
+        .from('focus_sessions')
+        .insert(sessionToSave)
+        .select()
+        .single();
 
-      if (savedSession?.id && sessionTasks && sessionTasks.length > 0) {
-        for (const task of sessionTasks) {
-          await get().addSessionTask(
-            savedSession.id,
-            userId,
-            task,
-            true // Mark as completed
-          );
+      if (error) {
+        console.error("Erro SQL do Supabase ao inserir sessão:", error.message, error.details);
+        throw error;
+      }
+
+      if (data) {
+        set({ sessions: [data, ...get().sessions] });
+
+        if (sessionTasks && sessionTasks.length > 0) {
+          for (const task of sessionTasks) {
+            await get().addSessionTask(
+              data.id,
+              userId,
+              task,
+              true // Mark as completed
+            );
+          }
+        }
+
+        // Update profile streaks & minutes
+        const currentProfile = get().profile;
+        if (currentProfile) {
+          const addedMinutes = data.actual_duration_minutes !== null ? data.actual_duration_minutes : data.duration_minutes;
+          const newTotal = Number(currentProfile.total_focus_minutes) + addedMinutes;
+          
+          const today = getLocalDateString(new Date());
+          const yesterday = getLocalYesterdayDateString(new Date());
+          
+          const allSessions = get().sessions;
+          
+          const hadSessionToday = allSessions
+            .filter(s => s.id !== data.id)
+            .some(s => getLocalDateString(new Date(s.started_at)) === today);
+          
+          const hadSessionYesterday = allSessions
+            .some(s => getLocalDateString(new Date(s.started_at)) === yesterday);
+          
+          let newStreak = currentProfile.current_streak;
+          
+          if (!hadSessionToday) {
+            if (hadSessionYesterday || currentProfile.current_streak === 0) {
+              newStreak = currentProfile.current_streak + 1;
+            } else {
+              newStreak = 1;
+            }
+            
+            await supabase
+              .from('profiles')
+              .update({ 
+                total_focus_minutes: newTotal,
+                current_streak: newStreak 
+              })
+              .eq('id', userId);
+              
+            set({ profile: { 
+              ...currentProfile, 
+              total_focus_minutes: newTotal,
+              current_streak: newStreak 
+            }});
+          } else {
+            await supabase
+              .from('profiles')
+              .update({ total_focus_minutes: newTotal })
+              .eq('id', userId);
+              
+            set({ profile: { 
+              ...currentProfile, 
+              total_focus_minutes: newTotal 
+            }});
+          }
         }
       }
 
-      return savedSession;
+      return data;
     } catch (err) {
-      console.error('Error adding manual session via addManualSession:', err);
-      return null;
+      console.error('Falha na função addManualSession:', err);
+      get().showNotification('Erro ao salvar Sessão Profunda.', 'error');
+      throw err;
     }
   },
 

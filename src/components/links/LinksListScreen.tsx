@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Pencil, Trash2, ExternalLink, Link2, Folder, Sparkles } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -294,8 +295,8 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack, onBack
       </div>
 
       {/* Quick Edit Modal */}
-      {editingLink && (
-        <div id="link-edit-modal-backdrop" className="fixed inset-0 z-[600] flex items-center justify-center bg-background/90 backdrop-blur-md p-6">
+      {editingLink && createPortal(
+        <div id="link-edit-modal-backdrop" className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div id="link-edit-modal" className="w-full max-w-md bg-background border border-white/10 rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">
             <div className="text-center">
               <h4 className="text-lg font-bold text-text-primary uppercase tracking-wider">Editar Link</h4>
@@ -371,7 +372,8 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack, onBack
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
