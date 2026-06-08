@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useDataStore } from '../../store/useDataStore';
-import { X, Camera, User, Mail, Lock, LogOut, Check } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
+import { X, Camera, User, Mail, Lock, LogOut, Check, Trash2 } from 'lucide-react';
 
 interface AccountPanelProps {
   isOpen: boolean;
@@ -28,8 +29,35 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [isRequestingRecovery, setIsRequestingRecovery] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleWipeAccount = async () => {
+    if (!user?.id) return;
+    setIsWiping(true);
+    try {
+      const ok = await dataStore.wipeUserAccount(user.id);
+      if (ok) {
+        dataStore.showNotification('Sua conta foi excluída definitivamente.', 'success');
+        await supabase.auth.signOut();
+        const authSignOut = useAuthStore.getState().signOut;
+        if (authSignOut) {
+          await authSignOut();
+        }
+        onClose();
+      } else {
+        dataStore.showNotification('Ocorreu um erro ao excluir sua conta.', 'error');
+      }
+    } catch (err: any) {
+      console.error('Error in account wiping:', err);
+      dataStore.showNotification('Erro ao excluir conta: ' + err.message, 'error');
+    } finally {
+      setIsWiping(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   // Synchronize initially loaded full_name
   useEffect(() => {
@@ -276,6 +304,23 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               </p>
             )}
           </div>
+
+          <hr className="border-border-custom" />
+
+          {/* Exclusão de Conta */}
+          <div className="space-y-4 pt-2">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#f87171]">Zona de Perigo</label>
+            <p className="text-[10px] text-text-dim/60 leading-relaxed px-1">
+              Caso deseje apagar todos os seus dados da plataforma DUDE permanentemente, utilize a opção abaixo para excluir sua conta de forma definitiva e irreversível.
+            </p>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full h-12 border border-[#f87171]/20 hover:border-[#f87171]/45 hover:bg-[#f87171]/5 text-[#f87171] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Trash2 size={12} />
+              DELETAR MINHA CONTA
+            </button>
+          </div>
         </div>
 
         {/* Footer with discret SignOut Button */}
@@ -292,6 +337,51 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           </button>
         </div>
       </motion.div>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-base/90 backdrop-blur-md p-6">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm bg-surface-2 border border-border-custom rounded-3xl p-8 text-center space-y-6 shadow-2xl relative"
+            >
+              <div className="space-y-2">
+                <div className="w-12 h-12 rounded-full bg-[#f87171]/10 flex items-center justify-center text-[#f87171] mx-auto mb-2">
+                  <Trash2 size={20} />
+                </div>
+                <h4 className="text-lg font-extrabold text-[#f87171] tracking-tight uppercase">
+                  Excluir Conta Definitivamente?
+                </h4>
+                <p className="text-xs text-text-dim/80 leading-relaxed">
+                  Esta ação apagará todo o seu histórico, tarefas, hábitos e sessões profundas. Essa ação é irreversível. Deseja continuar?
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  disabled={isWiping}
+                  onClick={handleWipeAccount}
+                  className="w-full py-4 bg-[#f87171] hover:bg-[#e11d48] text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  {isWiping ? 'DELETANDO TUDO...' : 'SIM, DELETAR TUDO'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isWiping}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

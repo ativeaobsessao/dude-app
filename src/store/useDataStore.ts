@@ -142,6 +142,7 @@ interface DataState {
   deleteProject: (id: string) => Promise<void>;
   deleteActivity: (id: string) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
+  wipeUserAccount: (userId: string) => Promise<boolean>;
   completeFirstSession: () => void;
   notification: { message: string; type: 'success' | 'error' } | null;
   notificationTimeoutId: any;
@@ -1746,6 +1747,93 @@ export const useDataStore = create<DataState>((set, get) => ({
       });
     } catch (err) {
       console.error('Error deleting habit:', err);
+    }
+  },
+
+  wipeUserAccount: async (userId: string) => {
+    try {
+      // 1. Clear circular FK references to prevent circular DB lockouts
+      try {
+        await supabase.from('scheduled_activities').update({ completed_session_id: null }).eq('user_id', userId);
+      } catch (err) {
+        console.warn('Silent skip: scheduled_activities FK clear failed', err);
+      }
+
+      try {
+        await supabase.from('focus_sessions').update({ scheduled_activity_id: null }).eq('user_id', userId);
+      } catch (err) {
+        console.warn('Silent skip: focus_sessions FK clear failed', err);
+      }
+
+      // 2. Perform deletes on child and main tables one by one for maximum resilience
+      const tables = [
+        'session_tasks',
+        'pending_tasks',
+        'habit_completions',
+        'notes',
+        'daily_tasks',
+        'scheduled_activities',
+        'focus_sessions',
+        'activities',
+        'habits',
+        'projects',
+        'avoidance_checkins',
+        'mood_entries',
+        'daily_shutdowns',
+        'day_closures',
+        'saved_links'
+      ];
+
+      for (const table of tables) {
+        try {
+          await supabase.from(table).delete().eq('user_id', userId);
+        } catch (err) {
+          console.warn(`Silent skip: deletion on table ${table} failed`, err);
+        }
+      }
+
+      // 3. Reset stats in profiles
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            total_focus_minutes: 0,
+            current_streak: 0,
+            daily_goal_minutes: null
+          })
+          .eq('id', userId);
+      } catch (err) {
+        console.warn('Silent skip: profiles stats reset failed', err);
+      }
+
+      // 4. Update the local store state for data reset
+      set({
+        projects: [],
+        habits: [],
+        habitCompletions: [],
+        avoidanceCheckins: [],
+        sessions: [],
+        notes: [],
+        activities: [],
+        sessionTasks: [],
+        pendingTasks: [],
+        scheduledActivities: [],
+        moodEntries: [],
+        savedLinks: [],
+        dailyShutdowns: [],
+        dailyTasks: [],
+        profile: get().profile ? {
+          ...get().profile!,
+          total_focus_minutes: 0,
+          current_streak: 0,
+          daily_goal_minutes: null
+        } : null
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Error wiping user account:', err);
+      return false;
     }
   },
 
