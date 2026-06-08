@@ -43,9 +43,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   // Handle name update
   const handleSaveName = async () => {
     if (!user?.id || !fullName.trim()) return;
+    const firstName = fullName.trim().split(/\s+/)[0];
     setIsSavingName(true);
     try {
-      await dataStore.updateProfileData(user.id, { full_name: fullName.trim() });
+      await dataStore.updateProfileData(user.id, { full_name: firstName });
+      setFullName(firstName);
       dataStore.showNotification('Nome atualizado com sucesso!', 'success');
     } catch (err: any) {
       console.error('Error updating name:', err);
@@ -211,7 +213,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             
             {/* Campo Nome */}
             <div className="space-y-2">
-              <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Nome do Usuário</label>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-text-dim opacity-40 px-1">Seu Primeiro Nome</label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim/40"><User size={14} /></span>
@@ -219,7 +221,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Seu nome"
+                    placeholder="Ex: Gus"
                     className="w-full bg-surface-2 border border-border-custom rounded-2xl pl-11 pr-4 py-3.5 text-xs text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
                   />
                 </div>

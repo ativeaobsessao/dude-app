@@ -21,11 +21,12 @@ export const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        const firstName = fullName.trim().split(/\s+/)[0];
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
-            data: { full_name: fullName }
+            data: { full_name: firstName }
           }
         });
         if (error) throw error;
@@ -80,14 +81,14 @@ export const Auth = () => {
           <form onSubmit={handleAuth} className="space-y-6">
             {!isLogin && (
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-text-dim opacity-40 px-1">Nome Completo</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-text-dim opacity-40 px-1">Seu Primeiro Nome</label>
                 <input 
                   type="text" 
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   enterKeyHint="done"
                   className="w-full bg-surface-2 border border-border-custom rounded-2xl p-4 text-text focus:outline-none focus:border-green/30 transition-all min-h-[44px] touch-manipulation"
-                  placeholder="Seu nome"
+                  placeholder="Ex: Gus"
                   required
                 />
               </div>
