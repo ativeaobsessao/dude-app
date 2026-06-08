@@ -263,9 +263,6 @@ export const SessaoProfundaTab = () => {
             <h2 className="text-2xl font-black tracking-tight text-text-primary uppercase font-sans">
               Nova Sessão Profunda
             </h2>
-            <p className="text-xs text-text-secondary/70 font-medium">
-              Programe o cronograma, defina subtarefas e bloqueie as distrações.
-            </p>
           </div>
         </header>
 
@@ -388,12 +385,12 @@ export const SessaoProfundaTab = () => {
           {/* SESSION SUBTASKS */}
           <div className="space-y-2 text-left">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-text-secondary/60">
-              Subtarefas / Checklist de Foco (opcional)
+              TAREFAS DA SESSÃO (OPCIONAL)
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Insira um sub-objetivo para executar..."
+                placeholder="O que você vai executar nessa sessão?"
                 className="flex-1 h-12 bg-surface/30 px-4 rounded-xl border border-white/5 text-sm tracking-tight text-text-primary placeholder:text-text-secondary/40 focus:outline-none"
                 value={newTaskInput}
                 onChange={e => setNewTaskInput(e.target.value)}

@@ -519,9 +519,18 @@ export default function App() {
         setActiveTab('session');
       }
     };
+    const handleSetTab = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.tab) {
+        setShowFullAgenda(false);
+        setActiveTab(customEvent.detail.tab);
+      }
+    };
     window.addEventListener('open-action-center', handleOpenActionCenter);
+    window.addEventListener('set-active-tab', handleSetTab);
     return () => {
       window.removeEventListener('open-action-center', handleOpenActionCenter);
+      window.removeEventListener('set-active-tab', handleSetTab);
     };
   }, []);
 

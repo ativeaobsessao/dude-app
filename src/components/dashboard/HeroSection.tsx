@@ -622,11 +622,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   }
 
   const openDeepSession = () => {
-    window.dispatchEvent(new CustomEvent('open-action-center', { 
-      detail: { 
-        screen: 'session',
-        projectId: suggestedProjectId
-      } 
+    if (suggestedProjectId && timer.updateConfig) {
+      // Pré-seleciona o projeto recente no timer global antes de mudar de aba
+      timer.updateConfig(suggestedProjectId);
+    }
+    window.dispatchEvent(new CustomEvent('set-active-tab', { 
+      detail: { tab: 'session' } 
     }));
   };
 
