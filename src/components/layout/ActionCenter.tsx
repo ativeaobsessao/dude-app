@@ -103,10 +103,16 @@ export const ActionCenter = () => {
     }
   }, [isOpen]);
 
+  const [isPrefilled, setIsPrefilled] = useState(false);
+
   // Global event listener for opening to specific screen
   useEffect(() => {
     const handleOpen = (e: any) => {
       setIsOpen(true);
+      setIsPrefilled(e.detail?.prefilled || false);
+      if (e.detail?.prefilled) {
+        setRegistrationMode('manual');
+      }
       if (e.detail?.screen) {
         setCurrentScreen(e.detail.screen);
       } else {
@@ -236,6 +242,8 @@ export const ActionCenter = () => {
     const handleOpenSessionSetup = (e: any) => {
       setIsOpen(true);
       setCurrentScreen('session');
+      setIsPrefilled(true);
+      setRegistrationMode('manual');
       setSessionData({
         project: e.detail?.projectId || '',
         activityId: '',
@@ -246,7 +254,11 @@ export const ActionCenter = () => {
         minutes: 25,
         date: getLocalDateString(new Date())
       });
-      setCustomUserTasks([]);
+      if (e.detail?.sessionTasks && e.detail.sessionTasks.length > 0) {
+        setCustomUserTasks(e.detail.sessionTasks);
+      } else {
+        setCustomUserTasks([]);
+      }
       setRestoredTasks([]);
       timer.updateConfig(
         e.detail?.projectId || undefined,
@@ -453,6 +465,7 @@ export const ActionCenter = () => {
     setRestoredTasks([]);
     setNewTaskInput('');
     setRegistrationMode('timer');
+    setIsPrefilled(false);
   };
 
   const prevIsActive = useRef(timer.isActive);
@@ -1084,11 +1097,17 @@ export const ActionCenter = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
+            className={isPrefilled 
+              ? "fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+              : "fixed inset-0 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
+            }
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="w-full max-w-4xl space-y-12 pb-32">
+            <div className={isPrefilled
+              ? "w-full max-w-xl bg-background border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-6 my-auto"
+              : "w-full max-w-4xl space-y-12 pb-32"
+            }>
               <header className="flex justify-between items-center border-b border-white/5 pb-8">
                 <div className="flex items-center gap-4">
                   {currentScreen !== null && (
@@ -1124,7 +1143,14 @@ export const ActionCenter = () => {
                 
                 {currentScreen === 'session' && (
                   <div className="w-full max-w-2xl space-y-10">
-                    <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center">Sessão Profunda</h3>
+                    {isPrefilled ? (
+                      <div className="space-y-1">
+                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-white text-center">Concluir Execução</h3>
+                        <p className="text-sm font-mono text-primary-green uppercase tracking-widest text-center">{sessionData.activityManual}</p>
+                      </div>
+                    ) : (
+                      <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center">Sessão Profunda</h3>
+                    )}
                     {timer.isActive ? (
                        <div className="bg-surface/30 border border-primary-green/20 p-10 rounded-[2.5rem] text-center space-y-6">
                          <p className="text-primary-green/60 font-mono text-xs uppercase tracking-widest">Sessão em curso</p>
@@ -1133,59 +1159,63 @@ export const ActionCenter = () => {
                        </div>
                     ) : (
                       <div className="space-y-8 bg-surface/10 p-8 rounded-[2.5rem] border border-white/5">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-1 text-left">
-                            <label className={labelClasses}>Projeto (opcional)</label>
-                            <CustomSelect
-                              value={sessionData.project}
-                              onChange={val => setSessionData({...sessionData, project: val, activityId: ''})}
-                              placeholder="Geral (Sem Projeto)"
-                              options={[
-                                { value: '', label: 'Geral (Sem Projeto)' },
-                                ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
-                              ]}
-                            />
-                          </div>
-                          <div className="space-y-1 text-left">
-                            <label className={labelClasses}>Atividade (opcional)</label>
-                            <CustomSelect
-                              className={!!sessionData.activityManual ? 'opacity-50 pointer-events-none' : ''}
-                              value={sessionData.activityId}
-                              onChange={val => setSessionData({...sessionData, activityId: val})}
-                              placeholder="Selecionar Atividade"
-                              options={[
-                                { value: '', label: 'Selecionar Atividade' },
-                                ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
-                              ]}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-1 text-left">
-                          <label className={labelClasses}>Atividade Avulsa (opcional)</label>
-                          <input
-                            disabled={!!sessionData.activityId}
-                            autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
-                            placeholder="Atividade sem projeto..."
-                            className={inputClasses}
-                            value={sessionData.activityManual}
-                            onChange={e => setSessionData({...sessionData, activityManual: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-1 text-left">
-                          <label className={labelClasses}>Vincular Hábito (opcional)</label>
-                          <CustomSelect
-                            value={sessionData.habit}
-                            onChange={val => setSessionData({...sessionData, habit: val})}
-                            placeholder="Nenhum"
-                            options={[
-                              { value: '', label: 'Nenhum' },
-                              ...dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(h => ({ 
-                                value: h.id, 
-                                label: `${h.name} (${h.sessions_this_week}/${h.sessions_per_week} esta semana)`
-                              }))
-                            ]}
-                          />
-                        </div>
+                        {!isPrefilled && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div className="space-y-1 text-left">
+                                <label className={labelClasses}>Projeto (opcional)</label>
+                                <CustomSelect
+                                  value={sessionData.project}
+                                  onChange={val => setSessionData({...sessionData, project: val, activityId: ''})}
+                                  placeholder="Geral (Sem Projeto)"
+                                  options={[
+                                    { value: '', label: 'Geral (Sem Projeto)' },
+                                    ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                                  ]}
+                                />
+                              </div>
+                              <div className="space-y-1 text-left">
+                                <label className={labelClasses}>Atividade (opcional)</label>
+                                <CustomSelect
+                                  className={!!sessionData.activityManual ? 'opacity-50 pointer-events-none' : ''}
+                                  value={sessionData.activityId}
+                                  onChange={val => setSessionData({...sessionData, activityId: val})}
+                                  placeholder="Selecionar Atividade"
+                                  options={[
+                                    { value: '', label: 'Selecionar Atividade' },
+                                    ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                                  ]}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1 text-left">
+                              <label className={labelClasses}>Atividade Avulsa (opcional)</label>
+                              <input
+                                disabled={!!sessionData.activityId}
+                                autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
+                                placeholder="Atividade sem projeto..."
+                                className={inputClasses}
+                                value={sessionData.activityManual}
+                                onChange={e => setSessionData({...sessionData, activityManual: e.target.value})}
+                              />
+                            </div>
+                            <div className="space-y-1 text-left">
+                              <label className={labelClasses}>Vincular Hábito (opcional)</label>
+                              <CustomSelect
+                                value={sessionData.habit}
+                                onChange={val => setSessionData({...sessionData, habit: val})}
+                                placeholder="Nenhum"
+                                options={[
+                                  { value: '', label: 'Nenhum' },
+                                  ...dataStore.habits.filter(h => h.habit_mode !== 'avoid').map(h => ({ 
+                                    value: h.id, 
+                                    label: `${h.name} (${h.sessions_this_week}/${h.sessions_per_week} esta semana)`
+                                  }))
+                                ]}
+                              />
+                            </div>
+                          </>
+                        )}
                         <div className="space-y-3 text-left">
                           <label className={labelClasses}>TAREFAS DA SESSÃO (OPCIONAL)</label>
                           <div className="flex gap-2">
@@ -1338,6 +1368,7 @@ export const ActionCenter = () => {
                           </div>
 
                           {/* COMO DESEJA REGISTRAR */}
+                          {!isPrefilled && (
                           <div className="space-y-3 pt-4 border-t border-white/5 text-left">
                             <label className={labelClasses}>Como deseja registrar?</label>
                             <div className="flex gap-4">
@@ -1365,6 +1396,7 @@ export const ActionCenter = () => {
                               </button>
                             </div>
                           </div>
+                          )}
 
                           <button
                             onClick={handleStartSession}

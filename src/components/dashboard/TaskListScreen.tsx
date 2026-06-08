@@ -373,6 +373,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           activityName: task.title,
           projectId: task.project_id || null,
           activityId: task.id,
+          sessionTasks: task.checklist ? task.checklist.map(c => c.text) : [], // Injeta as tarefas existentes
           prefilled: true 
         }
       }));
