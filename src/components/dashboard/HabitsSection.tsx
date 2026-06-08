@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
-import { Layers, Calendar, ChevronDown, Plus } from 'lucide-react';
+import { Layers, Calendar, ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { formatHumanTime, getLocalDateString } from '../../lib/utils';
 import { Habit } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 const HabitCard = ({ habit }: { habit: Habit }) => {
   const dataStore = useDataStore();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   
   // Preferred times labels
   const preferredTimeLabel = {
@@ -67,11 +69,59 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
     }
   });
 
+  const handleRegisterSession = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('open-session-setup', {
+      detail: {
+        activityName: habit.name,
+        habitId: habit.id,
+        minutes: habit.minutes_per_session,
+        prefilled: true
+      }
+    }));
+  };
+
+  const handleEditHabit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('open-action-center', {
+      detail: {
+        screen: 'habits',
+        editingHabit: habit
+      }
+    }));
+  };
+
+  const handleDeleteHabit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (showConfirmDelete) {
+      await dataStore.deleteHabit(habit.id);
+      dataStore.showNotification('Hábito excluído com sucesso', 'success');
+      setShowConfirmDelete(false);
+    } else {
+      setShowConfirmDelete(true);
+    }
+  };
+
+  const createdDateFormatted = habit.created_at 
+    ? new Date(habit.created_at).toLocaleDateString('pt-BR') 
+    : todayStr;
+
   return (
-    <div id={`habit-card-${habit.id}`} className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/20 transition-all flex flex-col justify-between">
+    <div 
+      id={`habit-card-${habit.id}`} 
+      onClick={() => setIsExpanded(!isExpanded)}
+      className={`p-6 rounded-3xl bg-surface/10 border transition-all flex flex-col justify-between cursor-pointer select-none ${
+        isExpanded ? 'border-primary-green/30 bg-surface/20 shadow-lg' : 'border-border-white hover:border-primary-green/20'
+      }`}
+    >
       <div>
         <div className="flex justify-between items-start mb-2">
-          <h4 className="text-lg font-semibold text-text-primary">{habit.name}</h4>
+          <h4 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            {habit.name}
+            <span className={`text-[10px] transform transition-transform duration-200 text-text-secondary/30 ${isExpanded ? 'rotate-180 text-primary-green' : ''}`}>
+              ▼
+            </span>
+          </h4>
           <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-widest">
             {preferredTimeLabel}
           </span>
@@ -114,13 +164,13 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
       </div>
       
       {/* Visual states */}
-      <div className="pt-4 border-t border-white/5 space-y-3">
+      <div className="pt-4 border-t border-white/5 space-y-4">
         {!isTodayCompleted && !isTodayPartial && (
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs text-text-secondary/40">
+          <div className="flex items-center justify-between w-full text-xs">
+            <span className="text-text-secondary/40">
               {formatHumanTime(habit.minutes_per_session)} por sessão
             </span>
-            <span className="text-sm font-bold text-primary-green">
+            <span className="font-bold text-primary-green">
               🔥 {habit.weekly_streak} {habit.weekly_streak === 1 ? 'semana' : 'semanas'} invicta{habit.weekly_streak !== 1 ? 's' : ''}
             </span>
           </div>
@@ -142,15 +192,86 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
         )}
 
         {isTodayCompleted && (
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs text-primary-green font-medium flex items-center gap-1.5">
+          <div className="flex items-center justify-between w-full text-xs">
+            <span className="text-primary-green font-medium flex items-center gap-1.5">
               ✓ meta de hoje cumprida
             </span>
-            <span className="text-xs text-primary-green font-bold">
+            <span className="text-primary-green font-bold">
               {todayMinutes} / {targetMinutes} min
             </span>
           </div>
         )}
+
+        {/* Collapsible expanded section */}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden space-y-4 pt-2 border-t border-white/5"
+              onClick={(e) => e.stopPropagation()} // prevent collapsing on click
+            >
+              {/* Detailed metrics block */}
+              <div className="space-y-2 bg-white/5 p-4 rounded-2xl border border-white/5 text-left">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-text-secondary/40 font-mono uppercase tracking-widest">Criado em</span>
+                  <span className="font-mono font-medium text-text-primary">{createdDateFormatted}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-text-secondary/40 font-sans uppercase tracking-widest">Sessões Totais</span>
+                  <span className="font-semibold text-primary-green">🎯 {habit.deep_sessions_count || 0}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-text-secondary/40 font-sans uppercase tracking-widest">Tempo Total Dedicado</span>
+                  <span className="font-semibold text-text-primary">⌛ {formatHumanTime(habit.total_minutes || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-text-secondary/40 font-sans uppercase tracking-widest">Semana Invicta</span>
+                  <span className="font-semibold text-amber-400">🔥 {habit.weekly_streak} {habit.weekly_streak === 1 ? 'semana' : 'semanas'}</span>
+                </div>
+              </div>
+
+              {/* Obligatory Action Buttons according to directive */}
+              <div className="flex items-center gap-2 w-full pt-1">
+                <button
+                  onClick={handleRegisterSession}
+                  className="flex-1 py-3 bg-primary-green hover:bg-primary-green/90 text-background rounded-xl font-bold uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-1 min-h-[40px] cursor-pointer"
+                >
+                  <Plus size={11} />
+                  + REGISTRAR SESSÃO
+                </button>
+                
+                <button
+                  onClick={handleEditHabit}
+                  title="Editar hábito"
+                  className="w-10 h-10 bg-white/5 hover:bg-white/10 active:scale-95 text-text-secondary hover:text-text-primary border border-white/10 rounded-xl flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <Pencil size={14} />
+                </button>
+
+                <button
+                  onClick={handleDeleteHabit}
+                  title={showConfirmDelete ? "Confirmar exclusão" : "Excluir hábito"}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer border ${
+                    showConfirmDelete 
+                      ? 'bg-red-500/25 text-red-400 border-red-500/40 hover:bg-red-500/35 scale-105' 
+                      : 'bg-white/5 hover:bg-white/10 text-text-secondary hover:text-red-400 border border-white/10'
+                  }`}
+                >
+                  {showConfirmDelete ? <Check size={14} /> : <Trash2 size={14} />}
+                </button>
+              </div>
+
+              {showConfirmDelete && (
+                <p className="text-[9px] text-red-400/80 font-semibold tracking-wide uppercase text-center animate-pulse">
+                  ⚠️ Confirme para excluir clicando no botão verde
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -213,16 +334,6 @@ export const HabitsSection = () => {
                   >
                     <Plus size={14} />
                     + Novo Hábito
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'habits', showHabitsHistory: true } }));
-                    }}
-                    className="px-4 py-2.5 border border-primary-green/20 hover:border-primary-green/40 hover:bg-primary-green/5 text-primary-green rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                  >
-                    Ver Todos
                   </button>
                 </div>
               </div>

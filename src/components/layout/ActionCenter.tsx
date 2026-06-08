@@ -248,10 +248,10 @@ export const ActionCenter = () => {
         project: e.detail?.projectId || '',
         activityId: '',
         activityManual: e.detail?.activityName || '',
-        habit: '',
+        habit: e.detail?.habitId || '',
         description: '',
-        hours: 0,
-        minutes: 25,
+        hours: e.detail?.hours || 0,
+        minutes: e.detail?.minutes || 25,
         date: getLocalDateString(new Date())
       });
       if (e.detail?.sessionTasks && e.detail.sessionTasks.length > 0) {
@@ -262,7 +262,7 @@ export const ActionCenter = () => {
       setRestoredTasks([]);
       timer.updateConfig(
         e.detail?.projectId || undefined,
-        undefined,
+        e.detail?.habitId || undefined,
         e.detail?.activityName || undefined,
         undefined,
         e.detail?.activityId
