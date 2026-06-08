@@ -1000,9 +1000,18 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                     <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                       {subtasksList.map((st, sIdx) => (
                         <div key={sIdx} className="flex justify-between items-center text-xs gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
-                          <div className="flex items-center gap-2">
-                            <span className="text-text-secondary/40 select-none">☐</span>
-                            <span className="font-semibold text-text-primary font-sans">{st.text}</span>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-text-secondary/40 select-none shrink-0">☐</span>
+                            <input
+                              type="text"
+                              value={st.text}
+                              onChange={(e) => {
+                                const updatedList = [...subtasksList];
+                                updatedList[sIdx] = { ...updatedList[sIdx], text: e.target.value };
+                                setSubtasksList(updatedList);
+                              }}
+                              className="font-semibold text-text-primary font-sans bg-transparent border-none outline-none focus:ring-0 p-0 m-0 flex-1 min-w-0 w-full truncate focus:truncate-none"
+                            />
                           </div>
                           <button 
                             type="button" 

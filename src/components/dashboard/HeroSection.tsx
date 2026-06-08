@@ -847,7 +847,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </span>
             </div>
             {buttonSubline && (
-              <span className="text-[10px] font-mono text-base/80 uppercase tracking-[0.12em] font-semibold">
+              <span className="text-[11px] sm:text-xs font-bold text-black/80 uppercase tracking-[0.1em] mt-0.5">
                 {buttonSubline}
               </span>
             )}

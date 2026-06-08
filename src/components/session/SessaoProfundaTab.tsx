@@ -426,7 +426,16 @@ export const SessaoProfundaTab = () => {
                       className="flex items-center gap-3 p-3 bg-surface/10 rounded-xl border border-white/5"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-green shrink-0 animate-pulse" />
-                      <span className="text-xs text-text-primary flex-1 font-medium">{task}</span>
+                      <input
+                        type="text"
+                        value={task}
+                        onChange={(e) => {
+                          const updatedTasks = [...pendingTasks];
+                          updatedTasks[i] = e.target.value;
+                          setPendingTasks(updatedTasks);
+                        }}
+                        className="text-xs text-text-primary flex-1 font-medium bg-transparent border-none outline-none focus:ring-0 p-0 m-0 w-full"
+                      />
                       <button
                         type="button"
                         onClick={() => handleRemovePendingTask(i)}
