@@ -30,6 +30,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [uploading, setUploading] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
   const [isWiping, setIsWiping] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +66,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       setFullName(profile.full_name);
     }
   }, [profile]);
+
+  // Reset delete states when panel is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDeleteConfirm(false);
+      setConfirmText('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -360,19 +369,39 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 </p>
               </div>
 
+              <div className="space-y-3">
+                <p className="text-[10px] text-text-dim/60 font-semibold uppercase tracking-wider text-center">
+                  Digite a palavra <span className="text-[#f87171] font-extrabold">DELETAR</span> abaixo para prosseguir:
+                </p>
+                <input 
+                  type="text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="Digite DELETAR para confirmar"
+                  className="w-full p-4 rounded-2xl bg-base border border-border-custom text-white text-center font-extrabold uppercase tracking-[0.1em] text-xs focus:outline-none focus:border-[#f87171]/60 transition-all select-all placeholder-text-dim/30"
+                />
+              </div>
+
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
-                  disabled={isWiping}
+                  disabled={isWiping || confirmText !== 'DELETAR'}
                   onClick={handleWipeAccount}
-                  className="w-full py-4 bg-[#f87171] hover:bg-[#e11d48] text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md disabled:opacity-50"
+                  className={`w-full py-4 text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md ${
+                    confirmText === 'DELETAR'
+                      ? 'bg-[#f87171] hover:bg-[#e11d48]'
+                      : 'bg-[#f87171]/30 opacity-40 cursor-not-allowed grayscale'
+                  }`}
                 >
                   {isWiping ? 'DELETANDO TUDO...' : 'SIM, DELETAR TUDO'}
                 </button>
                 <button
                   type="button"
                   disabled={isWiping}
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setConfirmText('');
+                  }}
                   className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
                 >
                   CANCELAR
