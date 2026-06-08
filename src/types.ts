@@ -58,6 +58,8 @@ export type AvoidanceCheckin = {
   checkin_date: string;
   checkin_period: 'morning' | 'afternoon' | 'evening' | 'window' | string;
   status: 'success' | 'relapse' | 'pending' | 'resisti' | 'recai' | 'depois' | string;
+  trigger_tag?: string | null; // Tag de neurociência do gatilho 
+  trigger_note?: string | null; // Nota livre opcional
   created_at: string;
   window_label?: string | null;
   prompts_shown?: number;

@@ -199,9 +199,12 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
   
   const tempoLimpoSubtitle = lastRelapse ? "desde a última recaída" : "desde o início do controle";
 
-  // 4. Dias Limpos no Total
-  const rawVictoryDates = checkins.filter(c => isVictory(c.status)).map(c => c.checkin_date);
-  const diasLimposTotal = new Set(rawVictoryDates).size;
+  // 4. Dias Limpos no Total: Fim do reset incorreto.
+  // O tempo total limpo é a soma absoluta dos dias decorridos menos as recaídas (âncora de custo irrecuperável).
+  const absoluteStartDayStr = ah.created_at.split('T')[0];
+  const totalDaysSinceCreation = getDaysBetween(absoluteStartDayStr, todayStr) + 1;
+  const totalRelapseDays = new Set(relapseCheckins.map(c => c.checkin_date)).size;
+  const diasLimposTotal = Math.max(0, totalDaysSinceCreation - totalRelapseDays);
 
   return {
     tempoLimpoAtualText,
@@ -220,11 +223,25 @@ export const AvoidanceSection = () => {
   const [activePromptPeriod, setActivePromptPeriod] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [supportiveModal, setSupportiveModal] = useState<{
+  const [relapseModal, setRelapseModal] = useState<{
     isOpen: boolean;
+    habitId: string;
     habitName: string;
-    totalCleanDays: number;
+    step: 'trigger' | 'feedback';
+    totalCleanDays?: number;
   } | null>(null);
+  const [customTriggerNote, setCustomTriggerNote] = useState('');
+  const [urgeTimer, setUrgeTimer] = useState<number | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (urgeTimer !== null && urgeTimer > 0) {
+      interval = setInterval(() => setUrgeTimer(prev => prev! - 1), 1000);
+    } else if (urgeTimer === 0) {
+      setUrgeTimer(null);
+    }
+    return () => clearInterval(interval);
+  }, [urgeTimer]);
   
   const [tick, setTick] = useState(0);
 
@@ -356,18 +373,30 @@ export const AvoidanceSection = () => {
   }, [user, avoidHabits, dataStore.avoidanceCheckins]);
 
   // Submit check-in results
-  const handleCheckinSubmit = async (habitId: string, period: 'morning' | 'afternoon' | 'evening' | 'window', status: 'success' | 'relapse') => {
+  const handleCheckinSubmit = async (
+    habitId: string, 
+    period: 'morning' | 'afternoon' | 'evening' | 'window', 
+    status: 'success' | 'relapse',
+    triggerTag?: string, // Nova injeção de gatilho
+    triggerNote?: string // Nova nota opcional
+  ) => {
     if (!user) return;
 
     const currentHabit = avoidHabits.find(h => h.id === habitId);
     if (!currentHabit) return;
 
+    // Correção do Bug de Fuso: Forçar timestamp ISO local para cravar a hora exata da recaída
+    const localIsoString = new Date().toISOString();
+
     const checkinData = {
       user_id: user.id,
       habit_id: habitId,
-      checkin_date: getLocalDateString(),
+      checkin_date: getLocalDateString(), // Mantém index do dia 
       checkin_period: period,
-      status
+      status,
+      trigger_tag: triggerTag || null,
+      trigger_note: triggerNote || null,
+      created_at: localIsoString
     };
 
     const result = await dataStore.addAvoidanceCheckin(checkinData);
@@ -378,12 +407,11 @@ export const AvoidanceSection = () => {
         const relatedCheckins = [...dataStore.avoidanceCheckins, result];
         const metrics = calculateAvoidanceMetrics(currentHabit, relatedCheckins);
         
-        // Show supportive, shame-free overlay
-        setSupportiveModal({
-          isOpen: true,
-          habitName: currentHabit.name,
+        setRelapseModal(prev => prev ? {
+          ...prev,
+          step: 'feedback',
           totalCleanDays: metrics.diasLimposTotal
-        });
+        } : null);
       }
     }
 
@@ -604,19 +632,27 @@ export const AvoidanceSection = () => {
                           </div>
 
                           {/* ON-DEMAND Hybrid Checkin Buttons */}
-                          <div className="grid grid-cols-2 gap-2 pt-2">
+                          <div className="flex flex-col gap-2 pt-2">
                             <button
-                              onClick={() => handleCheckinSubmit(habit.id, 'window', 'success')}
-                              className="py-2.5 bg-primary-green/10 hover:bg-primary-green/20 border border-primary-green/35 text-primary-green rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
+                              onClick={() => setUrgeTimer(300)}
+                              className="py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-500 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center w-full"
                             >
-                              ✓ Resisti hoje
+                              🚨 ESTOU NO LIMITE (AJUDA)
                             </button>
-                            <button
-                              onClick={() => handleCheckinSubmit(habit.id, 'window', 'relapse')}
-                              className="py-2.5 bg-red-400/5 hover:bg-red-400/15 border border-red-400/20 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
-                            >
-                              Caí / recaí
-                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => handleCheckinSubmit(habit.id, 'window', 'success')}
+                                className="py-2.5 bg-primary-green/10 hover:bg-primary-green/20 border border-primary-green/35 text-primary-green rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
+                              >
+                                ✓ Resisti hoje
+                              </button>
+                              <button
+                                onClick={() => setRelapseModal({ isOpen: true, habitId: habit.id, habitName: habit.name, step: 'trigger' })}
+                                className="py-2.5 bg-red-400/5 hover:bg-red-400/15 border border-red-400/20 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer text-center"
+                              >
+                                Caí / recaí
+                              </button>
+                            </div>
                           </div>
 
                           {/* IN-APP PERIODIC PROMPT BANNER */}
@@ -702,51 +738,91 @@ export const AvoidanceSection = () => {
         )}
       </AnimatePresence>
 
-      {/* COMPASSIONATE SHAME-FREE RELAPSE MODAL */}
       <AnimatePresence>
-        {supportiveModal && supportiveModal.isOpen && (
+        {urgeTimer !== null && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-background/95 backdrop-blur-xl"
+          >
+            <div className="text-center space-y-6 max-w-sm w-full">
+              <div className="w-24 h-24 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" />
+              <h2 className="text-4xl font-black text-white tracking-tighter">
+                {Math.floor(urgeTimer / 60)}:{String(urgeTimer % 60).padStart(2, '0')}
+              </h2>
+              <p className="text-lg text-text-secondary/80 font-medium">
+                Respire. O pico do impulso dura apenas 10 minutos. Apenas aguarde e observe o desejo passar.
+              </p>
+              <button onClick={() => setUrgeTimer(null)} className="mt-8 text-xs font-bold text-text-secondary/40 hover:text-white uppercase tracking-widest transition-colors cursor-pointer">
+                Voltar (O Impulso Passou)
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {relapseModal && relapseModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-background/85 backdrop-blur-md"
           >
             <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="w-full max-w-md bg-surface border border-white/10 rounded-3xl p-6 md:p-8 text-center space-y-5 shadow-2xl relative"
+              initial={{ scale: 0.95, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-md bg-surface border border-white/10 rounded-3xl p-6 md:p-8 text-center shadow-2xl relative"
             >
               <button
-                onClick={() => setSupportiveModal(null)}
+                onClick={() => { setRelapseModal(null); setCustomTriggerNote(''); }}
                 className="absolute top-4 right-4 text-text-secondary/40 hover:text-text-primary transition-colors cursor-pointer"
               >
-                <X size={18} />
+                <X size={18}/>
               </button>
 
-              <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
-                <Heart size={24} className="fill-amber-500/20" />
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-lg font-bold text-text-primary tracking-tight">
-                  Tudo bem, recomeçar é o caminho.
-                </h4>
-                <p className="text-xs text-primary-green/90 uppercase tracking-widest font-bold">
-                  Sua mente continua evoluindo
-                </p>
-              </div>
-
-              <p className="text-xs text-text-secondary/80 leading-relaxed font-light">
-                Recaída faz parte de qualquer processo de evolução — o que realmente importa é ter retornado agora. Seus <span className="font-bold text-primary-green">{supportiveModal.totalCleanDays} dias limpos</span> acumulados no total não somem. Recomeçar agora mesmo já é uma imensa vitória. Sentir culpa só alimenta o ciclo de fuga; estamos juntos nesse reinício. 💚
-              </p>
-
-              <button
-                onClick={() => setSupportiveModal(null)}
-                className="w-full py-3 bg-primary-green text-background hover:brightness-115 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer shadow-md"
-              >
-                RECOMEÇAR CONSCIENTEMENTE
-              </button>
+              {relapseModal.step === 'trigger' ? (
+                <div className="space-y-5">
+                  <h3 className="text-xl font-bold text-text-primary tracking-tight">O que disparou isso agora?</h3>
+                  <p className="text-xs text-text-secondary/60">Selecione o gatilho dominante em apenas um clique.</p>
+                  <div className="grid grid-cols-1 gap-2 text-left">
+                    {[
+                      { tag: 'Tédio / Procrastinação', emoji: '🥱' },
+                      { tag: 'Estresse / Ansiedade', emoji: '⚡' },
+                      { tag: 'Cansaço Mental / Fadiga', emoji: '😩' },
+                      { tag: 'Recompensa (Eu mereço)', emoji: '🏆' },
+                      { tag: 'Gatilho Social / Ambiente', emoji: '🍻' }
+                    ].map((t) => (
+                      <button
+                        key={t.tag}
+                        onClick={() => handleCheckinSubmit(relapseModal.habitId, 'window', 'relapse', t.tag, customTriggerNote)}
+                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-sm font-medium text-text-primary transition-all flex items-center gap-3 cursor-pointer"
+                      >
+                        <span className="text-xl">{t.emoji}</span> {t.tag}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="💬 Nota extra (opcional)..."
+                    value={customTriggerNote}
+                    onChange={(e) => setCustomTriggerNote(e.target.value)}
+                    className="w-full mt-2 p-3 bg-black/20 border border-white/5 rounded-xl text-xs text-white placeholder:text-text-secondary/30 focus:outline-none focus:border-white/10"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                    <Heart size={24} className="fill-amber-500/20"/>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-lg font-bold text-text-primary tracking-tight">Padrão registrado.</h4>
+                  </div>
+                  <p className="text-xs text-text-secondary/80 leading-relaxed font-light">
+                    A sua inteligência de gatilhos foi atualizada no banco de dados. Os <span className="font-bold text-primary-green">{relapseModal.totalCleanDays} dias limpos</span> acumulados no total continuam intactos. O que importa é ter retornado agora.
+                  </p>
+                  <button
+                    onClick={() => { setRelapseModal(null); setCustomTriggerNote(''); }}
+                    className="w-full py-3 bg-primary-green text-background hover:brightness-115 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer shadow-md"
+                  >
+                    VOLTAR À OPERAÇÃO
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
