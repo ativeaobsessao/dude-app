@@ -286,7 +286,7 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack, onBack
       <div className="pt-8 pb-4 flex justify-center w-full">
         <button
           id="links-list-back-menu-btn"
-          onClick={onBackToMenu}
+          onClick={onBack}
           className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
         >
           <ArrowLeft size={14} /> VOLTAR MENU

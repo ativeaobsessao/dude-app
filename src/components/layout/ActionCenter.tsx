@@ -2473,7 +2473,7 @@ export const ActionCenter = () => {
                   setCurrentScreen(null);
                 }}
                 onBackToMenu={() => {
-                  setIsOpen(true);
+                  setIsOpen(false);
                   setCurrentScreen(null);
                 }}
               />
