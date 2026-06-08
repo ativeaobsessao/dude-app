@@ -1375,7 +1375,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         return trimmed;
       };
 
-      const sessionToSave = {
+      const sessionToSave: any = {
         user_id: userId,
         project_id: valOrNull(projectId),
         habit_id: null,
@@ -1390,6 +1390,13 @@ export const useDataStore = create<DataState>((set, get) => ({
         activity_id: null,
         scheduled_activity_id: valOrNull(activityId),
       };
+
+      // Sanitize the payload to completely remove empty strings, null, or undefined values
+      Object.keys(sessionToSave).forEach(key => {
+        if (sessionToSave[key] === "" || sessionToSave[key] === null || sessionToSave[key] === undefined) {
+          delete sessionToSave[key];
+        }
+      });
 
       const { data, error } = await supabase
         .from('focus_sessions')
