@@ -1368,9 +1368,16 @@ export const useDataStore = create<DataState>((set, get) => ({
       const now = completed_at || new Date().toISOString();
       const startedAt = new Date(new Date(now).getTime() - durationMinutes * 60 * 1000).toISOString();
 
+      const valOrNull = (val: string | null | undefined) => {
+        if (!val) return null;
+        const trimmed = val.trim();
+        if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return null;
+        return trimmed;
+      };
+
       const sessionToSave = {
         user_id: userId,
-        project_id: projectId || null,
+        project_id: valOrNull(projectId),
         habit_id: null,
         activity_name: activityName || 'Tarefa Concluída',
         description: '',
@@ -1381,7 +1388,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         all_tasks_completed: true,
         actual_duration_minutes: durationMinutes,
         activity_id: null,
-        scheduled_activity_id: activityId || null,
+        scheduled_activity_id: valOrNull(activityId),
       };
 
       const { data, error } = await supabase
