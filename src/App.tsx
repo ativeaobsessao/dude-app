@@ -902,7 +902,7 @@ export default function App() {
         </footer>
 
         {/* FIXED BOTTOM NAVIGATION BAR */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0f0e]/85 backdrop-blur-xl border-t border-white/5 pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#0d0f0e]/85 backdrop-blur-xl border-t border-white/5 pb-safe">
           <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-between">
             {/* 1. Início */}
             <button 

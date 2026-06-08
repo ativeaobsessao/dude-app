@@ -119,7 +119,7 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
             onClick={onBack}
             className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-all font-bold uppercase tracking-widest text-[10px]"
           >
-            <ArrowLeft size={12} /> Voltar ao Dashboard
+            <ArrowLeft size={12} /> Voltar
           </button>
           <h1 className="text-4xl font-extrabold tracking-tight text-text-primary uppercase">
             REALIZAR AGENDAMENTO
@@ -224,6 +224,16 @@ export const AgendaCompletaPage = ({ onBack, onStartSession, onOpenNewSchedule }
           )}
         </div>
       )}
+
+      {/* FIXED BOTTOM NAVEGATION ACCORDING TO UX DIRECTIVE */}
+      <div className="pt-8 border-t border-white/5 flex justify-center">
+        <button
+          onClick={onBack}
+          className="px-6 py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 text-text-secondary border border-white/10 hover:border-white/20 transition-all font-bold uppercase tracking-widest text-[10px] rounded-2xl flex items-center gap-2 font-sans"
+        >
+          <ArrowLeft size={12} /> VOLTAR MENU
+        </button>
+      </div>
     </div>
   );
 };

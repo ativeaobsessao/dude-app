@@ -1097,14 +1097,14 @@ export const ActionCenter = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={isPrefilled 
-              ? "fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
-              : "fixed inset-0 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
+            className={isPrefilled || currentScreen !== null
+              ? "fixed inset-x-0 top-0 bottom-20 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+              : "fixed inset-x-0 top-0 bottom-20 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
             }
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <div className={isPrefilled
+            <div className={isPrefilled || currentScreen !== null
               ? "w-full max-w-xl bg-background border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-6 my-auto"
               : "w-full max-w-4xl space-y-12 pb-32"
             }>
@@ -2450,7 +2450,7 @@ export const ActionCenter = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
+            className="fixed inset-x-0 top-0 bottom-20 z-[210] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
           >
             <div className="w-full max-w-2xl space-y-10">
               <header className="flex justify-between items-center border-b border-white/5 pb-8">
@@ -2575,7 +2575,7 @@ export const ActionCenter = () => {
       {/* List Modals */}
       <AnimatePresence>
         {showListModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-20 overflow-y-auto">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-x-0 top-0 bottom-20 z-[210] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-20 overflow-y-auto">
             <div className="w-full max-w-2xl space-y-12">
                <header className="flex justify-between items-center bg-white/5 -mx-6 -mt-20 p-10 border-b border-white/5 mb-8">
                  <h3 className="text-2xl font-bold text-text-primary tracking-tight">Listagem de {showListModal === 'projects' ? 'Projetos' : 'Atividades'}</h3>
