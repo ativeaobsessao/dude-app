@@ -61,7 +61,8 @@ export const ActionCenter = () => {
     if (diffX > 80 && diffX > Math.abs(diffY) * 1.5) {
       if (currentScreen !== null) {
         if (currentScreen === 'links-list') {
-          setCurrentScreen('saved-links');
+          setIsOpen(false);
+          setCurrentScreen(null);
         } else {
           setIsOpen(false);
           setEditingActivity(undefined);
@@ -77,13 +78,9 @@ export const ActionCenter = () => {
     <div className="pt-10 w-full flex justify-center pb-6">
       <button
         onClick={() => {
-          if (currentScreen === 'links-list') {
-            setCurrentScreen('saved-links');
-          } else {
-            setIsOpen(false);
-            setEditingActivity(undefined);
-            setCurrentScreen(null);
-          }
+          setIsOpen(false);
+          setEditingActivity(undefined);
+          setCurrentScreen(null);
         }}
         className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
       >
@@ -1092,7 +1089,7 @@ export const ActionCenter = () => {
   return (
     <>
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && currentScreen !== 'links-list' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1113,12 +1110,8 @@ export const ActionCenter = () => {
                   {currentScreen !== null && (
                     <button 
                       onClick={() => {
-                        if (currentScreen === 'links-list') {
-                          setCurrentScreen('saved-links');
-                        } else {
-                          setIsOpen(false);
-                          setCurrentScreen(null);
-                        }
+                        setIsOpen(false);
+                        setCurrentScreen(null);
                       }}
                       className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"
                     >
@@ -2428,15 +2421,6 @@ export const ActionCenter = () => {
                     {renderBottomBackButton()}
                   </div>
                 )}
-
-                {currentScreen === 'links-list' && (
-                  <div className="w-full max-w-2xl flex flex-col items-stretch">
-                    <LinksListScreen
-                      onBack={() => setCurrentScreen('saved-links')}
-                    />
-                    {renderBottomBackButton()}
-                  </div>
-                )}
               </div>
             </div>
           </motion.div>
@@ -2445,6 +2429,28 @@ export const ActionCenter = () => {
 
       {/* List Modals */}
       <AnimatePresence>
+        {isOpen && currentScreen === 'links-list' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-x-0 top-0 bottom-20 z-[210] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
+          >
+            <div className="w-full max-w-2xl space-y-10 pb-20">
+              <LinksListScreen
+                onBack={() => {
+                  setIsOpen(false);
+                  setCurrentScreen(null);
+                }}
+                onBackToMenu={() => {
+                  setIsOpen(true);
+                  setCurrentScreen(null);
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
+
         {showHabitsModal && (
           <motion.div
             initial={{ opacity: 0 }}

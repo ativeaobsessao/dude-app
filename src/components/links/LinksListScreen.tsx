@@ -6,10 +6,11 @@ import { SavedLink } from '../../types';
 import { CustomSelect } from '../ui/CustomSelect';
 
 interface LinksListScreenProps {
-  onBack: () => void; // Returns to config screen (Tela A)
+  onBack: () => void; // Closes the modal returning to the previous state
+  onBackToMenu: () => void; // Returns strictly to the MENU session
 }
 
-export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack }) => {
+export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack, onBackToMenu }) => {
   const { user } = useAuthStore();
   const { projects, habits, savedLinks, updateLink, deleteLink, registerLinkAccess } = useDataStore();
 
@@ -117,25 +118,22 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack }) => {
 
   return (
     <div id="links-list-screen" className="w-full max-w-3xl space-y-8 relative">
-      {/* Back to inputs / setup (Tela A) */}
-      <div className="flex justify-start">
+      {/* Top Header */}
+      <header className="flex justify-between items-center border-b border-white/5 pb-6 w-full">
         <button
           id="links-list-back-btn"
           onClick={onBack}
-          className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"
+          className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px] cursor-pointer"
         >
-          <ArrowLeft size={16} /> Cadastrar Novo Link
+          <ArrowLeft size={14} /> Voltar
         </button>
-      </div>
-
-      <div className="text-center space-y-2">
-        <h3 id="links-list-heading" className="text-3xl font-bold tracking-tight text-text-primary uppercase tracking-[0.2em]">
-          Todos os Links
-        </h3>
-        <p className="text-xs text-text-secondary/60">
-          Pesquise e acesse rapidamente seus atalhos salvos por projeto.
-        </p>
-      </div>
+        <div className="text-right">
+          <h3 id="links-list-heading" className="text-2xl font-bold text-text-primary uppercase tracking-wider">
+            Todos os Links
+          </h3>
+          <p className="text-[10px] text-text-secondary/50 font-mono">CONSULTA RÁPIDA</p>
+        </div>
+      </header>
 
       <div className="space-y-12">
         {/* Render grouped by project */}
@@ -280,9 +278,19 @@ export const LinksListScreen: React.FC<LinksListScreenProps> = ({ onBack }) => {
           <div className="text-center py-12 bg-surface/5 rounded-3xl border border-white/5 space-y-3">
             <Link2 size={32} className="mx-auto text-text-secondary/35 stroke-[1.5]" />
             <p className="text-sm text-text-secondary/70">Nenhum link cadastrado.</p>
-            <p className="text-xs text-text-secondary/40">Use o botão voltar para cadastrar seu primeiro atalho.</p>
           </div>
         )}
+      </div>
+
+      {/* Voltar Menu Button */}
+      <div className="pt-8 pb-4 flex justify-center w-full">
+        <button
+          id="links-list-back-menu-btn"
+          onClick={onBackToMenu}
+          className="w-full max-w-xs py-4 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:border-white/20"
+        >
+          <ArrowLeft size={14} /> VOLTAR MENU
+        </button>
       </div>
 
       {/* Quick Edit Modal */}
