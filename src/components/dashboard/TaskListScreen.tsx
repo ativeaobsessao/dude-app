@@ -365,18 +365,28 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const handleToggleTaskCompletion = async (task: DailyTask, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextCompleted = !task.is_completed;
+
+    if (nextCompleted) {
+      // Intercepta a conclusão e força o usuário para o pop-up da Sessão Profunda
+      dataStore.showNotification('Registre o tempo de execução para concluir a tarefa.', 'success');
+      window.dispatchEvent(new CustomEvent('open-action-center', {
+        detail: {
+          screen: 'session',
+          activityId: task.id,
+          activityName: task.title
+        }
+      }));
+      return;
+    }
+
+    // Reabertura da tarefa (se desmarcar)
     const updates = {
-      is_completed: nextCompleted,
-      completed_at: nextCompleted ? new Date().toISOString() : null
+      is_completed: false,
+      completed_at: null
     };
     
     await dataStore.updateDailyTask(task.id, updates);
-
-    if (nextCompleted) {
-      dataStore.showNotification('Fantástico! Meta diária concluída. 🌟', 'success');
-    } else {
-      dataStore.showNotification('Tarefa reaberta para progresso.', 'success');
-    }
+    dataStore.showNotification('Tarefa reaberta para progresso.', 'success');
   };
 
   // Subtask checkbox inside main checklist

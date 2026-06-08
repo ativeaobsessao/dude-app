@@ -779,29 +779,14 @@ export const ActionCenter = () => {
       showSuccess('Por favor, insira o nome do hábito.');
       return;
     }
-    if (!newHabitFrequency || newHabitFrequency < 1) {
-      showSuccess('Por favor, selecione a frequência semanal.');
-      return;
-    }
-    if (!newHabitDuration || newHabitDuration < 1) {
-      showSuccess('Por favor, insira a duração por sessão.');
-      return;
-    }
-    if (!newHabitTime) {
-      showSuccess('Por favor, selecione o melhor horário.');
-      return;
-    }
     if (isRecurring && recurrenceDays.length === 0) {
-      showSuccess('Por favor, escolha pelo menos um dia fixo da semana para a recorrência.');
-      return;
-    }
-    if (isScheduled && schedWeekdays.length === 0) {
-      showSuccess('Por favor, escolha pelo menos um dia da semana para o agendamento.');
+      showSuccess('Escolha pelo menos um dia fixo da semana para a recorrência.');
       return;
     }
 
-    const startHHFiltered = schedStartHH ? String(Math.min(23, parseInt(schedStartHH, 10) || 0)).padStart(2, '0') : '09';
-    const startMMFiltered = schedStartMM ? String(Math.min(59, parseInt(schedStartMM, 10) || 0)).padStart(2, '0') : '00';
+    // Vinculação Automática: Se for recorrente, o sistema agenda automaticamente
+    const startHHFiltered = recurrenceTimeHours ? String(Math.min(23, parseInt(recurrenceTimeHours, 10) || 0)).padStart(2, '0') : '09';
+    const startMMFiltered = recurrenceTimeMinutes ? String(Math.min(59, parseInt(recurrenceTimeMinutes, 10) || 0)).padStart(2, '0') : '00';
     const schedStartCombined = `${startHHFiltered}:${startMMFiltered}`;
 
     const durHHNum = parseInt(schedDurHH, 10) || 0;
@@ -809,10 +794,10 @@ export const ActionCenter = () => {
     const schedDurMinsCombined = durHHNum * 60 + durMMNum;
 
     const schedulingParams = {
-      is_scheduled: isScheduled,
-      sched_start: isScheduled ? schedStartCombined : null,
-      sched_duration: isScheduled ? (schedDurMinsCombined || null) : null,
-      sched_weekdays: isScheduled ? (schedWeekdays.join(',') || 'all') : null
+      is_scheduled: isRecurring, // Todo hábito com dia fixo agora é agendado no sistema de alertas
+      sched_start: isRecurring ? schedStartCombined : null,
+      sched_duration: isRecurring ? (schedDurMinsCombined || null) : null,
+      sched_weekdays: isRecurring ? (recurrenceDays.join(',') || 'all') : null
     };
 
     setIsSaving(true);
@@ -825,16 +810,14 @@ export const ActionCenter = () => {
           preferred_time: newHabitTime as 'morning' | 'afternoon' | 'evening',
           is_recurring: isRecurring,
           recurrence_days: isRecurring ? recurrenceDays : [],
-          recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
+          recurrence_time: isRecurring ? schedStartCombined : null,
           ...schedulingParams
         });
         if (success) {
-          showSuccess('✅ Hábito atualizado com sucesso!');
+          showSuccess('✅ Hábito atualizado e agendado com sucesso!');
           setEditingHabitId(null);
           setIsOpen(false);
           setCurrentScreen(null);
-        } else {
-          showSuccess('Erro ao atualizar hábito.');
         }
       } else {
         await dataStore.addHabit(
@@ -845,31 +828,24 @@ export const ActionCenter = () => {
           newHabitTime as 'morning' | 'afternoon' | 'evening',
           isRecurring,
           isRecurring ? recurrenceDays : [],
-          isRecurring ? (recurrenceTime || '09:00') : '',
-          {
-            ...schedulingParams
-          }
+          isRecurring ? schedStartCombined : '',
+          { ...schedulingParams }
         );
-        showSuccess('✅ Hábito criado com sucesso!');
+        showSuccess('✅ Hábito criado e agendado com sucesso!');
         setIsOpen(false);
         setCurrentScreen(null);
       }
 
       setNewHabitName('');
-      setNewHabitFrequency(3);
-      setNewHabitDuration(0);
-      setNewHabitTime('morning');
       setIsRecurring(false);
       setRecurrenceDays([]);
-      setRecurrenceTime('09:00');
-      setIsScheduled(false);
-      setSchedStartHH('09');
-      setSchedStartMM('00');
+      setRecurrenceTimeHours('09');
+      setRecurrenceTimeMinutes('00');
       setSchedDurHH('00');
       setSchedDurMM('45');
-      setSchedWeekdays([]);
+      setSchedStartHH('');
+      setSchedStartMM('');
     } catch (err) {
-      console.error('Erro ao salvar hábito:', err);
       showSuccess('Erro ao salvar hábito.');
     } finally {
       setIsSaving(false);
@@ -2305,209 +2281,33 @@ export const ActionCenter = () => {
                                         />
                                       </div>
                                     </div>
-                                    <p className="text-[10px] text-text-secondary/40 font-medium italic mt-1">
-                                      * Ao salvar, agendamentos automáticos serão atualizados para este horário.
-                                    </p>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-
-                        {/* BLOCO DE AGENDAMENTO DE HÁBITO RECORRENTE (is_scheduled) */}
-                        <div className="pt-2">
-                          <label className="flex items-center gap-3 cursor-pointer select-none py-2 text-text-primary">
-                            <input
-                              type="checkbox"
-                              checked={isScheduled}
-                              onChange={(e) => {
-                                setIsScheduled(e.target.checked);
-                                if (e.target.checked && schedWeekdays.length === 0) {
-                                  setSchedWeekdays(['1', '2', '3', '4', '5']); // Segunda-Sexta padrão
-                                }
-                              }}
-                              className="w-5 h-5 rounded border border-white/20 bg-white/5 text-primary-green focus:ring-0 focus:ring-offset-0 cursor-pointer accent-primary-green"
-                            />
-                            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                              Agendar Prática na Agenda de Hoje (Alertas / Banner)
-                            </span>
-                          </label>
-
-                          <AnimatePresence>
-                            {isScheduled && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.25 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="space-y-5 pt-4 border-t border-white/5 mt-3 text-left">
-                                  {/* Sched Weekdays */}
-                                  <div>
-                                    <label className={labelClasses}>Dias de Agenda (Alerta)</label>
-                                    <div className="grid grid-cols-7 gap-1.5 pt-1">
-                                      {[
-                                        { value: '1', label: 'Seg' },
-                                        { value: '2', label: 'Ter' },
-                                        { value: '3', label: 'Qua' },
-                                        { value: '4', label: 'Qui' },
-                                        { value: '5', label: 'Sex' },
-                                        { value: '6', label: 'Sáb' },
-                                        { value: '7', label: 'Dom' }
-                                      ].map((day) => {
-                                        const isSelected = schedWeekdays.includes(day.value);
-                                        return (
-                                          <button
-                                            key={day.value}
-                                            type="button"
-                                            onClick={() => {
-                                              if (isSelected) {
-                                                setSchedWeekdays(schedWeekdays.filter(d => d !== day.value));
-                                              } else {
-                                                setSchedWeekdays([...schedWeekdays, day.value]);
-                                              }
-                                            }}
-                                            className={`h-11 rounded-xl text-xs font-bold transition-all transition-colors flex items-center justify-center border cursor-pointer ${
-                                              isSelected
-                                                ? 'bg-primary-green text-background border-primary-green shadow-[0_0_12px_rgba(110,231,168,0.2)]'
-                                                : 'bg-white/5 text-text-secondary border-white/10 hover:bg-white/10'
-                                            }`}
-                                          >
-                                            {day.label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-
-                                  {/* Sched Start Time */}
-                                  <div className="space-y-1 text-left">
-                                    <label className={labelClasses}>Horário de Início</label>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      {/* HORAS */}
-                                      <div className="space-y-1 text-left">
-                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
-                                        <input
-                                          type="tel"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          maxLength={2}
-                                          enterKeyHint="done"
-                                          placeholder="09"
-                                          className={`${inputClasses} text-center text-xl font-bold`}
-                                          value={schedStartHH}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                            setSchedStartHH(val);
-                                          }}
-                                          onBlur={() => {
-                                            const num = Math.min(23, parseInt(schedStartHH, 10) || 0);
-                                            setSchedStartHH(String(num).padStart(2, '0'));
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault();
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                        />
-                                      </div>
-                                      {/* MINUTOS */}
-                                      <div className="space-y-1 text-left">
-                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
-                                        <input
-                                          type="tel"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          maxLength={2}
-                                          enterKeyHint="done"
-                                          placeholder="00"
-                                          className={`${inputClasses} text-center text-xl font-bold`}
-                                          value={schedStartMM}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                            setSchedStartMM(val);
-                                          }}
-                                          onBlur={() => {
-                                            const num = Math.min(59, parseInt(schedStartMM, 10) || 0);
-                                            setSchedStartMM(String(num).padStart(2, '0'));
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault();
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                        />
+                                    {/* DURAÇÃO (OPCIONAL) */}
+                                    <div className="space-y-1 text-left mt-5 border-t border-white/5 pt-4">
+                                      <label className={labelClasses}>Duração (Opcional)</label>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1 text-left">
+                                          <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                          <input type="tel" maxLength={2} placeholder="00" value={schedDurHH} onChange={(e) => setSchedDurHH(e.target.value)} className={`${inputClasses} text-center text-xl font-bold`} />
+                                        </div>
+                                        <div className="space-y-1 text-left">
+                                          <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                          <input type="tel" maxLength={2} placeholder="45" value={schedDurMM} onChange={(e) => setSchedDurMM(e.target.value)} className={`${inputClasses} text-center text-xl font-bold`} />
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
 
-                                  {/* Sched Duration (Opcional) */}
-                                  <div className="space-y-1 text-left">
-                                    <label className={labelClasses}>Duração Estimada (Opcional)</label>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      {/* HORAS */}
-                                      <div className="space-y-1 text-left">
-                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
-                                        <input
-                                          type="tel"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          maxLength={2}
-                                          enterKeyHint="done"
-                                          placeholder="00"
-                                          className={`${inputClasses} text-center text-xl font-bold`}
-                                          value={schedDurHH}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                            setSchedDurHH(val);
-                                          }}
-                                          onBlur={() => {
-                                            const num = Math.min(23, parseInt(schedDurHH, 10) || 0);
-                                            setSchedDurHH(String(num).padStart(2, '0'));
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault();
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                        />
-                                      </div>
-                                      {/* MINUTOS */}
-                                      <div className="space-y-1 text-left">
-                                        <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
-                                        <input
-                                          type="tel"
-                                          inputMode="numeric"
-                                          pattern="[0-9]*"
-                                          maxLength={2}
-                                          enterKeyHint="done"
-                                          placeholder="45"
-                                          className={`${inputClasses} text-center text-xl font-bold`}
-                                          value={schedDurMM}
-                                          onFocus={(e) => e.target.select()}
-                                          onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 2);
-                                            setSchedDurMM(val);
-                                          }}
-                                          onBlur={() => {
-                                            const num = Math.min(59, parseInt(schedDurMM, 10) || 0);
-                                            setSchedDurMM(String(num).padStart(2, '0'));
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              e.preventDefault();
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                        />
+                                    {/* HORÁRIO DE ENCERRAMENTO (OPCIONAL) */}
+                                    <div className="space-y-1 text-left mt-4 border-t border-white/5 pt-4">
+                                      <label className={labelClasses}>Horário Fixo de Encerramento (Opcional)</label>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1 text-left">
+                                          <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                          <input type="tel" maxLength={2} placeholder="10" value={schedStartHH} onChange={(e) => setSchedStartHH(e.target.value)} className={`${inputClasses} text-center text-xl font-bold`} />
+                                        </div>
+                                        <div className="space-y-1 text-left">
+                                          <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                          <input type="tel" maxLength={2} placeholder="00" value={schedStartMM} onChange={(e) => setSchedStartMM(e.target.value)} className={`${inputClasses} text-center text-xl font-bold`} />
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
