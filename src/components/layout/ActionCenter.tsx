@@ -222,6 +222,34 @@ export const ActionCenter = () => {
         } else {
           setSchedWeekdays([]);
         }
+
+        if (e.detail?.editProject) {
+          const proj = e.detail.editProject;
+          setEditingProjectId(proj.id);
+          setNewProjectName(proj.name);
+          setProjectsSection('create');
+        } else {
+          setEditingProjectId(null);
+          if (e.detail?.screen === 'projects') {
+            setNewProjectName('');
+          }
+        }
+
+        if (e.detail?.editActivityObj) {
+          const act = e.detail.editActivityObj;
+          setEditingActivityId(act.id);
+          setNewActivityName(act.name);
+          setNewActivityProject(act.project_id || '');
+          setLinkActivityToHabit(!!act.habit_id);
+          setActivitiesSection('create');
+        } else {
+          setEditingActivityId(null);
+          if (e.detail?.screen === 'activities') {
+            setNewActivityName('');
+            setNewActivityProject('');
+            setLinkActivityToHabit(false);
+          }
+        }
       } else if (e.detail?.projectId) {
         setSessionData({
           activityId: '',
@@ -306,6 +334,8 @@ export const ActionCenter = () => {
   const [newHabitTime, setNewHabitTime] = useState('morning');
   const [showHabitsModal, setShowHabitsModal] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceTime, setRecurrenceTime] = useState('09:00');
@@ -682,38 +712,89 @@ export const ActionCenter = () => {
 
     setIsSaving(true);
     try {
-      const activityAdded = await dataStore.addActivity(
-        user.id,
-        newActivityName.trim(),
-        newActivityProject || undefined,
-        null
-      );
+      if (editingActivityId) {
+        // Mode: Edition (UPDATE)
+        const oldActivity = dataStore.activities.find(a => a.id === editingActivityId);
+        const currentHabitId = oldActivity?.habit_id || null;
+        
+        let finalName = newActivityName.trim();
+        if (currentHabitId) {
+          finalName = `${finalName} #habit:${currentHabitId}`;
+        }
 
-      if (!activityAdded) {
-        showSuccess('Erro ao processar criação da atividade.');
-        return;
-      }
+        const { data, error } = await supabase
+          .from('activities')
+          .update({
+            name: finalName,
+            project_id: newActivityProject || null
+          })
+          .eq('id', editingActivityId)
+          .select()
+          .single();
 
-      const activityNameCreated = newActivityName.trim();
+        if (error) throw error;
 
-      // Reset activity creation states
-      setNewActivityName('');
-      setNewActivityProject('');
+        if (data) {
+          const parts = data.name.split(' #habit:');
+          const parsedData = {
+            ...data,
+            name: parts[0],
+            habit_id: parts[1] || null
+          };
+          const updatedActivities = dataStore.activities.map(a => a.id === editingActivityId ? parsedData : a);
+          useDataStore.setState({ activities: updatedActivities });
+        }
 
-      if (linkActivityToHabit) {
-        setLinkActivityToHabit(false);
-        setPendingActivityId(activityAdded.id); // Guardar o ID da atividade criada com sucesso para vincular depois
-        setNewHabitName(activityNameCreated);
-        setCurrentScreen('habits');
-        showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
+        const activityNameCreated = newActivityName.trim();
+        setNewActivityName('');
+        setNewActivityProject('');
+
+        if (linkActivityToHabit && !currentHabitId) {
+          setLinkActivityToHabit(false);
+          setPendingActivityId(editingActivityId); // Guardar o ID da atividade para vincular depois
+          setNewHabitName(activityNameCreated);
+          setCurrentScreen('habits');
+          showSuccess('Atividade atualizada! Agora, configure o seu hábito correspondente...');
+        } else {
+          showSuccess('Atividade atualizada com sucesso!');
+          setIsOpen(false);
+          setCurrentScreen(null);
+        }
+        setEditingActivityId(null);
       } else {
-        showSuccess('Atividade salva com sucesso!');
-        setIsOpen(false);
-        setCurrentScreen(null);
+        const activityAdded = await dataStore.addActivity(
+          user.id,
+          newActivityName.trim(),
+          newActivityProject || undefined,
+          null
+        );
+
+        if (!activityAdded) {
+          showSuccess('Erro ao processar criação da atividade.');
+          return;
+        }
+
+        const activityNameCreated = newActivityName.trim();
+
+        // Reset activity creation states
+        setNewActivityName('');
+        setNewActivityProject('');
+
+        if (linkActivityToHabit) {
+          setLinkActivityToHabit(false);
+          setPendingActivityId(activityAdded.id); // Guardar o ID da atividade criada com sucesso para vincular depois
+          setNewHabitName(activityNameCreated);
+          setCurrentScreen('habits');
+          showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
+        } else {
+          showSuccess('Atividade salva com sucesso!');
+          setIsOpen(false);
+          setCurrentScreen(null);
+        }
       }
     } catch (err) {
       console.error('Erro crítico ao salvar atividade:', err);
-      showSuccess('Erro crítico ao processar criação.');
+      showSuccess('Erro crítico ao processar salvamento.');
     } finally {
       setIsSaving(false);
     }
@@ -725,14 +806,30 @@ export const ActionCenter = () => {
     if (!nameTrimmed || !user) return;
     setIsSaving(true);
     try {
-      await dataStore.addProject(user.id, nameTrimmed);
+      if (editingProjectId) {
+        const { data, error } = await supabase
+          .from('projects')
+          .update({ name: nameTrimmed })
+          .eq('id', editingProjectId)
+          .select()
+          .single();
+        if (error) throw error;
+        if (data) {
+          const updatedProjects = dataStore.projects.map(p => p.id === editingProjectId ? data : p);
+          useDataStore.setState({ projects: updatedProjects });
+          showSuccess('Projeto atualizado com sucesso!');
+        }
+        setEditingProjectId(null);
+      } else {
+        await dataStore.addProject(user.id, nameTrimmed);
+        showSuccess('Projeto salvo com sucesso!');
+      }
       setNewProjectName('');
-      showSuccess('Projeto salvo com sucesso!');
       setIsOpen(false);
       setCurrentScreen(null);
     } catch (err) {
-      console.error('Erro ao adicionar projeto:', err);
-      dataStore.showNotification('Erro ao criar projeto.', 'error');
+      console.error('Erro ao salvar projeto:', err);
+      dataStore.showNotification('Erro ao salvar projeto.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -1520,7 +1617,7 @@ export const ActionCenter = () => {
                             : 'text-text-secondary hover:text-white'
                         }`}
                       >
-                        Criar Projeto
+                        {editingProjectId ? 'Editar Projeto' : 'Criar Projeto'}
                       </button>
                       <button
                         onClick={() => setProjectsSection('list')}
@@ -1540,7 +1637,7 @@ export const ActionCenter = () => {
                       {projectsSection === 'create' ? (
                         <div className="bg-surface/10 p-6 rounded-3xl border border-white/5 space-y-5 text-left">
                           <div className="space-y-1">
-                            <label className={labelClasses}>Nome do Projeto</label>
+                            <label className={labelClasses}>{editingProjectId ? 'Editar Nome do Projeto' : 'Nome do Projeto'}</label>
                             <input
                               autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
                               placeholder="Ex: TCC, Lançamento, Exercícios..."
@@ -1554,7 +1651,7 @@ export const ActionCenter = () => {
                             onClick={handleAddProject}
                             className="w-full py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] shadow-lg shadow-primary-green/5"
                           >
-                            Salvar Projeto
+                            {editingProjectId ? 'Atualizar Projeto' : 'Salvar Projeto'}
                           </button>
                         </div>
                       ) : (
@@ -1567,13 +1664,26 @@ export const ActionCenter = () => {
                                   {item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Recente'}
                                 </p>
                               </div>
-                              <button
-                                onClick={() => setDeleteConfirm({ id: item.id, type: 'project', name: item.name })}
-                                className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
-                                title="Excluir Projeto"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setEditingProjectId(item.id);
+                                    setNewProjectName(item.name);
+                                    setProjectsSection('create');
+                                  }}
+                                  className="p-2 text-text-secondary hover:text-primary-green hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                                  title="Editar Projeto"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm({ id: item.id, type: 'project', name: item.name })}
+                                  className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                                  title="Excluir Projeto"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                           {dataStore.projects.length === 0 && (
@@ -1627,7 +1737,7 @@ export const ActionCenter = () => {
                             : 'text-text-secondary hover:text-white'
                         }`}
                       >
-                        Criar Atividade
+                        {editingActivityId ? 'Editar Atividade' : 'Criar Atividade'}
                       </button>
                       <button
                         onClick={() => setActivitiesSection('list')}
@@ -1647,7 +1757,7 @@ export const ActionCenter = () => {
                       {activitiesSection === 'create' ? (
                         <div className="bg-surface/10 p-6 rounded-3xl border border-white/5 space-y-4 text-left">
                           <div className="space-y-1">
-                            <label className={labelClasses}>Nome da Atividade</label>
+                            <label className={labelClasses}>{editingActivityId ? 'Editar Nome da Atividade' : 'Nome da Atividade'}</label>
                             <input
                               autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
                               placeholder="Ex: Refatoração, Estudo, Reunião..."
@@ -1688,7 +1798,7 @@ export const ActionCenter = () => {
                             onClick={handleAddActivity}
                             className="w-full py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] shadow-lg shadow-primary-green/5"
                           >
-                            Salvar Atividade
+                            {editingActivityId ? 'Atualizar Atividade' : 'Salvar Atividade'}
                           </button>
                         </div>
                       ) : (
@@ -1703,13 +1813,28 @@ export const ActionCenter = () => {
                                     {linkedProj ? `📁 ${linkedProj.name}` : '🌍 Atividade Geral'}
                                   </p>
                                 </div>
-                                <button
-                                  onClick={() => setDeleteConfirm({ id: item.id, type: 'activity', name: item.name })}
-                                  className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
-                                  title="Excluir Atividade"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingActivityId(item.id);
+                                      setNewActivityName(item.name);
+                                      setNewActivityProject(item.project_id || '');
+                                      setLinkActivityToHabit(!!item.habit_id);
+                                      setActivitiesSection('create');
+                                    }}
+                                    className="p-2 text-text-secondary hover:text-primary-green hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                                    title="Editar Atividade"
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteConfirm({ id: item.id, type: 'activity', name: item.name })}
+                                    className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                                    title="Excluir Atividade"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}

@@ -1,23 +1,17 @@
 import { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
-import { Layers, ChevronDown, Plus, Trash2, Check } from 'lucide-react';
+import { Layers, ChevronDown, Plus, Trash2, Check, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
 export const ActivitiesSection = () => {
   const dataStore = useDataStore();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [activityToDelete, setActivityToDelete] = useState<any | null>(null);
 
   const activeCount = dataStore.activities.length;
 
-  const handleDeleteActivity = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (deleteConfirmId !== id) {
-      setDeleteConfirmId(id);
-      return;
-    }
-
+  const confirmDeleteActivity = async (id: string) => {
     try {
       // Desvincular recursos da atividade
       const linkedTasks = dataStore.dailyTasks.filter(t => t.activity_id === id);
@@ -42,11 +36,12 @@ export const ActivitiesSection = () => {
       dataStore.showNotification('Atividade excluída com sucesso!', 'success');
     } catch (err) {
       console.error('Erro ao excluir atividade:', err);
-      dataStore.showNotification('Erro ao excluir atividade', 'error');
+      dataStore.showNotification('Erro: Não foi possível excluir a atividade. Verifique as dependências.', 'error');
     } finally {
-      setDeleteConfirmId(null);
+      setActivityToDelete(null);
     }
   };
+
 
   return (
     <section id="activities-section" className="w-full max-w-5xl space-y-4">
@@ -109,7 +104,6 @@ export const ActivitiesSection = () => {
                   <p className="text-text-secondary/40 font-light italic col-span-2 text-left p-2">Nenhuma atividade cadastrada.</p>
                 ) : (
                   dataStore.activities.map(activity => {
-                    const isDeletingThis = deleteConfirmId === activity.id;
                     const linkedProjectName = activity.project_id
                       ? dataStore.projects.find(p => p.id === activity.project_id)?.name
                       : null;
@@ -140,23 +134,76 @@ export const ActivitiesSection = () => {
                             </span>
                           </div>
                         </div>
-                        <button 
-                          onClick={(e) => handleDeleteActivity(e, activity.id)}
-                          className={`p-3 rounded-xl transition-all flex items-center justify-center cursor-pointer border ${
-                            isDeletingThis
-                              ? 'bg-red-500/25 text-red-400 border-red-500/40 hover:bg-red-500/35'
-                              : 'bg-white/5 hover:bg-white/10 text-text-secondary hover:text-red-400 border border-white/5'
-                          }`}
-                          title={isDeletingThis ? "Confirmar exclusão" : "Excluir atividade"}
-                        >
-                          {isDeletingThis ? <Check size={14} /> : <Trash2 size={14} />}
-                        </button>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('open-action-center', {
+                                detail: { screen: 'activities', editActivityObj: activity }
+                              }));
+                            }}
+                            className="p-3 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-primary-green rounded-xl transition-all flex items-center justify-center cursor-pointer border border-white/5"
+                            title="Editar atividade"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button 
+                            onClick={() => setActivityToDelete(activity)}
+                            className="p-3 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-red-400 rounded-xl transition-all flex items-center justify-center cursor-pointer border border-white/5"
+                            title="Excluir atividade"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {activityToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-sm bg-surface border border-white/5 p-8 rounded-[2rem] text-center space-y-6 shadow-2xl"
+            >
+              <div className="w-14 h-14 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                <Trash2 size={24} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-lg font-bold text-text-primary">
+                  Excluir Atividade?
+                </h4>
+                <p className="text-text-secondary/85 text-xs leading-relaxed font-light">
+                  Tem certeza que deseja excluir a atividade <span className="text-text-primary font-semibold">"{activityToDelete.name}"</span>? Esta ação não pode ser desfeita e irá desvincular recursos relacionados.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setActivityToDelete(null)}
+                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-text-secondary/80 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer border border-white/5"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => confirmDeleteActivity(activityToDelete.id)}
+                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer shadow-lg shadow-red-500/15"
+                >
+                  Excluir
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
