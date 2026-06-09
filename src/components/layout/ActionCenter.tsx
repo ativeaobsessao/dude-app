@@ -712,17 +712,81 @@ export const ActionCenter = () => {
       return;
     }
 
+    if (linkActivityToHabit && isRecurring && recurrenceDays.length === 0) {
+      showSuccess('Escolha pelo menos um dia fixo da semana para a recorrência.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      if (editingActivityId) {
-        // Mode: Edition (UPDATE)
-        const oldActivity = dataStore.activities.find(a => a.id === editingActivityId);
-        const currentHabitId = oldActivity?.habit_id || null;
-        
-        let finalName = newActivityName.trim();
-        if (currentHabitId) {
-          finalName = `${finalName} #habit:${currentHabitId}`;
+      let finalHabitId: string | null = null;
+
+      // 1. Processamento Cascata/Batch do Hábito
+      if (linkActivityToHabit) {
+        const startHHFiltered = recurrenceTimeHours ? String(Math.min(23, parseInt(recurrenceTimeHours, 10) || 0)).padStart(2, '0') : '09';
+        const startMMFiltered = recurrenceTimeMinutes ? String(Math.min(59, parseInt(recurrenceTimeMinutes, 10) || 0)).padStart(2, '0') : '00';
+        const schedStartCombined = `${startHHFiltered}:${startMMFiltered}`;
+
+        const durHHNum = parseInt(schedDurHH, 10) || 0;
+        const durMMNum = parseInt(schedDurMM, 10) || 0;
+        const schedDurMinsCombined = durHHNum * 60 + durMMNum;
+
+        const schedulingParams = {
+          is_scheduled: isRecurring,
+          sched_start: isRecurring ? schedStartCombined : null,
+          sched_duration: isRecurring ? (schedDurMinsCombined || null) : null,
+          sched_weekdays: isRecurring ? (recurrenceDays.join(',') || 'all') : null
+        };
+
+        let targetHabitId: string | null = null;
+        if (editingActivityId) {
+          const oldActivity = dataStore.activities.find(a => a.id === editingActivityId);
+          if (oldActivity && oldActivity.habit_id) {
+            targetHabitId = oldActivity.habit_id;
+          }
         }
+
+        if (targetHabitId) {
+          // Edição do Hábito já vinculado
+          const success = await dataStore.updateHabit(targetHabitId, {
+            name: newActivityName.trim(),
+            sessions_per_week: newHabitFrequency,
+            minutes_per_session: newHabitDuration,
+            preferred_time: newHabitTime as 'morning' | 'afternoon' | 'evening',
+            is_recurring: isRecurring,
+            recurrence_days: isRecurring ? recurrenceDays : [],
+            recurrence_time: isRecurring ? schedStartCombined : null,
+            ...schedulingParams
+          });
+          if (success) {
+            finalHabitId = targetHabitId;
+          }
+        } else {
+          // Criação de um novo tipo Hábito
+          const createdHabit = await dataStore.addHabit(
+            user.id,
+            newActivityName.trim(),
+            newHabitFrequency,
+            newHabitDuration,
+            newHabitTime as 'morning' | 'afternoon' | 'evening',
+            isRecurring,
+            isRecurring ? recurrenceDays : [],
+            isRecurring ? schedStartCombined : '',
+            { ...schedulingParams }
+          );
+          if (createdHabit) {
+            finalHabitId = createdHabit.id;
+          }
+        }
+      }
+
+      // 2. Processamento da Atividade
+      if (editingActivityId) {
+        // Modo Edição
+        // Se desmarcou o checkbox (ou não possui mais hábito), o nome final não conterá o sufixo #habit
+        const finalName = finalHabitId 
+          ? `${newActivityName.trim()} #habit:${finalHabitId}` 
+          : newActivityName.trim();
 
         const { data, error } = await supabase
           .from('activities')
@@ -746,88 +810,46 @@ export const ActionCenter = () => {
           const updatedActivities = dataStore.activities.map(a => a.id === editingActivityId ? parsedData : a);
           useDataStore.setState({ activities: updatedActivities });
         }
-
-        const activityNameCreated = newActivityName.trim();
-        setNewActivityName('');
-        setNewActivityProject('');
-
-        if (linkActivityToHabit) {
-          const actId = editingActivityId;
-          const actName = activityNameCreated;
-          setLinkActivityToHabit(false);
-          setPendingActivityId(actId); // Guardar o ID da atividade para vincular depois
-          setNewHabitName(actName);
-          
-          // Reset habit defaults for a clean form
-          setEditingHabitId(null);
-          setNewHabitFrequency(3);
-          setNewHabitDuration(0);
-          setNewHabitTime('morning');
-          setIsRecurring(false);
-          setRecurrenceDays([]);
-          setRecurrenceTimeHours('09');
-          setRecurrenceTimeMinutes('00');
-          setSchedDurHH('00');
-          setSchedDurMM('45');
-          setSchedStartHH('');
-          setSchedStartMM('');
-          
-          showSuccess('Atividade atualizada! Agora, configure o seu hábito correspondente...');
-          setCurrentScreen('habits');
-        } else {
-          showSuccess('Atividade atualizada com sucesso!');
-          setIsOpen(false);
-          setCurrentScreen(null);
-        }
-        setEditingActivityId(null);
       } else {
+        // Modo Criação
         const activityAdded = await dataStore.addActivity(
           user.id,
           newActivityName.trim(),
           newActivityProject || undefined,
-          null
+          finalHabitId
         );
-
         if (!activityAdded) {
           showSuccess('Erro ao processar criação da atividade.');
           return;
         }
-
-        const activityNameCreated = newActivityName.trim();
-
-        // Reset activity creation states
-        setNewActivityName('');
-        setNewActivityProject('');
-
-        if (linkActivityToHabit) {
-          const actId = activityAdded.id;
-          const actName = activityNameCreated;
-          setLinkActivityToHabit(false);
-          setPendingActivityId(actId); // Guardar o ID da atividade criada com sucesso para vincular depois
-          setNewHabitName(actName);
-          
-          // Reset habit defaults for a clean form
-          setEditingHabitId(null);
-          setNewHabitFrequency(3);
-          setNewHabitDuration(0);
-          setNewHabitTime('morning');
-          setIsRecurring(false);
-          setRecurrenceDays([]);
-          setRecurrenceTimeHours('09');
-          setRecurrenceTimeMinutes('00');
-          setSchedDurHH('00');
-          setSchedDurMM('45');
-          setSchedStartHH('');
-          setSchedStartMM('');
-          
-          showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
-          setCurrentScreen('habits');
-        } else {
-          showSuccess('Atividade salva com sucesso!');
-          setIsOpen(false);
-          setCurrentScreen(null);
-        }
       }
+
+      // Notificação de sucesso simplificada
+      if (linkActivityToHabit) {
+        showSuccess('✅ Atividade e Hábito salvos com sucesso!');
+      } else {
+        showSuccess('Atividade salva com sucesso!');
+      }
+
+      // 3. Reset do Estado & Fechamento do Modal
+      setNewActivityName('');
+      setNewActivityProject('');
+      setLinkActivityToHabit(false);
+      setNewHabitName('');
+      setEditingActivityId(null);
+      setEditingHabitId(null);
+      setIsRecurring(false);
+      setRecurrenceDays([]);
+      setRecurrenceTimeHours('09');
+      setRecurrenceTimeMinutes('00');
+      setSchedDurHH('00');
+      setSchedDurMM('45');
+      setSchedStartHH('');
+      setSchedStartMM('');
+
+      setIsOpen(false);
+      setCurrentScreen(null);
+
     } catch (err) {
       console.error('Erro crítico ao salvar atividade:', err);
       showSuccess('Erro crítico ao processar salvamento.');
@@ -1791,7 +1813,7 @@ export const ActionCenter = () => {
                     </div>
 
                     {/* Conteúdo dinâmico da seção */}
-                    <div className="flex-1 overflow-y-auto pr-1 min-h-[220px] max-h-[350px]">
+                    <div className="flex-1 overflow-y-auto pr-1 min-h-[220px] max-h-[480px]">
                       {activitiesSection === 'create' ? (
                         <div className="bg-surface/10 p-6 rounded-3xl border border-white/5 space-y-4 text-left">
                           <div className="space-y-1">
@@ -1803,10 +1825,10 @@ export const ActionCenter = () => {
                               value={newActivityName}
                               onChange={e => setNewActivityName(e.target.value)}
                               onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  (e.target as HTMLInputElement).blur();
-                                }
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    (e.target as HTMLInputElement).blur();
+                                  }
                               }}
                             />
                           </div>
@@ -1837,6 +1859,227 @@ export const ActionCenter = () => {
                             </label>
                           </div>
 
+                          <AnimatePresence>
+                            {linkActivityToHabit && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.25 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-5 bg-white/5 rounded-2xl border border-white/10 space-y-6 text-left my-2">
+                                  <h4 className="text-xs font-bold text-primary-green uppercase tracking-wider">Configuração Prática do Hábito</h4>
+                                  
+                                  <div className="space-y-1">
+                                    <label className={labelClasses}>QUANTAS VEZES POR SEMANA?</label>
+                                    <CustomSelect
+                                      value={String(newHabitFrequency)}
+                                      onChange={(val) => setNewHabitFrequency(Number(val))}
+                                      placeholder="Vezes por semana"
+                                      options={[
+                                        { value: '1', label: '1x' },
+                                        { value: '2', label: '2x' },
+                                        { value: '3', label: '3x' },
+                                        { value: '4', label: '4x' },
+                                        { value: '5', label: '5x' },
+                                        { value: '6', label: '6x' },
+                                        { value: '7', label: '7x por semana' }
+                                      ]}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <label className={labelClasses}>DURAÇÃO POR SESSÃO (minutos)</label>
+                                    <input
+                                      type="tel"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      maxLength={3}
+                                      enterKeyHint="done"
+                                      placeholder="Ex: 45"
+                                      className={`${inputClasses} text-center text-xl font-bold`}
+                                      value={newHabitDuration === 0 ? '' : newHabitDuration}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        setNewHabitDuration(parseInt(val) || 0);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          (e.target as HTMLInputElement).blur();
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <label className={labelClasses}>MELHOR HORÁRIO</label>
+                                    <CustomSelect
+                                      value={newHabitTime}
+                                      onChange={(val) => setNewHabitTime(val)}
+                                      placeholder="Melhor horário"
+                                      options={[
+                                        { value: 'morning', label: '🌅 Manhã' },
+                                        { value: 'afternoon', label: '☀️ Tarde' },
+                                        { value: 'evening', label: '🌙 Noite' }
+                                      ]}
+                                    />
+                                  </div>
+
+                                  <div className="pt-2 border-t border-white/5">
+                                    <label className="flex items-center gap-3 cursor-pointer select-none py-2 text-text-primary">
+                                      <input
+                                        type="checkbox"
+                                        checked={isRecurring}
+                                        onChange={(e) => {
+                                          setIsRecurring(e.target.checked);
+                                          if (e.target.checked && recurrenceDays.length === 0) {
+                                            setRecurrenceDays(['1', '3', '5']);
+                                          }
+                                        }}
+                                        className="w-5 h-5 rounded border border-white/20 bg-white/5 text-primary-green focus:ring-0 focus:ring-offset-0 cursor-pointer accent-primary-green"
+                                      />
+                                      <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                                        Definir dias e horários fixos
+                                      </span>
+                                    </label>
+
+                                    <AnimatePresence>
+                                      {isRecurring && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: 'auto' }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          transition={{ duration: 0.25 }}
+                                          className="overflow-hidden"
+                                        >
+                                          <div className="space-y-5 pt-4 border-t border-white/5 mt-3 text-left">
+                                            <div>
+                                              <label className={labelClasses}>Dias Fixos da Semana</label>
+                                              <div className="grid grid-cols-7 gap-1 pt-1">
+                                                {[
+                                                  { value: '1', label: 'Seg' },
+                                                  { value: '2', label: 'Ter' },
+                                                  { value: '3', label: 'Qua' },
+                                                  { value: '4', label: 'Qui' },
+                                                  { value: '5', label: 'Sex' },
+                                                  { value: '6', label: 'Sáb' },
+                                                  { value: '7', label: 'Dom' }
+                                                ].map((day) => {
+                                                  const isSelected = recurrenceDays.includes(day.value);
+                                                  return (
+                                                    <button
+                                                      key={day.value}
+                                                      type="button"
+                                                      onClick={() => {
+                                                        if (isSelected) {
+                                                          setRecurrenceDays(recurrenceDays.filter(d => d !== day.value));
+                                                        } else {
+                                                          setRecurrenceDays([...recurrenceDays, day.value]);
+                                                        }
+                                                      }}
+                                                      className={`h-9 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center border cursor-pointer ${
+                                                        isSelected
+                                                          ? 'bg-primary-green text-background border-primary-green shadow-[0_0_12px_rgba(110,231,168,0.2)]'
+                                                          : 'bg-white/5 text-text-secondary border-white/10 hover:bg-white/10'
+                                                      }`}
+                                                    >
+                                                      {day.label}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1 text-left">
+                                              <label className={labelClasses}>Horário Fixo de Execução</label>
+                                              <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                                  <input
+                                                    type="tel"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    maxLength={2}
+                                                    enterKeyHint="done"
+                                                    placeholder="09"
+                                                    className={`${inputClasses} text-center text-lg font-bold`}
+                                                    value={recurrenceTimeHours}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => handleRecurrenceHoursChange(e.target.value)}
+                                                    onBlur={handleRecurrenceHoursBlur}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        (e.target as HTMLInputElement).blur();
+                                                      }
+                                                    }}
+                                                  />
+                                                </div>
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                                  <input
+                                                    type="tel"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    maxLength={2}
+                                                    enterKeyHint="done"
+                                                    placeholder="00"
+                                                    className={`${inputClasses} text-center text-lg font-bold`}
+                                                    value={recurrenceTimeMinutes}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => handleRecurrenceMinutesChange(e.target.value)}
+                                                    onBlur={handleRecurrenceMinutesBlur}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        (e.target as HTMLInputElement).blur();
+                                                      }
+                                                    }}
+                                                  />
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1 text-left mt-5 border-t border-white/5 pt-4">
+                                              <label className={labelClasses}>Duração (Opcional)</label>
+                                              <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                                  <input type="tel" maxLength={2} placeholder="00" value={schedDurHH} onChange={(e) => setSchedDurHH(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                </div>
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                                  <input type="tel" maxLength={2} placeholder="45" value={schedDurMM} onChange={(e) => setSchedDurMM(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-1 text-left mt-4 border-t border-white/5 pt-4">
+                                              <label className={labelClasses}>Horário Fixo de Encerramento (Opcional)</label>
+                                              <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
+                                                  <input type="tel" maxLength={2} placeholder="10" value={schedStartHH} onChange={(e) => setSchedStartHH(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                </div>
+                                                <div className="space-y-1 text-left">
+                                                  <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
+                                                  <input type="tel" maxLength={2} placeholder="00" value={schedStartMM} onChange={(e) => setSchedStartMM(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
                           <button
                             onClick={handleAddActivity}
                             className="w-full py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] shadow-lg shadow-primary-green/5"
@@ -1862,7 +2105,62 @@ export const ActionCenter = () => {
                                       setEditingActivityId(item.id);
                                       setNewActivityName(item.name);
                                       setNewActivityProject(item.project_id || '');
-                                      setLinkActivityToHabit(!!item.habit_id);
+                                      
+                                      const hasHabit = !!item.habit_id;
+                                      setLinkActivityToHabit(hasHabit);
+                                      
+                                      if (hasHabit) {
+                                        const linkedHabit = dataStore.habits.find(h => h.id === item.habit_id);
+                                        if (linkedHabit) {
+                                          setNewHabitFrequency(linkedHabit.sessions_per_week || 3);
+                                          setNewHabitDuration(linkedHabit.minutes_per_session || 0);
+                                          setNewHabitTime(linkedHabit.preferred_time || 'morning');
+                                          setIsRecurring(!!linkedHabit.is_recurring);
+                                          setRecurrenceDays(linkedHabit.recurrence_days || []);
+                                          if (linkedHabit.recurrence_time) {
+                                            const [h, m] = linkedHabit.recurrence_time.split(':');
+                                            setRecurrenceTimeHours(h ? h.padStart(2, '0') : '09');
+                                            setRecurrenceTimeMinutes(m ? m.padStart(2, '0') : '00');
+                                            setRecurrenceTime(linkedHabit.recurrence_time);
+                                          } else {
+                                            setRecurrenceTimeHours('09');
+                                            setRecurrenceTimeMinutes('00');
+                                            setRecurrenceTime('09:00');
+                                          }
+                                          if (linkedHabit.sched_duration !== undefined && linkedHabit.sched_duration !== null) {
+                                            const totalMin = Number(linkedHabit.sched_duration) || 0;
+                                            const h = Math.floor(totalMin / 60);
+                                            const m = totalMin % 60;
+                                            setSchedDurHH(String(h).padStart(2, '0'));
+                                            setSchedDurMM(String(m).padStart(2, '0'));
+                                          } else {
+                                            setSchedDurHH('00');
+                                            setSchedDurMM('45');
+                                          }
+                                          if (linkedHabit.sched_start) {
+                                            const [sh, sm] = linkedHabit.sched_start.split(':');
+                                            setSchedStartHH(sh || '');
+                                            setSchedStartMM(sm || '');
+                                          } else {
+                                            setSchedStartHH('');
+                                            setSchedStartMM('');
+                                          }
+                                        }
+                                      } else {
+                                        // Reset to defaults
+                                        setNewHabitFrequency(3);
+                                        setNewHabitDuration(0);
+                                        setNewHabitTime('morning');
+                                        setIsRecurring(false);
+                                        setRecurrenceDays([]);
+                                        setRecurrenceTimeHours('09');
+                                        setRecurrenceTimeMinutes('00');
+                                        setRecurrenceTime('09:00');
+                                        setSchedDurHH('00');
+                                        setSchedDurMM('45');
+                                        setSchedStartHH('');
+                                        setSchedStartMM('');
+                                      }
                                       setActivitiesSection('create');
                                     }}
                                     className="p-2 text-text-secondary hover:text-primary-green hover:bg-white/5 rounded-xl transition-all cursor-pointer"
