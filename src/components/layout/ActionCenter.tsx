@@ -222,35 +222,37 @@ export const ActionCenter = () => {
         } else {
           setSchedWeekdays([]);
         }
+      }
 
-        if (e.detail?.editProject) {
-          const proj = e.detail.editProject;
-          setEditingProjectId(proj.id);
-          setNewProjectName(proj.name);
-          setProjectsSection('create');
-        } else {
-          setEditingProjectId(null);
-          if (e.detail?.screen === 'projects') {
-            setNewProjectName('');
-          }
+      if (e.detail?.editProject) {
+        const proj = e.detail.editProject;
+        setEditingProjectId(proj.id);
+        setNewProjectName(proj.name);
+        setProjectsSection('create');
+      } else {
+        setEditingProjectId(null);
+        if (e.detail?.screen === 'projects') {
+          setNewProjectName('');
         }
+      }
 
-        if (e.detail?.editActivityObj) {
-          const act = e.detail.editActivityObj;
-          setEditingActivityId(act.id);
-          setNewActivityName(act.name);
-          setNewActivityProject(act.project_id || '');
-          setLinkActivityToHabit(!!act.habit_id);
-          setActivitiesSection('create');
-        } else {
-          setEditingActivityId(null);
-          if (e.detail?.screen === 'activities') {
-            setNewActivityName('');
-            setNewActivityProject('');
-            setLinkActivityToHabit(false);
-          }
+      if (e.detail?.editActivityObj) {
+        const act = e.detail.editActivityObj;
+        setEditingActivityId(act.id);
+        setNewActivityName(act.name);
+        setNewActivityProject(act.project_id || '');
+        setLinkActivityToHabit(!!act.habit_id);
+        setActivitiesSection('create');
+      } else {
+        setEditingActivityId(null);
+        if (e.detail?.screen === 'activities') {
+          setNewActivityName('');
+          setNewActivityProject('');
+          setLinkActivityToHabit(false);
         }
-      } else if (e.detail?.projectId) {
+      }
+
+      if (e.detail?.projectId) {
         setSessionData({
           activityId: '',
           activityManual: '',
@@ -756,14 +758,17 @@ export const ActionCenter = () => {
           setPendingActivityId(actId); // Guardar o ID da atividade para vincular depois
           setNewHabitName(actName);
           
-          setIsOpen(false);
-          showSuccess('Atividade atualizada com sucesso!');
+          // Reset habit defaults for a clean form
+          setEditingHabitId(null);
+          setNewHabitFrequency(3);
+          setNewHabitDuration(0);
+          setNewHabitTime('morning');
+          setIsRecurring(false);
+          setRecurrenceDays([]);
+          setRecurrenceTime('09:00');
           
-          setTimeout(() => {
-            setCurrentScreen('habits');
-            setIsOpen(true);
-            showSuccess('Agora, configure o seu hábito correspondente...');
-          }, 400);
+          showSuccess('Atividade atualizada! Agora, configure o seu hábito correspondente...');
+          setCurrentScreen('habits');
         } else {
           showSuccess('Atividade atualizada com sucesso!');
           setIsOpen(false);
@@ -796,14 +801,17 @@ export const ActionCenter = () => {
           setPendingActivityId(actId); // Guardar o ID da atividade criada com sucesso para vincular depois
           setNewHabitName(actName);
           
-          setIsOpen(false);
-          showSuccess('Atividade salva com sucesso!');
+          // Reset habit defaults for a clean form
+          setEditingHabitId(null);
+          setNewHabitFrequency(3);
+          setNewHabitDuration(0);
+          setNewHabitTime('morning');
+          setIsRecurring(false);
+          setRecurrenceDays([]);
+          setRecurrenceTime('09:00');
           
-          setTimeout(() => {
-            setCurrentScreen('habits');
-            setIsOpen(true);
-            showSuccess('Agora, configure o seu hábito correspondente...');
-          }, 400);
+          showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
+          setCurrentScreen('habits');
         } else {
           showSuccess('Atividade salva com sucesso!');
           setIsOpen(false);
