@@ -6,7 +6,7 @@ import { sendToServiceWorker, listenToServiceWorker } from '../../hooks/useServi
 import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
-import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil } from 'lucide-react';
+import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil, Paperclip, Link, ArrowLeft } from 'lucide-react';
 import { resolverNomeSessao } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
@@ -94,6 +94,9 @@ export const ActiveSession = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showLateConfig, setShowLateConfig] = useState(false);
+  const [showResourcesModal, setShowResourcesModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState('');
   const [showTasksOverlay, setShowTasksOverlay] = useState(false);
   const [sessionTasksLocal, setSessionTasksLocal] = useState<string[]>([]);
   const [completedTasksLocal, setCompletedTasksLocal] = useState<string[]>([]);
@@ -483,6 +486,32 @@ export const ActiveSession = () => {
     );
   };
 
+  const handleSaveLink = async () => {
+    if (!newLinkUrl.trim() || !user) return;
+    let url = newLinkUrl.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+    let title = url;
+    try {
+      const parsed = new URL(url);
+      title = parsed.hostname.replace('www.', '') + parsed.pathname;
+      if (title.length > 30) {
+        title = title.substring(0, 27) + '...';
+      }
+    } catch (e) {
+      // ignore parsing error
+    }
+    
+    await dataStore.addLink(user.id, {
+      title: title,
+      url: url,
+      projectId: timer.projectId || null,
+      habitId: timer.habitId || null
+    });
+    setNewLinkUrl('');
+  };
+
   const handleUpdateLateConfig = () => {
     let finalActivityName = '';
     if (lateActivityId) {
@@ -735,11 +764,16 @@ export const ActiveSession = () => {
             {/* 4. Action Buttons */}
             <div className="grid grid-cols-2 md:grid-cols-4 items-center gap-4 md:gap-6 w-full max-w-2xl px-4 relative z-10">
               <button 
-                onClick={() => setShowNoteModal(true)}
+                onClick={() => {
+                  if (user?.id) {
+                    dataStore.fetchLinks(user.id);
+                  }
+                  setShowResourcesModal(true);
+                }}
                 className="flex items-center justify-center gap-2 px-4 py-5 bg-surface/40 border border-border-white rounded-2xl text-text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface/60 transition-all min-h-[44px] touch-manipulation col-span-1"
               >
-                <StickyNote size={14} className="text-[#6ee7b7]" />
-                Anotar
+                <Paperclip size={14} className="text-[#6ee7b7]" />
+                Recursos
               </button>
 
               <button 
@@ -873,6 +907,79 @@ export const ActiveSession = () => {
       </AnimatePresence>
 
       <AnimatePresence>
+        {showResourcesModal && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-sm w-full relative space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)] text-center"
+            >
+              <button
+                type="button"
+                onClick={() => setShowResourcesModal(false)}
+                className="absolute top-6 right-6 p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="space-y-2">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">
+                  Recursos da Sessão
+                </h3>
+                <p className="text-xs text-text-secondary/60">
+                  Gerencie suas anotações e referências de links rápidos.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setShowNoteModal(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-white/5 border border-white/5 hover:border-[#6ee7b7]/30 hover:bg-white/10 rounded-2xl text-text-primary group transition-all"
+                >
+                  <span className="text-sm font-extrabold tracking-widest text-text-primary group-hover:text-[#6ee7b7]">
+                    📝 ANOTAÇÃO
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setShowLinkModal(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-white/5 border border-white/5 hover:border-[#6ee7b7]/30 hover:bg-white/10 rounded-2xl text-text-primary group transition-all"
+                >
+                  <span className="text-sm font-extrabold tracking-widest text-text-primary group-hover:text-[#6ee7b7]">
+                    🔗 VER/SALVAR LINKS
+                  </span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowResourcesModal(false)}
+                className="w-full py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+              >
+                Voltar ao Timer
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showNoteModal && (
           <motion.div
             layout={false}
@@ -892,6 +999,17 @@ export const ActiveSession = () => {
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
                   <StickyNote className="text-primary-green" /> Registro Rápido
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    setShowResourcesModal(false);
+                  }}
+                  className="p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Fechar tudo e voltar ao Timer"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
               <div className="flex flex-col gap-6">
@@ -950,7 +1068,10 @@ export const ActiveSession = () => {
 
               <div className="flex gap-4">
                 <button
-                  onClick={() => setShowNoteModal(false)}
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    setShowResourcesModal(true);
+                  }}
                   className="flex-1 py-5 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
                 >
                   ← Voltar
@@ -961,6 +1082,142 @@ export const ActiveSession = () => {
                   className="flex-[2] py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_20px_40px_rgba(110,231,168,0.2)]"
                 >
                   Ok
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLinkModal && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-xl w-full space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-center border-b border-white/5 pb-2 relative">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
+                  <Link size={20} className="text-[#6ee7b7]" /> Organizador de Links
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLinkModal(false);
+                    setShowResourcesModal(false);
+                  }}
+                  className="p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Fechar tudo e voltar ao Timer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  placeholder="Cole seu link aqui..."
+                  autoComplete="off"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveLink();
+                    }
+                  }}
+                  className="flex-1 bg-surface/40 border border-border-white rounded-2xl px-5 py-3.5 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px]"
+                  value={newLinkUrl}
+                  onChange={e => setNewLinkUrl(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveLink}
+                  disabled={!newLinkUrl.trim()}
+                  className="px-6 py-3.5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_10px_20px_rgba(110,231,168,0.15)] flex items-center justify-center shrink-0"
+                >
+                  Salvar
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
+                  Seus links salvos nesta sessão / projetos
+                </label>
+                
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {dataStore.savedLinks.length === 0 ? (
+                    <p className="text-center text-text-secondary/20 italic text-sm font-light py-6">
+                      Nenhum link salvo ainda.
+                    </p>
+                  ) : (
+                    dataStore.savedLinks.map((link) => (
+                      <div
+                        key={link.id}
+                        className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 transition-all group"
+                      >
+                        <div className="flex-1 min-w-0 pr-3">
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => dataStore.registerLinkAccess(link.id)}
+                            className="text-sm font-medium text-text-primary hover:text-primary-green transition-colors block truncate"
+                          >
+                            {link.title || link.url}
+                          </a>
+                          <span className="text-[9px] text-text-secondary/40 font-mono block truncate mt-0.5">
+                            {link.url}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-2 text-text-secondary/50 hover:text-text-primary rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Abrir Link"
+                          >
+                            <Link size={14} />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Deseja realmente excluir este link?')) {
+                                dataStore.deleteLink(link.id);
+                              }
+                            }}
+                            className="p-2 text-red-500/50 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Excluir Link"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 border-t border-white/5 pt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLinkModal(false);
+                    setShowResourcesModal(true);
+                  }}
+                  className="flex-1 py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+                >
+                  ← Voltar
                 </button>
               </div>
             </motion.div>
