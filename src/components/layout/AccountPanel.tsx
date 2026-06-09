@@ -40,6 +40,111 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
+  // Advanced Data Vault states
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportAll, setExportAll] = useState(true);
+  
+  // Custom groupings:
+  // Fundação
+  const [exportProjects, setExportProjects] = useState(true);
+  const [exportActivities, setExportActivities] = useState(true);
+  const [exportNotes, setExportNotes] = useState(true);
+  
+  // Performance
+  const [exportSessions, setExportSessions] = useState(true);
+  const [exportHabits, setExportHabits] = useState(true);
+  const [exportSavedLinks, setExportSavedLinks] = useState(true);
+  
+  // Centro de Inteligência
+  const [exportEnergyMood, setExportEnergyMood] = useState(true);
+  const [exportAntiAddiction, setExportAntiAddiction] = useState(true);
+  const [exportInsights, setExportInsights] = useState(true);
+
+  // When exportAll changes, cascade to all individual categories
+  const handleExportAllChange = (checked: boolean) => {
+    setExportAll(checked);
+    setExportProjects(checked);
+    setExportActivities(checked);
+    setExportNotes(checked);
+    setExportSessions(checked);
+    setExportHabits(checked);
+    setExportSavedLinks(checked);
+    setExportEnergyMood(checked);
+    setExportAntiAddiction(checked);
+    setExportInsights(checked);
+  };
+
+  // Synchronize individual triggers back to exportAll
+  useEffect(() => {
+    const allChecked =
+      exportProjects &&
+      exportActivities &&
+      exportNotes &&
+      exportSessions &&
+      exportHabits &&
+      exportSavedLinks &&
+      exportEnergyMood &&
+      exportAntiAddiction &&
+      exportInsights;
+    
+    // We update selector state without infinite loop since is primitive
+    if (allChecked !== exportAll) {
+      setExportAll(allChecked);
+    }
+  }, [
+    exportProjects,
+    exportActivities,
+    exportNotes,
+    exportSessions,
+    exportHabits,
+    exportSavedLinks,
+    exportEnergyMood,
+    exportAntiAddiction,
+    exportInsights,
+    exportAll
+  ]);
+
+  const getAuditCounts = () => {
+    const projectsCount = exportProjects ? (dataStore.projects?.length || 0) : 0;
+    const activitiesCount = exportActivities ? (dataStore.activities?.length || 0) : 0;
+    const notesCount = exportNotes ? (dataStore.notes?.length || 0) : 0;
+    const sessionsCount = exportSessions ? (dataStore.sessions?.length || 0) : 0;
+    const habitsCount = exportHabits ? (dataStore.habits?.length || 0) : 0;
+    const savedLinksCount = exportSavedLinks ? (dataStore.savedLinks?.length || 0) : 0;
+    const energyMoodCount = exportEnergyMood ? (dataStore.moodEntries?.length || 0) : 0;
+    const antiAddictionCount = exportAntiAddiction ? (dataStore.avoidanceCheckins?.length || 0) : 0;
+    
+    const insightsCompletions = exportInsights ? (dataStore.habitCompletions?.length || 0) : 0;
+    const insightsShutdowns = exportInsights ? (dataStore.dailyShutdowns?.length || 0) : 0;
+    const insightsDailyTasks = exportInsights ? (dataStore.dailyTasks?.length || 0) : 0;
+    const insightsScheduled = exportInsights ? (dataStore.scheduledActivities?.length || 0) : 0;
+    const insightsTotal = insightsCompletions + insightsShutdowns + insightsDailyTasks + insightsScheduled;
+
+    const totalSelected =
+      projectsCount +
+      activitiesCount +
+      notesCount +
+      sessionsCount +
+      habitsCount +
+      savedLinksCount +
+      energyMoodCount +
+      antiAddictionCount +
+      insightsTotal;
+
+    return {
+      projectsCount,
+      activitiesCount,
+      notesCount,
+      sessionsCount,
+      habitsCount,
+      savedLinksCount,
+      energyMoodCount,
+      antiAddictionCount,
+      insightsTotal,
+      totalSelected
+    };
+  };
+
   const exportIdentity = () => {
     if (!user?.id) return;
     
@@ -58,96 +163,129 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     md += `- **Tempo Total Focado:** ${minutes} minutos\n`;
     md += `- **Ofensiva Atual (Streak):** ${streak} dias\n\n`;
     
-    md += `### 📁 PROJETOS CADASTRADOS (${dataStore.projects?.length || 0})\n`;
-    md += `| Nome do Projeto | ID |\n`;
-    md += `| :--- | :--- |\n`;
-    (dataStore.projects || []).forEach(proj => {
-      md += `| ${proj.name} | ${proj.id} |\n`;
-    });
-    md += `\n`;
-
-    md += `### ⚡ HÁBITOS CULTIVADOS (${dataStore.habits?.length || 0})\n`;
-    md += `| Nome do Hábito | Frequência Semanal | Duração por Sessão | Período |\n`;
-    md += `| :--- | :--- | :--- | :--- |\n`;
-    (dataStore.habits || []).forEach(h => {
-      md += `| ${h.name} | ${h.sessions_per_week}x | ${h.minutes_per_session} min | ${h.preferred_time === 'morning' ? '🌅 Manhã' : h.preferred_time === 'afternoon' ? '☀️ Tarde' : '🌙 Noite'} |\n`;
-    });
-    md += `\n`;
-
-    md += `### 📋 ATIVIDADES REGISTRADAS (${dataStore.activities?.length || 0})\n`;
-    md += `| Nome da Atividade | ID |\n`;
-    md += `| :--- | :--- |\n`;
-    (dataStore.activities || []).forEach(act => {
-      md += `| ${act.name} | ${act.id} |\n`;
-    });
-    md += `\n`;
-
-    md += `### ⏳ SESSÕES DE FOCO COMPLEMENTADAS (${dataStore.sessions?.length || 0})\n`;
-    md += `| Assunto | Duração | Data | Concluída com Sucesso? |\n`;
-    md += `| :--- | :--- | :--- | :--- |\n`;
-    (dataStore.sessions || []).slice(0, 15).forEach(s => {
-      md += `| ${s.activity_name || 'Sessão Sem Nome'} | ${s.duration_minutes} min | ${new Date(s.started_at).toLocaleString('pt-BR')} | ${s.completed ? 'Sim' : 'Não'} |\n`;
-    });
-    if ((dataStore.sessions || []).length > 15) {
-      md += `| *E mais ${(dataStore.sessions || []).length - 15} sessões no arquivo de dados* | | | |\n`;
+    if (exportProjects) {
+      md += `### 📁 PROJETOS CADASTRADOS (${dataStore.projects?.length || 0})\n`;
+      md += `| Nome do Projeto | ID |\n`;
+      md += `| :--- | :--- |\n`;
+      (dataStore.projects || []).forEach(proj => {
+        md += `| ${proj.name} | ${proj.id} |\n`;
+      });
+      md += `\n`;
     }
-    md += `\n`;
 
-    md += `### 📈 REGISTRO DE HUMOR E ENERGIA (${dataStore.moodEntries?.length || 0})\n`;
-    md += `| Data | Período | Humor | Energia |\n`;
-    md += `| :--- | :--- | :--- | :--- |\n`;
-    (dataStore.moodEntries || []).slice(0, 15).forEach(m => {
-      md += `| ${m.date} | ${m.period} | ${m.mood || 'Neutro'} | ${m.energy || 'Normal'} |\n`;
-    });
-    if ((dataStore.moodEntries || []).length > 15) {
-      md += `| *E mais ${(dataStore.moodEntries || []).length - 15} registros no arquivo de dados* | | | |\n`;
+    if (exportHabits) {
+      md += `### ⚡ HÁBITOS CULTIVADOS (${dataStore.habits?.length || 0})\n`;
+      md += `| Nome do Hábito | Frequência Semanal | Duração por Sessão | Período |\n`;
+      md += `| :--- | :--- | :--- | :--- |\n`;
+      (dataStore.habits || []).forEach(h => {
+        md += `| ${h.name} | ${h.sessions_per_week}x | ${h.minutes_per_session} min | ${h.preferred_time === 'morning' ? '🌅 Manhã' : h.preferred_time === 'afternoon' ? '☀️ Tarde' : '🌙 Noite'} |\n`;
+      });
+      md += `\n`;
     }
-    md += `\n`;
 
-    md += `### 🛡️ PREVENÇÃO E AUTOCONTROLE (${dataStore.avoidanceCheckins?.length || 0})\n`;
-    md += `| Data | Período | Status / Resultado | Gatilho / Observação |\n`;
-    md += `| :--- | :--- | :--- | :--- |\n`;
-    (dataStore.avoidanceCheckins || []).slice(0, 15).forEach(av => {
-      md += `| ${new Date(av.created_at).toLocaleString('pt-BR')} | ${av.checkin_period} | ${av.status} | ${av.trigger_note || 'Sem observações'} |\n`;
-    });
-    if ((dataStore.avoidanceCheckins || []).length > 15) {
-      md += `| *E mais ${(dataStore.avoidanceCheckins || []).length - 15} check-ins no arquivo de dados* | | | |\n`;
+    if (exportActivities) {
+      md += `### 📋 ATIVIDADES REGISTRADAS (${dataStore.activities?.length || 0})\n`;
+      md += `| Nome da Atividade | ID |\n`;
+      md += `| :--- | :--- |\n`;
+      (dataStore.activities || []).forEach(act => {
+        md += `| ${act.name} | ${act.id} |\n`;
+      });
+      md += `\n`;
     }
-    md += `\n`;
 
-    md += `### 🔗 LINKS RÁPIDOS SALVOS (${dataStore.savedLinks?.length || 0})\n`;
-    md += `| Título | URL |\n`;
-    md += `| :--- | :--- |\n`;
-    (dataStore.savedLinks || []).forEach(link => {
-      md += `| ${link.title} | ${link.url} |\n`;
-    });
-    md += `\n`;
+    if (exportSessions) {
+      md += `### ⏳ SESSÕES DE FOCO COMPLEMENTADAS (${dataStore.sessions?.length || 0})\n`;
+      md += `| Atividade | Duração | Data | Concluída com Sucesso? |\n`;
+      md += `| :--- | :--- | :--- | :--- |\n`;
+      const sortedSessions = [...(dataStore.sessions || [])].sort(
+        (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+      );
+      sortedSessions.slice(0, 30).forEach(s => {
+        md += `| ${s.activity_name || 'Sessão Sem Nome'} | ${s.duration_minutes} min | ${new Date(s.started_at).toLocaleString('pt-BR')} | ${s.completed ? 'Sim' : 'Não'} |\n`;
+      });
+      if (sortedSessions.length > 30) {
+        md += `| *E mais ${sortedSessions.length - 30} sessões no arquivo de dados* | | | |\n`;
+      }
+      md += `\n`;
+    }
+
+    if (exportEnergyMood) {
+      md += `### 📈 REGISTRO DE HUMOR E ENERGIA (${dataStore.moodEntries?.length || 0})\n`;
+      md += `| Data | Período | Humor | Energia |\n`;
+      md += `| :--- | :--- | :--- | :--- |\n`;
+      (dataStore.moodEntries || []).slice(0, 20).forEach(m => {
+        md += `| ${m.date} | ${m.period} | ${m.mood || 'Neutro'} | ${m.energy || 'Normal'} |\n`;
+      });
+      if ((dataStore.moodEntries || []).length > 20) {
+        md += `| *E mais ${(dataStore.moodEntries || []).length - 20} registros no arquivo de dados* | | | |\n`;
+      }
+      md += `\n`;
+    }
+
+    if (exportAntiAddiction) {
+      md += `### 🛡️ PREVENÇÃO E AUTOCONTROLE (${dataStore.avoidanceCheckins?.length || 0})\n`;
+      md += `| Data | Período | Status / Resultado | Gatilho / Observação |\n`;
+      md += `| :--- | :--- | :--- | :--- |\n`;
+      (dataStore.avoidanceCheckins || []).slice(0, 20).forEach(av => {
+        md += `| ${new Date(av.created_at).toLocaleString('pt-BR')} | ${av.checkin_period} | ${av.status} | ${av.trigger_note || 'Sem observações'} |\n`;
+      });
+      if ((dataStore.avoidanceCheckins || []).length > 20) {
+        md += `| *E mais ${(dataStore.avoidanceCheckins || []).length - 20} check-ins no arquivo de dados* | | | |\n`;
+      }
+      md += `\n`;
+    }
+
+    if (exportSavedLinks) {
+      md += `### 🔗 LINKS RÁPIDOS SALVOS (${dataStore.savedLinks?.length || 0})\n`;
+      md += `| Título | URL |\n`;
+      md += `| :--- | :--- |\n`;
+      (dataStore.savedLinks || []).forEach(link => {
+        md += `| ${link.title} | ${link.url} |\n`;
+      });
+      md += `\n`;
+    }
+
+    if (exportNotes) {
+      md += `### 📝 ANOTAÇÕES CADASTRADAS (${dataStore.notes?.length || 0})\n`;
+      (dataStore.notes || []).forEach(note => {
+        md += `#### Nota: ${note.id}\n`;
+        md += `\`\`\`text\n${note.content || '(Vazia)'}\n\`\`\`\n\n`;
+      });
+    }
 
     md += `---\n\n`;
     md += `## 📦 DADOS DE RESTAURAÇÃO (JSON)\n`;
-    md += `Este trecho contêm seu backup em formato codificado de alta integridade. Não altere os blocos abaixo para garantir a importação perfeita.\n\n`;
+    md += `Este trecho contem seu backup em formato codificado de alta integridade. Não altere os blocos abaixo para garantir a importação perfeita.\n\n`;
     md += `<!-- DUDE_RESTORE_VAULT_START -->\n`;
     
-    const payload = {
-      profile: dataStore.profile,
-      projects: dataStore.projects,
-      habits: dataStore.habits,
-      habitCompletions: dataStore.habitCompletions,
-      avoidanceCheckins: dataStore.avoidanceCheckins,
-      sessions: dataStore.sessions,
-      notes: dataStore.notes,
-      activities: dataStore.activities,
-      sessionTasks: dataStore.sessionTasks,
-      pendingTasks: dataStore.pendingTasks,
-      scheduledActivities: dataStore.scheduledActivities,
-      moodEntries: dataStore.moodEntries,
-      dailyShutdowns: dataStore.dailyShutdowns,
-      savedLinks: dataStore.savedLinks,
-      dailyTasks: dataStore.dailyTasks
+    const payload: any = {
+      profile: dataStore.profile
     };
+
+    if (exportProjects) payload.projects = dataStore.projects;
+    if (exportHabits) payload.habits = dataStore.habits;
+    if (exportActivities) payload.activities = dataStore.activities;
+    if (exportNotes) payload.notes = dataStore.notes;
+    
+    if (exportSessions) {
+      payload.sessions = dataStore.sessions;
+      payload.sessionTasks = dataStore.sessionTasks;
+      payload.pendingTasks = dataStore.pendingTasks;
+    }
+    
+    if (exportSavedLinks) payload.savedLinks = dataStore.savedLinks;
+    if (exportEnergyMood) payload.moodEntries = dataStore.moodEntries;
+    if (exportAntiAddiction) payload.avoidanceCheckins = dataStore.avoidanceCheckins;
+    
+    if (exportInsights) {
+      payload.habitCompletions = dataStore.habitCompletions;
+      payload.dailyShutdowns = dataStore.dailyShutdowns;
+      payload.dailyTasks = dataStore.dailyTasks;
+      payload.scheduledActivities = dataStore.scheduledActivities;
+    }
     
     const container = {
-      version: '1.0.0',
+      version: '1.1.0',
       exported_at: new Date().toISOString(),
       payload
     };
@@ -159,13 +297,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dude-backup-${email.split('@')[0]}-${new Date().toISOString().split('T')[0]}.md`;
+    a.download = `dude-vault-${email.split('@')[0]}-${new Date().toISOString().split('T')[0]}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    dataStore.showNotification('Identidade exportada como arquivo híbrido .md!', 'success');
+    setShowExportModal(false);
+    dataStore.showNotification('Identidade exportada no Data Vault!', 'success');
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,28 +350,29 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       const userId = user.id;
       const p = pendingImportPayload;
       
-      const tablesToWipe = [
-        'session_tasks',
-        'pending_tasks',
-        'habit_completions',
-        'notes',
-        'daily_tasks',
-        'scheduled_activities',
-        'focus_sessions',
-        'activities',
-        'habits',
-        'projects',
-        'avoidance_checkins',
-        'mood_entries',
-        'daily_shutdowns',
-        'saved_links'
-      ];
+      // Selectively wiping tables based on exactly what was exported/passed in the vault payload
+      const tablesToWipe: string[] = [];
       
+      if ('sessionTasks' in p || 'session_tasks' in p) tablesToWipe.push('session_tasks');
+      if ('pendingTasks' in p || 'pending_tasks' in p) tablesToWipe.push('pending_tasks');
+      if ('habitCompletions' in p || 'habit_completions' in p) tablesToWipe.push('habit_completions');
+      if ('notes' in p) tablesToWipe.push('notes');
+      if ('dailyTasks' in p || 'daily_tasks' in p) tablesToWipe.push('daily_tasks');
+      if ('scheduledActivities' in p || 'scheduled_activities' in p) tablesToWipe.push('scheduled_activities');
+      if ('sessions' in p) tablesToWipe.push('focus_sessions');
+      if ('activities' in p) tablesToWipe.push('activities');
+      if ('habits' in p) tablesToWipe.push('habits');
+      if ('projects' in p) tablesToWipe.push('projects');
+      if ('avoidanceCheckins' in p || 'avoidance_checkins' in p) tablesToWipe.push('avoidance_checkins');
+      if ('moodEntries' in p || 'mood_entries' in p) tablesToWipe.push('mood_entries');
+      if ('dailyShutdowns' in p || 'daily_shutdowns' in p) tablesToWipe.push('daily_shutdowns');
+      if ('savedLinks' in p || 'saved_links' in p) tablesToWipe.push('saved_links');
+
       for (const tbl of tablesToWipe) {
         try {
           await supabase.from(tbl).delete().eq('user_id', userId);
         } catch (err) {
-          console.warn(`Failure during wiping child table ${tbl} for restore, proceeding:`, err);
+          console.warn(`Failure wiping table ${tbl} during restore:`, err);
         }
       }
       
@@ -264,20 +404,40 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         }).eq('id', userId);
       }
       
-      await safeInsert('projects', p.projects);
-      await safeInsert('habits', p.habits);
-      await safeInsert('activities', p.activities);
-      await safeInsert('notes', p.notes);
-      await safeInsert('daily_tasks', p.dailyTasks || p.daily_tasks);
-      await safeInsert('daily_shutdowns', p.dailyShutdowns || p.daily_shutdowns);
-      await safeInsert('saved_links', p.savedLinks || p.saved_links);
-      await safeInsert('mood_entries', p.moodEntries || p.mood_entries);
-      await safeInsert('avoidance_checkins', p.avoidanceCheckins || p.avoidance_checkins);
-      await safeInsert('focus_sessions', p.sessions);
-      await safeInsert('session_tasks', p.sessionTasks || p.session_tasks);
-      await safeInsert('pending_tasks', p.pendingTasks || p.pending_tasks);
-      await safeInsert('scheduled_activities', p.scheduledActivities || p.scheduled_activities);
-      await safeInsert('habit_completions', p.habitCompletions || p.habit_completions);
+      // Load tables sequentially to safeguard foreign key relational hierarchies (iPhone style restoration)
+      if (p.projects) await safeInsert('projects', p.projects);
+      if (p.habits) await safeInsert('habits', p.habits);
+      if (p.activities) await safeInsert('activities', p.activities);
+      if (p.notes) await safeInsert('notes', p.notes);
+      
+      const dailyTasksData = p.dailyTasks || p.daily_tasks;
+      if (dailyTasksData) await safeInsert('daily_tasks', dailyTasksData);
+      
+      const dailyShutdownsData = p.dailyShutdowns || p.daily_shutdowns;
+      if (dailyShutdownsData) await safeInsert('daily_shutdowns', dailyShutdownsData);
+      
+      const savedLinksData = p.savedLinks || p.saved_links;
+      if (savedLinksData) await safeInsert('saved_links', savedLinksData);
+      
+      const moodEntriesData = p.moodEntries || p.mood_entries;
+      if (moodEntriesData) await safeInsert('mood_entries', moodEntriesData);
+      
+      const avoidanceCheckinsData = p.avoidanceCheckins || p.avoidance_checkins;
+      if (avoidanceCheckinsData) await safeInsert('avoidance_checkins', avoidanceCheckinsData);
+      
+      if (p.sessions) await safeInsert('focus_sessions', p.sessions);
+      
+      const sessionTasksData = p.sessionTasks || p.session_tasks;
+      if (sessionTasksData) await safeInsert('session_tasks', sessionTasksData);
+      
+      const pendingTasksData = p.pendingTasks || p.pending_tasks;
+      if (pendingTasksData) await safeInsert('pending_tasks', pendingTasksData);
+      
+      const scheduledActivitiesData = p.scheduledActivities || p.scheduled_activities;
+      if (scheduledActivitiesData) await safeInsert('scheduled_activities', scheduledActivitiesData);
+      
+      const habitCompletionsData = p.habitCompletions || p.habit_completions;
+      if (habitCompletionsData) await safeInsert('habit_completions', habitCompletionsData);
       
       dataStore.showNotification('Identidade transferida e restaurada com sucesso!', 'success');
       
@@ -608,7 +768,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             <div className="flex flex-col gap-3">
               <button
                 type="button"
-                onClick={exportIdentity}
+                onClick={() => setShowExportModal(true)}
                 className="w-full h-12 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/60 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
               >
                 <Download size={12} />
@@ -796,6 +956,227 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                     setShowImportConfirm(false);
                     setPendingImportPayload(null);
                   }}
+                  className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Advanced Export Settings Modal (Data Vault Wizard) */}
+      <AnimatePresence>
+        {showExportModal && (
+          <div className="fixed inset-0 z-[750] flex items-center justify-center bg-base/95 backdrop-blur-md p-6 overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-md bg-surface-2 border border-border-custom rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative"
+            >
+              <div className="space-y-1.5 text-center">
+                <div className="w-12 h-12 rounded-full bg-[#6ee7a8]/10 flex items-center justify-center text-[#6ee7a8] mx-auto mb-2">
+                  <Database size={20} />
+                </div>
+                <h4 className="text-lg font-extrabold text-[#6ee7a8] tracking-tight uppercase">
+                  Configurar Exportação
+                </h4>
+                <p className="text-[11px] text-text-dim/80 leading-relaxed max-w-sm mx-auto">
+                  Encapsule sua Identidade Digital em um arquivo híbrido legível (.md) com as seções e relatórios configurados abaixo.
+                </p>
+              </div>
+
+              {/* Master Switch */}
+              <div className="bg-surface-1 border border-border-custom/80 rounded-2xl p-4 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-[#6ee7a8] uppercase tracking-wide block">Baixar Tudo (Snapshot Completo)</span>
+                  <span className="text-[9px] text-text-dim/60 font-light font-mono block">Exporta todos os blocos de dados unificados</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={exportAll}
+                  onChange={(e) => handleExportAllChange(e.target.checked)}
+                  className="w-5 h-5 accent-[#6ee7a8] cursor-pointer rounded-lg bg-surface-2 border-border-custom focus:ring-0"
+                />
+              </div>
+
+              {/* Checklist de Escopo (Agrupado) */}
+              <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                {/* 1. Fundação */}
+                <div className="space-y-2 border-l-2 border-[#6ee7a8]/20 pl-3">
+                  <span className="text-[9px] font-extrabold tracking-widest uppercase text-[#6ee7a8]/70">1. Fundação</span>
+                  
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-proj">
+                      📁 Projetos <span className="text-[9px] text-text-dim/60">({dataStore.projects?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-proj"
+                      type="checkbox"
+                      checked={exportProjects}
+                      onChange={(e) => setExportProjects(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-act">
+                      📝 Atividades <span className="text-[9px] text-text-dim/60">({dataStore.activities?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-act"
+                      type="checkbox"
+                      checked={exportActivities}
+                      onChange={(e) => setExportActivities(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-notes">
+                      📋 Anotações <span className="text-[9px] text-text-dim/60">({dataStore.notes?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-notes"
+                      type="checkbox"
+                      checked={exportNotes}
+                      onChange={(e) => setExportNotes(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Performance */}
+                <div className="space-y-2 border-l-2 border-[#6ee7a8]/20 pl-3">
+                  <span className="text-[9px] font-extrabold tracking-widest uppercase text-[#6ee7a8]/70">2. Performance</span>
+                  
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-sessions">
+                      ⏳ Deep Sessions <span className="text-[9px] text-text-dim/60">({dataStore.sessions?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-sessions"
+                      type="checkbox"
+                      checked={exportSessions}
+                      onChange={(e) => setExportSessions(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-habits">
+                      ⚡ Hábitos <span className="text-[9px] text-text-dim/60">({dataStore.habits?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-habits"
+                      type="checkbox"
+                      checked={exportHabits}
+                      onChange={(e) => setExportHabits(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-links">
+                      🔗 Links Salvos <span className="text-[9px] text-text-dim/60">({dataStore.savedLinks?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-links"
+                      type="checkbox"
+                      checked={exportSavedLinks}
+                      onChange={(e) => setExportSavedLinks(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Centro de Inteligência */}
+                <div className="space-y-2 border-l-2 border-[#6ee7a8]/20 pl-3">
+                  <span className="text-[9px] font-extrabold tracking-widest uppercase text-[#6ee7a8]/70">3. Centro de Inteligência</span>
+                  
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-mood">
+                      📈 Energia & Humor <span className="text-[9px] text-text-dim/60">({dataStore.moodEntries?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-mood"
+                      type="checkbox"
+                      checked={exportEnergyMood}
+                      onChange={(e) => setExportEnergyMood(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-addiction">
+                      🛡️ Prevenção e Anti-Vício <span className="text-[9px] text-text-dim/60">({dataStore.avoidanceCheckins?.length || 0})</span>
+                    </label>
+                    <input
+                      id="chk-addiction"
+                      type="checkbox"
+                      checked={exportAntiAddiction}
+                      onChange={(e) => setExportAntiAddiction(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-insights">
+                      💡 Insights & Progresso Histórico <span className="text-[9px] text-text-dim/60">({
+                        (dataStore.habitCompletions?.length || 0) +
+                        (dataStore.dailyShutdowns?.length || 0) +
+                        (dataStore.dailyTasks?.length || 0) +
+                        (dataStore.scheduledActivities?.length || 0)
+                      })</span>
+                    </label>
+                    <input
+                      id="chk-insights"
+                      type="checkbox"
+                      checked={exportInsights}
+                      onChange={(e) => setExportInsights(e.target.checked)}
+                      className="w-4 h-4 accent-[#6ee7a8] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Painel de Auditoria (Live Audit) */}
+              <div className="bg-surface-3/60 border border-border-custom/50 rounded-2xl p-4 space-y-2">
+                <span className="text-[9px] font-extrabold tracking-wider uppercase text-[#6ee7a8] block">
+                  🔎 AUDITORIA EM TEMPO REAL:
+                </span>
+                
+                <div className="font-mono text-[9px] text-text-dim/80 space-y-1 text-left">
+                  <div>• Projetos selecionados: {getAuditCounts().projectsCount}</div>
+                  <div>• Atividades selecionadas: {getAuditCounts().activitiesCount}</div>
+                  <div>• Sessões de Foco selecionadas: {getAuditCounts().sessionsCount}</div>
+                  <div>• Registro de Humor selecionados: {getAuditCounts().energyMoodCount}</div>
+                  <div>• Check-ins Anti-vício: {getAuditCounts().antiAddictionCount}</div>
+                  <div>• Outros blocos no Snapshot: {getAuditCounts().insightsTotal + getAuditCounts().notesCount + getAuditCounts().savedLinksCount} itens</div>
+                </div>
+
+                <div className="pt-1.5 border-t border-border-custom flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-text uppercase">Total Selecionado:</span>
+                  <span className="text-[#6ee7a8] font-mono">{getAuditCounts().totalSelected} itens</span>
+                </div>
+              </div>
+
+              {/* Confirm & Cancel Buttons */}
+              <div className="flex flex-col gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={getAuditCounts().totalSelected === 0}
+                  onClick={exportIdentity}
+                  className="w-full py-4 text-black bg-[#6ee7a8] hover:bg-[#52c18d] disabled:bg-surface-3 disabled:text-text-dim/50 disabled:cursor-not-allowed rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md flex items-center justify-center gap-2"
+                >
+                  <Download size={12} />
+                  CONFIRMAR E GERAR VAULT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
                   className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
                 >
                   CANCELAR
