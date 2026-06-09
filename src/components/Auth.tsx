@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, UserPlus, Github, Mail } from 'lucide-react';
+import { useDataStore } from '../store/useDataStore';
 
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,6 +13,18 @@ export const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const blockedReason = localStorage.getItem('auth_block_reason');
+    if (blockedReason) {
+      setError(blockedReason);
+      localStorage.removeItem('auth_block_reason');
+      const dataStore = useDataStore.getState();
+      if (dataStore && typeof dataStore.showNotification === 'function') {
+        dataStore.showNotification(blockedReason, 'error');
+      }
+    }
+  }, []);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -19,22 +32,35 @@ export const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          throw new Error("Conta não encontrada ou credenciais inválidas. Se for novo por aqui, acesse a aba CADASTRAR.");
+        }
       } else {
+        if (!acceptedTerms) {
+          throw new Error("Por favor, confirme que leu e concorda com os termos de uso e política de privacidade antes de continuar.");
+        }
         const firstName = fullName.trim().split(/\s+/)[0];
-        const { error } = await supabase.auth.signUp({ 
+        const { error: signUpError } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
             data: { full_name: firstName }
           }
         });
-        if (error) throw error;
+        if (signUpError) throw signUpError;
         setError("Verifique seu email para confirmar o cadastro.");
+        const dataStore = useDataStore.getState();
+        if (dataStore && typeof dataStore.showNotification === 'function') {
+          dataStore.showNotification("Cadastro realizado! Verifique seu email para confirmar.", "success");
+        }
       }
     } catch (err: any) {
       setError(err.message);
+      const dataStore = useDataStore.getState();
+      if (dataStore && typeof dataStore.showNotification === 'function') {
+        dataStore.showNotification(err.message, 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +71,13 @@ export const Auth = () => {
       setError("Por favor, confirme que leu e concorda com os termos de uso e política de privacidade antes de continuar.");
       return;
     }
+    
+    if (isLogin) {
+      localStorage.setItem('oauth_intent', 'login');
+    } else {
+      localStorage.setItem('oauth_intent', 'signup');
+    }
+    
     await supabase.auth.signInWithOAuth({ provider: 'google' });
   };
 
@@ -180,7 +213,12 @@ export const Auth = () => {
           <button 
             type="button"
             onClick={handleGoogleLogin}
-            className="w-full py-4 border border-border-custom rounded-2xl flex items-center justify-center gap-3 text-text text-xs font-bold uppercase tracking-widest hover:bg-surface-2 transition-all min-h-[44px] touch-manipulation"
+            disabled={!isLogin && !acceptedTerms}
+            className={`w-full py-4 border border-border-custom rounded-2xl flex items-center justify-center gap-3 text-text text-xs font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation ${
+              !isLogin && !acceptedTerms
+                ? 'opacity-30 bg-surface-2 border-dashed text-text/40 cursor-not-allowed'
+                : 'hover:bg-surface-2'
+            }`}
           >
             <Mail size={16} />
             Google
