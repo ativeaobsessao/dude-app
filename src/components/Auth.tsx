@@ -41,6 +41,10 @@ export const Auth = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (!isLogin && !acceptedTerms) {
+      setError("Por favor, confirme que leu e concorda com os termos de uso e política de privacidade antes de continuar.");
+      return;
+    }
     await supabase.auth.signInWithOAuth({ provider: 'google' });
   };
 
