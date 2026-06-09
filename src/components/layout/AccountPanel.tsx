@@ -436,10 +436,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
-                  disabled={isWiping || confirmText !== 'DELETAR'}
+                  disabled={isWiping || confirmText.trim().toUpperCase() !== 'DELETAR'}
                   onClick={handleWipeAccount}
                   className={`w-full py-4 text-white rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md ${
-                    confirmText === 'DELETAR'
+                    confirmText.trim().toUpperCase() === 'DELETAR'
                       ? 'bg-[#f87171] hover:bg-[#e11d48]'
                       : 'bg-[#f87171]/30 opacity-40 cursor-not-allowed grayscale'
                   }`}
