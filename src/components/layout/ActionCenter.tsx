@@ -300,6 +300,7 @@ export const ActionCenter = () => {
   const [projectsSection, setProjectsSection] = useState<'create' | 'list'>('create');
   const [activitiesSection, setActivitiesSection] = useState<'create' | 'list'>('create');
   const [linkActivityToHabit, setLinkActivityToHabit] = useState(false);
+  const [pendingActivityId, setPendingActivityId] = useState<string | null>(null);
   const [newHabitFrequency, setNewHabitFrequency] = useState(3);
   const [newHabitDuration, setNewHabitDuration] = useState(0);
   const [newHabitTime, setNewHabitTime] = useState('morning');
@@ -701,9 +702,10 @@ export const ActionCenter = () => {
 
       if (linkActivityToHabit) {
         setLinkActivityToHabit(false);
+        setPendingActivityId(activityAdded.id); // Guardar o ID da atividade criada com sucesso para vincular depois
         setNewHabitName(activityNameCreated);
         setCurrentScreen('habits');
-        showSuccess('Atividade salva! Configurando hábito...');
+        showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
       } else {
         showSuccess('Atividade salva com sucesso!');
         setIsOpen(false);
@@ -829,7 +831,7 @@ export const ActionCenter = () => {
           setCurrentScreen(null);
         }
       } else {
-        await dataStore.addHabit(
+        const createdHabit = await dataStore.addHabit(
           user.id,
           newHabitName.trim(),
           newHabitFrequency,
@@ -840,9 +842,36 @@ export const ActionCenter = () => {
           isRecurring ? schedStartCombined : '',
           { ...schedulingParams }
         );
-        showSuccess('✅ Hábito criado e agendado com sucesso!');
-        setIsOpen(false);
-        setCurrentScreen(null);
+
+        if (createdHabit) {
+          showSuccess('✅ Hábito criado e agendado com sucesso!');
+
+          if (pendingActivityId) {
+            const activity = dataStore.activities.find(a => a.id === pendingActivityId);
+            if (activity) {
+              const updatedName = `${activity.name} #habit:${createdHabit.id}`;
+              const { error: updateError } = await supabase
+                .from('activities')
+                .update({ name: updatedName })
+                .eq('id', pendingActivityId);
+
+              if (!updateError) {
+                const updatedActivities = dataStore.activities.map(a =>
+                  a.id === pendingActivityId ? { ...a, habit_id: createdHabit.id } : a
+                );
+                useDataStore.setState({ activities: updatedActivities });
+              } else {
+                console.error('Erro ao vincular atividade ao hábito:', updateError);
+              }
+            }
+            setPendingActivityId(null);
+          }
+
+          setIsOpen(false);
+          setCurrentScreen(null);
+        } else {
+          showSuccess('Erro ao criar hábito.');
+        }
       }
 
       setNewHabitName('');

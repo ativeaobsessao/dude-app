@@ -5,6 +5,8 @@ import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
 import { HabitsSection } from './components/dashboard/HabitsSection';
+import { ProjectsSection } from './components/dashboard/ProjectsSection';
+import { ActivitiesSection } from './components/dashboard/ActivitiesSection';
 import { AvoidanceSection } from './components/dashboard/AvoidanceSection';
 import { RecentNotes } from './components/dashboard/RecentNotes';
 import { LinksHeroBlock } from './components/links/LinksHeroBlock';
@@ -887,10 +889,11 @@ export default function App() {
               <ProgressStats onClose={() => setActiveTab('home')} />
             )}
 
-            {activeTab === 'menu' && (
-              <div className="w-full max-w-6xl mx-auto px-6 py-6 space-y-12 md:space-y-16 flex flex-col items-center">
-                {/* Sua Agenda de Foco Section */}
-                <div className="w-full max-w-4xl mx-auto p-6 rounded-3xl bg-surface/5 border border-white/5 space-y-4">
+            {activeTab === 'menu' && (() => {
+              const hasAtLeastOneProjectAndActivity = dataStore.projects.length > 0 && dataStore.activities.length > 0;
+
+              const renderAgendamento = () => (
+                <div key="agendamento-section" className="w-full max-w-4xl mx-auto p-6 rounded-3xl bg-surface/5 border border-white/5 space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="space-y-1 text-left">
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green">AGENDAMENTO</span>
@@ -904,87 +907,31 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              );
 
-                {/* Central de Escopos (Projetos & Atividades) */}
-                <div className="w-full max-w-4xl mx-auto space-y-6">
-                  <div className="text-left px-1">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-green block mb-1">CENTRAL DE ESCOPOS</span>
-                    <h3 className="text-lg font-bold text-text-primary uppercase tracking-wider">Estruturação de Trabalho</h3>
-                    <p className="text-xs text-text-secondary/60 mt-1 leading-relaxed">
-                      Gerencie seus macro projetos e as atividades padrões associadas para planejar e segmentar seu progresso.
-                    </p>
-                  </div>
+              return (
+                <div className="w-full max-w-6xl mx-auto px-6 py-6 space-y-4 md:space-y-6 flex flex-col items-center">
+                  {!hasAtLeastOneProjectAndActivity ? (
+                    <>
+                      <ProjectsSection />
+                      <ActivitiesSection />
+                      {renderAgendamento()}
+                    </>
+                  ) : (
+                    <>
+                      {renderAgendamento()}
+                      <ProjectsSection />
+                      <ActivitiesSection />
+                    </>
+                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                    {/* Card de Projetos */}
-                    <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('open-action-center', {
-                          detail: { screen: 'projects' }
-                        }));
-                      }}
-                      className="p-6 bg-surface/5 border border-white/5 hover:border-green/20 hover:bg-surface/10 rounded-3xl text-left transition-all duration-200 group active:scale-[0.98] cursor-pointer flex flex-col justify-between h-44"
-                    >
-                      <div className="flex justify-between items-start w-full">
-                        <div className="p-3 bg-green/10 border border-green/20 rounded-2xl text-green group-hover:scale-110 transition-transform">
-                          <FolderKanban size={20} />
-                        </div>
-                        <span className="text-[10px] font-mono font-bold uppercase text-green bg-green/10 px-2.5 py-1 rounded-full">
-                          {dataStore.projects.length} {dataStore.projects.length === 1 ? 'Projeto' : 'Projetos'}
-                        </span>
-                      </div>
-                      <div className="space-y-1 mt-4">
-                        <h4 className="text-sm font-bold text-text-primary group-hover:text-green transition-colors uppercase tracking-wider">
-                          Projetos
-                        </h4>
-                        <p className="text-[11px] text-text-secondary/60 leading-normal">
-                          Liste e configure todos os escopos e iniciativas de trabalho.
-                        </p>
-                      </div>
-                    </button>
-
-                    {/* Card de Atividades */}
-                    <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('open-action-center', {
-                          detail: { screen: 'activities' }
-                        }));
-                      }}
-                      className="p-6 bg-surface/5 border border-white/5 hover:border-green/20 hover:bg-surface/10 rounded-3xl text-left transition-all duration-200 group active:scale-[0.98] cursor-pointer flex flex-col justify-between h-44"
-                    >
-                      <div className="flex justify-between items-start w-full">
-                        <div className="p-3 bg-green/10 border border-green/20 rounded-2xl text-green group-hover:scale-110 transition-transform">
-                          <Layers size={20} />
-                        </div>
-                        <span className="text-[10px] font-mono font-bold uppercase text-green bg-green/10 px-2.5 py-1 rounded-full">
-                          {dataStore.activities.length} {dataStore.activities.length === 1 ? 'Atividade' : 'Atividades'}
-                        </span>
-                      </div>
-                      <div className="space-y-1 mt-4">
-                        <h4 className="text-sm font-bold text-text-primary group-hover:text-green transition-colors uppercase tracking-wider">
-                          Atividades
-                        </h4>
-                        <p className="text-[11px] text-text-secondary/60 leading-normal">
-                          Defina as etapas ou categorias padrões de tarefas dos seus projetos.
-                        </p>
-                      </div>
-                    </button>
-                  </div>
+                  <HabitsSection />
+                  <AvoidanceSection />
+                  <RecentNotes />
+                  <LinksHeroBlock />
                 </div>
-
-                {/* Seção Hábitos Atômicos */}
-                <HabitsSection />
-
-                {/* Anti-Vício (Módulo Premium Separado) */}
-                <AvoidanceSection />
-
-                {/* Seção Anotações */}
-                <RecentNotes />
-
-                {/* Organizador de Links Section */}
-                <LinksHeroBlock />
-              </div>
-            )}
+              );
+            })()}
           </main>
         )}
 
