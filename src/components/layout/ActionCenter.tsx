@@ -1644,7 +1644,12 @@ export const ActionCenter = () => {
                               className={inputClasses}
                               value={newProjectName}
                               onChange={e => setNewProjectName(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleAddProject()}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
                             />
                           </div>
                           <button
@@ -1764,7 +1769,12 @@ export const ActionCenter = () => {
                               className={inputClasses}
                               value={newActivityName}
                               onChange={e => setNewActivityName(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleAddActivity()}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
                             />
                           </div>
 
