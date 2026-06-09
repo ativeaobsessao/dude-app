@@ -24,6 +24,8 @@ import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDat
 import { supabase } from './lib/supabase';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PrivacyPolicy } from './components/legal/PrivacyPolicy';
+import { TermsOfUse } from './components/legal/TermsOfUse';
 
 // Agenda Integration
 import { AgendaHoje } from './components/agenda/AgendaHoje';
@@ -38,6 +40,16 @@ import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
 
 export default function App() {
   const { signOut, user } = useAuthStore();
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
   const { 
     hasCompletedFirstSession, 
     profile, 
@@ -619,6 +631,28 @@ export default function App() {
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [activeTab, showSignOutConfirm, isReagendarOpen, isReconfigurarOpen, showFullAgenda]);
+
+  if (currentPath === '/privacidade') {
+    return (
+      <ErrorBoundary>
+        <PrivacyPolicy onBack={() => {
+          window.history.pushState({}, '', '/');
+          setCurrentPath('/');
+        }} />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentPath === '/termos') {
+    return (
+      <ErrorBoundary>
+        <TermsOfUse onBack={() => {
+          window.history.pushState({}, '', '/');
+          setCurrentPath('/');
+        }} />
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>

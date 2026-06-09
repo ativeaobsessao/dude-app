@@ -8,6 +8,7 @@ export const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,9 +131,36 @@ export const Auth = () => {
               )}
             </AnimatePresence>
 
+            {!isLogin && (
+              <div className="flex items-start gap-3 px-1 py-1">
+                <input
+                  type="checkbox"
+                  id="acceptedTerms"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 accent-green h-4 w-4 rounded border-border-custom bg-surface-2 focus:ring-green cursor-pointer"
+                  required
+                />
+                <label htmlFor="acceptedTerms" className="text-[11px] text-text-dim leading-relaxed cursor-pointer select-none">
+                  Li e concordo com os{' '}
+                  <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-green hover:underline font-bold">
+                    Termos de Uso
+                  </a>{' '}
+                  e a{' '}
+                  <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-green hover:underline font-bold">
+                    Política de Privacidade
+                  </a>.
+                </label>
+              </div>
+            )}
+
             <button 
-              disabled={loading}
-              className="w-full py-5 bg-green text-base rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:brightness-105 transition-all shadow-[0_0_30px_rgba(110,231,168,0.1)] min-h-[44px] touch-manipulation"
+              disabled={loading || (!isLogin && !acceptedTerms)}
+              className={`w-full py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-[10px] sm:text-xs transition-all min-h-[44px] touch-manipulation flex items-center justify-center gap-2 ${
+                loading || (!isLogin && !acceptedTerms)
+                  ? 'bg-green/20 text-text/30 opacity-40 cursor-not-allowed shadow-none'
+                  : 'bg-green text-background hover:brightness-105 shadow-[0_0_30px_rgba(110,231,168,0.1)]'
+              }`}
             >
               {loading ? 'Processando...' : isLogin ? 'Acessar Sistema' : 'Criar Conta'}
             </button>
