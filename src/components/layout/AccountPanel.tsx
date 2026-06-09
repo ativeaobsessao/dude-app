@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { X, Camera, User, Mail, Lock, LogOut, Check, Trash2 } from 'lucide-react';
+import { X, Camera, User, Mail, Lock, LogOut, Check, Trash2, Download, Upload, Database } from 'lucide-react';
 
 interface AccountPanelProps {
   isOpen: boolean;
@@ -34,6 +34,264 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [isWiping, setIsWiping] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [pendingImportPayload, setPendingImportPayload] = useState<any>(null);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const exportIdentity = () => {
+    if (!user?.id) return;
+    
+    const p = dataStore.profile;
+    const name = p?.full_name || 'Usuário';
+    const email = userEmail || 'desconhecido';
+    const minutes = p?.total_focus_minutes || 0;
+    const streak = p?.current_streak || 0;
+    
+    let md = `# 💾 DUDE - IDENTITY VAULT & BACKUP\n`;
+    md += `Gerado em: ${new Date().toLocaleString('pt-BR')}\n`;
+    md += `Email do Usuário: ${email}\n\n`;
+    md += `---\n\n`;
+    md += `## 📊 RELATÓRIO EXECUTIVO & VISÃO GERAL (IA-READY)\n\n`;
+    md += `- **Agente Proprietário:** ${name}\n`;
+    md += `- **Tempo Total Focado:** ${minutes} minutos\n`;
+    md += `- **Ofensiva Atual (Streak):** ${streak} dias\n\n`;
+    
+    md += `### 📁 PROJETOS CADASTRADOS (${dataStore.projects?.length || 0})\n`;
+    md += `| Nome do Projeto | ID |\n`;
+    md += `| :--- | :--- |\n`;
+    (dataStore.projects || []).forEach(proj => {
+      md += `| ${proj.name} | ${proj.id} |\n`;
+    });
+    md += `\n`;
+
+    md += `### ⚡ HÁBITOS CULTIVADOS (${dataStore.habits?.length || 0})\n`;
+    md += `| Nome do Hábito | Frequência Semanal | Duração por Sessão | Período |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    (dataStore.habits || []).forEach(h => {
+      md += `| ${h.name} | ${h.sessions_per_week}x | ${h.minutes_per_session} min | ${h.preferred_time === 'morning' ? '🌅 Manhã' : h.preferred_time === 'afternoon' ? '☀️ Tarde' : '🌙 Noite'} |\n`;
+    });
+    md += `\n`;
+
+    md += `### 📋 ATIVIDADES REGISTRADAS (${dataStore.activities?.length || 0})\n`;
+    md += `| Nome da Atividade | ID |\n`;
+    md += `| :--- | :--- |\n`;
+    (dataStore.activities || []).forEach(act => {
+      md += `| ${act.name} | ${act.id} |\n`;
+    });
+    md += `\n`;
+
+    md += `### ⏳ SESSÕES DE FOCO COMPLEMENTADAS (${dataStore.sessions?.length || 0})\n`;
+    md += `| Assunto | Duração | Data | Concluída com Sucesso? |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    (dataStore.sessions || []).slice(0, 15).forEach(s => {
+      md += `| ${s.activity_name || 'Sessão Sem Nome'} | ${s.duration_minutes} min | ${new Date(s.started_at).toLocaleString('pt-BR')} | ${s.completed ? 'Sim' : 'Não'} |\n`;
+    });
+    if ((dataStore.sessions || []).length > 15) {
+      md += `| *E mais ${(dataStore.sessions || []).length - 15} sessões no arquivo de dados* | | | |\n`;
+    }
+    md += `\n`;
+
+    md += `### 📈 REGISTRO DE HUMOR E ENERGIA (${dataStore.moodEntries?.length || 0})\n`;
+    md += `| Data | Período | Humor | Energia |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    (dataStore.moodEntries || []).slice(0, 15).forEach(m => {
+      md += `| ${m.date} | ${m.period} | ${m.mood || 'Neutro'} | ${m.energy || 'Normal'} |\n`;
+    });
+    if ((dataStore.moodEntries || []).length > 15) {
+      md += `| *E mais ${(dataStore.moodEntries || []).length - 15} registros no arquivo de dados* | | | |\n`;
+    }
+    md += `\n`;
+
+    md += `### 🛡️ PREVENÇÃO E AUTOCONTROLE (${dataStore.avoidanceCheckins?.length || 0})\n`;
+    md += `| Data | Período | Status / Resultado | Gatilho / Observação |\n`;
+    md += `| :--- | :--- | :--- | :--- |\n`;
+    (dataStore.avoidanceCheckins || []).slice(0, 15).forEach(av => {
+      md += `| ${new Date(av.created_at).toLocaleString('pt-BR')} | ${av.checkin_period} | ${av.status} | ${av.trigger_note || 'Sem observações'} |\n`;
+    });
+    if ((dataStore.avoidanceCheckins || []).length > 15) {
+      md += `| *E mais ${(dataStore.avoidanceCheckins || []).length - 15} check-ins no arquivo de dados* | | | |\n`;
+    }
+    md += `\n`;
+
+    md += `### 🔗 LINKS RÁPIDOS SALVOS (${dataStore.savedLinks?.length || 0})\n`;
+    md += `| Título | URL |\n`;
+    md += `| :--- | :--- |\n`;
+    (dataStore.savedLinks || []).forEach(link => {
+      md += `| ${link.title} | ${link.url} |\n`;
+    });
+    md += `\n`;
+
+    md += `---\n\n`;
+    md += `## 📦 DADOS DE RESTAURAÇÃO (JSON)\n`;
+    md += `Este trecho contêm seu backup em formato codificado de alta integridade. Não altere os blocos abaixo para garantir a importação perfeita.\n\n`;
+    md += `<!-- DUDE_RESTORE_VAULT_START -->\n`;
+    
+    const payload = {
+      profile: dataStore.profile,
+      projects: dataStore.projects,
+      habits: dataStore.habits,
+      habitCompletions: dataStore.habitCompletions,
+      avoidanceCheckins: dataStore.avoidanceCheckins,
+      sessions: dataStore.sessions,
+      notes: dataStore.notes,
+      activities: dataStore.activities,
+      sessionTasks: dataStore.sessionTasks,
+      pendingTasks: dataStore.pendingTasks,
+      scheduledActivities: dataStore.scheduledActivities,
+      moodEntries: dataStore.moodEntries,
+      dailyShutdowns: dataStore.dailyShutdowns,
+      savedLinks: dataStore.savedLinks,
+      dailyTasks: dataStore.dailyTasks
+    };
+    
+    const container = {
+      version: '1.0.0',
+      exported_at: new Date().toISOString(),
+      payload
+    };
+    
+    md += JSON.stringify(container, null, 2);
+    md += `\n<!-- DUDE_RESTORE_VAULT_END -->\n`;
+    
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dude-backup-${email.split('@')[0]}-${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    dataStore.showNotification('Identidade exportada como arquivo híbrido .md!', 'success');
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target?.result as string;
+      if (!text) return;
+      
+      const startIndex = text.indexOf('<!-- DUDE_RESTORE_VAULT_START -->');
+      const endIndex = text.indexOf('<!-- DUDE_RESTORE_VAULT_END -->');
+      
+      if (startIndex === -1 || endIndex === -1) {
+        dataStore.showNotification('Arquivo inválido! Não foi possível encontrar a assinatura do Data Vault.', 'error');
+        return;
+      }
+      
+      const jsonStr = text.substring(startIndex + '<!-- DUDE_RESTORE_VAULT_START -->'.length, endIndex);
+      try {
+        const parsed = JSON.parse(jsonStr.trim());
+        if (!parsed || !parsed.payload) {
+          throw new Error('Formato do Payload inválido ou vazio.');
+        }
+        
+        setPendingImportPayload(parsed.payload);
+        setShowImportConfirm(true);
+      } catch (err: any) {
+        console.error('Error parsing backup JSON:', err);
+        dataStore.showNotification('Erro ao processar arquivo: ' + err.message, 'error');
+      }
+    };
+    
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const runImportRestore = async () => {
+    if (!user?.id || !pendingImportPayload) return;
+    setIsImporting(true);
+    try {
+      const userId = user.id;
+      const p = pendingImportPayload;
+      
+      const tablesToWipe = [
+        'session_tasks',
+        'pending_tasks',
+        'habit_completions',
+        'notes',
+        'daily_tasks',
+        'scheduled_activities',
+        'focus_sessions',
+        'activities',
+        'habits',
+        'projects',
+        'avoidance_checkins',
+        'mood_entries',
+        'daily_shutdowns',
+        'saved_links'
+      ];
+      
+      for (const tbl of tablesToWipe) {
+        try {
+          await supabase.from(tbl).delete().eq('user_id', userId);
+        } catch (err) {
+          console.warn(`Failure during wiping child table ${tbl} for restore, proceeding:`, err);
+        }
+      }
+      
+      const safeInsert = async (table: string, items: any[]) => {
+        if (!items || !Array.isArray(items) || items.length === 0) return;
+        
+        const sanitizedItems = items.map(item => {
+          const copy = { ...item };
+          if (copy.user_id) copy.user_id = userId;
+          return copy;
+        });
+        
+        const chunkSize = 100;
+        for (let i = 0; i < sanitizedItems.length; i += chunkSize) {
+          const chunk = sanitizedItems.slice(i, i + chunkSize);
+          const { error } = await supabase.from(table).insert(chunk);
+          if (error) {
+            console.error(`Error importing chunk into ${table}:`, error);
+            throw error;
+          }
+        }
+      };
+      
+      if (p.profile) {
+        await supabase.from('profiles').update({
+          total_focus_minutes: p.profile.total_focus_minutes ?? 0,
+          current_streak: p.profile.current_streak ?? 0,
+          daily_goal_minutes: p.profile.daily_goal_minutes ?? null
+        }).eq('id', userId);
+      }
+      
+      await safeInsert('projects', p.projects);
+      await safeInsert('habits', p.habits);
+      await safeInsert('activities', p.activities);
+      await safeInsert('notes', p.notes);
+      await safeInsert('daily_tasks', p.dailyTasks || p.daily_tasks);
+      await safeInsert('daily_shutdowns', p.dailyShutdowns || p.daily_shutdowns);
+      await safeInsert('saved_links', p.savedLinks || p.saved_links);
+      await safeInsert('mood_entries', p.moodEntries || p.mood_entries);
+      await safeInsert('avoidance_checkins', p.avoidanceCheckins || p.avoidance_checkins);
+      await safeInsert('focus_sessions', p.sessions);
+      await safeInsert('session_tasks', p.sessionTasks || p.session_tasks);
+      await safeInsert('pending_tasks', p.pendingTasks || p.pending_tasks);
+      await safeInsert('scheduled_activities', p.scheduledActivities || p.scheduled_activities);
+      await safeInsert('habit_completions', p.habitCompletions || p.habit_completions);
+      
+      dataStore.showNotification('Identidade transferida e restaurada com sucesso!', 'success');
+      
+      onClose();
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Critical failure during identity restoration:', err);
+      dataStore.showNotification('Erro restaurando backup: ' + err.message, 'error');
+    } finally {
+      setIsImporting(false);
+      setShowImportConfirm(false);
+      setPendingImportPayload(null);
+    }
+  };
 
   const handleWipeAccount = async () => {
     if (!user?.id) return;
@@ -43,7 +301,6 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       if (ok) {
         dataStore.showNotification('Sua conta foi excluída definitivamente.', 'success');
         
-        // Securely double-wipe client storages
         try {
           localStorage.clear();
           sessionStorage.clear();
@@ -55,7 +312,6 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           await authSignOut();
         }
         onClose();
-        // Hard refresh to initial route to clear the entire React app from RAM and state
         window.location.href = '/';
       } else {
         dataStore.showNotification('Ocorreu um erro ao excluir sua conta.', 'error');
@@ -341,6 +597,45 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
           <hr className="border-border-custom" />
 
+          {/* Backup e Transferência */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Backup e Transferência</label>
+            
+            <p className="text-[10px] text-text-dim/60 leading-relaxed px-1">
+              Exporte toda a sua identidade da DUDE (hábitos, foco, logs e notas) em um arquivo MD/JSON híbrido legível por humanos e restabeleça em qualquer dispositivo.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={exportIdentity}
+                className="w-full h-12 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/60 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Download size={12} />
+                💾 Exportar Identidade (Backup)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => importFileInputRef.current?.click()}
+                className="w-full h-12 border border-[#6ee7a8]/30 hover:border-[#6ee7a8]/60 hover:bg-[#6ee7a8]/5 text-[#6ee7a8] active:scale-98 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Upload size={12} />
+                📂 Importar Identidade (Restore)
+              </button>
+
+              <input
+                type="file"
+                ref={importFileInputRef}
+                onChange={handleImportFile}
+                accept=".md"
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          <hr className="border-border-custom" />
+
           {/* Segurança */}
           <div className="space-y-4">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Segurança</label>
@@ -452,6 +747,54 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     setConfirmText('');
+                  }}
+                  className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Import Confirmation Modal */}
+      <AnimatePresence>
+        {showImportConfirm && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-base/90 backdrop-blur-md p-6">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm bg-surface-2 border border-border-custom rounded-3xl p-8 text-center space-y-6 shadow-2xl relative"
+            >
+              <div className="space-y-2">
+                <div className="w-12 h-12 rounded-full bg-[#6ee7a8]/10 flex items-center justify-center text-[#6ee7a8] mx-auto mb-2">
+                  <Database size={20} />
+                </div>
+                <h4 className="text-lg font-extrabold text-[#6ee7a8] tracking-tight uppercase">
+                  Substituir Identidade?
+                </h4>
+                <p className="text-xs text-text-dim/80 leading-relaxed">
+                  Atenção: Isso sobrescreverá seus dados atuais definitivamente e iniciará o arquivo transferido. Tem certeza de que deseja prosseguir com a restauração?
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  disabled={isImporting}
+                  onClick={runImportRestore}
+                  className="w-full py-4 text-black bg-[#6ee7a8] hover:bg-[#52c18d] rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer shadow-md"
+                >
+                  {isImporting ? 'IMPORTANDO DADOS...' : 'SIM, RESTAURAR TUDO'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isImporting}
+                  onClick={() => {
+                    setShowImportConfirm(false);
+                    setPendingImportPayload(null);
                   }}
                   className="w-full py-4 border border-border-custom hover:bg-surface-1 text-text-dim rounded-2xl text-[10px] font-extrabold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation cursor-pointer"
                 >
