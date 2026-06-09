@@ -2,6 +2,7 @@ import { useState, type FormEvent, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduledActivity } from '../../types';
 import { 
@@ -296,6 +297,9 @@ export const ActionCenter = () => {
   // Project/Habit/Note States
   const [newProjectName, setNewProjectName] = useState('');
   const [newHabitName, setNewHabitName] = useState('');
+  const [projectsSection, setProjectsSection] = useState<'create' | 'list'>('create');
+  const [activitiesSection, setActivitiesSection] = useState<'create' | 'list'>('create');
+  const [linkActivityToHabit, setLinkActivityToHabit] = useState(false);
   const [newHabitFrequency, setNewHabitFrequency] = useState(3);
   const [newHabitDuration, setNewHabitDuration] = useState(0);
   const [newHabitTime, setNewHabitTime] = useState('morning');
@@ -676,69 +680,37 @@ export const ActionCenter = () => {
     }
 
     setIsSaving(true);
-    let createdHabit: any = null;
     try {
-      if (linkToHabit === 'sim') {
-        if (!newActivityHabitFrequency || newActivityHabitFrequency < 1) {
-          showSuccess('Por favor, selecione a frequência semanal.');
-          return;
-        }
-        if (!newActivityHabitDuration || newActivityHabitDuration < 1) {
-          showSuccess('Por favor, insira a duração por sessão.');
-          return;
-        }
-        if (!newActivityHabitTime) {
-          showSuccess('Por favor, selecione o melhor horário.');
-          return;
-        }
-
-        createdHabit = await dataStore.addHabit(
-          user.id,
-          newActivityName.trim(),
-          newActivityHabitFrequency,
-          newActivityHabitDuration,
-          newActivityHabitTime as 'morning' | 'afternoon' | 'evening'
-        );
-
-        if (!createdHabit) {
-          showSuccess('Erro ao criar hábito configurado.');
-          return;
-        }
-      }
-
       const activityAdded = await dataStore.addActivity(
         user.id,
         newActivityName.trim(),
         newActivityProject || undefined,
-        createdHabit?.id || null
+        null
       );
-
-      if (!activityAdded && createdHabit) {
-        // Clean up the created habit if activity creation failed
-        await dataStore.deleteHabit(createdHabit.id);
-        showSuccess('Erro ao criar atividade. Hábito revertido.');
-        return;
-      }
 
       if (!activityAdded) {
         showSuccess('Erro ao processar criação da atividade.');
         return;
       }
 
+      const activityNameCreated = newActivityName.trim();
+
+      // Reset activity creation states
       setNewActivityName('');
       setNewActivityProject('');
-      setLinkToHabit('nao');
-      setNewActivityHabitFrequency(3);
-      setNewActivityHabitDuration(0);
-      setNewActivityHabitTime('morning');
-      showSuccess('Atividade salva com sucesso!');
-      setIsOpen(false);
-      setCurrentScreen(null);
+
+      if (linkActivityToHabit) {
+        setLinkActivityToHabit(false);
+        setNewHabitName(activityNameCreated);
+        setCurrentScreen('habits');
+        showSuccess('Atividade salva! Configurando hábito...');
+      } else {
+        showSuccess('Atividade salva com sucesso!');
+        setIsOpen(false);
+        setCurrentScreen(null);
+      }
     } catch (err) {
       console.error('Erro crítico ao salvar atividade:', err);
-      if (createdHabit) {
-        await dataStore.deleteHabit(createdHabit.id);
-      }
       showSuccess('Erro crítico ao processar criação.');
     } finally {
       setIsSaving(false);
@@ -995,11 +967,73 @@ export const ActionCenter = () => {
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     const { id, type } = deleteConfirm;
-    if (type === 'project') await dataStore.deleteProject(id);
-    if (type === 'activity') await dataStore.deleteActivity(id);
-    if (type === 'habit') await dataStore.deleteHabit(id);
-    if (type === 'note') await dataStore.deleteNote(id);
-    if (type === 'session') await dataStore.deleteSession(id);
+    
+    if (type === 'project') {
+      try {
+        // Desvincular daily_tasks
+        const linkedTasks = dataStore.dailyTasks.filter(t => t.project_id === id);
+        for (const t of linkedTasks) {
+          await supabase.from('daily_tasks').update({ project_id: null }).eq('id', t.id);
+        }
+        // Desvincular scheduled_activities
+        const linkedSched = dataStore.scheduledActivities.filter(sa => sa.project_id === id);
+        for (const sa of linkedSched) {
+          await supabase.from('scheduled_activities').update({ project_id: null }).eq('id', sa.id);
+        }
+        // Desvincular activities
+        const linkedActs = dataStore.activities.filter(a => a.project_id === id);
+        for (const a of linkedActs) {
+          await supabase.from('activities').update({ project_id: null }).eq('id', a.id);
+        }
+        
+        // Also update local state
+        const updatedTasks = dataStore.dailyTasks.map(t => t.project_id === id ? { ...t, project_id: null } : t);
+        const updatedSched = dataStore.scheduledActivities.map(sa => sa.project_id === id ? { ...sa, project_id: null } : sa);
+        const updatedActs = dataStore.activities.map(a => a.project_id === id ? { ...a, project_id: null } : a);
+        
+        useDataStore.setState({
+          dailyTasks: updatedTasks,
+          scheduledActivities: updatedSched,
+          activities: updatedActs
+        });
+      } catch (err) {
+        console.error('Erro ao desvincular recursos do projeto:', err);
+      }
+      
+      await dataStore.deleteProject(id);
+      showSuccess('Projeto excluído com sucesso!');
+    } else if (type === 'activity') {
+      try {
+        // Desvincular daily_tasks
+        const linkedTasks = dataStore.dailyTasks.filter(t => t.activity_id === id);
+        for (const t of linkedTasks) {
+          await supabase.from('daily_tasks').update({ activity_id: null }).eq('id', t.id);
+        }
+        // Desvincular scheduled_activities
+        const linkedSched = dataStore.scheduledActivities.filter(sa => sa.activity_id === id);
+        for (const sa of linkedSched) {
+          await supabase.from('scheduled_activities').update({ activity_id: null }).eq('id', sa.id);
+        }
+        
+        // Also update local state
+        const updatedTasks = dataStore.dailyTasks.map(t => t.activity_id === id ? { ...t, activity_id: null } : t);
+        const updatedSched = dataStore.scheduledActivities.map(sa => sa.activity_id === id ? { ...sa, activity_id: null } : sa);
+        
+        useDataStore.setState({
+          dailyTasks: updatedTasks,
+          scheduledActivities: updatedSched
+        });
+      } catch (err) {
+        console.error('Erro ao desvincular recursos da atividade:', err);
+      }
+      
+      await dataStore.deleteActivity(id);
+      showSuccess('Atividade excluída com sucesso!');
+    } else {
+      if (type === 'habit') await dataStore.deleteHabit(id);
+      if (type === 'note') await dataStore.deleteNote(id);
+      if (type === 'session') await dataStore.deleteSession(id);
+    }
     setDeleteConfirm(null);
   };
 
@@ -1095,14 +1129,14 @@ export const ActionCenter = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={isPrefilled || currentScreen !== null
-              ? "fixed inset-x-0 top-0 bottom-20 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
-              : "fixed inset-x-0 top-0 bottom-20 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
+              ? "fixed inset-x-0 top-16 bottom-20 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+              : "fixed inset-x-0 top-16 bottom-20 z-[200] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-12 md:py-24 overflow-y-auto"
             }
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
             <div className={isPrefilled || currentScreen !== null
-              ? "w-full max-w-xl bg-background border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-6 my-auto"
+              ? "w-full max-w-xl bg-background border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-6 my-auto max-h-[85vh] flex flex-col overflow-y-auto"
               : "w-full max-w-4xl space-y-12 pb-32"
             }>
               <header className="flex justify-between items-center border-b border-white/5 pb-8">
@@ -1437,146 +1471,246 @@ export const ActionCenter = () => {
                 )}
 
                 {currentScreen === 'projects' && (
-                  <div className="w-full max-w-2xl space-y-10">
-                    <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center">Projetos</h3>
-                    <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                      <div className="space-y-1 text-left">
-                        <label className={labelClasses}>Nome do Projeto</label>
-                        <input
-                          autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
-                          placeholder="Novo Projeto..."
-                          className={inputClasses}
-                          value={newProjectName}
-                          onChange={e => setNewProjectName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleAddProject()}
-                        />
-                      </div>
-                      <button onClick={handleAddProject} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Ok</button>
+                  <div className="w-full max-w-xl mx-auto flex flex-col h-full max-h-[70vh]">
+                    {/* Header do Sub-menu */}
+                    <div className="text-center mb-6">
+                      <h3 className="text-2xl font-bold tracking-tight text-text-primary">Projetos</h3>
+                      <p className="text-xs text-text-secondary/60 mt-1">
+                        Gerencie e organize seus escopos de trabalho.
+                      </p>
                     </div>
-                    <div className="flex justify-center">
-                      <button onClick={() => setShowListModal('projects')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todos os projetos</button>
+
+                    {/* Ramal de Menu: Exibe "CRIAR" e "VER TODOS" */}
+                    <div className="flex gap-1.5 p-1 bg-white/5 rounded-2xl mb-6 border border-white/5">
+                      <button
+                        onClick={() => setProjectsSection('create')}
+                        type="button"
+                        className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                          projectsSection === 'create'
+                            ? 'bg-primary-green text-background shadow-lg shadow-primary-green/10'
+                            : 'text-text-secondary hover:text-white'
+                        }`}
+                      >
+                        Criar Projeto
+                      </button>
+                      <button
+                        onClick={() => setProjectsSection('list')}
+                        type="button"
+                        className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                          projectsSection === 'list'
+                            ? 'bg-primary-green text-background shadow-lg shadow-primary-green/10'
+                            : 'text-text-secondary hover:text-white'
+                        }`}
+                      >
+                        Ver Todos ({dataStore.projects.length})
+                      </button>
                     </div>
-                    {renderBottomBackButton()}
+
+                    {/* Conteúdo dinâmico da seção */}
+                    <div className="flex-1 overflow-y-auto pr-1 min-h-[220px] max-h-[350px]">
+                      {projectsSection === 'create' ? (
+                        <div className="bg-surface/10 p-6 rounded-3xl border border-white/5 space-y-5 text-left">
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Nome do Projeto</label>
+                            <input
+                              autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
+                              placeholder="Ex: TCC, Lançamento, Exercícios..."
+                              className={inputClasses}
+                              value={newProjectName}
+                              onChange={e => setNewProjectName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleAddProject()}
+                            />
+                          </div>
+                          <button
+                            onClick={handleAddProject}
+                            className="w-full py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] shadow-lg shadow-primary-green/5"
+                          >
+                            Salvar Projeto
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {dataStore.projects.map(item => (
+                            <div key={item.id} className="p-4 bg-surface/30 border border-white/5 rounded-2xl flex justify-between items-center transition-all hover:bg-surface/40">
+                              <div className="text-left">
+                                <h4 className="text-sm font-medium text-text-primary">{item.name}</h4>
+                                <p className="text-[9px] text-text-secondary/40 font-bold uppercase tracking-widest mt-0.5">
+                                  {item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'Recente'}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setDeleteConfirm({ id: item.id, type: 'project', name: item.name })}
+                                className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                                title="Excluir Projeto"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                          {dataStore.projects.length === 0 && (
+                            <p className="text-text-secondary/20 italic text-center py-12 text-xs">Nenhum projeto registrado.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botões de Rodapé customizados de acordo com as especificações */}
+                    <div className="pt-4 border-t border-white/5 mt-6 w-full flex justify-center">
+                      {projectsSection === 'create' ? (
+                        <button
+                          onClick={() => setCurrentScreen(null)}
+                          type="button"
+                          className="w-full py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                        >
+                          <ArrowLeft size={14} /> Voltar ao Menu
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setProjectsSection('create')}
+                          type="button"
+                          className="w-full py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                        >
+                          <ArrowLeft size={14} /> Voltar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {currentScreen === 'activities' && (
-                  <div className="w-full max-w-2xl space-y-10">
-                    <h3 className="text-3xl font-bold tracking-tight text-text-primary text-center">Atividades</h3>
-                    <div className="bg-surface/10 p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                      <div className="space-y-1 text-left">
-                        <label className={labelClasses}>Nome da Atividade</label>
-                        <input
-                          autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
-                          placeholder="Ex: Refatoração, Estudo, Reunião..."
-                          className={inputClasses}
-                          value={newActivityName}
-                          onChange={e => setNewActivityName(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1 text-left">
-                        <label className={labelClasses}>Vincular Projeto (Opcional)</label>
-                        <CustomSelect
-                          value={newActivityProject}
-                          onChange={val => setNewActivityProject(val)}
-                          placeholder="Geral (Sem Projeto)"
-                          options={[
-                            { value: '', label: 'Geral (Sem Projeto)' },
-                            ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
-                          ]}
-                        />
-                      </div>
+                  <div className="w-full max-w-xl mx-auto flex flex-col h-full max-h-[70vh]">
+                    {/* Header do Sub-menu */}
+                    <div className="text-center mb-6">
+                      <h3 className="text-2xl font-bold tracking-tight text-text-primary">Atividades</h3>
+                      <p className="text-xs text-text-secondary/60 mt-1">
+                        Defina as tarefas padrões de execução.
+                      </p>
+                    </div>
 
-                      {/* Vincular a um Hábito? */}
-                      <div className="space-y-3 pt-4 border-t border-white/5 text-left">
-                        <label className={labelClasses}>Vincular a um Hábito?</label>
-                        <div className="flex gap-4">
+                    {/* Ramal de Menu: Exibe "CRIAR" e "VER TODOS" */}
+                    <div className="flex gap-1.5 p-1 bg-white/5 rounded-2xl mb-6 border border-white/5">
+                      <button
+                        onClick={() => setActivitiesSection('create')}
+                        type="button"
+                        className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                          activitiesSection === 'create'
+                            ? 'bg-primary-green text-background shadow-lg shadow-primary-green/10'
+                            : 'text-text-secondary hover:text-white'
+                        }`}
+                      >
+                        Criar Atividade
+                      </button>
+                      <button
+                        onClick={() => setActivitiesSection('list')}
+                        type="button"
+                        className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                          activitiesSection === 'list'
+                            ? 'bg-primary-green text-background shadow-lg shadow-primary-green/10'
+                            : 'text-text-secondary hover:text-white'
+                        }`}
+                      >
+                        Ver Todas ({dataStore.activities.length})
+                      </button>
+                    </div>
+
+                    {/* Conteúdo dinâmico da seção */}
+                    <div className="flex-1 overflow-y-auto pr-1 min-h-[220px] max-h-[350px]">
+                      {activitiesSection === 'create' ? (
+                        <div className="bg-surface/10 p-6 rounded-3xl border border-white/5 space-y-4 text-left">
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Nome da Atividade</label>
+                            <input
+                              autoComplete="off" autoCorrect="off" enterKeyHint="done" inputMode="text"
+                              placeholder="Ex: Refatoração, Estudo, Reunião..."
+                              className={inputClasses}
+                              value={newActivityName}
+                              onChange={e => setNewActivityName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleAddActivity()}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Vincular Projeto (Opcional)</label>
+                            <CustomSelect
+                              value={newActivityProject}
+                              onChange={val => setNewActivityProject(val)}
+                              placeholder="Geral (Sem Projeto)"
+                              options={[
+                                { value: '', label: 'Geral (Sem Projeto)' },
+                                ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                              ]}
+                            />
+                          </div>
+
+                          {/* Checkbox: "Vincular atividade a um hábito?" */}
+                          <div className="pt-2 border-t border-white/5">
+                            <label className="flex items-center gap-3 cursor-pointer select-none py-1.5 text-text-primary text-left">
+                              <input
+                                type="checkbox"
+                                checked={linkActivityToHabit}
+                                onChange={(e) => setLinkActivityToHabit(e.target.checked)}
+                                className="w-5 h-5 rounded border border-white/20 bg-white/5 text-primary-green focus:ring-0 focus:ring-offset-0 cursor-pointer accent-primary-green"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">Vincular atividade a um hábito?</span>
+                            </label>
+                          </div>
+
                           <button
-                            type="button"
-                            onClick={() => setLinkToHabit('sim')}
-                            className={`flex-1 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all ${
-                              linkToHabit === 'sim'
-                                ? 'bg-primary-green/10 border-primary-green text-primary-green shadow-[0_0_15px_rgba(110,231,168,0.15)]'
-                                : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
-                            }`}
+                            onClick={handleAddActivity}
+                            className="w-full py-4 bg-primary-green hover:bg-primary-green/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] shadow-lg shadow-primary-green/5"
                           >
-                            Sim
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setLinkToHabit('nao')}
-                            className={`flex-1 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] border transition-all ${
-                              linkToHabit === 'nao'
-                                ? 'bg-white/5 border-white/30 text-text-primary'
-                                : 'bg-transparent border-white/10 text-text-secondary hover:border-white/20'
-                            }`}
-                          >
-                            Não
+                            Salvar Atividade
                           </button>
                         </div>
-                      </div>
-
-                      {linkToHabit === 'sim' && (
-                        <div className="space-y-4 pt-4 border-t border-white/5 text-left transition-all">
-                          <div className="space-y-1">
-                            <label className={labelClasses}>Quantas vezes por semana?</label>
-                            <CustomSelect
-                              value={String(newActivityHabitFrequency)}
-                              onChange={(val) => setNewActivityHabitFrequency(Number(val))}
-                              placeholder="Vezes por semana"
-                              options={[
-                                { value: '1', label: '1x por semana' },
-                                { value: '2', label: '2x por semana' },
-                                { value: '3', label: '3x por semana' },
-                                { value: '4', label: '4x por semana' },
-                                { value: '5', label: '5x por semana' },
-                                { value: '6', label: '6x por semana' },
-                                { value: '7', label: '7x por semana' }
-                              ]}
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className={labelClasses}>Duração média por sessão (minutos)</label>
-                            <input
-                              type="tel"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              maxLength={3}
-                              enterKeyHint="done"
-                              placeholder="Ex: 45"
-                              className={`${inputClasses} text-center text-lg font-bold`}
-                              value={newActivityHabitDuration === 0 ? '' : newActivityHabitDuration}
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '');
-                                setNewActivityHabitDuration(parseInt(val) || 0);
-                              }}
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className={labelClasses}>Período do dia</label>
-                            <CustomSelect
-                              value={newActivityHabitTime}
-                              onChange={(val) => setNewActivityHabitTime(val)}
-                              placeholder="Melhor horário"
-                              options={[
-                                { value: 'morning', label: '🌅 Manhã' },
-                                { value: 'afternoon', label: '☀️ Tarde' },
-                                { value: 'evening', label: '🌙 Noite' }
-                              ]}
-                            />
-                          </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {dataStore.activities.map(item => {
+                            const linkedProj = dataStore.projects.find(p => p.id === item.project_id);
+                            return (
+                              <div key={item.id} className="p-4 bg-surface/30 border border-white/5 rounded-2xl flex justify-between items-center transition-all hover:bg-surface/40">
+                                <div className="text-left">
+                                  <h4 className="text-sm font-medium text-text-primary">{item.name}</h4>
+                                  <p className="text-[9px] text-text-secondary/40 font-bold uppercase tracking-widest mt-0.5">
+                                    {linkedProj ? `📁 ${linkedProj.name}` : '🌍 Atividade Geral'}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => setDeleteConfirm({ id: item.id, type: 'activity', name: item.name })}
+                                  className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                                  title="Excluir Atividade"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                          {dataStore.activities.length === 0 && (
+                            <p className="text-text-secondary/20 italic text-center py-12 text-xs">Nenhuma atividade registrada.</p>
+                          )}
                         </div>
                       )}
+                    </div>
 
-                      <button onClick={handleAddActivity} className="w-full py-5 bg-white/10 hover:bg-white/20 rounded-2xl font-bold uppercase tracking-widest text-[10px] text-text-primary transition-all min-h-[44px]">Ok</button>
+                    {/* Botões de Rodapé customizados de acordo com as especificações */}
+                    <div className="pt-4 border-t border-white/5 mt-6 w-full flex justify-center">
+                      {activitiesSection === 'create' ? (
+                        <button
+                          onClick={() => setCurrentScreen(null)}
+                          type="button"
+                          className="w-full py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                        >
+                          <ArrowLeft size={14} /> Voltar ao Menu
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setActivitiesSection('create')}
+                          type="button"
+                          className="w-full py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-text-secondary hover:text-text-primary rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                        >
+                          <ArrowLeft size={14} /> Voltar
+                        </button>
+                      )}
                     </div>
-                    <div className="flex justify-center">
-                      <button onClick={() => setShowListModal('activities')} className="text-[10px] font-bold uppercase tracking-widest text-primary-green border-b border-primary-green/30 pb-1">Ver todas as atividades</button>
-                    </div>
-                    {renderBottomBackButton()}
                   </div>
                 )}
 
@@ -2654,6 +2788,44 @@ export const ActionCenter = () => {
                 <p className="text-text-secondary text-sm font-light">
                   {deleteConfirm.type === 'habit' ? 'Todo o histórico será perdido.' : 'Esta ação não pode ser desfeita.'}
                 </p>
+                {(() => {
+                  if (deleteConfirm.type === 'project') {
+                    const tasksCount = dataStore.dailyTasks.filter(t => t.project_id === deleteConfirm.id).length;
+                    const schedulesCount = dataStore.scheduledActivities.filter(sa => sa.project_id === deleteConfirm.id).length;
+                    const activitiesCount = dataStore.activities.filter(a => a.project_id === deleteConfirm.id).length;
+                    const total = tasksCount + schedulesCount + activitiesCount;
+                    if (total > 0) {
+                      return (
+                        <div className="text-amber-500 text-xs font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 text-left mt-3 space-y-1">
+                          <p className="font-bold">⚠️ Recursos Vinculados:</p>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {activitiesCount > 0 && <li>{activitiesCount} atividade(s) catalogada(s)</li>}
+                            {tasksCount > 0 && <li>{tasksCount} tarefa(s) diária(s)</li>}
+                            {schedulesCount > 0 && <li>{schedulesCount} atividade(s) agendada(s)</li>}
+                          </ul>
+                          <p className="text-[10px] opacity-80 pt-1 border-t border-amber-500/10 mt-1">Ao excluir, todos serão desvinculados com segurança.</p>
+                        </div>
+                      );
+                    }
+                  } else if (deleteConfirm.type === 'activity') {
+                    const tasksCount = dataStore.dailyTasks.filter(t => t.activity_id === deleteConfirm.id).length;
+                    const schedulesCount = dataStore.scheduledActivities.filter(sa => sa.activity_id === deleteConfirm.id).length;
+                    const total = tasksCount + schedulesCount;
+                    if (total > 0) {
+                      return (
+                        <div className="text-amber-500 text-xs font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 text-left mt-3 space-y-1">
+                          <p className="font-bold">⚠️ Recursos Vinculados:</p>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {tasksCount > 0 && <li>{tasksCount} tarefa(s) diária(s)</li>}
+                            {schedulesCount > 0 && <li>{schedulesCount} atividade(s) agendada(s)</li>}
+                          </ul>
+                          <p className="text-[10px] opacity-80 pt-1 border-t border-amber-500/10 mt-1">Ao excluir, todos serão desvinculados com segurança.</p>
+                        </div>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex flex-col gap-3">
                 <button onClick={handleDelete} className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold uppercase tracking-widest text-[10px]">Sim, excluir</button>

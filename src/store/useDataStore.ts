@@ -1806,8 +1806,17 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.warn('Silent skip: profiles stats reset failed', err);
       }
 
+      // Clear local storage and session storage to avoid Ghost Data leaks
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (err) {
+        console.warn('Silent skip: storage clear failed', err);
+      }
+
       // 4. Update the local store state for data reset
       set({
+        profile: null,
         projects: [],
         habits: [],
         habitCompletions: [],
@@ -1822,12 +1831,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         savedLinks: [],
         dailyShutdowns: [],
         dailyTasks: [],
-        profile: get().profile ? {
-          ...get().profile!,
-          total_focus_minutes: 0,
-          current_streak: 0,
-          daily_goal_minutes: null
-        } : null
+        loading: false,
+        initialFetchDone: false,
+        hasCompletedFirstSession: false
       });
 
       return true;

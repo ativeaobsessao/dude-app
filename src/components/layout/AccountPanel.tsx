@@ -42,12 +42,21 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       const ok = await dataStore.wipeUserAccount(user.id);
       if (ok) {
         dataStore.showNotification('Sua conta foi excluída definitivamente.', 'success');
+        
+        // Securely double-wipe client storages
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch {}
+
         await supabase.auth.signOut();
         const authSignOut = useAuthStore.getState().signOut;
         if (authSignOut) {
           await authSignOut();
         }
         onClose();
+        // Hard refresh to initial route to clear the entire React app from RAM and state
+        window.location.href = '/';
       } else {
         dataStore.showNotification('Ocorreu um erro ao excluir sua conta.', 'error');
       }
