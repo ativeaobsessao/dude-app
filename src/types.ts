@@ -7,6 +7,9 @@ export type Profile = {
   daily_goal_minutes?: number | null;
   created_at: string;
   updated_at: string;
+  mood_status?: 'active' | 'paused' | 'disabled' | null;
+  mood_snoozed_until?: string | null;
+  hide_mood_nudge?: boolean | null;
 };
 
 export type Project = {

@@ -282,12 +282,60 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
               </div>
             )}
 
-            <button
-              onClick={handleSkip}
-              className="mt-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-text-dim/40 hover:text-text transition-colors cursor-pointer py-2 px-4 rounded-xl hover:bg-white/5 animate-fade-in"
-            >
-              Responder mais tarde
-            </button>
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold animate-fade-in text-center">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!user) return;
+                  const snoozedDate = new Date();
+                  snoozedDate.setDate(snoozedDate.getDate() + 7);
+                  try {
+                    await useDataStore.getState().updateProfileData(user.id, {
+                      mood_snoozed_until: snoozedDate.toISOString(),
+                      mood_status: 'paused'
+                    });
+                    useDataStore.getState().showNotification('Adiado por 7 dias. Perguntaremos depois! 📅', 'success');
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  onClose();
+                }}
+                className="text-text-dim/60 hover:text-text transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
+              >
+                Perguntar novamente em 7 dias
+              </button>
+
+              <span className="hidden sm:inline text-text-dim/10">|</span>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!user) return;
+                  try {
+                    await useDataStore.getState().updateProfileData(user.id, {
+                      mood_status: 'disabled'
+                    });
+                    useDataStore.getState().showNotification('Radar desativado. Reative nas configurações da conta a qualquer momento.', 'success');
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  onClose();
+                }}
+                className="text-[#f87171]/60 hover:text-[#f87171] transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
+              >
+                Não quero mais rastrear minha energia
+              </button>
+
+              <span className="hidden sm:inline text-text-dim/10">|</span>
+
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="text-text-dim/40 hover:text-text transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
+              >
+                Responder mais tarde
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

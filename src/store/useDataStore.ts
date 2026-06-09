@@ -87,7 +87,13 @@ interface DataState {
   
   fetchProfile: (userId: string) => Promise<void>;
   updateDailyGoal: (userId: string, minutes: number | null) => Promise<boolean>;
-  updateProfileData: (userId: string, updates: { full_name?: string; avatar_url?: string | null }) => Promise<void>;
+  updateProfileData: (userId: string, updates: { 
+    full_name?: string; 
+    avatar_url?: string | null; 
+    mood_status?: 'active' | 'paused' | 'disabled' | null;
+    mood_snoozed_until?: string | null;
+    hide_mood_nudge?: boolean | null;
+  }) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
   syncHabitsRollover: (userId: string) => Promise<void>;
   fetchActivities: (userId: string) => Promise<void>;

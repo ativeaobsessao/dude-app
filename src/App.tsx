@@ -114,7 +114,6 @@ export default function App() {
           .select('id')
           .eq('user_id', user.id)
           .eq('date', todayStr)
-          .eq('period', period)
       ]);
 
       const yesterdayClosed = !!(closureRes.data && closureRes.data.length > 0);
@@ -283,19 +282,26 @@ export default function App() {
   }, []);
 
   const isMoodActive = (() => {
-    if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.currentPeriod || !popupState.todayStr) {
+    if (!user || !profile || !initialFetchDone || !popupState.serverChecked || !popupState.currentPeriod || !popupState.todayStr) {
       return false;
     }
     if (popupState.todayMoodDone) {
       return false;
     }
-    const hasInStore = moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
-    if (hasInStore) {
+    const hasInStoreToday = moodEntries.some(m => m.date === popupState.todayStr);
+    if (hasInStoreToday) {
       return false;
     }
-    const isSkippedLocal = localStorage.getItem(`dude-mood-skipped-${popupState.todayStr}-${popupState.currentPeriod}`) === 'true';
-    if (isSkippedLocal) {
+    
+    // Check Supabase privacy settings (GDPR)
+    if (profile?.mood_status === 'disabled') {
       return false;
+    }
+    if (profile?.mood_status === 'paused' && profile?.mood_snoozed_until) {
+      const snoozedUntilDate = new Date(profile.mood_snoozed_until).getTime();
+      if (Date.now() < snoozedUntilDate) {
+        return false;
+      }
     }
     return true;
   })();

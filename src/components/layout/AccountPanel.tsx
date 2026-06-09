@@ -299,6 +299,48 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
           <hr className="border-border-custom" />
 
+          {/* Privacidade e Rastreamento */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Privacidade e Rastreamento</label>
+            
+            <div className="bg-surface-2/40 border border-border-custom rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div className="space-y-1 pr-2">
+                <span className="text-xs font-bold text-text block">Radar de Energia e Humor</span>
+                <p className="text-[10px] text-text-dim/60 leading-relaxed font-light">
+                  Habilita o pop-up diário para registrar seus níveis físicos e mentais. Mantê-lo ativo ajuda a gerar insights precisos.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!user?.id) return;
+                  const currentStatus = profile?.mood_status ?? 'active';
+                  const newStatus = currentStatus === 'disabled' ? 'active' : 'disabled';
+                  try {
+                    await dataStore.updateProfileData(user.id, { mood_status: newStatus });
+                    dataStore.showNotification(
+                      newStatus === 'active' ? 'Radar de humor ativado!' : 'Radar de humor desativado.', 
+                      'success'
+                    );
+                  } catch (err: any) {
+                    dataStore.showNotification('Erro ao atualizar privacidade: ' + err.message, 'error');
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow ${
+                  (profile?.mood_status ?? 'active') !== 'disabled' ? 'bg-[#6ee7a8]' : 'bg-white/10'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface-1 shadow ring-0 transition duration-200 ease-in-out ${
+                    (profile?.mood_status ?? 'active') !== 'disabled' ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <hr className="border-border-custom" />
+
           {/* Segurança */}
           <div className="space-y-4">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Segurança</label>

@@ -666,6 +666,59 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </div>
           )}
 
+          {/* Nudge Banner for Mood Rastreamento */}
+          {dataStore.profile?.mood_status === 'disabled' && !dataStore.profile?.hide_mood_nudge && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm mt-3 p-4 bg-[#6ee7a8]/5 border border-[#6ee7a8]/10 rounded-2xl flex items-start gap-3 text-left relative z-10"
+            >
+              <div className="flex-1 space-y-1">
+                <span className="text-[10px] sm:text-xs font-bold text-text flex items-center gap-1.5">
+                  ⚡ Insights de Produtividade Desativados
+                </span>
+                <p className="text-[10px] sm:text-[11px] text-text-dim leading-relaxed font-light">
+                  Descubra os horários em que você rende mais reativando o radar de energia.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await dataStore.updateProfileData(dataStore.profile!.id, {
+                        mood_status: 'active'
+                      });
+                      dataStore.showNotification('Radar de humor reativado com sucesso!', 'success');
+                    } catch (e: any) {
+                      dataStore.showNotification('Não foi possível ativar: ' + e.message, 'error');
+                    }
+                  }}
+                  className="mt-2.5 px-3 py-1.5 bg-[#6ee7a8] hover:bg-[#6ee7a8]/90 text-black text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                >
+                  Reativar Radar
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await dataStore.updateProfileData(dataStore.profile!.id, {
+                      hide_mood_nudge: true
+                    });
+                    dataStore.showNotification('Aviso dispensado permanentemente.', 'success');
+                  } catch (e: any) {
+                    dataStore.showNotification('Não foi possível dispensar: ' + e.message, 'error');
+                  }
+                }}
+                className="p-1 text-text-dim/30 hover:text-text rounded-full hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                title="Não lembrar novamente"
+              >
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+
           {/* Seu tom de hoje: [label] chip */}
           {activeMoodEntry && (
             <motion.div 
