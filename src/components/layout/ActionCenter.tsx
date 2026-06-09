@@ -751,7 +751,7 @@ export const ActionCenter = () => {
         setNewActivityName('');
         setNewActivityProject('');
 
-        if (linkActivityToHabit && !currentHabitId) {
+        if (linkActivityToHabit) {
           const actId = editingActivityId;
           const actName = activityNameCreated;
           setLinkActivityToHabit(false);
@@ -765,7 +765,12 @@ export const ActionCenter = () => {
           setNewHabitTime('morning');
           setIsRecurring(false);
           setRecurrenceDays([]);
-          setRecurrenceTime('09:00');
+          setRecurrenceTimeHours('09');
+          setRecurrenceTimeMinutes('00');
+          setSchedDurHH('00');
+          setSchedDurMM('45');
+          setSchedStartHH('');
+          setSchedStartMM('');
           
           showSuccess('Atividade atualizada! Agora, configure o seu hábito correspondente...');
           setCurrentScreen('habits');
@@ -808,7 +813,12 @@ export const ActionCenter = () => {
           setNewHabitTime('morning');
           setIsRecurring(false);
           setRecurrenceDays([]);
-          setRecurrenceTime('09:00');
+          setRecurrenceTimeHours('09');
+          setRecurrenceTimeMinutes('00');
+          setSchedDurHH('00');
+          setSchedDurMM('45');
+          setSchedStartHH('');
+          setSchedStartMM('');
           
           showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
           setCurrentScreen('habits');
