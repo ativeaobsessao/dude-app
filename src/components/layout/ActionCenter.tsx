@@ -750,11 +750,20 @@ export const ActionCenter = () => {
         setNewActivityProject('');
 
         if (linkActivityToHabit && !currentHabitId) {
+          const actId = editingActivityId;
+          const actName = activityNameCreated;
           setLinkActivityToHabit(false);
-          setPendingActivityId(editingActivityId); // Guardar o ID da atividade para vincular depois
-          setNewHabitName(activityNameCreated);
-          setCurrentScreen('habits');
-          showSuccess('Atividade atualizada! Agora, configure o seu hábito correspondente...');
+          setPendingActivityId(actId); // Guardar o ID da atividade para vincular depois
+          setNewHabitName(actName);
+          
+          setIsOpen(false);
+          showSuccess('Atividade atualizada com sucesso!');
+          
+          setTimeout(() => {
+            setCurrentScreen('habits');
+            setIsOpen(true);
+            showSuccess('Agora, configure o seu hábito correspondente...');
+          }, 400);
         } else {
           showSuccess('Atividade atualizada com sucesso!');
           setIsOpen(false);
@@ -781,11 +790,20 @@ export const ActionCenter = () => {
         setNewActivityProject('');
 
         if (linkActivityToHabit) {
+          const actId = activityAdded.id;
+          const actName = activityNameCreated;
           setLinkActivityToHabit(false);
-          setPendingActivityId(activityAdded.id); // Guardar o ID da atividade criada com sucesso para vincular depois
-          setNewHabitName(activityNameCreated);
-          setCurrentScreen('habits');
-          showSuccess('Atividade salva com sucesso! Agora, configure o seu hábito correspondente...');
+          setPendingActivityId(actId); // Guardar o ID da atividade criada com sucesso para vincular depois
+          setNewHabitName(actName);
+          
+          setIsOpen(false);
+          showSuccess('Atividade salva com sucesso!');
+          
+          setTimeout(() => {
+            setCurrentScreen('habits');
+            setIsOpen(true);
+            showSuccess('Agora, configure o seu hábito correspondente...');
+          }, 400);
         } else {
           showSuccess('Atividade salva com sucesso!');
           setIsOpen(false);
@@ -1726,9 +1744,6 @@ export const ActionCenter = () => {
                     {/* Header do Sub-menu */}
                     <div className="text-center mb-6">
                       <h3 className="text-2xl font-bold tracking-tight text-text-primary">Atividades</h3>
-                      <p className="text-xs text-text-secondary/60 mt-1">
-                        Defina as tarefas padrões de execução.
-                      </p>
                     </div>
 
                     {/* Ramal de Menu: Exibe "CRIAR" e "VER TODOS" */}

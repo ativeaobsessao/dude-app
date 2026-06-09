@@ -80,7 +80,7 @@ export const ActivitiesSection = () => {
               <div className="flex items-center justify-between flex-wrap gap-4 pb-2 border-b border-white/5">
                 <div className="text-left max-w-sm md:max-w-md">
                   <p className="text-xs text-text-secondary/60 font-light">
-                    Sistemática Operacional: Defina as etapas, escopos ou categorias padrões de tarefas dos seus projetos.
+                    Liste todas as atividades que você precisa fazer no seu dia a dia
                   </p>
                 </div>
 
