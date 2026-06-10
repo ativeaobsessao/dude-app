@@ -218,14 +218,24 @@ export default function App() {
 
     playLoadedScheduleSounds();
 
-    const handleVisibility = () => {
+    const handleVisibility = async () => {
       if (document.visibilityState === 'visible') {
+        try {
+          await dataStore.revalidateSyncState(user.id);
+        } catch (e) {
+          console.error("Error in revalidateSyncState:", e);
+        }
         runServerPopupCheck();
         dataStore.fetchScheduledActivities(user.id);
       }
     };
 
-    const handleFocus = () => {
+    const handleFocus = async () => {
+      try {
+        await dataStore.revalidateSyncState(user.id);
+      } catch (e) {
+        console.error("Error in revalidateSyncState:", e);
+      }
       runServerPopupCheck();
       dataStore.fetchScheduledActivities(user.id);
     };

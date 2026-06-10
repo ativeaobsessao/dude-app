@@ -99,6 +99,7 @@ interface DataState {
   fetchActivities: (userId: string) => Promise<void>;
   fetchHabitCompletions: (userId: string) => Promise<void>;
   fetchAvoidanceCheckins: (userId: string) => Promise<void>;
+  revalidateSyncState: (userId: string) => Promise<void>;
   fetchSessionTasks: (userId: string) => Promise<void>;
   fetchPendingTasks: (userId: string) => Promise<void>;
   fetchScheduledActivities: (userId: string) => Promise<void>;
@@ -521,6 +522,32 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (data) set({ avoidanceCheckins: data || [] });
     } catch (err) {
       console.error('Error fetching avoidance checkins:', err);
+    }
+  },
+
+  revalidateSyncState: async (userId) => {
+    try {
+      const [moodRes, avoidanceRes] = await Promise.all([
+        supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      ]);
+
+      if (moodRes && moodRes.data && !moodRes.error) {
+        const sortedMoods = [...(moodRes.data as MoodEntry[])];
+        sortedMoods.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        set({ moodEntries: sortedMoods });
+        try {
+          localStorage.setItem('dude-mood-entries', JSON.stringify(sortedMoods));
+        } catch (err) {
+          console.error('Error writing mood cache in revalidateSyncState:', err);
+        }
+      }
+
+      if (avoidanceRes && avoidanceRes.data && !avoidanceRes.error) {
+        set({ avoidanceCheckins: avoidanceRes.data });
+      }
+    } catch (err) {
+      console.error('Error in revalidateSyncState background refresh:', err);
     }
   },
 
