@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
-import { Moon, X, Calendar, Shield, Bell } from 'lucide-react';
+import { Moon, X, Calendar, Shield, Bell, Brain, Hand } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -356,6 +356,34 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     return results;
   }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioKeys, cooldownsVal, snoozesVal]);
 
+  const avoidHabits = useMemo(() => {
+    return dataStore.habits.filter(h => h.habit_mode === 'avoid');
+  }, [dataStore.habits]);
+
+  const hasAvoidance = useMemo(() => {
+    return avoidHabits.length >= 1;
+  }, [avoidHabits]);
+
+  const cleanLabel = useMemo(() => {
+    if (avoidHabits.length === 0) return '';
+    let maxStreak = 0;
+    avoidHabits.forEach(h => {
+      const m = calculateAvoidanceMetrics(h, dataStore.avoidanceCheckins);
+      if (m.diasLimpoSeguidos > maxStreak) {
+        maxStreak = m.diasLimpoSeguidos;
+      }
+    });
+    return `${maxStreak} ${maxStreak === 1 ? 'dia' : 'dias'}`;
+  }, [avoidHabits, dataStore.avoidanceCheckins]);
+
+  const handleToComVontade = () => {
+    if (avoidHabits.length === 1) {
+      window.dispatchEvent(new CustomEvent('trigger-urge-timer', { detail: { seconds: 300 } }));
+    } else {
+      window.dispatchEvent(new CustomEvent('open-avoidance-section', { detail: { scroll: true } }));
+    }
+  };
+
   useEffect(() => {
     if (pendingAvoidanceHabits.length === 0 && showCheckinModal) {
       setShowCheckinModal(false);
@@ -638,6 +666,23 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-normal select-none max-w-full tracking-[-0.05em] mb-6 px-2 overflow-visible">
             Se organize para passar mais tempo com as pessoas que importam <span className="inline-block align-middle ml-1">❤️</span>
           </p>
+
+          {/* MONITORING CHIP (STATE B — MOBILE ONLY) */}
+          {hasAvoidance && pendingAvoidanceHabits.length > 0 && (
+            <div className="md:hidden flex justify-center pb-2 z-20">
+              <button
+                type="button"
+                onClick={() => setShowCheckinModal(true)}
+                className="flex items-center gap-2 px-3.5 py-1.5 border border-red-500/25 bg-red-950/20 rounded-full cursor-pointer text-[10px] font-bold text-red-300 uppercase tracking-wider transition-all hover:bg-red-950/30"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span>Autocontrole: {pendingAvoidanceHabits.length} pendente{pendingAvoidanceHabits.length > 1 ? 's' : ''}</span>
+              </button>
+            </div>
+          )}
 
           {canInstall && (
             <div className="w-full flex justify-center pt-2 animate-fade-in relative z-20">
@@ -988,10 +1033,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         >
           {pendingAvoidanceHabits.length > 0 && (
             <motion.button
+              type="button"
               onClick={() => setShowCheckinModal(true)}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 px-4 py-2 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-300 rounded-full transition-all cursor-pointer font-sans text-[10px] font-bold uppercase tracking-wider mb-2 relative"
+              className="hidden md:flex items-center gap-2 px-4 py-2 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-300 rounded-full transition-all cursor-pointer font-sans text-[10px] font-bold uppercase tracking-wider mb-2 relative"
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -1003,7 +1049,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
           <button 
             onClick={openDeepSession}
-            className="group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center"
+            className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
+              hasAvoidance ? 'hidden md:flex' : 'flex'
+            } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center`}
           >
             <div className="flex items-center gap-2.5">
               <div className="w-2.5 h-2.5 rounded-full bg-base animate-pulse shrink-0" />
@@ -1017,6 +1065,39 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </span>
             )}
           </button>
+
+          {/* Autocontrole Strip: Only rendered on MOBILE when hasAvoidance is true */}
+          {hasAvoidance && (
+            <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
+              <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
+                <div className="flex items-center gap-3">
+                  {/* Icon container */}
+                  <div className="p-2.5 bg-[#6ee7a8]/10 rounded-2xl flex items-center justify-center shrink-0">
+                    <Brain size={18} className="text-[#6ee7a8]" />
+                  </div>
+                  {/* Text metadata */}
+                  <div className="flex flex-col text-left">
+                    <span className="text-[9px] font-bold text-[#6ee7a8] tracking-[0.15em] uppercase font-mono leading-none text-left">
+                      Autocontrole
+                    </span>
+                    <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
+                      {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Amber Button: Tô com vontade */}
+                <button
+                  type="button"
+                  onClick={handleToComVontade}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-sm shrink-0"
+                >
+                  <Hand size={12} className="shrink-0" />
+                  <span>Tô com vontade</span>
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* "SEUS NÚMEROS DE HOJE" BLOCK (PART B3 & B4) */}
@@ -1025,7 +1106,44 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             SEUS NÚMEROS DE HOJE
           </h3>
           
-          <div className="grid grid-cols-3 gap-3 w-full">
+          {/* MOBILE DESIGN: Single line inline element, fully flat, de-boxed */}
+          <div className="md:hidden flex flex-row items-center justify-center w-full py-2 select-none">
+            {/* Slot 1: Horas Focadas */}
+            <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-2">
+              <span className="text-2xl sm:text-3xl font-mono font-bold text-text tracking-tighter leading-none">
+                {formatCompact(todayMinutesToShow)}
+              </span>
+              <span className="text-[10px] text-text-dim/60 text-center font-sans tracking-wide leading-tight mt-1.5 px-1 whitespace-nowrap">
+                Horas Focadas
+              </span>
+            </div>
+
+            {/* Slot 2: Sessões Profundas */}
+            <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-2">
+              <span className="text-2xl sm:text-3xl font-mono font-bold text-text tracking-tighter leading-none">
+                {todaySessions.length}
+              </span>
+              <span className="text-[10px] text-text-dim/60 text-center font-sans tracking-wide leading-tight mt-1.5 px-1 whitespace-nowrap">
+                {todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões'}
+              </span>
+            </div>
+
+            {/* Slot 3: Dias Invictos */}
+            <div className="flex-1 flex flex-col items-center justify-center px-2">
+              <div className="flex items-center gap-1">
+                <span className="text-base select-none leading-none shrink-0">🔥</span>
+                <span className="text-2xl sm:text-3xl font-mono font-bold text-green tracking-tighter leading-none">
+                  {streak}
+                </span>
+              </div>
+              <span className="text-[10px] text-text-dim/60 text-center font-sans tracking-wide leading-tight mt-1.5 px-1 whitespace-nowrap">
+                {streak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
+              </span>
+            </div>
+          </div>
+
+          {/* DESKTOP DESIGN: Absolute pixel-identical structure from before */}
+          <div className="hidden md:grid grid-cols-3 gap-3 w-full">
             {/* Card 1 — Horas Focadas */}
             <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
               <div className="flex items-center justify-center w-full min-h-[40px]">

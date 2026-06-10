@@ -515,6 +515,40 @@ export const AvoidanceSection = () => {
     };
   }, []);
 
+  // Listen to open-avoidance-section custom event
+  useEffect(() => {
+    const handleExpandAvoidance = (e: Event) => {
+      setIsExpanded(true);
+      const customEvent = e as CustomEvent;
+      const scroll = customEvent.detail?.scroll !== false;
+      if (scroll) {
+        setTimeout(() => {
+          const el = document.getElementById('avoidance-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }
+    };
+    window.addEventListener('open-avoidance-section', handleExpandAvoidance);
+    return () => {
+      window.removeEventListener('open-avoidance-section', handleExpandAvoidance);
+    };
+  }, []);
+
+  // Listen to trigger-urge-timer custom event
+  useEffect(() => {
+    const handleTriggerUrge = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const seconds = customEvent.detail?.seconds || 300;
+      setUrgeTimer(seconds);
+    };
+    window.addEventListener('trigger-urge-timer', handleTriggerUrge);
+    return () => {
+      window.removeEventListener('trigger-urge-timer', handleTriggerUrge);
+    };
+  }, []);
+
   // Trigger avoidance check-in evaluations periodically (in-app per-period)
   useEffect(() => {
     if (!user || avoidHabits.length === 0) return;
