@@ -396,14 +396,55 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
   const cleanLabel = useMemo(() => {
     if (avoidHabits.length === 0) return '';
-    let maxStreak = 0;
-    avoidHabits.forEach(h => {
-      const m = calculateAvoidanceMetrics(h, dataStore.avoidanceCheckins);
-      if (m.diasLimpoSeguidos > maxStreak) {
-        maxStreak = m.diasLimpoSeguidos;
-      }
+    
+    const processed = avoidHabits.map(h => {
+      return {
+        habit: h,
+        metrics: calculateAvoidanceMetrics(h, dataStore.avoidanceCheckins)
+      };
     });
-    return `${maxStreak} ${maxStreak === 1 ? 'dia' : 'dias'}`;
+
+    // 1. Encontre o controle com maior diasLimpoSeguidos
+    let bestCleanSeguidosObj = processed[0];
+    for (let i = 1; i < processed.length; i++) {
+      if (processed[i].metrics.diasLimpoSeguidos > bestCleanSeguidosObj.metrics.diasLimpoSeguidos) {
+        bestCleanSeguidosObj = processed[i];
+      }
+    }
+
+    const maxSeguidos = bestCleanSeguidosObj ? bestCleanSeguidosObj.metrics.diasLimpoSeguidos : 0;
+    if (maxSeguidos > 0) {
+      return maxSeguidos === 1 ? '1 dia invicto' : `${maxSeguidos} dias invictos`;
+    }
+
+    // 2. Se o maior diasLimpoSeguidos for 0, encontre o com maior maxStreak (Maior sequência)
+    let bestMaxStreakObj = processed[0];
+    for (let i = 1; i < processed.length; i++) {
+      if (processed[i].metrics.maxStreak > bestMaxStreakObj.metrics.maxStreak) {
+        bestMaxStreakObj = processed[i];
+      }
+    }
+
+    const overallMaxStreak = bestMaxStreakObj ? bestMaxStreakObj.metrics.maxStreak : 0;
+    if (overallMaxStreak > 0) {
+      return overallMaxStreak === 1 ? 'Maior sequência: 1 dia' : `Maior sequência: ${overallMaxStreak} dias`;
+    }
+
+    // 3. Se maxStreak for 0, encontre o com maior diasLimposTotal
+    let bestTotalObj = processed[0];
+    for (let i = 1; i < processed.length; i++) {
+      if (processed[i].metrics.diasLimposTotal > bestTotalObj.metrics.diasLimposTotal) {
+        bestTotalObj = processed[i];
+      }
+    }
+
+    const overallTotal = bestTotalObj ? bestTotalObj.metrics.diasLimposTotal : 0;
+    if (overallTotal > 0) {
+      return overallTotal === 1 ? '1 dia limpo no total' : `${overallTotal} dias limpos no total`;
+    }
+
+    // 4. Se tudo for 0 (Brand-new ou recém-criado sem checkins)
+    return 'Vamos começar';
   }, [avoidHabits, dataStore.avoidanceCheckins]);
 
   const handleToComVontade = () => {
