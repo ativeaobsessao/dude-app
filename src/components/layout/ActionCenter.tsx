@@ -193,7 +193,10 @@ export const ActionCenter = () => {
         setNewHabitTime(habit.preferred_time || 'morning');
         setIsRecurring(!!habit.is_recurring);
         setRecurrenceDays(habit.recurrence_days || []);
-        setRecurrenceTime(habit.recurrence_time || '09:00');
+        const recTime = habit.recurrence_time || '09:00';
+        const [rh, rm] = recTime.split(':');
+        setRecurrenceTimeHours(rh ? rh.padStart(2, '0') : '09');
+        setRecurrenceTimeMinutes(rm ? rm.padStart(2, '0') : '00');
         setIsScheduled(!!habit.is_scheduled);
         if (habit.sched_start) {
           const [sh, sm] = habit.sched_start.split(':');
@@ -340,7 +343,6 @@ export const ActionCenter = () => {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
-  const [recurrenceTime, setRecurrenceTime] = useState('09:00');
   const [newTaskInput, setNewTaskInput] = useState('');
 
   // Scheduled Habit States
@@ -355,40 +357,38 @@ export const ActionCenter = () => {
   const [recurrenceTimeHours, setRecurrenceTimeHours] = useState('09');
   const [recurrenceTimeMinutes, setRecurrenceTimeMinutes] = useState('00');
 
-  useEffect(() => {
-    const [h, m] = recurrenceTime.split(':');
-    if (h && m) {
-      setRecurrenceTimeHours(h.padStart(2, '0'));
-      setRecurrenceTimeMinutes(m.padStart(2, '0'));
-    }
-  }, [recurrenceTime]);
-
   const handleRecurrenceHoursChange = (h: string) => {
-    const val = h.replace(/\D/g, '').slice(0, 2);
+    let val = h.replace(/\D/g, '').slice(0, 2);
+    if (val !== '') {
+      const num = parseInt(val, 10);
+      if (!isNaN(num) && num > 23) {
+        val = '23';
+      }
+    }
     setRecurrenceTimeHours(val);
-    const formattedStr = val ? String(Math.min(23, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setRecurrenceTime(`${formattedStr}:${recurrenceTimeMinutes || '00'}`);
   };
 
   const handleRecurrenceHoursBlur = () => {
     const num = Math.min(23, parseInt(recurrenceTimeHours, 10) || 0);
     const hs = String(num).padStart(2, '0');
     setRecurrenceTimeHours(hs);
-    setRecurrenceTime(`${hs}:${recurrenceTimeMinutes || '00'}`);
   };
 
   const handleRecurrenceMinutesChange = (m: string) => {
-    const val = m.replace(/\D/g, '').slice(0, 2);
+    let val = m.replace(/\D/g, '').slice(0, 2);
+    if (val !== '') {
+      const num = parseInt(val, 10);
+      if (!isNaN(num) && num > 59) {
+        val = '59';
+      }
+    }
     setRecurrenceTimeMinutes(val);
-    const formattedStr = val ? String(Math.min(59, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setRecurrenceTime(`${recurrenceTimeHours || '00'}:${formattedStr}`);
   };
 
   const handleRecurrenceMinutesBlur = () => {
     const num = Math.min(59, parseInt(recurrenceTimeMinutes, 10) || 0);
     const ms = String(num).padStart(2, '0');
     setRecurrenceTimeMinutes(ms);
-    setRecurrenceTime(`${recurrenceTimeHours || '00'}:${ms}`);
   };
 
   // Anti-Vício States
@@ -901,7 +901,10 @@ export const ActionCenter = () => {
     setNewHabitTime(habit.preferred_time || 'morning');
     setIsRecurring(!!habit.is_recurring);
     setRecurrenceDays(habit.recurrence_days || []);
-    setRecurrenceTime(habit.recurrence_time || '09:00');
+    const recTime = habit.recurrence_time || '09:00';
+    const [rh, rm] = recTime.split(':');
+    setRecurrenceTimeHours(rh ? rh.padStart(2, '0') : '09');
+    setRecurrenceTimeMinutes(rm ? rm.padStart(2, '0') : '00');
     
     setIsScheduled(!!habit.is_scheduled);
     if (habit.sched_start) {
@@ -2121,11 +2124,10 @@ export const ActionCenter = () => {
                                             const [h, m] = linkedHabit.recurrence_time.split(':');
                                             setRecurrenceTimeHours(h ? h.padStart(2, '0') : '09');
                                             setRecurrenceTimeMinutes(m ? m.padStart(2, '0') : '00');
-                                            setRecurrenceTime(linkedHabit.recurrence_time);
+
                                           } else {
                                             setRecurrenceTimeHours('09');
                                             setRecurrenceTimeMinutes('00');
-                                            setRecurrenceTime('09:00');
                                           }
                                           if (linkedHabit.sched_duration !== undefined && linkedHabit.sched_duration !== null) {
                                             const totalMin = Number(linkedHabit.sched_duration) || 0;
@@ -2155,7 +2157,7 @@ export const ActionCenter = () => {
                                         setRecurrenceDays([]);
                                         setRecurrenceTimeHours('09');
                                         setRecurrenceTimeMinutes('00');
-                                        setRecurrenceTime('09:00');
+
                                         setSchedDurHH('00');
                                         setSchedDurMM('45');
                                         setSchedStartHH('');
@@ -2785,7 +2787,8 @@ export const ActionCenter = () => {
                               setNewHabitTime('morning');
                               setIsRecurring(false);
                               setRecurrenceDays([]);
-                              setRecurrenceTime('09:00');
+                              setRecurrenceTimeHours('09');
+                              setRecurrenceTimeMinutes('00');
                             }}
                             className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full transition-all cursor-pointer"
                           >
