@@ -178,6 +178,32 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
   const [showCheckinModal, setShowCheckinModal] = useState(false);
 
+  // Estados para as frases rotativas do Chip de Monitoramento de Autocontrole
+  const chipPhrases = useMemo(() => [
+    "⚠ Como está sua vontade?",
+    "⚠ Sua vontade está sob controle?",
+    "⚠ Pausa: como você está agora?",
+    "⚠ Tudo certo com seu controle?"
+  ], []);
+  const [chipPhraseIndex, setChipPhraseIndex] = useState(0);
+  const [displayPhrase, setDisplayPhrase] = useState(chipPhrases[0]);
+  const [fadePhrase, setFadePhrase] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFadePhrase(false);
+      setTimeout(() => {
+        setChipPhraseIndex(prev => {
+          const nextIdx = (prev + 1) % chipPhrases.length;
+          setDisplayPhrase(chipPhrases[nextIdx]);
+          return nextIdx;
+        });
+        setFadePhrase(true);
+      }, 300); // 300ms de duração para o fade out
+    }, 5000); // Rotação a cada 5 segundos
+    return () => clearInterval(interval);
+  }, [chipPhrases]);
+
   const [cooldownsVal, setCooldownsVal] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem('dude_antivicio_cooldowns');
@@ -677,13 +703,18 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <button
                 type="button"
                 onClick={() => setShowCheckinModal(true)}
-                className="flex items-center gap-2 px-3.5 py-1.5 border border-red-500/25 bg-red-950/20 rounded-full cursor-pointer text-[10px] font-bold text-red-300 uppercase tracking-wider transition-all hover:bg-red-950/30"
+                className="flex items-center gap-1.5 px-3 py-1 border border-red-500/20 bg-red-950/15 rounded-full cursor-pointer text-[10px] font-bold text-red-300 uppercase tracking-wide transition-all hover:bg-red-950/25 max-h-[26px]"
               >
-                <span className="relative flex h-2 w-2">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
                 </span>
-                <span>Autocontrole: {pendingAvoidanceHabits.length} pendente{pendingAvoidanceHabits.length > 1 ? 's' : ''}</span>
+                <span className={`transition-opacity duration-300 pointer-events-none ${fadePhrase ? 'opacity-100' : 'opacity-0'}`}>
+                  {displayPhrase}
+                </span>
+                <span className="text-red-400/40 text-[9px] font-mono font-medium leading-none whitespace-nowrap">
+                  ({pendingAvoidanceHabits.length})
+                </span>
               </button>
             </div>
           )}
@@ -1051,10 +1082,15 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </motion.button>
           )}
 
+          {/* Placeholder silencioso no mobile enquanto os hábitos carregam (evita flash do botão verde) */}
+          {!dataStore.initialFetchDone && (
+            <div className="md:hidden h-[56px] w-full max-w-[340px] sm:max-w-md mx-auto" />
+          )}
+
           <button 
             onClick={openDeepSession}
             className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
-              hasAvoidance ? 'hidden md:flex' : 'flex'
+              (hasAvoidance || !dataStore.initialFetchDone) ? 'hidden md:flex' : 'flex'
             } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center`}
           >
             <div className="flex items-center gap-2.5">
@@ -1070,8 +1106,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             )}
           </button>
 
-          {/* Autocontrole Strip: Only rendered on MOBILE when hasAvoidance is true */}
-          {hasAvoidance && (
+          {/* Autocontrole Strip: Only rendered on MOBILE when hasAvoidance is true and data is ready */}
+          {dataStore.initialFetchDone && hasAvoidance && (
             <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
               <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
                 <div className="flex items-center gap-3">
@@ -1292,7 +1328,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         {buildHabits.length > 0 && (
           <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-3">
             <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-bold text-text-dim/40 tracking-widest uppercase font-mono">
+              <span className="text-xs font-bold text-text-dim/50 tracking-widest uppercase font-mono">
                 Hábitos de Construção
               </span>
             </div>
@@ -1353,10 +1389,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   <div key={h.id} className="py-3.5 first:pt-0 last:pb-0 flex flex-col gap-1.5 select-none">
                     {/* Tier 1: habit name + period */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-text-primary tracking-tight">
+                      <span className="text-sm font-semibold text-text-primary tracking-tight block truncate">
                         {h.name}
                       </span>
-                      <span className="text-[9px] text-text-secondary/50 font-bold uppercase tracking-widest font-mono">
+                      <span className="text-[9px] text-text-secondary/50 font-bold uppercase tracking-widest font-mono shrink-0 ml-2">
                         {preferredTimeLabel}
                       </span>
                     </div>
