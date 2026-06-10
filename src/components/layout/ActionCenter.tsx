@@ -420,58 +420,94 @@ export const ActionCenter = () => {
 
   const handleAvoidanceStartHoursChange = (h: string) => {
     const val = h.replace(/\D/g, '').slice(0, 2);
-    setAvoidanceStartHours(val);
-    const formattedStr = val ? String(Math.min(23, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setAvoidanceStart(`${formattedStr}:${avoidanceStartMinutes || '00'}`);
+    if (!val) {
+      setAvoidanceStartHours('');
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (num <= 23) {
+      setAvoidanceStartHours(val);
+    } else {
+      setAvoidanceStartHours('23');
+    }
   };
 
   const handleAvoidanceStartHoursBlur = () => {
     const num = Math.min(23, parseInt(avoidanceStartHours, 10) || 0);
     const hs = String(num).padStart(2, '0');
     setAvoidanceStartHours(hs);
-    setAvoidanceStart(`${hs}:${avoidanceStartMinutes || '00'}`);
+    const currentMinNum = Math.min(59, parseInt(avoidanceStartMinutes, 10) || 0);
+    const ms = String(currentMinNum).padStart(2, '0');
+    setAvoidanceStart(`${hs}:${ms}`);
   };
 
   const handleAvoidanceStartMinutesChange = (m: string) => {
     const val = m.replace(/\D/g, '').slice(0, 2);
-    setAvoidanceStartMinutes(val);
-    const formattedStr = val ? String(Math.min(59, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setAvoidanceStart(`${avoidanceStartHours || '00'}:${formattedStr}`);
+    if (!val) {
+      setAvoidanceStartMinutes('');
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (num <= 59) {
+      setAvoidanceStartMinutes(val);
+    } else {
+      setAvoidanceStartMinutes('59');
+    }
   };
 
   const handleAvoidanceStartMinutesBlur = () => {
     const num = Math.min(59, parseInt(avoidanceStartMinutes, 10) || 0);
     const ms = String(num).padStart(2, '0');
     setAvoidanceStartMinutes(ms);
-    setAvoidanceStart(`${avoidanceStartHours || '00'}:${ms}`);
+    const currentHourNum = Math.min(23, parseInt(avoidanceStartHours, 10) || 0);
+    const hs = String(currentHourNum).padStart(2, '0');
+    setAvoidanceStart(`${hs}:${ms}`);
   };
 
   const handleAvoidanceEndHoursChange = (h: string) => {
     const val = h.replace(/\D/g, '').slice(0, 2);
-    setAvoidanceEndHours(val);
-    const formattedStr = val ? String(Math.min(23, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setAvoidanceEnd(`${formattedStr}:${avoidanceEndMinutes || '00'}`);
+    if (!val) {
+      setAvoidanceEndHours('');
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (num <= 23) {
+      setAvoidanceEndHours(val);
+    } else {
+      setAvoidanceEndHours('23');
+    }
   };
 
   const handleAvoidanceEndHoursBlur = () => {
     const num = Math.min(23, parseInt(avoidanceEndHours, 10) || 0);
     const hs = String(num).padStart(2, '0');
     setAvoidanceEndHours(hs);
-    setAvoidanceEnd(`${hs}:${avoidanceEndMinutes || '00'}`);
+    const currentMinNum = Math.min(59, parseInt(avoidanceEndMinutes, 10) || 0);
+    const ms = String(currentMinNum).padStart(2, '0');
+    setAvoidanceEnd(`${hs}:${ms}`);
   };
 
   const handleAvoidanceEndMinutesChange = (m: string) => {
     const val = m.replace(/\D/g, '').slice(0, 2);
-    setAvoidanceEndMinutes(val);
-    const formattedStr = val ? String(Math.min(59, parseInt(val, 10) || 0)).padStart(2, '0') : '00';
-    setAvoidanceEnd(`${avoidanceEndHours || '00'}:${formattedStr}`);
+    if (!val) {
+      setAvoidanceEndMinutes('');
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (num <= 59) {
+      setAvoidanceEndMinutes(val);
+    } else {
+      setAvoidanceEndMinutes('59');
+    }
   };
 
   const handleAvoidanceEndMinutesBlur = () => {
     const num = Math.min(59, parseInt(avoidanceEndMinutes, 10) || 0);
     const ms = String(num).padStart(2, '0');
     setAvoidanceEndMinutes(ms);
-    setAvoidanceEnd(`${avoidanceEndHours || '00'}:${ms}`);
+    const currentHourNum = Math.min(23, parseInt(avoidanceEndHours, 10) || 0);
+    const hs = String(currentHourNum).padStart(2, '0');
+    setAvoidanceEnd(`${hs}:${ms}`);
   };
 
   const [avoidanceDays, setAvoidanceDays] = useState<string[]>([]);
@@ -1055,8 +1091,19 @@ export const ActionCenter = () => {
       return;
     }
 
+    let finalStart = avoidanceStart;
+    let finalEnd = avoidanceEnd;
+
     if (avoidanceScope === 'time_window') {
-      if (!avoidanceStart || !avoidanceEnd) {
+      const startHs = String(Math.min(23, parseInt(avoidanceStartHours, 10) || 0)).padStart(2, '0');
+      const startMs = String(Math.min(59, parseInt(avoidanceStartMinutes, 10) || 0)).padStart(2, '0');
+      finalStart = `${startHs}:${startMs}`;
+
+      const endHs = String(Math.min(23, parseInt(avoidanceEndHours, 10) || 0)).padStart(2, '0');
+      const endMs = String(Math.min(59, parseInt(avoidanceEndMinutes, 10) || 0)).padStart(2, '0');
+      finalEnd = `${endHs}:${endMs}`;
+
+      if (!finalStart || !finalEnd) {
         dataStore.showNotification('Por favor, defina a janela de horários para o autocontrole.', 'error');
         return;
       }
@@ -1068,12 +1115,12 @@ export const ActionCenter = () => {
         habit_mode: 'avoid' as 'build' | 'avoid',
         avoidance_target: avoidanceName.trim(),
         avoidance_scope: avoidanceScope,
-        avoidance_window_start: avoidanceScope === 'time_window' ? avoidanceStart : null,
-        avoidance_window_end: avoidanceScope === 'time_window' ? avoidanceEnd : null,
+        avoidance_window_start: avoidanceScope === 'time_window' ? finalStart : null,
+        avoidance_window_end: avoidanceScope === 'time_window' ? finalEnd : null,
         avoidance_checkin_intensity: avoidanceIntensity,
         monitor_type: (avoidanceScope === 'time_window' ? 'janela' : 'dia_todo') as 'janela' | 'dia_todo',
-        monitor_start: avoidanceScope === 'time_window' ? avoidanceStart : null,
-        monitor_end: avoidanceScope === 'time_window' ? avoidanceEnd : null,
+        monitor_start: avoidanceScope === 'time_window' ? finalStart : null,
+        monitor_end: avoidanceScope === 'time_window' ? finalEnd : null,
         monitor_weekdays: avoidanceDays.length === 0 ? 'all' : avoidanceDays.map(d => d === '7' ? '0' : d).join(','),
       };
 
