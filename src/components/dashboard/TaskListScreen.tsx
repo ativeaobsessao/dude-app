@@ -269,6 +269,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [activityManualText, setActivityManualText] = useState('');
   const [newSubtaskText, setNewSubtaskText] = useState('');
   const [subtasksList, setSubtasksList] = useState<{ text: string; completed: boolean }[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
   // Open modal for creating new task
   const handleOpenCreateModal = () => {
@@ -280,6 +282,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     setActivityManualText('');
     setNewSubtaskText('');
     setSubtasksList([]);
+    setEditingIndex(null);
+    setEditingValue('');
     setShowCreateModal(true);
   };
 
@@ -294,6 +298,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     setActivityManualText(task.activity_avulsa || '');
     setNewSubtaskText('');
     setSubtasksList(task.checklist || []);
+    setEditingIndex(null);
+    setEditingValue('');
     setShowCreateModal(true);
   };
 
@@ -307,6 +313,25 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
   const handleFormRemoveSubtask = (index: number) => {
     setSubtasksList(subtasksList.filter((_, i) => i !== index));
+    if (editingIndex === index) {
+      setEditingIndex(null);
+      setEditingValue('');
+    } else if (editingIndex !== null && editingIndex > index) {
+      setEditingIndex(editingIndex - 1);
+    }
+  };
+
+  const handleSaveSubtaskEdit = (index: number) => {
+    const trimmedVal = editingValue.trim();
+    if (!trimmedVal) {
+      setSubtasksList(subtasksList.filter((_, i) => i !== index));
+    } else {
+      const updatedList = [...subtasksList];
+      updatedList[index] = { ...updatedList[index], text: trimmedVal };
+      setSubtasksList(updatedList);
+    }
+    setEditingIndex(null);
+    setEditingValue('');
   };
 
   // Save or Update Daily Task
@@ -936,7 +961,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                   {editingTask ? 'Editar Tarefa Diária' : 'Nova Tarefa Diária'}
                 </h3>
                 <p className="text-xs text-text-secondary mt-1">
-                  Configure os detalhes da sua tarefa física para hoje. É totalmente opcional vincular sub-elementos.
+                  Salve todas as tarefas que você precisa executar no dia de hoje
                 </p>
               </div>
 
@@ -971,7 +996,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                 {/* Alternativa: Atividade Avulsa */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">Ou Digite Atividade Avulsa (Opcional)</label>
-                  <input 
+                   <input 
                     type="text" 
                     value={activityManualText}
                     onChange={(e) => setActivityManualText(e.target.value)}
@@ -994,26 +1019,45 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                 {/* Checklist (Sessão Profunda checklist) */}
                 <div className="space-y-3.5 border-t border-white/5 pt-4 text-left">
                   <label className="text-[10px] font-bold tracking-wider text-[#6ee7a8] uppercase block mb-1">
-                    Liste tudo que pretende realizar nesta Sessão Profunda
+                    LISTE TUDO QUE PRECISA FAZER OU INFORMAÇÕES IMPORTANTES
                   </label>
                   
                   {subtasksList.length > 0 && (
                     <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                       {subtasksList.map((st, sIdx) => (
                         <div key={sIdx} className="flex justify-between items-center text-xs gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="text-text-secondary/40 select-none shrink-0">☐</span>
-                            <input
-                              type="text"
-                              value={st.text}
-                              onChange={(e) => {
-                                const updatedList = [...subtasksList];
-                                updatedList[sIdx] = { ...updatedList[sIdx], text: e.target.value };
-                                setSubtasksList(updatedList);
+                          {editingIndex === sIdx ? (
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-text-secondary/40 select-none shrink-0 font-sans">☐</span>
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                onBlur={() => handleSaveSubtaskEdit(sIdx)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveSubtaskEdit(sIdx);
+                                  }
+                                }}
+                                className="font-semibold text-text-primary font-sans bg-[#161817] border border-white/10 rounded-lg px-2 py-1 outline-none focus:border-green/50 flex-1 min-w-0 w-full"
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer select-none py-1 group"
+                              onClick={() => {
+                                setEditingIndex(sIdx);
+                                setEditingValue(st.text);
                               }}
-                              className="font-semibold text-text-primary font-sans bg-transparent border-none outline-none focus:ring-0 p-0 m-0 flex-1 min-w-0 w-full truncate focus:truncate-none"
-                            />
-                          </div>
+                            >
+                              <span className="text-text-secondary/40 select-none shrink-0 font-sans">☐</span>
+                              <span className="font-semibold text-text-primary font-sans truncate group-hover:text-[#6ee7a8] transition-colors flex-1">
+                                {st.text}
+                              </span>
+                            </div>
+                          )}
                           <button 
                             type="button" 
                             onClick={() => handleFormRemoveSubtask(sIdx)}
@@ -1026,20 +1070,19 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                     </div>
                   )}
 
-                  <form onSubmit={handleFormAddSubtask} className="flex gap-2">
+                  <form onSubmit={handleFormAddSubtask} className="flex gap-2 items-center">
                     <input 
                       type="text" 
                       value={newSubtaskText}
                       onChange={(e) => setNewSubtaskText(e.target.value)}
                       placeholder="Adicionar item..."
-                      className="flex-1 bg-[#161817] border border-white/5 rounded-2xl px-4 py-3 text-xs text-text-primary outline-none focus:border-green/50 placeholder:text-text-secondary/30"
+                      className="flex-1 bg-[#161817] border border-white/5 rounded-2xl px-4 py-3.5 text-xs text-text-primary outline-none focus:border-green/50 placeholder:text-text-secondary/30"
                     />
                     <button 
                       type="submit"
-                      className="px-4 py-3 bg-[#1e2220] hover:bg-green hover:text-background text-text-primary rounded-2xl text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
+                      className="w-11 h-11 flex items-center justify-center bg-[#1e2220] hover:bg-green hover:text-background text-text-primary rounded-2xl transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <Plus size={12} />
-                      <span>+ ADICIONAR ITEM</span>
+                      <Plus size={16} />
                     </button>
                   </form>
                 </div>
