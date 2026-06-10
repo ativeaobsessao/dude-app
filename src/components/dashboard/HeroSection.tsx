@@ -360,6 +360,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     return dataStore.habits.filter(h => h.habit_mode === 'avoid');
   }, [dataStore.habits]);
 
+  const buildHabits = useMemo(() => {
+    return dataStore.habits.filter(h => h.habit_mode === 'build' || !h.habit_mode);
+  }, [dataStore.habits]);
+
   const hasAvoidance = useMemo(() => {
     return avoidHabits.length >= 1;
   }, [avoidHabits]);
@@ -1281,6 +1285,121 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <Moon size={13} className="fill-green/15 group-hover:scale-115 transition-transform" />
               <span>Fechar meu dia</span>
             </button>
+          </div>
+        )}
+
+        {/* Habits progress lines (Build habits only) - Mobile Only */}
+        {buildHabits.length > 0 && (
+          <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold text-text-dim/40 tracking-widest uppercase font-mono">
+                Hábitos de Construção
+              </span>
+            </div>
+            <div className="divide-y divide-white/5 px-1">
+              {buildHabits.map((h) => {
+                const todayStr = getLocalDateString(new Date());
+                const startOfWeek = new Date(h.week_start_date);
+                startOfWeek.setHours(0,0,0,0);
+
+                const habitSessionsThisWeek = dataStore.sessions.filter(s => 
+                  s.habit_id === h.id && 
+                  new Date(s.started_at) >= startOfWeek && 
+                  s.completed
+                );
+
+                const minutesByDay: { [dateStr: string]: number } = {};
+                habitSessionsThisWeek.forEach(s => {
+                  const dStr = getLocalDateString(new Date(s.started_at));
+                  const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+                  minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
+                });
+
+                const manualCompletionsThisWeek = dataStore.habitCompletions.filter(hc => 
+                  hc.habit_id === h.id && 
+                  new Date(hc.completed_at) >= startOfWeek && 
+                  !hc.focus_session_id
+                );
+                manualCompletionsThisWeek.forEach(hc => {
+                  const dStr = getLocalDateString(new Date(hc.completed_at));
+                  minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
+                });
+
+                const completedDaysCount = Object.keys(minutesByDay).filter(dStr => 
+                  minutesByDay[dStr] >= h.minutes_per_session
+                ).length;
+
+                const todayMinutes = minutesByDay[todayStr] || 0;
+                const targetMinutes = h.minutes_per_session;
+                const isTodayPartial = todayMinutes > 0 && todayMinutes < targetMinutes;
+
+                const progressCircles = Array.from({ length: h.sessions_per_week }, (_, i) => {
+                  if (i < completedDaysCount) {
+                    return 'completed';
+                  } else if (i === completedDaysCount && isTodayPartial) {
+                    return 'partial';
+                  } else {
+                    return 'empty';
+                  }
+                });
+
+                const preferredTimeLabel = {
+                  morning: '🌅 Manhã',
+                  afternoon: '☀️ Tarde', 
+                  evening: '🌙 Noite'
+                }[h.preferred_time] || '🌅 Manhã';
+
+                return (
+                  <div key={h.id} className="py-3.5 first:pt-0 last:pb-0 flex flex-col gap-1.5 select-none">
+                    {/* Tier 1: habit name + period */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-text-primary tracking-tight">
+                        {h.name}
+                      </span>
+                      <span className="text-[9px] text-text-secondary/50 font-bold uppercase tracking-widest font-mono">
+                        {preferredTimeLabel}
+                      </span>
+                    </div>
+
+                    {/* Tier 2: weekly dots + text + weekly streak */}
+                    <div className="flex items-center justify-between">
+                      {/* Weekly progress dots & status */}
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
+                          {progressCircles.map((state, i) => (
+                            <div
+                              key={i}
+                              className={`w-2 h-2 rounded-full relative shrink-0 ${
+                                state === 'completed'
+                                  ? 'bg-[#6ee7a8] shadow-[0_0_6px_rgba(110,231,168,0.4)]'
+                                  : state === 'partial'
+                                  ? 'border border-amber-400/40 bg-transparent overflow-hidden'
+                                  : 'bg-white/10'
+                              }`}
+                            >
+                              {state === 'partial' && (
+                                <div 
+                                  className="absolute inset-y-0 left-0 bg-amber-400" 
+                                  style={{ width: `${(todayMinutes / targetMinutes) * 100}%` }}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-text-dim/40 font-bold ml-1 whitespace-nowrap font-sans font-mono tracking-wide leading-none">
+                          {completedDaysCount}/{h.sessions_per_week} esta semana
+                        </span>
+                      </div>
+
+                      {/* Weekly Streak */}
+                      <span className="text-[10px] font-mono font-bold text-amber-400 flex items-center gap-0.5 whitespace-nowrap leading-none shrink-0">
+                        🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'sem' : 'sems'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
