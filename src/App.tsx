@@ -303,6 +303,15 @@ export default function App() {
     if (hasInStoreToday) {
       return false;
     }
+
+    try {
+      const isSkipped = localStorage.getItem(`dude-mood-skipped-${popupState.todayStr}-${popupState.currentPeriod}`) === 'true';
+      if (isSkipped) {
+        return false;
+      }
+    } catch (e) {
+      console.error("Error reading mood skip storage:", e);
+    }
     
     // Check Supabase privacy settings (GDPR)
     if (profile?.mood_status === 'disabled') {
