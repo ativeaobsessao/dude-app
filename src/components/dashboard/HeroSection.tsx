@@ -1112,12 +1112,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
                 <div className="flex items-center gap-3">
                   {/* Icon container */}
-                  <div className="p-2.5 bg-[#6ee7a8]/10 rounded-2xl flex items-center justify-center shrink-0">
-                    <Brain size={18} className="text-[#6ee7a8]" />
+                  <div className="p-2.5 bg-green/10 rounded-2xl flex items-center justify-center shrink-0">
+                    <Brain size={18} className="text-green" />
                   </div>
                   {/* Text metadata */}
                   <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-bold text-[#6ee7a8] tracking-[0.15em] uppercase font-mono leading-none text-left">
+                    <span className="text-[9px] font-bold text-green tracking-[0.15em] uppercase font-mono leading-none text-left">
                       Autocontrole
                     </span>
                     <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
@@ -1225,14 +1225,36 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           </div>
 
           {/* Summary Card for Today's Task List */}
+          {/* DESKTOP VERSION - untouched */}
           <div 
             onClick={() => onNavigateToLists?.()}
-            className="w-full p-4 rounded-2xl bg-surface-1/40 hover:bg-surface-1/75 border border-border-custom hover:border-green/20 transition-all cursor-pointer text-center flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 group select-none mt-2"
+            className="hidden md:flex w-full p-4 rounded-2xl bg-surface-1/40 hover:bg-surface-1/75 border border-border-custom hover:border-green/20 transition-all cursor-pointer text-center flex-row items-center justify-center gap-3 group select-none mt-2"
           >
-            <span className="text-base sm:text-lg group-hover:scale-110 transition-transform">📋</span>
-            <span className="text-[11px] sm:text-xs md:text-sm font-medium text-text-primary leading-relaxed">
+            <span className="text-lg group-hover:scale-110 transition-transform">📋</span>
+            <span className="text-sm font-medium text-text-primary leading-relaxed">
               Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
             </span>
+          </div>
+
+          {/* MOBILE VERSION - flat, de-boxed with subtle progress bar */}
+          <div
+            onClick={() => onNavigateToLists?.()}
+            className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-1 animate-fade-in flex flex-col items-center justify-center"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[15px]">📋</span>
+              <span className="text-[11px] sm:text-xs font-semibold text-text-primary leading-normal">
+                Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
+              </span>
+            </div>
+            {totalTasksCount > 0 && (
+              <div className="w-full max-w-[180px] h-0.5 bg-white/10 rounded-full mt-2 overflow-hidden">
+                <div 
+                  className="h-full bg-green rounded-full transition-all duration-500" 
+                  style={{ width: `${(completedTasksCount / totalTasksCount) * 100}%` }} 
+                />
+              </div>
+            )}
           </div>
 
           {/* Prominent Adjust Goal Control */}
@@ -1328,7 +1350,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         {buildHabits.length > 0 && (
           <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-4.5">
             <div className="flex items-center justify-between px-1">
-              <span className="text-[13px] font-bold text-text-dim/60 tracking-widest uppercase font-mono">
+              <span className="text-sm font-bold text-green tracking-[0.22em] uppercase font-mono">
                 Hábitos Atômicos
               </span>
             </div>
@@ -1428,8 +1450,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                       </div>
 
                       {/* Weekly Streak */}
-                      <span className="text-[11px] font-mono font-bold text-[#a78bfa] flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
-                        <Flame size={12} className="text-[#a78bfa] fill-[#a78bfa]/15 shrink-0" />
+                      <span className="text-[11px] font-mono font-bold text-green flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
+                        <Flame size={12} className="text-amber-500 fill-amber-500/15 shrink-0" />
                         <span>
                           {h.weekly_streak} {h.weekly_streak === 1 ? 'semana invicta' : 'semanas invictas'}
                         </span>
