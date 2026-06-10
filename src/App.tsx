@@ -114,6 +114,7 @@ export default function App() {
           .select('id')
           .eq('user_id', user.id)
           .eq('date', todayStr)
+          .eq('period', period)
       ]);
 
       const yesterdayClosed = !!(closureRes.data && closureRes.data.length > 0);
@@ -288,7 +289,7 @@ export default function App() {
     if (popupState.todayMoodDone) {
       return false;
     }
-    const hasInStoreToday = moodEntries.some(m => m.date === popupState.todayStr);
+    const hasInStoreToday = moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
     if (hasInStoreToday) {
       return false;
     }
