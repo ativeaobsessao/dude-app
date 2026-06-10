@@ -20,6 +20,16 @@ const formatCompactDuration = (minutes: number) => {
   return `${m}m`;
 };
 
+const formatEnergy = (energy?: string | null) => {
+  if (!energy) return 'Normal ⚡';
+  switch (energy) {
+    case 'cansado': return 'Baixa 🥱';
+    case 'normal': return 'Normal ⚡';
+    case 'energizado': return 'Alta 🔥';
+    default: return `${energy.charAt(0).toUpperCase() + energy.slice(1)}`;
+  }
+};
+
 type PeriodType = 'today' | 'week' | 'month' | 'all';
 
 export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
@@ -47,6 +57,27 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
   // Selected cell in Humor heat map
   const [tappedMoodDayStr, setTappedMoodDayStr] = useState<string | null>(null);
+
+  // Selected date snapshot for correlation analysis (Máquina do Tempo)
+  const selectedDateSnapshot = useMemo(() => {
+    if (!selectedDate) return null;
+    
+    const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
+    const dayMins = daySessions.reduce((acc, s) => acc + (s.actual_duration_minutes || s.duration_minutes || 0), 0);
+    
+    const dayMoodEntry = moodEntries.find(m => m.date === selectedDate);
+    const dayMoodObj = dayMoodEntry ? MOOD_LIST.find(m => m.key === dayMoodEntry.mood) : null;
+    
+    const dayAvoidanceCheckins = avoidanceCheckins.filter(ac => ac.checkin_date === selectedDate);
+    
+    return {
+      daySessions,
+      dayMins,
+      dayMoodEntry,
+      dayMoodObj,
+      dayAvoidanceCheckins,
+    };
+  }, [selectedDate, sessions, moodEntries, avoidanceCheckins]);
 
   // Helper sets
   const getDatesRangeSet = (offsetStart: number, length: number) => {
@@ -1646,65 +1677,148 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                     </div>
                   </div>
 
-                  <div className="space-y-3 font-sans">
-                    {daySessions.length > 0 ? (
-                      daySessions.map(session => {
-                        const resolved = resolverNomeSessao(session, habits, projects);
-                        const isPartial = session.parcial === true || 
-                                         (session.actual_duration_minutes !== null && 
-                                          session.actual_duration_minutes !== undefined && 
-                                          session.actual_duration_minutes < session.duration_minutes);
-                        const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
-                        const formattedDuration = formatSessionDuration(durationToUse);
-                        const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+                  <div className="space-y-5 font-sans">
+                    {/* Bloco 1: Foco e Produtividade */}
+                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
+                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
+                        🎯 Foco & Produtividade
+                      </span>
+                      <div className="space-y-3">
+                        {daySessions.length > 0 ? (
+                          daySessions.map(session => {
+                            const resolved = resolverNomeSessao(session, habits, projects);
+                            const isPartial = session.parcial === true || 
+                                             (session.actual_duration_minutes !== null && 
+                                              session.actual_duration_minutes !== undefined && 
+                                              session.actual_duration_minutes < session.duration_minutes);
+                            const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                            const formattedDuration = formatSessionDuration(durationToUse);
+                            const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
 
-                        const tasks = sessionTasks.filter(t => t.session_id === session.id);
-                        const completedTasks = tasks.filter(t => t.completed);
+                            const tasks = sessionTasks.filter(t => t.session_id === session.id);
+                            const completedTasks = tasks.filter(t => t.completed);
 
-                        return (
-                          <div key={session.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-bold text-text-primary">
-                                {resolved.titulo}
-                              </span>
-                              <span className="text-text-secondary/40 text-[10px]">•</span>
-                              <span className="text-[10px] text-text-secondary/70 uppercase tracking-wider font-semibold font-mono">
-                                {resolved.projeto}
-                              </span>
-                              {isPartial && (
-                                <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
-                                  Incompleta
-                                </span>
-                              )}
-                            </div>
+                            return (
+                              <div key={session.id} className="p-3 bg-white/[0.015] border border-white/5 rounded-xl space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-text-primary">
+                                    {resolved.titulo}
+                                  </span>
+                                  <span className="text-text-secondary/40 text-[10px]">•</span>
+                                  <span className="text-[10px] text-text-secondary/70 uppercase tracking-wider font-semibold font-mono">
+                                    {resolved.projeto}
+                                  </span>
+                                  {isPartial && (
+                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
+                                      Incompleta
+                                    </span>
+                                  )}
+                                </div>
 
-                            <div className="text-[10px] text-text-secondary/50 font-mono flex items-center gap-2">
-                              <span>Horário: {timeRange}</span>
-                              <span>•</span>
-                              <span>Duração: {formattedDuration}</span>
-                            </div>
+                                <div className="text-[10px] text-text-secondary/50 font-mono flex items-center gap-2">
+                                  <span>Horário: {timeRange}</span>
+                                  <span>•</span>
+                                  <span>Duração: {formattedDuration}</span>
+                                </div>
 
-                            {completedTasks.length > 0 && (
-                              <div className="space-y-1 pl-1 border-t border-white/5 pt-2 mt-1">
-                                <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
-                                  Tarefas Completas na Sessão:
-                                </span>
-                                {completedTasks.map(task => (
-                                  <div key={task.id} className="flex items-center gap-1.5 text-[11px] text-text-secondary/80">
-                                    <span className="text-primary-green select-none text-xs">☑</span>
-                                    <span className="line-through decoration-white/10 text-text-secondary/50">{task.description}</span>
+                                {completedTasks.length > 0 && (
+                                  <div className="space-y-1 pl-1 border-t border-white/5 pt-2 mt-1">
+                                    <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
+                                      Tarefas Completas na Sessão:
+                                    </span>
+                                    {completedTasks.map(task => (
+                                      <div key={task.id} className="flex items-center gap-1.5 text-[11px] text-text-secondary/80">
+                                        <span className="text-primary-green select-none text-xs">☑</span>
+                                        <span className="line-through decoration-white/10 text-text-secondary/50">{task.description}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                )}
                               </div>
-                            )}
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
+                            Nenhuma sessão realizada neste dia. O descanso também faz parte do processo consciente!
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bloco 2: Biométrico & Disposição */}
+                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
+                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
+                        🧠 Estado Biométrico
+                      </span>
+                      {selectedDateSnapshot?.dayMoodEntry ? (
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="bg-white/[0.015] border border-white/[0.03] p-3 rounded-xl">
+                            <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-wider block">DISPOSIÇÃO / ENERGIA</span>
+                            <span className="text-text-primary font-bold mt-0.5 block">
+                              {formatEnergy(selectedDateSnapshot.dayMoodEntry.energy)}
+                            </span>
                           </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-xs text-text-secondary/40 italic font-light py-4 text-center">
-                        Nenhuma sessão realizada neste dia. O descanso também faz parte do processo consciente!
-                      </p>
-                    )}
+                          <div className="bg-white/[0.015] border border-white/[0.03] p-3 rounded-xl">
+                            <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-wider block">SINTONIA MENTAL</span>
+                            <span className="text-text-primary font-bold mt-0.5 flex items-center gap-1">
+                              {selectedDateSnapshot.dayMoodObj?.emoji || '😐'} 
+                              <span>{selectedDateSnapshot.dayMoodObj?.label || 'Neutro'}</span>
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
+                          Nenhum registro biométrico registrado neste dia.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Bloco 3: Autocontrole / Anti-Vício */}
+                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
+                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
+                        🛡️ Batalhas de Autocontrole
+                      </span>
+                      {selectedDateSnapshot && selectedDateSnapshot.dayAvoidanceCheckins.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedDateSnapshot.dayAvoidanceCheckins.map((ac) => {
+                            const habit = habits.find(h => h.id === ac.habit_id);
+                            const hName = habit ? habit.name : 'Vício Cadastrado';
+                            const status = ac.status?.toLowerCase();
+                            const isResisti = status === 'resisti' || status === 'success';
+                            const isRecai = status === 'recai' || status === 'relapse';
+                            
+                            let statusLabel = 'Registro';
+                            let statusColor = 'text-text-secondary/60 bg-white/5 border-white/10';
+                            if (isResisti) {
+                              statusLabel = '✓ Resistido';
+                              statusColor = 'text-green bg-green/10 border-green/20';
+                            } else if (isRecai) {
+                              statusLabel = '✗ Recaída';
+                              statusColor = 'text-red-400 bg-red-400/10 border-red-400/20';
+                            } else if (status === 'depois') {
+                              statusLabel = '⏰ Postergado';
+                              statusColor = 'text-amber-500 bg-[#df8a13]/10 border-amber-500/20';
+                            }
+
+                            return (
+                              <div key={ac.id} className="flex justify-between items-center p-3 rounded-xl bg-white/[0.015] border border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-text-primary">{hName}</span>
+                                  {ac.window_label && <span className="text-[9px] font-mono text-text-secondary/50 mt-0.5">{ac.window_label}</span>}
+                                </div>
+                                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
+                          Nenhum check-in de autocontrole registrado neste dia.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-end pt-2 border-t border-white/5">

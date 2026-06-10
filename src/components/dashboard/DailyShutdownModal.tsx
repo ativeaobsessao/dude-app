@@ -120,6 +120,38 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     return null;
   }, [moodEntries, targetDate]);
 
+  const todayMoodEntry = useMemo(() => {
+    return moodEntries.find(m => m.date === targetDate);
+  }, [moodEntries, targetDate]);
+
+  const todayAvoidanceCheckins = useMemo(() => {
+    return avoidanceCheckins.filter(ac => ac.checkin_date === targetDate);
+  }, [avoidanceCheckins, targetDate]);
+
+  const avoidanceStats = useMemo(() => {
+    let wins = 0;
+    let relapses = 0;
+    todayAvoidanceCheckins.forEach(ac => {
+      const status = ac.status?.toLowerCase();
+      if (status === 'resisti' || status === 'success') {
+        wins++;
+      } else if (status === 'recai' || status === 'relapse') {
+        relapses++;
+      }
+    });
+    return { wins, relapses };
+  }, [todayAvoidanceCheckins]);
+
+  const formatEnergy = (energy?: string | null) => {
+    if (!energy) return 'Normal ⚡';
+    switch (energy) {
+      case 'cansado': return 'Baixa 🥱';
+      case 'normal': return 'Normal ⚡';
+      case 'energizado': return 'Alta 🔥';
+      default: return `${energy.charAt(0).toUpperCase() + energy.slice(1)}`;
+    }
+  };
+
   const handleDismiss = async () => {
     localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
     if (user) {
@@ -263,6 +295,39 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     <span className="font-bold text-text uppercase tracking-wider text-[9px]">{todayMoodObj.label}</span>
                   </div>
                 )}
+
+                {/* DOSSIÊ DIÁRIO - SNAPSHOT DIAGNOSTIC */}
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-b border-white/[0.05] py-4 text-left">
+                  {/* Bloco Biométrico */}
+                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 space-y-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-text-dim/50 block">STATUS BIOMÉTRICO</span>
+                    {todayMoodEntry ? (
+                      <div className="text-xs space-y-1">
+                        <p className="font-semibold text-text">
+                          ⚡ Energia: <span className="text-green">{formatEnergy(todayMoodEntry.energy)}</span>
+                        </p>
+                        <p className="font-semibold text-text">
+                          {todayMoodObj?.emoji || '🧠'} Humor: <span className="text-green">{todayMoodObj?.label || 'Neutro'}</span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-text-dim/40 italic">Sem registros biométricos hoje.</p>
+                    )}
+                  </div>
+
+                  {/* Bloco de Autocontrole */}
+                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 space-y-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-text-dim/50 block">AUTOCONTROLE ANTI-VÍCIO</span>
+                    <div className="text-xs space-y-1">
+                      <p className="font-semibold text-text">
+                        🛡️ Batalhas: <span className="text-green">{todayAvoidanceCheckins.length} registradas</span>
+                      </p>
+                      <p className="font-semibold text-text">
+                        🔥 Resultado: <span className="text-green">{avoidanceStats.wins} Vitórias</span> | <span className="text-red-400">{avoidanceStats.relapses} Recaídas</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* TIME BY PROJECT SUMMARY (THE NEW MAIN summary) */}
                 <div className="w-full space-y-2.5 text-left">
