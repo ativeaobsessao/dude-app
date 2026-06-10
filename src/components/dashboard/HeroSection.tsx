@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
-import { Moon, X, Calendar } from 'lucide-react';
+import { Moon, X, Calendar, Shield, Bell } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -176,6 +176,46 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const [relapsedHabitName, setRelapsedHabitName] = useState('');
   const [animatingResistedHabitId, setAnimatingResistedHabitId] = useState<string | null>(null);
 
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
+
+  const [cooldownsVal, setCooldownsVal] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('dude_antivicio_cooldowns');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [snoozesVal, setSnoozesVal] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('dude_antivicio_snoozes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const registerCooldown = (habitId: string) => {
+    const updated = { ...cooldownsVal, [habitId]: Date.now() };
+    setCooldownsVal(updated);
+    try {
+      localStorage.setItem('dude_antivicio_cooldowns', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const registerSnooze = (habitId: string) => {
+    const updated = { ...snoozesVal, [habitId]: Date.now() + 2 * 60 * 60 * 1000 };
+    setSnoozesVal(updated);
+    try {
+      localStorage.setItem('dude_antivicio_snoozes', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const playVictorySound = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -210,11 +250,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
   };
 
-  const activeBannerHabit = useMemo(() => {
+  const pendingAvoidanceHabits = useMemo(() => {
     const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
-    if (avoidHabits.length === 0 || !dataStore.profile?.id) return null;
+    if (avoidHabits.length === 0 || !dataStore.profile?.id) return [];
 
     const now = new Date();
+    const nowTime = now.getTime();
     const todayStr = getLocalDateString(now);
     const dayOfWeek = now.getDay();
 
@@ -225,7 +266,21 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       return weekdaysStr.split(',').map(Number);
     };
 
+    const results = [];
+
     for (const h of avoidHabits) {
+      // 1. Cooldown de 4 horas
+      const lastChecked = cooldownsVal[h.id] || 0;
+      if (nowTime < lastChecked + 4 * 60 * 60 * 1000) {
+        continue;
+      }
+
+      // 2. Snooze de 2 horas
+      const snoozeUntil = snoozesVal[h.id] || 0;
+      if (nowTime < snoozeUntil) {
+        continue;
+      }
+
       const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
       const parsedWeekdays = h.monitor_weekdays
         ? getWeekdays(h.monitor_weekdays)
@@ -258,7 +313,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           wEnd.setDate(wEnd.getDate() + 1);
         }
 
-        if (now.getTime() >= wStart.getTime()) {
+        if (nowTime >= wStart.getTime()) {
           isActiveUnit = true;
           windowLabel = `${todayStr}:${mStart}-${mEnd}`;
           checkinPeriod = 'window';
@@ -289,17 +344,23 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           continue;
         }
 
-        return {
+        results.push({
           habit: h,
           windowLabel,
           checkinPeriod,
           promptsShown,
-        };
+        });
       }
     }
 
-    return null;
-  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioKeys]);
+    return results;
+  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioKeys, cooldownsVal, snoozesVal]);
+
+  useEffect(() => {
+    if (pendingAvoidanceHabits.length === 0 && showCheckinModal) {
+      setShowCheckinModal(false);
+    }
+  }, [pendingAvoidanceHabits, showCheckinModal]);
 
   const handleResisti = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
     if (!dataStore.profile?.id) return;
@@ -307,6 +368,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     
     setAnimatingResistedHabitId(habit.id);
     dismissAntiVicio(habit.id, windowLabel);
+    registerCooldown(habit.id);
     
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -330,6 +392,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     if (!dataStore.profile?.id) return;
     
     dismissAntiVicio(habit.id, windowLabel);
+    registerCooldown(habit.id);
 
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -350,6 +413,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     if (!dataStore.profile?.id) return;
     
     dismissAntiVicio(habit.id, windowLabel);
+    registerSnooze(habit.id);
 
     const todayStr = getLocalDateString(new Date());
     await dataStore.addAvoidanceCheckin({
@@ -362,86 +426,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       prompts_shown: 1
     });
 
-    dataStore.showNotification('Acompanhamento adiado silenciosamente.', 'success');
+    dataStore.showNotification('Acompanhamento adiado por 2 horas.', 'success');
   };
-
-  const bannerRender = useMemo(() => {
-    if (!activeBannerHabit) return null;
-    const { habit, windowLabel, checkinPeriod } = activeBannerHabit;
-    const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-    const isAnimating = animatingResistedHabitId === habit.id;
-    const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
-    const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
-    const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
-
-    return (
-      <motion.div
-        key={habit.id}
-        initial={{ opacity: 0, y: -10, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -10, scale: 0.98 }}
-        className="w-full max-w-sm sm:max-w-md mx-auto p-5 rounded-2xl bg-surface-1/90 border border-green/30 shadow-[0_0_20px_rgba(110,231,168,0.12)] flex flex-col gap-4 text-center select-none relative overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-green/5 animate-pulse opacity-40 pointer-events-none" />
-
-        <div className="flex justify-between items-center relative z-10 w-full">
-          <p className="text-[9px] uppercase tracking-widest font-bold text-green flex items-center gap-1.5 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-green animate-ping shrink-0" />
-            ● Acompanhamento · {habit.name}
-          </p>
-          <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
-            <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={isAnimating ? 'anim' : 'static'}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1.1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                className="text-xs font-mono font-black text-green inline-block"
-              >
-                {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
-              </motion.span>
-            </AnimatePresence>
-          </div>
-        </div>
-
-        <div className="space-y-1 relative z-10 text-left">
-          <h4 className="text-sm font-bold text-text-primary leading-tight">
-            Como você está com seu autocontrole de <span className="text-green font-extrabold">{habit.name}</span> agora?
-          </h4>
-          {isJanela && (
-            <p className="text-[10px] font-mono text-text-secondary/50 uppercase tracking-wider">
-              Janela Programada: {mStart} às {mEnd}
-            </p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 relative z-10 font-sans">
-          <button
-            type="button"
-            onClick={() => handleResisti(habit, windowLabel, checkinPeriod)}
-            className="py-2.5 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
-          >
-            ✓ Resisti
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRecai(habit, windowLabel, checkinPeriod)}
-            className="py-2.5 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
-          >
-            Recaí
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
-            className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary/65 rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
-          >
-            Depois
-          </button>
-        </div>
-      </motion.div>
-    );
-  }, [activeBannerHabit, dataStore.avoidanceCheckins, animatingResistedHabitId]);
 
   let stateType: 'above' | 'on_pace' | 'below' | 'neutral' = 'neutral';
   if (percent > 110) {
@@ -877,9 +863,119 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           )}
         </AnimatePresence>
 
-        {/* PRECISION CONSCIOUSNESS BANNER */}
-        <AnimatePresence mode="wait">
-          {bannerRender}
+        {/* PASSIVE ANTI-VICTIM CHECK-IN MODAL */}
+        <AnimatePresence>
+          {showCheckinModal && pendingAvoidanceHabits.length > 0 && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base/80 backdrop-blur-md p-4">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="w-full max-w-md bg-surface-2 border border-border-custom rounded-3xl p-6 space-y-6 shadow-2xl relative"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowCheckinModal(false)}
+                  className="absolute top-4 right-4 text-text-dim/50 hover:text-text transition-colors p-1 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+
+                <div className="space-y-1.5 text-center">
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 mx-auto mb-2">
+                    <Shield size={20} />
+                  </div>
+                  <h4 className="text-lg font-extrabold text-red-300 tracking-tight uppercase">
+                    Check-in de Autocontrole
+                  </h4>
+                  <p className="text-[11px] text-text-dim/80 max-w-xs mx-auto">
+                    Como está sua força de vontade hoje? Mantenha sua mente sob vigília inteligente e livre de vícios.
+                  </p>
+                  {pendingAvoidanceHabits.length > 1 && (
+                    <span className="inline-block px-2.5 py-0.5 mt-2 bg-red-500/10 text-red-400 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider">
+                      {pendingAvoidanceHabits.length} Pendência{pendingAvoidanceHabits.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Render current pending habit */}
+                {(() => {
+                  const currentItem = pendingAvoidanceHabits[0];
+                  const { habit, windowLabel, checkinPeriod } = currentItem;
+                  const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
+                  const isAnimating = animatingResistedHabitId === habit.id;
+                  const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
+                  const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
+                  const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
+
+                  return (
+                    <div className="bg-surface-1/50 border border-border-custom/50 rounded-2xl p-5 space-y-4 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-green/5 animate-pulse opacity-20 pointer-events-none" />
+
+                      <div className="flex justify-between items-center relative z-10 w-full">
+                        <p className="text-[9px] uppercase tracking-widest font-bold text-green flex items-center gap-1.5 font-mono">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green animate-ping shrink-0" />
+                          ● {habit.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
+                          <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
+                          <AnimatePresence mode="popLayout">
+                            <motion.span
+                              key={isAnimating ? 'anim' : 'static'}
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1.1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              className="text-xs font-mono font-black text-green inline-block"
+                            >
+                              {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
+                            </motion.span>
+                          </AnimatePresence>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 relative z-10 text-left">
+                        <h4 className="text-sm font-bold text-text-primary leading-tight">
+                          Como você está com seu autocontrole agora?
+                        </h4>
+                        {isJanela && (
+                          <p className="text-[10px] font-mono text-text-dim/60 uppercase tracking-wider">
+                            Janela Programada: {mStart} às {mEnd}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 relative z-10 font-sans">
+                        <button
+                          type="button"
+                          onClick={() => handleResisti(habit, windowLabel, checkinPeriod)}
+                          className="py-3 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+                        >
+                          ✓ Resisti
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRecai(habit, windowLabel, checkinPeriod)}
+                          className="py-3 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+                        >
+                          Recaí
+                        </button>
+                      </div>
+
+                      <div className="relative z-10">
+                        <button
+                          type="button"
+                          onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
+                          className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-text-dim rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
+                        >
+                          Depois (Adiar 2h)
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>
 
         {/* Bloco 4 — Botão de ação (The primary action centered with generous breathing room) */}
@@ -890,6 +986,21 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           transition={{ delay: 0.2 }}
           className="pb-2 flex flex-col items-center gap-2 w-full animate-fade-in"
         >
+          {pendingAvoidanceHabits.length > 0 && (
+            <motion.button
+              onClick={() => setShowCheckinModal(true)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-2 px-4 py-2 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-300 rounded-full transition-all cursor-pointer font-sans text-[10px] font-bold uppercase tracking-wider mb-2 relative"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 font-sans"></span>
+              </span>
+              <span>Autocontrole: {pendingAvoidanceHabits.length} pendente{pendingAvoidanceHabits.length > 1 ? 's' : ''}</span>
+            </motion.button>
+          )}
+
           <button 
             onClick={openDeepSession}
             className="group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center"
