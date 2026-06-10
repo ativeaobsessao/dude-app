@@ -66,6 +66,7 @@ export default function App() {
   } = useDataStore();
   const dataStore = useDataStore();
   const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
+  const [isRevalidating, setIsRevalidating] = useState(false);
 
   const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -220,23 +221,29 @@ export default function App() {
 
     const handleVisibility = async () => {
       if (document.visibilityState === 'visible') {
+        setIsRevalidating(true);
         try {
           await dataStore.revalidateSyncState(user.id);
+          await runServerPopupCheck();
         } catch (e) {
           console.error("Error in revalidateSyncState:", e);
+        } finally {
+          setIsRevalidating(false);
         }
-        runServerPopupCheck();
         dataStore.fetchScheduledActivities(user.id);
       }
     };
 
     const handleFocus = async () => {
+      setIsRevalidating(true);
       try {
         await dataStore.revalidateSyncState(user.id);
+        await runServerPopupCheck();
       } catch (e) {
         console.error("Error in revalidateSyncState:", e);
+      } finally {
+        setIsRevalidating(false);
       }
-      runServerPopupCheck();
       dataStore.fetchScheduledActivities(user.id);
     };
 
@@ -293,6 +300,9 @@ export default function App() {
   }, []);
 
   const isMoodActive = (() => {
+    if (isRevalidating) {
+      return false;
+    }
     if (!user || !profile || !initialFetchDone || !popupState.serverChecked || !popupState.currentPeriod || !popupState.todayStr) {
       return false;
     }
