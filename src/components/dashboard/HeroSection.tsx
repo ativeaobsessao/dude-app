@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
-import { Moon, X, Calendar, Shield, Bell, Brain, Hand } from 'lucide-react';
+import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -1326,10 +1326,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
         {/* Habits progress lines (Build habits only) - Mobile Only */}
         {buildHabits.length > 0 && (
-          <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-3">
+          <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-4.5">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold text-text-dim/50 tracking-widest uppercase font-mono">
-                Hábitos de Construção
+              <span className="text-[13px] font-bold text-text-dim/60 tracking-widest uppercase font-mono">
+                Hábitos Atômicos
               </span>
             </div>
             <div className="divide-y divide-white/5 px-1">
@@ -1386,10 +1386,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 }[h.preferred_time] || '🌅 Manhã';
 
                 return (
-                  <div key={h.id} className="py-3.5 first:pt-0 last:pb-0 flex flex-col gap-1.5 select-none">
+                  <div key={h.id} className="py-5 first:pt-0 last:pb-0 flex flex-col gap-2 select-none">
                     {/* Tier 1: habit name + period */}
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-text-primary tracking-tight block truncate">
+                      <span className="text-base font-semibold text-text-primary tracking-tight block truncate">
                         {h.name}
                       </span>
                       <span className="text-[9px] text-text-secondary/50 font-bold uppercase tracking-widest font-mono shrink-0 ml-2">
@@ -1398,14 +1398,14 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                     </div>
 
                     {/* Tier 2: weekly dots + text + weekly streak */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       {/* Weekly progress dots & status */}
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-1 shrink-0">
                           {progressCircles.map((state, i) => (
                             <div
                               key={i}
-                              className={`w-2 h-2 rounded-full relative shrink-0 ${
+                              className={`w-2.5 h-2.5 rounded-full relative shrink-0 ${
                                 state === 'completed'
                                   ? 'bg-[#6ee7a8] shadow-[0_0_6px_rgba(110,231,168,0.4)]'
                                   : state === 'partial'
@@ -1422,14 +1422,17 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                             </div>
                           ))}
                         </div>
-                        <span className="text-[10px] text-text-dim/40 font-bold ml-1 whitespace-nowrap font-sans font-mono tracking-wide leading-none">
+                        <span className="text-[11px] text-text-dim/50 font-bold ml-1.5 whitespace-nowrap font-sans font-mono tracking-wide leading-none block truncate">
                           {completedDaysCount}/{h.sessions_per_week} esta semana
                         </span>
                       </div>
 
                       {/* Weekly Streak */}
-                      <span className="text-[10px] font-mono font-bold text-amber-400 flex items-center gap-0.5 whitespace-nowrap leading-none shrink-0">
-                        🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'sem' : 'sems'}
+                      <span className="text-[11px] font-mono font-bold text-[#a78bfa] flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
+                        <Flame size={12} className="text-[#a78bfa] fill-[#a78bfa]/15 shrink-0" />
+                        <span>
+                          {h.weekly_streak} {h.weekly_streak === 1 ? 'semana invicta' : 'semanas invictas'}
+                        </span>
                       </span>
                     </div>
                   </div>
