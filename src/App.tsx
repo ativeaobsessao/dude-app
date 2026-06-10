@@ -895,21 +895,6 @@ export default function App() {
             {activeTab === 'home' && (
               <>
                 <HeroSection onNavigateToLists={() => setActiveTab('listas')} />
-
-                <div className="w-full max-w-6xl mx-auto px-6 space-y-12 md:space-y-16 flex flex-col items-center">
-                  {/* AGENDA HOJE BRANCH */}
-                  <div className="hidden md:block w-full">
-                    <AgendaHoje 
-                      onStartSession={handleStartSessionFromAgenda}
-                      onOpenNewSchedule={handleOpenNewSchedule}
-                    />
-                  </div>
-
-                  {/* 9. Seção Histórico Recente */}
-                  <div className="hidden md:block w-full">
-                    <RecentHistory />
-                  </div>
-                </div>
               </>
             )}
 

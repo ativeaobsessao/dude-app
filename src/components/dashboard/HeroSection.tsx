@@ -1398,7 +1398,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         {buildHabits.length > 0 && (
           <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto pt-6 border-t border-white/5 space-y-4.5 md:space-y-6">
             <div className="flex items-center justify-between px-1">
-              <span className="text-sm md:text-base font-bold text-green tracking-[0.22em] uppercase font-mono">
+              <span className="text-sm md:text-base font-bold text-primary-green tracking-[0.22em] uppercase font-mono">
                 Hábitos Atômicos
               </span>
             </div>
