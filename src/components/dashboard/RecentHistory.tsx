@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../store/useDataStore';
-import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle, Pause, Edit2, Plus } from 'lucide-react';
+import { History, X, Search, Filter, Trash2, ArrowLeft, CheckCircle, Pause, Edit2, Plus, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { EditSessionModal } from '../shared/EditSessionModal';
 
-export const RecentHistory = () => {
+interface RecentHistoryProps {
+  variant?: 'button' | 'menuRow';
+}
+
+export const RecentHistory = ({ variant = 'button' }: RecentHistoryProps) => {
   const dataStore = useDataStore();
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [filterProject, setFilterProject] = useState('');
@@ -39,6 +43,108 @@ export const RecentHistory = () => {
     const year = d.getFullYear();
     return `${day} ${month} ${year}`;
   };
+
+  if (variant === 'menuRow') {
+    return (
+      <div className="w-full max-w-5xl mx-auto font-sans">
+        <div 
+          onClick={() => setShowFullHistory(true)}
+          className="w-full p-6 bg-surface/20 hover:bg-surface/35 border border-border-white rounded-3xl flex items-center justify-between cursor-pointer transition-all duration-300 group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary/60 group-hover:bg-white/10 group-hover:text-text-primary transition-colors">
+              <History size={18} className="text-text-dim group-hover:text-green transition-colors" />
+            </div>
+            <div className="text-left font-sans">
+              <h3 className="text-lg font-semibold text-text-primary tracking-tight">Histórico de Sessões Profundas</h3>
+              <p className="text-xs text-text-secondary/60 mt-0.5">
+                {dataStore.sessions.length === 0 
+                  ? 'Nenhuma sessão registrada' 
+                  : `${dataStore.sessions.length} ${dataStore.sessions.length === 1 ? 'sessão registrada' : 'sessões registradas'}`}
+              </p>
+            </div>
+          </div>
+          <div className="text-text-secondary/40 group-hover:text-text-primary transition-colors transform duration-300">
+            <ChevronRight size={20} />
+          </div>
+        </div>
+
+        {/* Full History Modal */}
+        <AnimatePresence>
+          {showFullHistory && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[500] bg-background/95 backdrop-blur-3xl flex flex-col items-center px-6 py-16 overflow-y-auto"
+            >
+              <div className="w-full max-w-4xl space-y-12">
+                <header className="flex justify-between items-center border-b border-white/5 pb-8">
+                  <button
+                    onClick={() => setShowFullHistory(false)}
+                    className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"
+                  >
+                    <ArrowLeft size={16} /> Voltar
+                  </button>
+                  <h2 className="text-xl md:text-3xl font-semibold tracking-tight text-text-primary text-center">Histórico de Sessões Profundas</h2>
+                  <div className="w-20 hidden md:block"></div>
+                </header>
+
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-white/5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Filtrar por Projeto</label>
+                    <select 
+                      className="w-full bg-surface/40 border border-border-white rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all appearance-none cursor-pointer touch-manipulation min-h-[44px]"
+                      value={filterProject}
+                      onChange={e => setFilterProject(e.target.value)}
+                    >
+                      <option value="">Todos os Projetos</option>
+                      {dataStore.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Filtrar por Data</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-surface/40 border border-border-white rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px]"
+                      value={filterDate}
+                      onChange={e => setFilterDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pb-32">
+                  {filteredHistory.length === 0 ? (
+                    <p className="text-text-secondary/30 italic text-center py-20">Nenhum registro encontrado para os filtros selecionados.</p>
+                  ) : (
+                    filteredHistory.map(session => (
+                      <HistoryRow 
+                        key={session.id} 
+                        session={session}
+                        onDelete={handleDeleteSession}
+                        onEdit={setEditingSession}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Session Modal */}
+        <AnimatePresence>
+          {editingSession && (
+            <EditSessionModal 
+              session={editingSession} 
+              onClose={() => setEditingSession(null)} 
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-5xl flex justify-center py-4">

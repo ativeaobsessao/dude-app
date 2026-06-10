@@ -939,6 +939,7 @@ export default function App() {
                   <AvoidanceSection />
                   <RecentNotes />
                   <LinksHeroBlock />
+                  <RecentHistory variant="menuRow" />
                 </div>
               );
             })()}
