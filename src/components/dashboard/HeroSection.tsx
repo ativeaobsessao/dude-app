@@ -1072,71 +1072,115 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               onClick={() => setShowCheckinModal(true)}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="hidden md:flex items-center gap-2 px-4 py-2 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-300 rounded-full transition-all cursor-pointer font-sans text-[10px] font-bold uppercase tracking-wider mb-2 relative"
+              className="hidden md:flex items-center gap-2 px-4 py-2 border border-red-500/20 bg-red-950/15 hover:bg-red-950/25 text-red-300 rounded-full transition-all cursor-pointer font-sans text-[11px] font-bold uppercase tracking-wider mb-2 relative"
             >
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 font-sans"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
               </span>
-              <span>Autocontrole: {pendingAvoidanceHabits.length} pendente{pendingAvoidanceHabits.length > 1 ? 's' : ''}</span>
+              <span className={`transition-opacity duration-300 pointer-events-none ${fadePhrase ? 'opacity-100' : 'opacity-0'}`}>
+                {displayPhrase}
+              </span>
+              <span className="text-red-400/40 text-[10px] font-mono font-bold leading-none whitespace-nowrap">
+                ({pendingAvoidanceHabits.length})
+              </span>
             </motion.button>
           )}
 
-          {/* Placeholder silencioso no mobile enquanto os hábitos carregam (evita flash do botão verde) */}
+          {/* Placeholder silencioso no mobile/desktop enquanto os hábitos carregam (evita flash do botão verde) */}
           {!dataStore.initialFetchDone && (
-            <div className="md:hidden h-[56px] w-full max-w-[340px] sm:max-w-md mx-auto" />
+            <div className="h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto" />
           )}
 
-          <button 
-            onClick={openDeepSession}
-            className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
-              (hasAvoidance || !dataStore.initialFetchDone) ? 'hidden md:flex' : 'flex'
-            } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md hover:scale-[1.02] duration-200 cursor-pointer text-center`}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-base animate-pulse shrink-0" />
-              <span className="font-bold text-xs sm:text-sm uppercase tracking-[0.18em] whitespace-nowrap">
-                {buttonLabel}
-              </span>
-            </div>
-            {buttonSubline && (
-              <span className="text-[11px] sm:text-xs font-bold text-black/80 uppercase tracking-[0.1em] mt-0.5">
-                {buttonSubline}
-              </span>
-            )}
-          </button>
-
-          {/* Autocontrole Strip: Only rendered on MOBILE when hasAvoidance is true and data is ready */}
-          {dataStore.initialFetchDone && hasAvoidance && (
-            <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
-              <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
-                <div className="flex items-center gap-3">
-                  {/* Icon container */}
-                  <div className="p-2.5 bg-green/10 rounded-2xl flex items-center justify-center shrink-0">
-                    <Brain size={18} className="text-green" />
-                  </div>
-                  {/* Text metadata */}
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-bold text-green tracking-[0.15em] uppercase font-mono leading-none text-left">
-                      Autocontrole
-                    </span>
-                    <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
-                      {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
-                    </span>
-                  </div>
+          {dataStore.initialFetchDone && (
+            <>
+              {/* SP Button */}
+              <button 
+                onClick={openDeepSession}
+                className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
+                  hasAvoidance ? 'hidden md:flex' : 'flex'
+                } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl hover:scale-[1.02] duration-200 cursor-pointer text-center`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-base animate-pulse shrink-0" />
+                  <span className="font-bold text-xs sm:text-sm uppercase tracking-[0.18em] whitespace-nowrap">
+                    {buttonLabel}
+                  </span>
                 </div>
+                {buttonSubline && (
+                  <span className="text-[11px] sm:text-xs font-bold text-black/80 uppercase tracking-[0.1em] mt-0.5">
+                    {buttonSubline}
+                  </span>
+                )}
+              </button>
 
-                {/* Amber Button: Tô com vontade */}
-                <button
-                  type="button"
-                  onClick={handleToComVontade}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-sm shrink-0"
-                >
-                  <Hand size={12} className="shrink-0" />
-                  <span>Tô com vontade</span>
-                </button>
-              </div>
-            </div>
+              {/* Autocontrole Strip - MOBILE & DESKTOP */}
+              {hasAvoidance && (
+                <>
+                  {/* MOBILE Version */}
+                  <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
+                    <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
+                      <div className="flex items-center gap-3">
+                        {/* Icon container */}
+                        <div className="p-2.5 bg-green/10 rounded-2xl flex items-center justify-center shrink-0">
+                          <Brain size={18} className="text-green" />
+                        </div>
+                        {/* Text metadata */}
+                        <div className="flex flex-col text-left">
+                          <span className="text-[9px] font-bold text-green tracking-[0.15em] uppercase font-mono leading-none text-left">
+                            Autocontrole
+                          </span>
+                          <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
+                            {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Amber Button: Tô com vontade */}
+                      <button
+                        type="button"
+                        onClick={handleToComVontade}
+                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-sm shrink-0"
+                      >
+                        <Hand size={12} className="shrink-0" />
+                        <span>Tô com vontade</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* DESKTOP Version */}
+                  <div className="hidden md:block w-full max-w-xl animate-fade-in pt-2">
+                    <div className="flex items-center justify-between p-4 bg-surface-2/30 hover:bg-surface-2/50 border border-white/5 rounded-2xl w-full text-left transition-all select-none">
+                      <div className="flex items-center gap-4">
+                        {/* Icon container */}
+                        <div className="p-3 bg-green/10 rounded-xl flex items-center justify-center shrink-0">
+                          <Brain size={20} className="text-green" />
+                        </div>
+                        {/* Text metadata */}
+                        <div className="flex flex-col text-left">
+                          <span className="text-[10px] font-bold text-green tracking-[0.2em] uppercase font-mono leading-none text-left">
+                            Autocontrole
+                          </span>
+                          <span className="text-xs text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
+                            {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Amber Button: Tô com vontade */}
+                      <button
+                        type="button"
+                        onClick={handleToComVontade}
+                        className="flex items-center gap-2 px-5 py-3 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[44px] shadow-sm shrink-0"
+                      >
+                        <Hand size={14} className="shrink-0" />
+                        <span>Tô com vontade</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </motion.div>
 
@@ -1182,64 +1226,68 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </div>
           </div>
 
-          {/* DESKTOP DESIGN: Absolute pixel-identical structure from before */}
-          <div className="hidden md:grid grid-cols-3 gap-3 w-full">
-            {/* Card 1 — Horas Focadas */}
-            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
-              <div className="flex items-center justify-center w-full min-h-[40px]">
-                <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-text whitespace-nowrap leading-none">
-                  {formatCompact(todayMinutesToShow)}
-                </span>
-              </div>
-              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+          {/* DESKTOP DESIGN: Single line inline element, fully flat, de-boxed, scaled for desktop */}
+          <div className="hidden md:flex flex-row items-center justify-center w-full max-w-2xl mx-auto py-4 select-none">
+            {/* Slot 1: Horas Focadas */}
+            <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-4">
+              <span className="text-3xl md:text-4xl font-mono font-bold text-text tracking-tighter leading-none">
+                {formatCompact(todayMinutesToShow)}
+              </span>
+              <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
                 Horas Focadas
               </span>
             </div>
 
-            {/* Card 2 — Sessões Profundas */}
-            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
-              <div className="flex items-center justify-center w-full min-h-[40px]">
-                <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-text whitespace-nowrap leading-none">
-                  {todaySessions.length}
-                </span>
-              </div>
-              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+            {/* Slot 2: Sessões Profundas */}
+            <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-4">
+              <span className="text-3xl md:text-4xl font-mono font-bold text-text tracking-tighter leading-none">
+                {todaySessions.length}
+              </span>
+              <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
                 {todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}
               </span>
             </div>
 
-            {/* Card 3 — Dias Invictos */}
-            <div className="flex flex-col items-center justify-between p-4 rounded-2xl bg-surface-1 border border-border-custom hover:border-white/10 transition-all w-full select-none cursor-default">
-              <div className="flex items-center justify-center w-full min-h-[40px]">
-                <div className="flex items-center justify-center gap-1.5 w-full font-mono">
-                  <span className="text-lg sm:text-xl md:text-2xl select-none leading-none shrink-0 text-center">🔥</span>
-                  <span className="text-xl sm:text-2xl md:text-3.5xl font-mono font-bold text-green whitespace-nowrap leading-none">
-                    {streak}
-                  </span>
-                </div>
+            {/* Slot 3: Dias Invictos */}
+            <div className="flex-1 flex flex-col items-center justify-center px-4">
+              <div className="flex items-center gap-1.5 justify-center">
+                <span className="text-xl md:text-2xl select-none leading-none shrink-0">🔥</span>
+                <span className="text-3xl md:text-4xl font-mono font-bold text-green tracking-tighter leading-none">
+                  {streak}
+                </span>
               </div>
-              <span className="text-[10px] sm:text-xs text-text-dim text-center font-sans tracking-wide leading-tight mt-2 whitespace-nowrap">
+              <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
                 {streak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
               </span>
             </div>
           </div>
 
           {/* Summary Card for Today's Task List */}
-          {/* DESKTOP VERSION - untouched */}
-          <div 
+          {/* DESKTOP VERSION - flat, de-boxed with subtle progress bar */}
+          <div
             onClick={() => onNavigateToLists?.()}
-            className="hidden md:flex w-full p-4 rounded-2xl bg-surface-1/40 hover:bg-surface-1/75 border border-border-custom hover:border-green/20 transition-all cursor-pointer text-center flex-row items-center justify-center gap-3 group select-none mt-2"
+            className="hidden md:flex w-full max-w-xl mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-2 animate-fade-in flex-col items-center justify-center hover:opacity-85 transition-opacity"
           >
-            <span className="text-lg group-hover:scale-110 transition-transform">📋</span>
-            <span className="text-sm font-medium text-text-primary leading-relaxed">
-              Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
-            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">📋</span>
+              <span className="text-sm font-semibold text-text-primary leading-normal">
+                Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
+              </span>
+            </div>
+            {totalTasksCount > 0 && (
+              <div className="w-full max-w-[240px] h-0.5 bg-white/10 rounded-full mt-2.5 overflow-hidden">
+                <div 
+                  className="h-full bg-green rounded-full transition-all duration-500" 
+                  style={{ width: `${(completedTasksCount / totalTasksCount) * 100}%` }} 
+                />
+              </div>
+            )}
           </div>
 
           {/* MOBILE VERSION - flat, de-boxed with subtle progress bar */}
           <div
             onClick={() => onNavigateToLists?.()}
-            className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-1 animate-fade-in flex flex-col items-center justify-center"
+            className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-1 animate-fade-in flex-col items-center justify-center"
           >
             <div className="flex items-center gap-2">
               <span className="text-[15px]">📋</span>
@@ -1346,11 +1394,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           </div>
         )}
 
-        {/* Habits progress lines (Build habits only) - Mobile Only */}
+        {/* Habits progress lines (Build habits only) - Mobile & Desktop */}
         {buildHabits.length > 0 && (
-          <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-6 border-t border-white/5 space-y-4.5">
+          <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto pt-6 border-t border-white/5 space-y-4.5 md:space-y-6">
             <div className="flex items-center justify-between px-1">
-              <span className="text-sm font-bold text-green tracking-[0.22em] uppercase font-mono">
+              <span className="text-sm md:text-base font-bold text-green tracking-[0.22em] uppercase font-mono">
                 Hábitos Atômicos
               </span>
             </div>
@@ -1408,13 +1456,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 }[h.preferred_time] || '🌅 Manhã';
 
                 return (
-                  <div key={h.id} className="py-5 first:pt-0 last:pb-0 flex flex-col gap-2 select-none">
+                  <div key={h.id} className="py-5 first:pt-0 last:pb-0 flex flex-col gap-2 md:gap-2.5 select-none animate-fade-in text-left">
                     {/* Tier 1: habit name + period */}
                     <div className="flex items-center justify-between">
-                      <span className="text-base font-semibold text-text-primary tracking-tight block truncate">
+                      <span className="text-base md:text-lg font-semibold text-text-primary tracking-tight block">
                         {h.name}
                       </span>
-                      <span className="text-[9px] text-text-secondary/50 font-bold uppercase tracking-widest font-mono shrink-0 ml-2">
+                      <span className="text-[9px] md:text-xs text-text-secondary/50 font-bold uppercase tracking-widest font-mono shrink-0 ml-2">
                         {preferredTimeLabel}
                       </span>
                     </div>
@@ -1423,13 +1471,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                     <div className="flex items-center justify-between gap-3">
                       {/* Weekly progress dots & status */}
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {progressCircles.map((state, i) => (
                             <div
                               key={i}
-                              className={`w-2.5 h-2.5 rounded-full relative shrink-0 ${
+                              className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full relative shrink-0 ${
                                 state === 'completed'
-                                  ? 'bg-[#6ee7a8] shadow-[0_0_6px_rgba(110,231,168,0.4)]'
+                                  ? 'bg-green shadow-[0_0_6px_rgba(110,231,183,0.4)]'
                                   : state === 'partial'
                                   ? 'border border-amber-400/40 bg-transparent overflow-hidden'
                                   : 'bg-white/10'
@@ -1444,13 +1492,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                             </div>
                           ))}
                         </div>
-                        <span className="text-[11px] text-text-dim/50 font-bold ml-1.5 whitespace-nowrap font-sans font-mono tracking-wide leading-none block truncate">
+                        <span className="text-[11px] md:text-xs text-text-dim/50 font-bold ml-1.5 whitespace-nowrap font-sans font-mono tracking-wide leading-none block shrink-0">
                           {completedDaysCount}/{h.sessions_per_week} esta semana
                         </span>
                       </div>
 
                       {/* Weekly Streak */}
-                      <span className="text-[11px] font-mono font-bold text-green flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
+                      <span className="text-[11px] md:text-xs font-mono font-bold text-green flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
                         <Flame size={12} className="text-amber-500 fill-amber-500/15 shrink-0" />
                         <span>
                           {h.weekly_streak} {h.weekly_streak === 1 ? 'semana invicta' : 'semanas invictas'}
