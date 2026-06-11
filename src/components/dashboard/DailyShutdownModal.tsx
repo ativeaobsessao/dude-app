@@ -45,6 +45,14 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Gustavo';
 
+  // Format YYYY-MM-DD into DD/MM without timezone pitfalls
+  const formattedDayAndMonth = useMemo(() => {
+    if (!targetDate) return '';
+    const parts = targetDate.split('-');
+    if (parts.length < 3) return targetDate;
+    return `${parts[2]}/${parts[1]}`;
+  }, [targetDate]);
+
   // Summarize stats for the targetDate
   const todaySessions = useMemo(() => {
     return sessions.filter(s => getLocalDateString(new Date(s.started_at)) === targetDate && s.completed);
@@ -251,14 +259,14 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                 {/* Subtitle / Title */}
                 <div className="space-y-1.5 text-center w-full">
                   <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-green block">
-                    FECHAMENTO DO DIA
+                    FECHAMENTO DE {formattedDayAndMonth}
                   </span>
                   <h3 className="text-lg sm:text-2xl font-mono font-black text-text tracking-tight uppercase animate-fade-in">
-                    {isCatchUp ? `Você não fechou ontem, ${firstName}.` : `Hora de fechar o dia, ${firstName}.`}
+                    {isCatchUp ? `Você está fechando o dia ${formattedDayAndMonth}` : `Hora de fechar o dia, ${firstName}.`}
                   </h3>
                   <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-md mx-auto">
                     {isCatchUp 
-                      ? "Seu resumo e ritual com foco e clareza."
+                      ? `Resumo e ritual referente ao dia ${formattedDayAndMonth}.`
                       : "Tranque as tarefas de hoje, sinta orgulho do progresso e durma limpo."}
                   </p>
                 </div>
