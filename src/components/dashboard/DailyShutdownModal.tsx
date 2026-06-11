@@ -198,7 +198,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     <AnimatePresence>
       <div 
         onClick={handleDismiss}
-        className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-base/80 backdrop-blur-md cursor-pointer"
+        className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-app-base/80 backdrop-blur-md cursor-pointer"
       >
         <motion.div
           onClick={(e) => e.stopPropagation()}
@@ -418,7 +418,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
       {/* CONFIRMATION POPUP FOR THE RITUAL */}
       {showConfirmPopup && (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-base/95 backdrop-blur-md">
+        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-app-base/95 backdrop-blur-md">
           <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-2 border border-border-custom p-6 sm:p-8 shadow-2xl text-center">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-[60px] bg-green/10 pointer-events-none" />
             

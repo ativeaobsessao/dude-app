@@ -75,7 +75,7 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
     <AnimatePresence>
       <div 
         onClick={handleSkip}
-        className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-base/80 backdrop-blur-md cursor-pointer"
+        className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-app-base/80 backdrop-blur-md cursor-pointer"
       >
         <motion.div
           onClick={(e) => e.stopPropagation()}

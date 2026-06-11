@@ -590,7 +590,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-base/80 backdrop-blur-md"
+        className="fixed inset-0 bg-app-base/80 backdrop-blur-md"
       />
 
       {/* Drawer */}
@@ -632,7 +632,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 )}
 
                 {uploading && (
-                  <div className="absolute inset-0 bg-base/70 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-app-base/70 flex items-center justify-center">
                     <span className="text-[10px] text-[#6ee7a8] font-mono animate-pulse">CARREGANDO...</span>
                   </div>
                 )}
@@ -856,7 +856,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {/* Confirmation Modal */}
       <AnimatePresence>
         {showDeleteConfirm && (
-          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-base/90 backdrop-blur-md p-6">
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-app-base/90 backdrop-blur-md p-6">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -884,7 +884,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder="Digite DELETAR para confirmar"
-                  className="w-full p-4 rounded-2xl bg-base border border-border-custom text-white text-center font-extrabold uppercase tracking-[0.1em] text-xs focus:outline-none focus:border-[#f87171]/60 transition-all select-all placeholder-text-dim/30"
+                  className="w-full p-4 rounded-2xl bg-app-base border border-border-custom text-white text-center font-extrabold uppercase tracking-[0.1em] text-xs focus:outline-none focus:border-[#f87171]/60 transition-all select-all placeholder-text-dim/30"
                 />
               </div>
 
@@ -921,7 +921,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {/* Import Confirmation Modal */}
       <AnimatePresence>
         {showImportConfirm && (
-          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-base/90 backdrop-blur-md p-6">
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-app-base/90 backdrop-blur-md p-6">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -969,7 +969,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {/* Advanced Export Settings Modal (Data Vault Wizard) */}
       <AnimatePresence>
         {showExportModal && (
-          <div className="fixed inset-0 z-[750] flex items-center justify-center bg-base/95 backdrop-blur-md p-6 overflow-y-auto">
+          <div className="fixed inset-0 z-[750] flex items-center justify-center bg-app-base/95 backdrop-blur-md p-6 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

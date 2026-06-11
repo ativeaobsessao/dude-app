@@ -7,7 +7,7 @@ interface TermsOfUseProps {
 
 export const TermsOfUse: React.FC<TermsOfUseProps> = ({ onBack }) => {
   return (
-    <div className="min-h-screen bg-base text-text py-12 px-6 flex flex-col items-center">
+    <div className="min-h-screen bg-app-base text-text py-12 px-6 flex flex-col items-center">
       <div className="w-full max-w-2xl space-y-12">
         {/* Header Navigation */}
         <div className="flex items-center justify-between border-b border-white/5 pb-6">

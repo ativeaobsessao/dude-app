@@ -23,7 +23,7 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-base: var(--base);
+  --color-app-base: var(--base);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-border-custom: var(--border);
@@ -50,7 +50,7 @@
 
 @layer base {
   body {
-    @apply bg-base text-text font-sans antialiased selection:bg-green/30 selection:text-green;
+    @apply bg-app-base text-text font-sans antialiased selection:bg-green/30 selection:text-green;
     -webkit-overflow-scrolling: touch;
   }
 

@@ -987,7 +987,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         {/* PASSIVE ANTI-VICTIM CHECK-IN MODAL */}
         <AnimatePresence>
           {showCheckinModal && pendingAvoidanceHabits.length > 0 && (
-            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base/80 backdrop-blur-md p-4">
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-app-base/80 backdrop-blur-md p-4">
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -1143,7 +1143,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl hover:scale-[1.02] duration-200 cursor-pointer text-center`}
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-base animate-pulse shrink-0" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-app-base animate-pulse shrink-0" />
                   <span className="font-bold text-xs sm:text-sm uppercase tracking-[0.18em] whitespace-nowrap">
                     {buttonLabel}
                   </span>
