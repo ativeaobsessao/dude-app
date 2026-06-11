@@ -1505,9 +1505,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                     </div>
 
                     {/* Tier 2: weekly dots + text + weekly streak */}
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-end justify-between gap-3">
                       {/* Weekly progress dots & status */}
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="flex flex-col items-start gap-1.5 min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 shrink-0">
                           {progressCircles.map((state, i) => (
                             <div
@@ -1518,7 +1518,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                                   : state === 'partial'
                                   ? 'border border-amber-400/40 bg-transparent overflow-hidden'
                                   : 'bg-white/10'
-                              }`}
+                                }`}
                             >
                               {state === 'partial' && (
                                 <div 
@@ -1529,13 +1529,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                             </div>
                           ))}
                         </div>
-                        <span className="text-[11px] md:text-xs text-text-dim/50 font-bold ml-1.5 whitespace-nowrap font-sans font-mono tracking-wide leading-none block shrink-0">
+                        <span className="text-[10px] md:text-xs text-text-dim/50 font-bold whitespace-nowrap font-sans font-mono tracking-wide leading-none block shrink-0">
                           {completedDaysCount}/{h.sessions_per_week} esta semana
                         </span>
                       </div>
 
                       {/* Weekly Streak */}
-                      <span className="text-[11px] md:text-xs font-mono font-bold text-green flex items-center gap-1 whitespace-nowrap leading-none shrink-0">
+                      <span className="text-[11px] md:text-xs font-mono font-bold text-green flex items-center gap-1 whitespace-nowrap leading-none shrink-0 mb-0.5">
                         <Flame size={12} className="text-amber-500 fill-amber-500/15 shrink-0" />
                         <span>
                           {h.weekly_streak} {h.weekly_streak === 1 ? 'semana invicta' : 'semanas invictas'}
