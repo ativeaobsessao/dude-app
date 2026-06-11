@@ -318,7 +318,7 @@ const AvoidanceCard = ({
             <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
               Seguidos
             </span>
-            <span className="text-base font-sans font-medium text-text-primary">
+            <span className="text-[1rem]/[1.5rem] font-sans font-medium text-text-primary">
               {metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}
             </span>
           </div>
@@ -327,7 +327,7 @@ const AvoidanceCard = ({
             <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
               Total Limpo
             </span>
-            <span className="text-base font-sans font-medium text-primary-green">
+            <span className="text-[1rem]/[1.5rem] font-sans font-medium text-primary-green">
               {metrics.diasLimposTotal} {metrics.diasLimposTotal === 1 ? 'dia' : 'dias'}
             </span>
           </div>
@@ -336,7 +336,7 @@ const AvoidanceCard = ({
             <span className="text-[9px] font-sans font-light uppercase tracking-wider text-text-secondary/40 leading-tight block">
               Recorde
             </span>
-            <span className="text-base font-sans font-bold text-white">
+            <span className="text-[1rem]/[1.5rem] font-sans font-bold text-white">
               {metrics.maxStreak}d
             </span>
           </div>
@@ -1065,7 +1065,7 @@ export const AvoidanceSection = () => {
                       <span className="text-[9px] font-extrabold text-[#6ee7a8] uppercase tracking-widest flex items-center gap-1">
                         <Sparkles size={11} className="animate-pulse" /> Estágio de Resiliência Ativo
                       </span>
-                      <h4 className="text-base font-bold text-text-primary">{mentalLevel}</h4>
+                      <h4 className="text-[1rem]/[1.5rem] font-bold text-text-primary">{mentalLevel}</h4>
                     </div>
                     <span className="text-[10px] text-text-secondary/50 font-mono uppercase">
                       {successes} / {nextThreshold} vitórias

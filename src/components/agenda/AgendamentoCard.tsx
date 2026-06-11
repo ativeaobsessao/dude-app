@@ -141,7 +141,7 @@ export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false
         {/* LINHA 2: Nome da atividade + projeto inline discreto */}
         <div className="text-left space-y-1">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <h4 className={`text-base font-semibold text-text-primary tracking-tight leading-snug ${
+            <h4 className={`text-[1rem]/[1.5rem] font-semibold text-text-primary tracking-tight leading-snug ${
               isCancelled || isExpirada ? 'line-through text-text-secondary/60' : ''
             }`}>
               {title}

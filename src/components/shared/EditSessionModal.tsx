@@ -91,7 +91,7 @@ export const EditSessionModal: React.FC<EditSessionModalProps> = ({ session, onC
         className="bg-surface/95 border border-white/5 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-2xl overflow-y-auto max-h-[90vh]"
       >
         <div className="flex justify-between items-center border-b border-white/5 pb-4">
-          <h3 className="text-base font-semibold text-text-primary tracking-tight">
+          <h3 className="text-[1rem]/[1.5rem] font-semibold text-text-primary tracking-tight">
             Editar Sessão Profunda
           </h3>
           <button

@@ -1248,7 +1248,7 @@ export const ActiveSession = () => {
               
               <div className="space-y-4">
                 <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-text-primary">Sessão Concluída!</h2>
-                <p className="text-text-secondary font-light text-base md:text-lg">Excelente progresso. Deseja registrar esta sessão no seu histórico?</p>
+                <p className="text-text-secondary font-light text-[1rem]/[1.5rem] md:text-lg">Excelente progresso. Deseja registrar esta sessão no seu histórico?</p>
               </div>
 
               {isEditingConclusao ? (

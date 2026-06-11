@@ -109,7 +109,7 @@ export const PWAInstallPrompt: React.FC = () => {
               {/* IOS Conditional instructions */}
               {isIOS && (
                 <>
-                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                  <h3 className="text-[1rem]/[1.5rem] font-bold text-text-primary tracking-tight uppercase">
                     Instalar DUDE no seu iPhone / iPad
                   </h3>
 
@@ -136,7 +136,7 @@ export const PWAInstallPrompt: React.FC = () => {
               {/* Android Fallback instruction */}
               {isAndroid && (
                 <>
-                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                  <h3 className="text-[1rem]/[1.5rem] font-bold text-text-primary tracking-tight uppercase">
                     Instalar DUDE no seu Android
                   </h3>
 
@@ -163,7 +163,7 @@ export const PWAInstallPrompt: React.FC = () => {
               {/* Desktop Chromium platform instruction */}
               {isDesktop && (
                 <>
-                  <h3 className="text-base font-bold text-text-primary tracking-tight uppercase">
+                  <h3 className="text-[1rem]/[1.5rem] font-bold text-text-primary tracking-tight uppercase">
                     Instalar DUDE no Computador
                   </h3>
 

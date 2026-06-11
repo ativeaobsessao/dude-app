@@ -731,7 +731,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <h2 className="text-[clamp(1.75rem,5.8vw,3.2rem)] font-bold tracking-tight text-text leading-none whitespace-nowrap px-2 relative z-10">
             {greeting}, {firstName}
           </h2>
-          <span className="text-xs sm:text-sm md:text-base text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
+          <span className="text-xs sm:text-sm md:text-[1rem]/[1.5rem] text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
           <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-normal select-none max-w-full tracking-[-0.05em] mb-6 px-2 overflow-visible">
@@ -1138,7 +1138,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               {/* SP Button */}
               <button 
                 onClick={openDeepSession}
-                className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-base rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
+                className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-[#0D0F14] rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
                   hasAvoidance ? 'hidden md:flex' : 'flex'
                 } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl hover:scale-[1.02] duration-200 cursor-pointer text-center`}
               >
@@ -1256,7 +1256,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             {/* Slot 3: Dias Invictos */}
             <div className="flex-1 flex flex-col items-center justify-center px-2">
               <div className="flex items-center gap-1">
-                <span className="text-base select-none leading-none shrink-0">🔥</span>
+                <span className="text-[1rem]/[1.5rem] select-none leading-none shrink-0">🔥</span>
                 <span className="text-2xl sm:text-3xl font-mono font-bold text-green tracking-tighter leading-none">
                   {streak}
                 </span>
@@ -1439,7 +1439,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         {buildHabits.length > 0 && (
           <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto pt-6 border-t border-white/5 space-y-4.5 md:space-y-6">
             <div className="flex items-center justify-between px-1">
-              <span className="text-sm md:text-base font-bold text-primary-green tracking-[0.22em] uppercase font-mono">
+              <span className="text-sm md:text-[1rem]/[1.5rem] font-bold text-primary-green tracking-[0.22em] uppercase font-mono">
                 Hábitos Atômicos
               </span>
             </div>
@@ -1500,7 +1500,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   <div key={h.id} className="py-5 first:pt-0 last:pb-0 flex flex-col gap-2 md:gap-2.5 select-none animate-fade-in text-left">
                     {/* Tier 1: habit name + period */}
                     <div className="flex items-center justify-between">
-                      <span className="text-base md:text-lg font-semibold text-text-primary tracking-tight block">
+                      <span className="text-[1rem]/[1.5rem] md:text-lg font-semibold text-text-primary tracking-tight block">
                         {h.name}
                       </span>
                       <span className="text-[9px] md:text-xs text-text-secondary/50 font-bold uppercase tracking-widest font-mono shrink-0 ml-2">

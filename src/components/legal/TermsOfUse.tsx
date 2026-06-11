@@ -43,7 +43,7 @@ export const TermsOfUse: React.FC<TermsOfUseProps> = ({ onBack }) => {
           </div>
 
           <div className="space-y-6 text-sm text-text-dim leading-relaxed font-sans">
-            <p className="text-white font-medium text-base">
+            <p className="text-white font-medium text-[1rem]/[1.5rem]">
               Termos de Uso e Isenção de Responsabilidade. Ao utilizar a DUDE, você concorda em usar o sistema de forma íntegra, sem tentar aplicar engenharia reversa, hackear ou sobrecarregar nossos servidores com robôs.
             </p>
 

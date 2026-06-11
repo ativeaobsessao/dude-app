@@ -2193,7 +2193,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                       <div className="space-y-3 font-sans">
                         <div className="p-4 bg-white/[0.015] border border-white/5 rounded-xl space-y-2 font-sans">
                           <span className="text-[11px] md:text-xs font-semibold text-text-secondary/70 uppercase tracking-wide block font-sans">Taxa de Palavra Cumprida</span>
-                          <span className="text-base font-bold text-text-primary block leading-tight font-sans">
+                          <span className="text-[1rem]/[1.5rem] font-bold text-text-primary block leading-tight font-sans">
                             Você cumpriu {scheduleCompliance.completed} de {scheduleCompliance.completed + scheduleCompliance.lost} agendamentos elegíveis ({scheduleCompliance.rate}%).
                           </span>
                           <p className="text-[10px] md:text-xs text-text-secondary/60 leading-snug font-sans font-sans">
@@ -2205,15 +2205,15 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center font-sans">
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
                             <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Concluídas</span>
-                            <span className="text-base font-bold text-primary-green font-sans">{scheduleCompliance.completed}</span>
+                            <span className="text-[1rem]/[1.5rem] font-bold text-primary-green font-sans">{scheduleCompliance.completed}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
                             <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Não Cumpridas</span>
-                            <span className="text-base font-bold text-amber-500 font-sans">{scheduleCompliance.lost}</span>
+                            <span className="text-[1rem]/[1.5rem] font-bold text-amber-500 font-sans">{scheduleCompliance.lost}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans font-sans">
                             <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans font-sans">Pendentes</span>
-                            <span className="text-base font-bold text-sky-400 font-sans">{scheduleCompliance.pendentes}</span>
+                            <span className="text-[1rem]/[1.5rem] font-bold text-sky-400 font-sans">{scheduleCompliance.pendentes}</span>
                           </div>
                           <div className="p-3 bg-white/[0.01] border border-white/5 rounded-lg space-y-0.5 font-sans">
                             <span className="text-[9px] md:text-xs font-semibold text-text-secondary/60 uppercase tracking-wider block font-sans">Canceladas</span>
@@ -2408,7 +2408,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                               {/* Insight A: Energy x Focus correlation */}
                               {moodAnalytics.energyCorrelationInsight && (
                                 <div className="flex items-start gap-2.5 p-3 bg-pink-500/[0.02] border border-pink-500/10 rounded-lg font-sans">
-                                  <span className="text-base shrink-0 select-none mt-0.5">🧠</span>
+                                  <span className="text-[1rem]/[1.5rem] shrink-0 select-none mt-0.5">🧠</span>
                                   <span className="space-y-1 block text-left">
                                     <strong className="text-[9px] font-bold text-pink-400 uppercase tracking-wider block">Correlação de Energia</strong>
                                     <span className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light block">
@@ -2421,7 +2421,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                               {/* Insight B: Risk Pattern */}
                               {moodAnalytics.energyRiskInsight && (
                                 <div className="flex items-start gap-2.5 p-3 bg-amber-500/[0.02] border border-amber-500/10 rounded-lg font-sans">
-                                  <span className="text-base shrink-0 select-none mt-0.5">⚠️</span>
+                                  <span className="text-[1rem]/[1.5rem] shrink-0 select-none mt-0.5">⚠️</span>
                                   <span className="space-y-1 block text-left">
                                     <strong className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">Fadiga & Consistência</strong>
                                     <span className="text-xs text-text-secondary/90 leading-relaxed font-sans font-light block leading-relaxed">

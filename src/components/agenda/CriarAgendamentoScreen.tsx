@@ -391,7 +391,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
             <div className="flex items-start gap-3">
               <AlertTriangle className="shrink-0 text-amber-500 mt-1" size={20} />
               <div className="space-y-1">
-                <span className="font-bold text-base text-amber-200">Aviso de Conflito de Horário</span>
+                <span className="font-bold text-[1rem]/[1.5rem] text-amber-200">Aviso de Conflito de Horário</span>
                 <p className="text-xs opacity-90 leading-relaxed">
                   ⚠️ Já existe a Sessão Profunda <strong className="text-amber-100">"{conflictWarning.name}"</strong> agendada para este mesmo dia, das <strong className="text-amber-100">{conflictWarning.time} às {conflictWarning.end}</strong>.
                 </p>

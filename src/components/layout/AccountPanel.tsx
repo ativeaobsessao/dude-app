@@ -658,7 +658,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             />
 
             <div>
-              <h3 className="text-base font-bold text-text tracking-tight">
+              <h3 className="text-[1rem]/[1.5rem] font-bold text-text tracking-tight">
                 {profile?.full_name || 'Usuário DUDE'}
               </h3>
               <span className="text-[10px] font-mono text-text-dim bg-surface-2 px-3 py-1.5 rounded-full border border-border-custom mt-2.5 inline-block">
@@ -691,7 +691,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   type="button"
                   onClick={handleSaveName}
                   disabled={isSavingName || !fullName.trim()}
-                  className="px-4 py-3.5 bg-green hover:brightness-105 rounded-2xl text-[10px] font-bold tracking-wider text-base uppercase transition-all disabled:opacity-40 min-h-[44px] touch-manipulation"
+                  className="px-4 py-3.5 bg-green hover:brightness-105 rounded-2xl text-[10px] font-bold tracking-wider text-[#0D0F14] uppercase transition-all disabled:opacity-40 min-h-[44px] touch-manipulation"
                 >
                   {isSavingName ? 'Salvando...' : 'Salvar'}
                 </button>

@@ -427,7 +427,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
               <Moon size={20} className="fill-green/10" />
             </div>
             
-            <h4 className="text-base font-mono font-bold text-text uppercase tracking-wider mb-2">
+            <h4 className="text-[1rem]/[1.5rem] font-mono font-bold text-text uppercase tracking-wider mb-2">
               Encerrar Ritual do Dia?
             </h4>
             

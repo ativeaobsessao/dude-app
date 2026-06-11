@@ -686,7 +686,7 @@ export const RecentNotes = () => {
                       {editingNoteId === note.id ? (
                         <div className="space-y-4 flex-1 mb-6">
                           <textarea
-                            className="w-full bg-surface/60 border border-primary-green/40 p-4 rounded-[1.5rem] text-text-primary text-base font-light outline-none resize-none h-32 focus:border-primary-green"
+                            className="w-full bg-surface/60 border border-primary-green/40 p-4 rounded-[1.5rem] text-text-primary text-[1rem]/[1.5rem] font-light outline-none resize-none h-32 focus:border-primary-green"
                             value={editingNoteContent}
                             onChange={e => setEditingNoteContent(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
@@ -708,7 +708,7 @@ export const RecentNotes = () => {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-text-primary/90 font-light text-base leading-relaxed whitespace-pre-wrap flex-1 mb-8">
+                        <p className="text-text-primary/90 font-light text-[1rem]/[1.5rem] leading-relaxed whitespace-pre-wrap flex-1 mb-8">
                           {note.content}
                         </p>
                       )}

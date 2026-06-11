@@ -43,7 +43,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
           </div>
 
           <div className="space-y-6 text-sm text-text-dim leading-relaxed font-sans">
-            <p className="text-white font-medium text-base">
+            <p className="text-white font-medium text-[1rem]/[1.5rem]">
               A nossa promessa é simples: os seus dados são seus. Nós construímos a DUDE para ser a sua ferramenta definitiva de controle de hábitos e foco, não para vender a sua intimidade. Este documento explica de forma clara e sem letras miúdas como tratamos as suas informações e quais são as regras do jogo.
             </p>
 
