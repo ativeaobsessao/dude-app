@@ -448,11 +448,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   }, [avoidHabits, dataStore.avoidanceCheckins]);
 
   const handleToComVontade = () => {
-    if (avoidHabits.length === 1) {
-      window.dispatchEvent(new CustomEvent('trigger-urge-timer', { detail: { seconds: 300 } }));
-    } else {
-      window.dispatchEvent(new CustomEvent('open-avoidance-section', { detail: { scroll: true } }));
-    }
+    dataStore.setUrgeTimerSeconds(600);
   };
 
   useEffect(() => {

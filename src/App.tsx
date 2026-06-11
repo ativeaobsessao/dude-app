@@ -62,9 +62,24 @@ export default function App() {
     moodEntries,
     habitCompletions,
     avoidanceCheckins,
-    scheduledActivities
+    scheduledActivities,
+    urgeTimerSeconds,
+    setUrgeTimerSeconds
   } = useDataStore();
   const dataStore = useDataStore();
+
+  // "Tô com vontade" Global Urge Timer Countdown Ticker
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (urgeTimerSeconds !== null && urgeTimerSeconds > 0) {
+      interval = setInterval(() => {
+        setUrgeTimerSeconds(prev => prev !== null ? prev - 1 : null);
+      }, 1000);
+    } else if (urgeTimerSeconds === 0) {
+      setUrgeTimerSeconds(null);
+    }
+    return () => clearInterval(interval);
+  }, [urgeTimerSeconds, setUrgeTimerSeconds]);
   const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
   const [isRevalidating, setIsRevalidating] = useState(false);
 
@@ -847,6 +862,34 @@ export default function App() {
                   </button>
                 </div>
               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {urgeTimerSeconds !== null && (
+            <motion.div
+              layout={false}
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-app-base/95 backdrop-blur-xl"
+            >
+              <div className="text-center space-y-6 max-w-sm w-full">
+                <div className="w-24 h-24 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" />
+                <h2 className="text-4xl font-black text-white tracking-tighter">
+                  {Math.floor(urgeTimerSeconds / 60)}:{String(urgeTimerSeconds % 60).padStart(2, '0')}
+                </h2>
+                <p className="text-lg text-text-secondary/80 font-medium">
+                  Respire. O pico do impulso dura apenas 10 minutos. Apenas aguarde e observe o desejo passar.
+                </p>
+                <button 
+                  onClick={() => setUrgeTimerSeconds(null)} 
+                  className="mt-8 text-xs font-bold text-text-secondary/40 hover:text-white uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Voltar (O Impulso Passou)
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

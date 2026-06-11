@@ -155,6 +155,8 @@ interface DataState {
   notificationTimeoutId: any;
   showNotification: (message: string, type?: 'success' | 'error') => void;
   clearNotification: () => void;
+  urgeTimerSeconds: number | null;
+  setUrgeTimerSeconds: (seconds: number | null | ((prev: number | null) => number | null)) => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -192,6 +194,14 @@ export const useDataStore = create<DataState>((set, get) => ({
   })(),
   notification: null,
   notificationTimeoutId: null as any,
+  urgeTimerSeconds: null,
+  setUrgeTimerSeconds: (param) => {
+    if (typeof param === 'function') {
+      set((state) => ({ urgeTimerSeconds: param(state.urgeTimerSeconds) }));
+    } else {
+      set({ urgeTimerSeconds: param });
+    }
+  },
   clearNotification: () => {
     const tid = get().notificationTimeoutId;
     if (tid) clearTimeout(tid);

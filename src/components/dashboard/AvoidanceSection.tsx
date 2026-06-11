@@ -345,7 +345,7 @@ const AvoidanceCard = ({
         {/* ON-DEMAND Hybrid Checkin Buttons */}
         <div className="space-y-2 pt-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => onSetUrgeTimer(300)}
+            onClick={() => onSetUrgeTimer(600)}
             className="py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-background rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer text-center w-full shadow-md"
           >
             🚨 ESTOU NO LIMITE (AJUDA)
@@ -479,18 +479,7 @@ export const AvoidanceSection = () => {
     totalCleanDays?: number;
   } | null>(null);
   const [customTriggerNote, setCustomTriggerNote] = useState('');
-  const [urgeTimer, setUrgeTimer] = useState<number | null>(null);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (urgeTimer !== null && urgeTimer > 0) {
-      interval = setInterval(() => setUrgeTimer(prev => prev! - 1), 1000);
-    } else if (urgeTimer === 0) {
-      setUrgeTimer(null);
-    }
-    return () => clearInterval(interval);
-  }, [urgeTimer]);
-  
   const [tick, setTick] = useState(0);
 
   // Periodical ticker to update the clean-time counters in real time (every 10s)
@@ -512,40 +501,6 @@ export const AvoidanceSection = () => {
     window.addEventListener('open-avoidance-history', handleOpenHistory);
     return () => {
       window.removeEventListener('open-avoidance-history', handleOpenHistory);
-    };
-  }, []);
-
-  // Listen to open-avoidance-section custom event
-  useEffect(() => {
-    const handleExpandAvoidance = (e: Event) => {
-      setIsExpanded(true);
-      const customEvent = e as CustomEvent;
-      const scroll = customEvent.detail?.scroll !== false;
-      if (scroll) {
-        setTimeout(() => {
-          const el = document.getElementById('avoidance-section');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 100);
-      }
-    };
-    window.addEventListener('open-avoidance-section', handleExpandAvoidance);
-    return () => {
-      window.removeEventListener('open-avoidance-section', handleExpandAvoidance);
-    };
-  }, []);
-
-  // Listen to trigger-urge-timer custom event
-  useEffect(() => {
-    const handleTriggerUrge = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const seconds = customEvent.detail?.seconds || 300;
-      setUrgeTimer(seconds);
-    };
-    window.addEventListener('trigger-urge-timer', handleTriggerUrge);
-    return () => {
-      window.removeEventListener('trigger-urge-timer', handleTriggerUrge);
     };
   }, []);
 
@@ -819,7 +774,7 @@ export const AvoidanceSection = () => {
                         onEdit={triggerEditAvoidanceModal}
                         onDelete={(id, name) => setShowDeleteConfirm({ id, name })}
                         onOpenRelapseModal={(id, name) => setRelapseModal({ isOpen: true, habitId: id, habitName: name, step: 'trigger' })}
-                        onSetUrgeTimer={setUrgeTimer}
+                        onSetUrgeTimer={dataStore.setUrgeTimerSeconds}
                         habitCheckins={habitCheckins}
                         last14Days={last14Days}
                       />
@@ -833,26 +788,6 @@ export const AvoidanceSection = () => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {urgeTimer !== null && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-background/95 backdrop-blur-xl"
-          >
-            <div className="text-center space-y-6 max-w-sm w-full">
-              <div className="w-24 h-24 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" />
-              <h2 className="text-4xl font-black text-white tracking-tighter">
-                {Math.floor(urgeTimer / 60)}:{String(urgeTimer % 60).padStart(2, '0')}
-              </h2>
-              <p className="text-lg text-text-secondary/80 font-medium">
-                Respire. O pico do impulso dura apenas 10 minutos. Apenas aguarde e observe o desejo passar.
-              </p>
-              <button onClick={() => setUrgeTimer(null)} className="mt-8 text-xs font-bold text-text-secondary/40 hover:text-white uppercase tracking-widest transition-colors cursor-pointer">
-                Voltar (O Impulso Passou)
-              </button>
-            </div>
-          </motion.div>
-        )}
-
         {relapseModal && relapseModal.isOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
