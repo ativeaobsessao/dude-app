@@ -78,9 +78,132 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const todayMoods = dataStore.moodEntries ? dataStore.moodEntries.filter(m => m.date === today) : [];
   const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
 
-  const todayTasks = (dataStore.dailyTasks || []).filter(t => t.task_date === today);
-  const completedTasksCount = todayTasks.filter(t => t.is_completed).length;
-  const totalTasksCount = todayTasks.length;
+  // DUDE BUG 3 FIX: Compute a unified, deduplicated list of today's planned tasks
+  // (combining daily tasks, database scheduled activities, and virtual scheduled habits).
+  const { completedTasksCount, totalTasksCount } = useMemo(() => {
+    const todayStr = getLocalDateString(new Date());
+
+    const tTasks = (dataStore.dailyTasks || []).filter(t => t.task_date === todayStr);
+    const tSchedules = (dataStore.scheduledActivities || []).filter(sa => sa.scheduled_date === todayStr);
+
+    const todayObj = new Date();
+    let dayOfWeek = todayObj.getDay();
+    if (dayOfWeek === 0) dayOfWeek = 7;
+    const dayOfWeekStr = String(dayOfWeek);
+
+    // 1. Map Daily Tasks
+    const dbDailyTasks = tTasks.map(t => ({
+      id: `task-${t.id}`,
+      type: 'daily_task' as const,
+      habit_id: t.habit_id || null,
+      is_completed: t.is_completed,
+      title: t.title,
+    }));
+
+    // 2. Map Database Scheduled Activities, filtering out cancelled/expired ones unless completed
+    const dbSchedules = tSchedules
+      .filter(sa => {
+        const isCompleted = sa.status === 'completed' || sa.status === 'concluida';
+        const isCancelled = sa.status === 'cancelled' || sa.status === 'cancelada' || sa.status === 'expirada';
+        return !isCancelled || isCompleted;
+      })
+      .map(sa => ({
+        id: `schedule-${sa.id}`,
+        type: 'schedule' as const,
+        habit_id: sa.habit_id || null,
+        is_completed: sa.status === 'completed' || sa.status === 'concluida',
+        title: sa.title || sa.atividade_avulsa || 'Sessão Profunda Ocasional',
+      }));
+
+    // 3. Map Virtual Scheduled Habits for today (not materialized in scheduledActivities db table)
+    const virtualHabits = (dataStore.habits || [])
+      .filter(habit => {
+        if (!habit.is_scheduled) return false;
+        if (!habit.sched_start) return false;
+        if (habit.sched_weekdays === 'all') return true;
+        const days = (habit.sched_weekdays || '').split(',');
+        return days.includes(dayOfWeekStr);
+      })
+      .map(habit => {
+        const isCompleted = (dataStore.habitCompletions || []).some(hc => {
+          if (hc.habit_id !== habit.id) return false;
+          const compDateStr = getLocalDateString(new Date(hc.completed_at));
+          return compDateStr === todayStr;
+        });
+
+        return {
+          id: `virtual-${habit.id}`,
+          type: 'habit_virtual' as const,
+          habit_id: habit.id,
+          is_completed: isCompleted,
+          title: habit.name,
+        };
+      });
+
+    // UNIFIED LIST TO DEDUPLICATE HABITS FOR TODAY
+    // This solves the overlapping issue and double counting constraints cleanly.
+    const finalItems: {
+      id: string;
+      type: 'daily_task' | 'schedule' | 'habit_virtual' | 'consolidated_habit';
+      title: string;
+      is_completed: boolean;
+    }[] = [];
+
+    // Occasional tasks (without an associated habit_id) are never deduplicated against each other
+    dbDailyTasks.forEach(item => {
+      if (!item.habit_id) {
+        finalItems.push(item);
+      }
+    });
+
+    dbSchedules.forEach(item => {
+      if (!item.habit_id) {
+        finalItems.push(item);
+      }
+    });
+
+    // For tasks that are associated with a habit, we extract all unique active habit_ids today
+    // across all possible representations: daily tasks, DB schedules, and virtual habits due today.
+    const allHabitIds = new Set<string>();
+    dbDailyTasks.forEach(item => { if (item.habit_id) allHabitIds.add(item.habit_id); });
+    dbSchedules.forEach(item => { if (item.habit_id) allHabitIds.add(item.habit_id); });
+    virtualHabits.forEach(item => { if (item.habit_id) allHabitIds.add(item.habit_id); });
+
+    // Deduplication Engine of Habit + Day:
+    // If multiple sources represent the same habit today, we consolidate it into a single task slot.
+    // It is marked as completed if ANY source of truth (daily_task, database scheduled_activity,
+    // virtual schedule completion, or raw habitCompletions database logs) lists it as resolved.
+    allHabitIds.forEach(habitId => {
+      const tasksOfHabit = dbDailyTasks.filter(t => t.habit_id === habitId);
+      const schedulesOfHabit = dbSchedules.filter(s => s.habit_id === habitId);
+      const virtualsOfHabit = virtualHabits.filter(v => v.habit_id === habitId);
+
+      const hasCompletedDailyTask = tasksOfHabit.some(t => t.is_completed);
+      const hasCompletedSchedule = schedulesOfHabit.some(s => s.is_completed);
+      const hasCompletedVirtual = virtualsOfHabit.some(v => v.is_completed);
+
+      const hasCompletedInDatabaseLogs = (dataStore.habitCompletions || []).some(hc => {
+        if (hc.habit_id !== habitId) return false;
+        const compDateStr = getLocalDateString(new Date(hc.completed_at));
+        return compDateStr === todayStr;
+      });
+
+      const isCompleted = hasCompletedDailyTask || hasCompletedSchedule || hasCompletedVirtual || hasCompletedInDatabaseLogs;
+      const title = tasksOfHabit[0]?.title || schedulesOfHabit[0]?.title || virtualsOfHabit[0]?.title || "Hábito Atômico";
+
+      finalItems.push({
+        id: `habit-con-${habitId}`,
+        type: 'consolidated_habit',
+        title,
+        is_completed: isCompleted,
+      });
+    });
+
+    return {
+      completedTasksCount: finalItems.filter(item => item.is_completed).length,
+      totalTasksCount: finalItems.length
+    };
+  }, [dataStore.dailyTasks, dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions]);
 
   const todaySessions = dataStore.sessions.filter(s => getLocalDateString(new Date(s.started_at)) === today);
   const totalMinutes = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
