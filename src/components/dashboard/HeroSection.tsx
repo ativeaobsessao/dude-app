@@ -299,6 +299,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const [relapsedHabitName, setRelapsedHabitName] = useState('');
   const [animatingResistedHabitId, setAnimatingResistedHabitId] = useState<string | null>(null);
 
+  const [showTriggerInputModal, setShowTriggerInputModal] = useState(false);
+  const [relapsedCheckinId, setRelapsedCheckinId] = useState<string | null>(null);
+  const [triggerNoteText, setTriggerNoteText] = useState('');
+
   const [showCheckinModal, setShowCheckinModal] = useState(false);
 
   // Estados para as frases rotativas do Chip de Monitoramento de Autocontrole
@@ -613,7 +617,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     registerCooldown(habit.id);
 
     const todayStr = getLocalDateString(new Date());
-    await dataStore.addAvoidanceCheckin({
+    const created = await dataStore.addAvoidanceCheckin({
       user_id: dataStore.profile.id,
       habit_id: habit.id,
       checkin_date: todayStr,
@@ -622,6 +626,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       window_label: windowLabel,
       prompts_shown: 1
     });
+
+    if (created && created.id) {
+      setRelapsedCheckinId(created.id);
+    } else {
+      setRelapsedCheckinId(null);
+    }
+    setTriggerNoteText('');
 
     setRelapsedHabitName(habit.name);
     setShowSupportiveRelapseModal(true);
@@ -1711,15 +1722,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 <button
                   onClick={() => {
                     setShowSupportiveRelapseModal(false);
-                    window.dispatchEvent(new CustomEvent('open-stats'));
-                    setTimeout(() => {
-                      const el = document.getElementById('stats-block');
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth' });
-                      } else {
-                        window.scrollTo({ top: document.body.scrollHeight / 3, behavior: 'smooth' });
-                      }
-                    }, 100);
+                    setShowTriggerInputModal(true);
                   }}
                   className="py-3 px-4 bg-red-400/20 hover:bg-red-400/30 text-red-300 font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center"
                 >
@@ -1730,6 +1733,84 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   className="py-3 px-4 bg-white/5 hover:bg-white/10 text-text-secondary font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center border border-white/5"
                 >
                   Continuar Firme
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TRIGGER MAPPING MODAL */}
+      <AnimatePresence>
+        {showTriggerInputModal && (
+          <div 
+            className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-surface-1 border border-white/5 shadow-2xl text-left relative z-10"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-[60px] bg-green/10 pointer-events-none" />
+              
+              <span className="text-3xl block mb-4 select-none">🧬</span>
+              
+              <h3 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
+                O que causou essa recaída?
+              </h3>
+              
+              <p className="text-xs sm:text-sm text-text-secondary/70 mt-2 leading-relaxed">
+                Mapear o gatilho (emoção, local, companhia, pensamento) é o passo mais maduro para prevenir a próxima. Seja honesto e detalhado.
+              </p>
+
+              <div className="mt-4">
+                <textarea
+                  value={triggerNoteText}
+                  onChange={(e) => setTriggerNoteText(e.target.value)}
+                  placeholder="Ex: Tive um dia estressante no trabalho, cheguei em casa cansado e acionei o hábito sem pensar..."
+                  className="w-full h-32 px-4 py-3 bg-surface-2 border border-white/5 focus:border-green/50 text-text-primary text-xs sm:text-sm placeholder:text-text-dim/40 rounded-2xl outline-none transition-all resize-none font-sans leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTriggerInputModal(false);
+                    setTriggerNoteText('');
+                  }}
+                  className="py-3 px-4 bg-white/5 hover:bg-white/10 text-text-secondary font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center border border-white/5 font-mono"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!triggerNoteText.trim()) {
+                      dataStore.showNotification('Por favor, digite o gatilho antes de salvar.', 'error');
+                      return;
+                    }
+
+                    if (relapsedCheckinId) {
+                      const success = await dataStore.updateAvoidanceCheckin(relapsedCheckinId, {
+                        trigger_note: triggerNoteText.trim()
+                      });
+                      if (success) {
+                        dataStore.showNotification('Gatilho mapeado com sucesso. Siga firme! 🧬', 'success');
+                      } else {
+                        dataStore.showNotification('Gatilho salvo offline. Continue lutando!', 'success');
+                      }
+                    } else {
+                      dataStore.showNotification('Gatilho mapeado com sucesso! Siga firme!', 'success');
+                    }
+                    
+                    setShowTriggerInputModal(false);
+                    setTriggerNoteText('');
+                  }}
+                  className="py-3 px-4 bg-green hover:bg-green-400 text-black font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center font-mono"
+                >
+                  Salvar Gatilho
                 </button>
               </div>
             </motion.div>

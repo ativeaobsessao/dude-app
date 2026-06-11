@@ -118,6 +118,7 @@ interface DataState {
   ) => Promise<Habit | null>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<boolean>;
   addAvoidanceCheckin: (checkin: Omit<AvoidanceCheckin, 'id' | 'created_at'>) => Promise<AvoidanceCheckin | null>;
+  updateAvoidanceCheckin: (id: string, updates: Partial<AvoidanceCheckin>) => Promise<boolean>;
   generateRecurringHabitInstances: (userId: string) => Promise<void>;
   addNote: (userId: string, content: string, projectId?: string, activityId?: string) => Promise<Note | null>;
   addSession: (session: Omit<FocusSession, 'id' | 'created_at'>) => Promise<FocusSession | null>;
@@ -577,6 +578,30 @@ export const useDataStore = create<DataState>((set, get) => ({
     } catch (err) {
       console.error('Error adding avoidance checkin:', err);
       return null;
+    }
+  },
+
+  updateAvoidanceCheckin: async (id, updates) => {
+    try {
+      const { data, error } = await supabase
+        .from('avoidance_checkins')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        set({
+          avoidanceCheckins: get().avoidanceCheckins.map((item) =>
+            item.id === id ? data : item
+          ),
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error updating avoidance checkin:', err);
+      return false;
     }
   },
 

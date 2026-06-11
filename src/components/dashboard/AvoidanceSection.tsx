@@ -1043,23 +1043,30 @@ export const AvoidanceSection = () => {
                           window: 'Janela'
                         }[checkin.checkin_period] || checkin.checkin_period;
 
-                        const isSuccess = checkin.status === 'success';
+                        const isSuccess = checkin.status === 'success' || checkin.status === 'resisti';
 
                         return (
                           <div
                             key={checkin.id}
-                            className="flex items-center justify-between p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-colors"
+                            className="flex items-start justify-between gap-3 p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-colors"
                           >
-                            <div className="space-y-0.5">
-                              <h5 className="text-xs font-semibold text-text-primary">
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <h5 className="text-xs font-semibold text-text-primary truncate">
                                 {relatedHabit?.name || 'Comportamento Excluído'}
                               </h5>
                               <p className="text-[9px] text-text-secondary/50 font-mono uppercase">
                                 {displayDate} • {periodLabel}
                               </p>
+                              {checkin.trigger_note && (
+                                <div className="mt-1.5 p-2 bg-black/15 rounded-lg border-l-2 border-red-400/30">
+                                  <p className="text-[10px] text-text-secondary/80 italic leading-relaxed break-words">
+                                    🧬 <span className="font-mono text-[8px] not-italic text-red-400/70 uppercase tracking-widest font-bold">Gatilho:</span> {checkin.trigger_note}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                             
-                            <span className={`text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                            <span className={`shrink-0 text-[8px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
                               isSuccess
                                 ? 'bg-primary-green/10 text-primary-green border border-primary-green/15'
                                 : 'bg-red-400/10 text-red-400 border border-red-400/15'
