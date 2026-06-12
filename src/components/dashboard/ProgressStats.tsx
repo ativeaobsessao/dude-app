@@ -509,7 +509,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     
     // Filter relapses to existing habits of mode 'avoid'
     const relapses = avoidanceCheckins.filter(c => {
-      if (c.status !== 'relapse') return false;
+      if (c.status !== 'relapse' && c.status !== 'recai') return false;
       return avoidHabitsMap.has(c.habit_id);
     });
     
