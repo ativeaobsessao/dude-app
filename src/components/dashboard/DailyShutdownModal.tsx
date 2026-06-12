@@ -18,6 +18,7 @@ interface DailyShutdownModalProps {
 export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: DailyShutdownModalProps) => {
   const { user } = useAuthStore();
   const { 
+    habits,
     sessions, 
     habitCompletions, 
     avoidanceCheckins, 
@@ -135,6 +136,34 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
   const todayAvoidanceCheckins = useMemo(() => {
     return avoidanceCheckins.filter(ac => ac.checkin_date === targetDate);
   }, [avoidanceCheckins, targetDate]);
+
+  const totalBattlesToday = useMemo(() => {
+    if (!targetDate) return 0;
+    const [year, month, day] = targetDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    const dayOfWeek = dateObj.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+
+    const getWeekdays = (weekdaysStr?: string): number[] => {
+      if (!weekdaysStr || weekdaysStr === 'all' || weekdaysStr === '') {
+        return [0, 1, 2, 3, 4, 5, 6];
+      }
+      return weekdaysStr.split(',').map(Number);
+    };
+
+    const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
+
+    const activeAvoidHabits = avoidHabits.filter(ah => {
+      const parsedWeekdays = ah.monitor_weekdays 
+        ? getWeekdays(ah.monitor_weekdays)
+        : (ah.recurrence_days && ah.recurrence_days.length > 0
+            ? ah.recurrence_days.map(d => d === '7' ? 0 : parseInt(d, 10))
+            : [0, 1, 2, 3, 4, 5, 6]);
+
+      return parsedWeekdays.includes(dayOfWeek);
+    });
+
+    return activeAvoidHabits.length;
+  }, [habits, targetDate]);
 
   const avoidanceStats = useMemo(() => {
     let wins = 0;
@@ -328,7 +357,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     <span className="text-[9px] font-bold uppercase tracking-wider text-text-dim/50 block">AUTOCONTROLE ANTI-VÍCIO</span>
                     <div className="text-xs space-y-1">
                       <p className="font-semibold text-text">
-                        🛡️ Batalhas: <span className="text-green">{todayAvoidanceCheckins.length} registradas</span>
+                        🛡️ Batalhas: <span className="text-green">{totalBattlesToday} programadas</span>
                       </p>
                       <p className="font-semibold text-text">
                         🔥 Resultado: <span className="text-green">{avoidanceStats.wins} Vitórias</span> | <span className="text-red-400">{avoidanceStats.relapses} Recaídas</span>
