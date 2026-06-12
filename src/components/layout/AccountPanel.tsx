@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { X, Camera, User, Mail, Lock, LogOut, Check, Trash2, Download, Upload, Database } from 'lucide-react';
+import JSZip from 'jszip';
 
 interface AccountPanelProps {
   isOpen: boolean;
@@ -145,7 +146,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     };
   };
 
-  const exportIdentity = () => {
+  const exportIdentity = async () => {
     if (!user?.id) return;
     
     const p = dataStore.profile;
@@ -253,11 +254,6 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       });
     }
 
-    md += `---\n\n`;
-    md += `## 📦 DADOS DE RESTAURAÇÃO (JSON)\n`;
-    md += `Este trecho contem seu backup em formato codificado de alta integridade. Não altere os blocos abaixo para garantir a importação perfeita.\n\n`;
-    md += `<!-- DUDE_RESTORE_VAULT_START -->\n`;
-    
     const payload: any = {
       profile: dataStore.profile
     };
@@ -285,62 +281,64 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
     
     const container = {
-      version: '1.1.0',
+      version: '1.2.0',
       exported_at: new Date().toISOString(),
       payload
     };
-    
-    md += JSON.stringify(container, null, 2);
-    md += `\n<!-- DUDE_RESTORE_VAULT_END -->\n`;
-    
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dude-vault-${email.split('@')[0]}-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    setShowExportModal(false);
-    dataStore.showNotification('Identidade exportada no Data Vault!', 'success');
+
+    try {
+      const zip = new JSZip();
+      
+      // Store report as markdown
+      zip.file('dude-relatorio.md', md);
+      
+      // Store data as JSON
+      zip.file('dude-dados.json', JSON.stringify(container, null, 2));
+      
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dude-vault-backup-${email.split('@')[0]}-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setShowExportModal(false);
+      dataStore.showNotification('Identidade exportada no Data Vault!', 'success');
+    } catch (err: any) {
+      console.error('Erro ao gerar backup ZIP:', err);
+      dataStore.showNotification('Erro ao exportar identidade: ' + err.message, 'error');
+    }
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const text = evt.target?.result as string;
-      if (!text) return;
-      
-      const startIndex = text.indexOf('<!-- DUDE_RESTORE_VAULT_START -->');
-      const endIndex = text.indexOf('<!-- DUDE_RESTORE_VAULT_END -->');
-      
-      if (startIndex === -1 || endIndex === -1) {
-        dataStore.showNotification('Arquivo inválido! Não foi possível encontrar a assinatura do Data Vault.', 'error');
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const jsonFile = zip.file('dude-dados.json');
+      if (!jsonFile) {
+        dataStore.showNotification('Arquivo ZIP inválido! dude-dados.json não encontrado.', 'error');
         return;
       }
       
-      const jsonStr = text.substring(startIndex + '<!-- DUDE_RESTORE_VAULT_START -->'.length, endIndex);
-      try {
-        const parsed = JSON.parse(jsonStr.trim());
-        if (!parsed || !parsed.payload) {
-          throw new Error('Formato do Payload inválido ou vazio.');
-        }
-        
-        setPendingImportPayload(parsed.payload);
-        setShowImportConfirm(true);
-      } catch (err: any) {
-        console.error('Error parsing backup JSON:', err);
-        dataStore.showNotification('Erro ao processar arquivo: ' + err.message, 'error');
+      const jsonStr = await jsonFile.async('string');
+      const parsed = JSON.parse(jsonStr.trim());
+      if (!parsed || !parsed.payload) {
+        throw new Error('Formato do Payload inválido ou vazio.');
       }
-    };
-    
-    reader.readAsText(file);
-    e.target.value = '';
+      
+      setPendingImportPayload(parsed.payload);
+      setShowImportConfirm(true);
+    } catch (err: any) {
+      console.error('Error parsing ZIP backup:', err);
+      dataStore.showNotification('Erro ao processar arquivo ZIP: ' + err.message, 'error');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const runImportRestore = async () => {
@@ -762,7 +760,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Backup e Transferência</label>
             
             <p className="text-[10px] text-text-dim/60 leading-relaxed px-1">
-              Exporte toda a sua identidade da DUDE (hábitos, foco, logs e notas) em um arquivo MD/JSON híbrido legível por humanos e restabeleça em qualquer dispositivo.
+              Exporte toda a sua identidade da DUDE (hábitos, foco, logs e notas) em um arquivo ZIP seguro. Contém seu relatório legível e seus dados brutos para restabelecimento em qualquer dispositivo.
             </p>
 
             <div className="flex flex-col gap-3">
@@ -788,7 +786,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 type="file"
                 ref={importFileInputRef}
                 onChange={handleImportFile}
-                accept=".md"
+                accept=".zip"
                 className="hidden"
               />
             </div>
@@ -984,7 +982,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   Configurar Exportação
                 </h4>
                 <p className="text-[11px] text-text-dim/80 leading-relaxed max-w-sm mx-auto">
-                  Encapsule sua Identidade Digital em um arquivo híbrido legível (.md) com as seções e relatórios configurados abaixo.
+                  Encapsule sua Identidade Digital em um arquivo ZIP seguro (.zip) contendo seu relatório em Markdown e seus dados brutos em JSON para restabelecimento perfeito.
                 </p>
               </div>
 
