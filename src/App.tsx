@@ -83,7 +83,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
   const [isRevalidating, setIsRevalidating] = useState(false);
 
-  const [showStats, setShowStats] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showFullAgenda, setShowFullAgenda] = useState(false);
   const [showAccountPanel, setShowAccountPanel] = useState(false);
@@ -552,14 +551,9 @@ export default function App() {
     const handleNavigate = () => {
       setShowFullAgenda(true);
     };
-    const handleOpenStats = () => {
-      setShowStats(true);
-    };
     window.addEventListener('navigate-to-agenda', handleNavigate);
-    window.addEventListener('open-stats', handleOpenStats);
     return () => {
       window.removeEventListener('navigate-to-agenda', handleNavigate);
-      window.removeEventListener('open-stats', handleOpenStats);
     };
   }, []);
 
@@ -805,10 +799,6 @@ export default function App() {
               </motion.div>
             </div>
           )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showStats && <ProgressStats onClose={() => setShowStats(false)} />}
         </AnimatePresence>
 
         <AnimatePresence>

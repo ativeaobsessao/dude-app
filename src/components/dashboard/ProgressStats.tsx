@@ -1801,12 +1801,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                             }
 
                             return (
-                              <div key={ac.id} className="flex justify-between items-center p-3 rounded-xl bg-white/[0.015] border border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                                <div className="flex flex-col">
+                              <div key={ac.id} className="flex justify-between items-start gap-3 p-3 rounded-xl bg-white/[0.015] border border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                                <div className="flex flex-col flex-1 min-w-0 space-y-1.5">
                                   <span className="text-xs font-bold text-text-primary">{hName}</span>
                                   {ac.window_label && <span className="text-[9px] font-mono text-text-secondary/50 mt-0.5">{ac.window_label}</span>}
+                                  {ac.trigger_note && (
+                                    <div className="mt-1.5 p-2 bg-black/15 rounded-lg border-l-2 border-red-400/30">
+                                      <p className="text-[10px] text-text-secondary/80 italic leading-relaxed break-words">
+                                        🧬 <span className="font-mono text-[8px] not-italic text-red-400/70 uppercase tracking-widest font-bold">Gatilho:</span> {ac.trigger_note}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
-                                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${statusColor}`}>
+                                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${statusColor} shrink-0`}>
                                   {statusLabel}
                                 </span>
                               </div>
