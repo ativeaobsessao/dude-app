@@ -576,8 +576,15 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
       return null;
     } catch (err) {
-      console.error('Error adding avoidance checkin:', err);
-      return null;
+      console.error('Error adding avoidance checkin, falling back to local state:', err);
+      const tempId = crypto.randomUUID ? crypto.randomUUID() : 'avoidance-' + Math.random().toString(36).substring(2, 11);
+      const fallbackCheckinObj: AvoidanceCheckin = {
+        id: tempId,
+        created_at: new Date().toISOString(),
+        ...checkin
+      };
+      set({ avoidanceCheckins: [fallbackCheckinObj, ...get().avoidanceCheckins] });
+      return fallbackCheckinObj;
     }
   },
 
@@ -600,8 +607,13 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
       return false;
     } catch (err) {
-      console.error('Error updating avoidance checkin:', err);
-      return false;
+      console.error('Error updating avoidance checkin, falling back to local state:', err);
+      set({
+        avoidanceCheckins: get().avoidanceCheckins.map((item) =>
+          item.id === id ? { ...item, ...updates } : item
+        ),
+      });
+      return true;
     }
   },
 

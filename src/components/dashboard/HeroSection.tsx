@@ -1802,7 +1802,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                         dataStore.showNotification('Gatilho salvo offline. Continue lutando!', 'success');
                       }
                     } else {
-                      dataStore.showNotification('Gatilho mapeado com sucesso! Siga firme!', 'success');
+                      dataStore.showNotification('Erro: ID da recaída não encontrado.', 'error');
                     }
                     
                     setShowTriggerInputModal(false);
