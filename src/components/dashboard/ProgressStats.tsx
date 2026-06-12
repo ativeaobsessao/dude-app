@@ -1214,6 +1214,20 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     };
   }, [sessions, habits, profile, avoidanceCheckins, habitCompletions, scheduledActivities]);
 
+  const checkinsWithNotes = useMemo(() => {
+    const avoidHabitsMap = new Map(habits.map(h => [h.id, h]));
+    return avoidanceCheckins
+      .filter(c => (c.status === 'relapse' || c.status === 'recai') && c.trigger_note && c.trigger_note.trim() !== '')
+      .map(c => {
+        const habit = avoidHabitsMap.get(c.habit_id);
+        return {
+          ...c,
+          habitName: habit ? habit.name : 'Autocontrole'
+        };
+      })
+      .sort((a, b) => new Date(b.created_at || b.checkin_date).getTime() - new Date(a.created_at || a.checkin_date).getTime());
+  }, [avoidanceCheckins, habits]);
+
   return (
     <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
       <motion.div
@@ -2140,6 +2154,33 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* 2b. Diário de Gatilhos Mapeados */}
+                                {checkinsWithNotes.length > 0 && (
+                                  <div className="space-y-2.5 pt-4 border-t border-white/5 text-left font-sans">
+                                    <span className="text-[9px] font-extrabold text-text-secondary/60 uppercase tracking-widest flex items-center gap-1.5">
+                                      🧬 Diário de Gatilhos & Lapsos Registrados
+                                    </span>
+                                    <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
+                                      {checkinsWithNotes.map(nota => {
+                                        const dObj = new Date(nota.created_at || nota.checkin_date);
+                                        const dataFormatada = dObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) + 
+                                                              (nota.created_at ? ` às ${dObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : '');
+                                        return (
+                                          <div key={nota.id} className="p-3 bg-white/[0.015] border border-white/5 border-l-2 border-l-red-400/50 rounded-r-xl space-y-1">
+                                            <div className="flex justify-between items-center text-[8px] font-mono">
+                                              <span className="text-text-secondary/60 uppercase">{dataFormatada}</span>
+                                              <span className="bg-red-400/10 text-red-400 px-2 py-0.5 rounded-md font-bold uppercase tracking-widest text-[7px]">{nota.habitName}</span>
+                                            </div>
+                                            <p className="text-[11px] text-text-secondary/90 italic leading-relaxed break-words">
+                                              "{nota.trigger_note}"
+                                            </p>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
