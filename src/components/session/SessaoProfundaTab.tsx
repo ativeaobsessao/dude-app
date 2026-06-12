@@ -13,7 +13,7 @@ export const SessaoProfundaTab = () => {
   const user = useAuthStore(state => state.user);
 
   // States mirroring configuration fields
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState(timer.projectId || '');
   const [activityId, setActivityId] = useState('');
   const [activityManual, setActivityManual] = useState('');
   const [habitId, setHabitId] = useState('');
@@ -22,6 +22,12 @@ export const SessaoProfundaTab = () => {
   const [newTaskInput, setNewTaskInput] = useState('');
   const [pendingTasks, setPendingTasks] = useState<string[]>([]);
   const [registrationMode, setRegistrationMode] = useState<'timer' | 'manual'>('timer');
+
+  useEffect(() => {
+    if (timer.projectId) {
+      setProjectId(timer.projectId);
+    }
+  }, [timer.projectId]);
 
   useEffect(() => {
     const handlePrefill = (e: any) => {
