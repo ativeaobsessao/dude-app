@@ -37,16 +37,15 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
     
     // Immediate clear feedback to the user via notification toast
     const { showNotification } = useDataStore.getState();
-    showNotification('Sintonização de período concluída! 🌟', 'success');
-
-    // Fechamento instantâneo do modal
-    onClose(true);
 
     try {
       // Persist the mood entry across the client store and database
       await addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
+      showNotification('Sintonização de período concluída! 🌟', 'success');
+      onClose(true);
     } catch (e) {
       console.error("Erro ao salvar humor:", e);
+      showNotification('Erro ao salvar humor. Tente novamente.', 'error');
     } finally {
       setIsSaving(false);
     }
