@@ -14,6 +14,7 @@ import { RecentHistory } from './components/dashboard/RecentHistory';
 import { ActionCenter } from './components/layout/ActionCenter';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { SubscriptionGuard } from './components/layout/SubscriptionGuard';
 import { ProgressStats } from './components/dashboard/ProgressStats';
 import { SessaoProfundaTab } from './components/session/SessaoProfundaTab';
 import { useAuthStore } from './store/useAuthStore';
@@ -704,7 +705,8 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ProtectedRoute>
-        <PWAProvider>
+        <SubscriptionGuard>
+          <PWAProvider>
           <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <MoodRitualModal 
           isOpen={isMoodActive} 
@@ -1095,8 +1097,9 @@ export default function App() {
           </div>
         </div>
       </div>
-      </PWAProvider>
-    </ProtectedRoute>
-  </ErrorBoundary>
-);
+          </PWAProvider>
+        </SubscriptionGuard>
+      </ProtectedRoute>
+    </ErrorBoundary>
+  );
 }

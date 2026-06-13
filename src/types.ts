@@ -10,6 +10,9 @@ export type Profile = {
   mood_status?: 'active' | 'paused' | 'disabled' | null;
   mood_snoozed_until?: string | null;
   hide_mood_nudge?: boolean | null;
+  trial_ends_at?: string | null;
+  is_subscribed?: boolean | null;
+  is_admin?: boolean | null;
 };
 
 export type Project = {
