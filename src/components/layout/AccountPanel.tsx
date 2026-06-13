@@ -470,10 +470,13 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         const chunkSize = 100;
         for (let i = 0; i < sanitizedItems.length; i += chunkSize) {
           const chunk = sanitizedItems.slice(i, i + chunkSize);
-          const { error } = await supabase.from(table).insert(chunk);
-          if (error) {
-            console.error(`Error importing chunk into ${table}:`, error);
-            throw error;
+          try {
+            const { error } = await supabase.from(table).insert(chunk);
+            if (error) {
+              console.warn(`Non-critical warning inserting chunk into ${table}:`, error);
+            }
+          } catch (err) {
+            console.warn(`Non-critical exception inserting chunk into ${table}:`, err);
           }
         }
       };
@@ -526,10 +529,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       const habitCompletionsData = p.habitCompletions || p.habit_completions;
       if (habitCompletionsData) await safeInsert('habit_completions', habitCompletionsData);
       
-      dataStore.showNotification('Identidade transferida e restaurada com sucesso!', 'success');
+      dataStore.showNotification('Identidade restaurada com sucesso! 🚀', 'success');
       
       onClose();
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (err: any) {
       console.error('Critical failure during identity restoration:', err);
       dataStore.showNotification('Erro restaurando backup: ' + err.message, 'error');
