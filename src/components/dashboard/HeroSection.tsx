@@ -26,7 +26,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const [isEditingGoal, setIsEditingGoal] = useState(false);
 
   // PWA Install hook context
-  const { canInstall, installApp } = usePWA();
+  const { isInstalled, isInitialized, isDismissedPeriod, installApp } = usePWA();
 
   const [dismissedAntiVicioKeys, setDismissedAntiVicioKeys] = useState<string[]>(() => {
     try {
@@ -890,7 +890,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </div>
           )}
 
-          {canInstall && (
+          {!isInstalled && isInitialized && !isDismissedPeriod && (
             <div className="w-full flex justify-center pt-2 animate-fade-in relative z-20">
               <button
                 onClick={installApp}

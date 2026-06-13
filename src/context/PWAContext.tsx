@@ -16,6 +16,8 @@ interface PWAContextType {
   triggerSmartReengagement: (triggerEvent: string) => void;
   showTutorialModal: boolean;
   setShowTutorialModal: (show: boolean) => void;
+  isInitialized: boolean;
+  isDismissedPeriod: boolean;
 }
 
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
@@ -41,6 +43,12 @@ interface PWAAnalytics {
   logs: Array<{ event: string; timestamp: number; meta?: any }>;
 }
 
+const checkStandaloneNative = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches 
+    || (window.navigator as any).standalone === true;
+};
+
 export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dataStore = useDataStore();
 
@@ -58,6 +66,10 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Prevent multiple automated prompts in the same session tab
   const [promptedInSession, setPromptedInSession] = useState<boolean>(false);
+
+  // State initialization tracker
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [isDismissedPeriod, setIsDismissedPeriod] = useState<boolean>(false);
 
   // Initialize analytics structure
   const [analytics, setAnalytics] = useState<PWAAnalytics>(() => {
@@ -90,8 +102,7 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Run initial startup and PWA configuration
   useEffect(() => {
     // 1. Detect environment / standalone mode
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone === true;
+    const isStandalone = checkStandaloneNative();
 
     const savedInstalled = localStorage.getItem(KEYS.INSTALLED) === 'true';
     const finalInstalled = isStandalone || savedInstalled;
@@ -120,15 +131,27 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLastPromptDate(new Date(Number(rawLastDate)).toLocaleDateString('pt-BR'));
     }
 
+    // Load dismissed state
+    const dismissedUntil = Number(localStorage.getItem(KEYS.DISMISSED_UNTIL) || '0');
+    setIsDismissedPeriod(Date.now() < dismissedUntil);
+
+    setIsInitialized(true);
+
     // 4. Capture native browser setup installers (Android & Chrome Desktop)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
       logEvent('beforeinstallprompt_captured');
 
+      // Se já estiver instalado ou standalone, não inicia prompt automático
+      if (checkStandaloneNative() || finalInstalled) return;
+
+      const currentDismissed = Number(localStorage.getItem(KEYS.DISMISSED_UNTIL) || '0');
+      if (Date.now() < currentDismissed) return;
+
       // Trigger automatic prompt on FIRST entry if eligible
       const alreadySeen = localStorage.getItem(KEYS.SEEN) === 'true';
-      if (!isStandalone && !savedInstalled && !alreadySeen && !promptedInSession) {
+      if (!alreadySeen && !promptedInSession) {
         setTimeout(() => {
           showPWAInstallPrompt();
         }, 3000);
@@ -147,9 +170,12 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // If first time accessing and iOS (which lacks beforeinstallprompt), schedule high priority prompt
     const alreadySeen = localStorage.getItem(KEYS.SEEN) === 'true';
     if (isIosDevice && !isStandalone && !savedInstalled && !alreadySeen && !promptedInSession) {
-      setTimeout(() => {
-        showPWAInstallPrompt();
-      }, 4000);
+      const currentDismissed = Number(localStorage.getItem(KEYS.DISMISSED_UNTIL) || '0');
+      if (Date.now() >= currentDismissed) {
+        setTimeout(() => {
+          showPWAInstallPrompt();
+        }, 4000);
+      }
     }
 
     return () => {
@@ -160,7 +186,7 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Check smart re-engagement conditions whenever sessions or profile changes
   useEffect(() => {
-    if (isInstalled) return;
+    if (isInstalled || checkStandaloneNative()) return;
 
     // A. Check focus session count (>= 3)
     const sessionsLength = dataStore.sessions?.length || 0;
@@ -188,7 +214,9 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Command implementation to raise the banner elegant layout
   const showPWAInstallPrompt = () => {
-    if (isInstalled) return;
+    if (checkStandaloneNative()) return;
+    const savedInstalled = localStorage.getItem(KEYS.INSTALLED) === 'true';
+    if (savedInstalled) return;
 
     // Check dismissed timeout frequency limits
     const dismissedUntil = Number(localStorage.getItem(KEYS.DISMISSED_UNTIL) || '0');
@@ -207,11 +235,18 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const triggerSmartReengagement = (triggerEvent: string) => {
-    if (isInstalled) return;
+    if (checkStandaloneNative()) return;
+    const savedInstalled = localStorage.getItem(KEYS.INSTALLED) === 'true';
+    if (savedInstalled) return;
     if (promptedInSession) return; // Prevent duplicate popups in the same window run
 
+    const dismissedUntil = Number(localStorage.getItem(KEYS.DISMISSED_UNTIL) || '0');
+    if (dismissedUntil > Date.now()) {
+      console.log('PWA Smart Reengagement suppressed by frequency rules (dude_pwa_dismissed_until)');
+      return;
+    }
+
     console.log(`Smart Trigger detected: ${triggerEvent}. Elevating PWA install prompt.`);
-    // Bypass normal frequency restrictions for important moments, but respect same-session rule
     setShowInstallPrompt(true);
     setPromptedInSession(true);
     localStorage.setItem(KEYS.SEEN, 'true');
@@ -221,11 +256,19 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logEvent('smart_reengagement_triggered', { trigger: triggerEvent });
   };
 
-  // Handle CTA Click Event
+  // Handle CTA Click Event (Bifurcated by Hardware)
   const installApp = async () => {
     logEvent('install_button_clicked');
 
-    if (deferredPrompt) {
+    // Hardware check
+    const ua = window.navigator.userAgent;
+    const isIosDevice = /iPad|iPhone|iPod/.test(ua);
+
+    if (isIosDevice) {
+      logEvent('install_tutorial_opened');
+      setShowTutorialModal(true);
+      setShowInstallPrompt(false);
+    } else if (deferredPrompt) {
       // 1. Android & Chrome Desktop
       try {
         deferredPrompt.prompt();
@@ -269,6 +312,7 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const dismissedUntilTime = Date.now() + dismissTimeSecs;
 
     localStorage.setItem(KEYS.DISMISSED_UNTIL, String(dismissedUntilTime));
+    setIsDismissedPeriod(true);
     setShowInstallPrompt(false);
 
     logEvent('install_banner_dismissed', { promptCount: nextCount, lockedForDays: daysToLock });
@@ -292,6 +336,8 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         triggerSmartReengagement,
         showTutorialModal,
         setShowTutorialModal,
+        isInitialized,
+        isDismissedPeriod,
       }}
     >
       {children}
