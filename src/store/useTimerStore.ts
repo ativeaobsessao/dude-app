@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { getLocalDateString } from '../lib/utils';
+import { secureLocalStorage } from '../lib/security';
 
 interface TimerState {
   isActive: boolean;
@@ -145,6 +146,7 @@ export const useTimerStore = create<TimerState>()(
     {
       name: 'dude-timer-storage',
       skipHydration: false,
+      storage: createJSONStorage(() => secureLocalStorage),
     }
   )
 );
