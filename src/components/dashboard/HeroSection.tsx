@@ -598,7 +598,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       habit_id: habit.id,
       checkin_date: todayStr,
       checkin_period: checkinPeriod,
-      status: 'resisti',
+      status: 'success',
       window_label: windowLabel,
       prompts_shown: 1
     });
@@ -622,7 +622,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       habit_id: habit.id,
       checkin_date: todayStr,
       checkin_period: checkinPeriod,
-      status: 'recai',
+      status: 'relapse',
       window_label: windowLabel,
       prompts_shown: 1
     });
@@ -650,7 +650,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       habit_id: habit.id,
       checkin_date: todayStr,
       checkin_period: checkinPeriod,
-      status: 'depois',
+      status: 'pending',
       window_label: windowLabel,
       prompts_shown: 1
     });
