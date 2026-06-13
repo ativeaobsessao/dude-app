@@ -366,6 +366,27 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       if ('dailyShutdowns' in p || 'daily_shutdowns' in p) tablesToWipe.push('daily_shutdowns');
       if ('savedLinks' in p || 'saved_links' in p) tablesToWipe.push('saved_links');
 
+      // Sort tables to delete from child to parent (avoiding FK violations)
+      const deleteOrder = [
+        'session_tasks',
+        'pending_tasks',
+        'habit_completions',
+        'notes',
+        'daily_tasks',
+        'scheduled_activities',
+        'focus_sessions',
+        'activities',
+        'habits',
+        'projects',
+        'avoidance_checkins',
+        'mood_entries',
+        'daily_shutdowns',
+        'saved_links'
+      ];
+      tablesToWipe.sort((a, b) => {
+        return deleteOrder.indexOf(a) - deleteOrder.indexOf(b);
+      });
+
       for (const tbl of tablesToWipe) {
         try {
           await supabase.from(tbl).delete().eq('user_id', userId);
@@ -374,12 +395,75 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         }
       }
       
+      // Initialize relational ID Mapper (idMap) to translate old parent IDs to new UUIDs
+      const idMap = new Map<string, string>();
+      
+      // Pre-scan all tables to map old primary keys to freshly generated UUIDs
+      const scanTableKeys = (items: any[]) => {
+        if (!items || !Array.isArray(items)) return;
+        items.forEach(item => {
+          if (item && item.id) {
+            idMap.set(item.id, crypto.randomUUID());
+          }
+        });
+      };
+      
+      scanTableKeys(p.projects);
+      scanTableKeys(p.habits);
+      scanTableKeys(p.activities);
+      scanTableKeys(p.notes);
+      scanTableKeys(p.dailyTasks || p.daily_tasks);
+      scanTableKeys(p.dailyShutdowns || p.daily_shutdowns);
+      scanTableKeys(p.savedLinks || p.saved_links);
+      scanTableKeys(p.moodEntries || p.mood_entries);
+      scanTableKeys(p.avoidanceCheckins || p.avoidance_checkins);
+      scanTableKeys(p.sessions);
+      scanTableKeys(p.sessionTasks || p.session_tasks);
+      scanTableKeys(p.pendingTasks || p.pending_tasks);
+      scanTableKeys(p.scheduledActivities || p.scheduled_activities);
+      scanTableKeys(p.habitCompletions || p.habit_completions);
+      
       const safeInsert = async (table: string, items: any[]) => {
         if (!items || !Array.isArray(items) || items.length === 0) return;
         
         const sanitizedItems = items.map(item => {
           const copy = { ...item };
+          
+          if (copy.id && idMap.has(copy.id)) {
+            copy.id = idMap.get(copy.id);
+          } else if (copy.id) {
+            const newId = crypto.randomUUID();
+            idMap.set(copy.id, newId);
+            copy.id = newId;
+          } else {
+            copy.id = crypto.randomUUID();
+          }
+          
           if (copy.user_id) copy.user_id = userId;
+          
+          // Reassign and translate relational foreign keys
+          const fkFields = [
+            'project_id',
+            'habit_id',
+            'activity_id',
+            'scheduled_activity_id',
+            'focus_session_id',
+            'session_id',
+            'origin_session_id',
+            'completed_session_id'
+          ];
+          
+          fkFields.forEach(field => {
+            if (copy[field]) {
+              const oldFk = copy[field];
+              if (idMap.has(oldFk)) {
+                copy[field] = idMap.get(oldFk);
+              } else {
+                copy[field] = null;
+              }
+            }
+          });
+          
           return copy;
         });
         
@@ -402,11 +486,18 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         }).eq('id', userId);
       }
       
-      // Load tables sequentially to safeguard foreign key relational hierarchies (iPhone style restoration)
+      // Level 1: Core Parent Records
       if (p.projects) await safeInsert('projects', p.projects);
       if (p.habits) await safeInsert('habits', p.habits);
+      
+      // Level 2: Sub-Level Core Relational Elements
       if (p.activities) await safeInsert('activities', p.activities);
-      if (p.notes) await safeInsert('notes', p.notes);
+      
+      // Level 3: Scheduled Activities, Focus Sessions, Daily Tasks, and Independent/Indirect Components
+      const scheduledActivitiesData = p.scheduledActivities || p.scheduled_activities;
+      if (scheduledActivitiesData) await safeInsert('scheduled_activities', scheduledActivitiesData);
+      
+      if (p.sessions) await safeInsert('focus_sessions', p.sessions);
       
       const dailyTasksData = p.dailyTasks || p.daily_tasks;
       if (dailyTasksData) await safeInsert('daily_tasks', dailyTasksData);
@@ -423,16 +514,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       const avoidanceCheckinsData = p.avoidanceCheckins || p.avoidance_checkins;
       if (avoidanceCheckinsData) await safeInsert('avoidance_checkins', avoidanceCheckinsData);
       
-      if (p.sessions) await safeInsert('focus_sessions', p.sessions);
+      if (p.notes) await safeInsert('notes', p.notes);
       
+      // Level 4: Fully Child/Leaf Nodes (Cascade Ends)
       const sessionTasksData = p.sessionTasks || p.session_tasks;
       if (sessionTasksData) await safeInsert('session_tasks', sessionTasksData);
       
       const pendingTasksData = p.pendingTasks || p.pending_tasks;
       if (pendingTasksData) await safeInsert('pending_tasks', pendingTasksData);
-      
-      const scheduledActivitiesData = p.scheduledActivities || p.scheduled_activities;
-      if (scheduledActivitiesData) await safeInsert('scheduled_activities', scheduledActivitiesData);
       
       const habitCompletionsData = p.habitCompletions || p.habit_completions;
       if (habitCompletionsData) await safeInsert('habit_completions', habitCompletionsData);
