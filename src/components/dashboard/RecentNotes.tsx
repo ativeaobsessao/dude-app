@@ -237,6 +237,15 @@ export const RecentNotes = () => {
 
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Handle external stateful navigation trigger (deep linking)
+  useEffect(() => {
+    if (dataStore.notesViewGoal === 'history') {
+      setIsExpanded(true);
+      setShowAllNotes(true);
+      dataStore.setNotesViewGoal(null);
+    }
+  }, [dataStore.notesViewGoal, dataStore.setNotesViewGoal]);
+
   return (
     <section className="w-full max-w-5xl space-y-4 font-sans">
       {/* Header Collapsible Trigger */}

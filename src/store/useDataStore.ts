@@ -158,6 +158,8 @@ interface DataState {
   clearNotification: () => void;
   urgeTimerSeconds: number | null;
   setUrgeTimerSeconds: (seconds: number | null | ((prev: number | null) => number | null)) => void;
+  notesViewGoal: 'history' | null;
+  setNotesViewGoal: (goal: 'history' | null) => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -202,6 +204,10 @@ export const useDataStore = create<DataState>((set, get) => ({
     } else {
       set({ urgeTimerSeconds: param });
     }
+  },
+  notesViewGoal: null,
+  setNotesViewGoal: (goal: 'history' | null) => {
+    set({ notesViewGoal: goal });
   },
   clearNotification: () => {
     const tid = get().notificationTimeoutId;

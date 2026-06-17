@@ -82,10 +82,12 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   };
 
   const handleNavigateToNotesHistory = () => {
+    // 1. Set stateful navigation pointer
+    useDataStore.getState().setNotesViewGoal('history');
+    // 2. Close quick capture modal
     onClose();
-    // Dispatch events to open the existing notes screens
+    // 3. Switch main tab to MENU
     window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'menu' } }));
-    window.dispatchEvent(new CustomEvent('open-notes-history'));
   };
 
   const handleNavigateToLinksHistory = () => {
