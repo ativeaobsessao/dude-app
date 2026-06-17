@@ -219,7 +219,7 @@ export const SessaoProfundaTab = () => {
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.34em] font-black text-primary-green">Sessão Ativa Detectada</p>
           <h3 className="text-2xl font-black text-text-primary tracking-tight font-sans uppercase">
-            {timer.activityName}
+            {(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? timer.activityName : 'Sessão Profunda'}
           </h3>
           <p className="text-xs text-text-secondary/70 leading-normal max-w-sm mx-auto">
             Uma sessão profissional de foco absoluto está rodando em segundo plano. Use o painel centralizado para gerenciar.

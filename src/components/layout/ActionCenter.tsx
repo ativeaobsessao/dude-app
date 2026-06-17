@@ -1415,7 +1415,7 @@ export const ActionCenter = () => {
                     {timer.isActive ? (
                        <div className="bg-surface/30 border border-primary-green/20 p-10 rounded-[2.5rem] text-center space-y-6">
                          <p className="text-primary-green/60 font-mono text-xs uppercase tracking-widest">Sessão em curso</p>
-                         <h4 className="text-4xl font-light text-text-primary tracking-tight">{timer.activityName}</h4>
+                         <h4 className="text-4xl font-light text-text-primary tracking-tight">{(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? timer.activityName : 'Sessão Profunda'}</h4>
                          <button onClick={() => setShowCancelConfirm(true)} className="px-10 py-4 border border-white/10 text-text-secondary hover:text-red-400 hover:border-red-400/30 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px]">Cancelar Sessão</button>
                        </div>
                     ) : (
