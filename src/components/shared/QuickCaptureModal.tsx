@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { X, ArrowLeft, Send, Link as LinkIcon, FileText, Zap } from 'lucide-react';
@@ -11,7 +11,7 @@ interface QuickCaptureModalProps {
 
 export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuthStore();
-  const { addNote, addLink, showNotification } = useDataStore();
+  const { addNote, addLink, showNotification, projects } = useDataStore();
 
   const [view, setView] = useState<'menu' | 'note' | 'link'>('menu');
 
@@ -19,8 +19,20 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   const [noteContent, setNoteContent] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
+
+  // Monitor visibility to reset the state when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setView('menu');
+      setNoteContent('');
+      setLinkTitle('');
+      setLinkUrl('');
+      setSelectedProjectId('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -53,13 +65,14 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
       const result = await addLink(user.id, {
         title: finalTitle,
         url: finalUrl,
-        projectId: null,
+        projectId: selectedProjectId || null,
         habitId: null
       });
       if (result) {
         showNotification('Link guardado com sucesso! ⚡', 'success');
         setLinkTitle('');
         setLinkUrl('');
+        setSelectedProjectId('');
       }
     } catch (err) {
       console.error('Erro ao salvar link:', err);
@@ -71,7 +84,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   const handleNavigateToNotesHistory = () => {
     onClose();
     // Dispatch events to open the existing notes screens
-    window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'notes' } }));
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'menu' } }));
     window.dispatchEvent(new CustomEvent('open-notes-history'));
   };
 
@@ -259,6 +272,30 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
                     }
                   }}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Vincular a Projeto (Opcional)</label>
+                <div className="relative">
+                  <select
+                    id="quick-link-project-select"
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-[#6ee7a8] transition-all appearance-none cursor-pointer pr-10"
+                  >
+                    <option value="" className="bg-[#1c2421]">Sem Projeto</option>
+                    {projects && projects.map((p) => (
+                      <option key={p.id} value={p.id} className="bg-[#1c2421]">
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-text-secondary/40">
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-3 pt-2">
