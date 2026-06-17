@@ -82,18 +82,17 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   };
 
   const handleNavigateToNotesHistory = () => {
-    // 1. Set stateful navigation pointer
-    useDataStore.getState().setNotesViewGoal('history');
-    // 2. Close quick capture modal
+    // 1. Close quick capture modal
     onClose();
-    // 3. Switch main tab to MENU
-    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'menu' } }));
+    // 2. Open the global Notes History Overlay
+    useDataStore.getState().setNotesHistoryOpen(true);
   };
 
   const handleNavigateToLinksHistory = () => {
+    // 1. Close quick capture modal
     onClose();
-    // Dispatch event to open existing links list screen
-    window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'links-list' } }));
+    // 2. Open the global Links History Overlay
+    useDataStore.getState().setLinksHistoryOpen(true);
   };
 
   return (

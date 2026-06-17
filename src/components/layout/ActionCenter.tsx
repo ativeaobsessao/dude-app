@@ -3125,7 +3125,11 @@ export const ActionCenter = () => {
                         setIsOpen(false);
                         setCurrentScreen(null);
                       }}
-                      onNavigateToViewAll={() => setCurrentScreen('links-list')}
+                      onNavigateToViewAll={() => {
+                        setIsOpen(false);
+                        setCurrentScreen(null);
+                        useDataStore.getState().setLinksHistoryOpen(true);
+                      }}
                     />
                     {renderBottomBackButton()}
                   </div>

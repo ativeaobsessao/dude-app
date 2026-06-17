@@ -65,9 +65,7 @@ export const LinksHeroBlock = () => {
   };
 
   const handleVerTodos = () => {
-    window.dispatchEvent(
-      new CustomEvent('open-action-center', { detail: { screen: 'links-list' } })
-    );
+    useDataStore.getState().setLinksHistoryOpen(true);
   };
 
   const inputClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px]";

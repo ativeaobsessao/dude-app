@@ -24,6 +24,8 @@ import { AccountPanel } from './components/layout/AccountPanel';
 import { PWAInstallPrompt } from './components/layout/PWAInstallPrompt';
 import { PWAProvider } from './context/PWAContext';
 import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
+import { NotesHistoryOverlay } from './components/dashboard/NotesHistoryOverlay';
+import { LinksListScreen } from './components/links/LinksListScreen';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -825,6 +827,41 @@ export default function App() {
             onClose={() => setShowQuickCapture(false)}
           />
         )}
+
+        {/* Global Overlays for Notes and Links History */}
+        <AnimatePresence>
+          {dataStore.isNotesHistoryOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[550] flex flex-col justify-end"
+            >
+              <NotesHistoryOverlay
+                isOpen={dataStore.isNotesHistoryOpen}
+                onClose={() => dataStore.setNotesHistoryOpen(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {dataStore.isLinksHistoryOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-x-0 top-0 bottom-20 z-[210] bg-[#0c100e]/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
+            >
+              <div className="w-full max-w-2xl space-y-10 pb-20">
+                <LinksListScreen
+                  onBack={() => dataStore.setLinksHistoryOpen(false)}
+                  onBackToMenu={() => dataStore.setLinksHistoryOpen(false)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showSignOutConfirm && (

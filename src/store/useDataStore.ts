@@ -158,8 +158,10 @@ interface DataState {
   clearNotification: () => void;
   urgeTimerSeconds: number | null;
   setUrgeTimerSeconds: (seconds: number | null | ((prev: number | null) => number | null)) => void;
-  notesViewGoal: 'history' | null;
-  setNotesViewGoal: (goal: 'history' | null) => void;
+  isNotesHistoryOpen: boolean;
+  setNotesHistoryOpen: (open: boolean) => void;
+  isLinksHistoryOpen: boolean;
+  setLinksHistoryOpen: (open: boolean) => void;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -205,9 +207,13 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({ urgeTimerSeconds: param });
     }
   },
-  notesViewGoal: null,
-  setNotesViewGoal: (goal: 'history' | null) => {
-    set({ notesViewGoal: goal });
+  isNotesHistoryOpen: false,
+  setNotesHistoryOpen: (open: boolean) => {
+    set({ isNotesHistoryOpen: open });
+  },
+  isLinksHistoryOpen: false,
+  setLinksHistoryOpen: (open: boolean) => {
+    set({ isLinksHistoryOpen: open });
   },
   clearNotification: () => {
     const tid = get().notificationTimeoutId;
