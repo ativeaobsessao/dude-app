@@ -62,13 +62,13 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   const selectedDateSnapshot = useMemo(() => {
     if (!selectedDate) return null;
     
-    const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
+    const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === getLocalDateString(selectedDate));
     const dayMins = daySessions.reduce((acc, s) => acc + (s.actual_duration_minutes || s.duration_minutes || 0), 0);
     
-    const dayMoodEntry = moodEntries.find(m => m.date === selectedDate);
+    const dayMoodEntry = moodEntries.find(m => getLocalDateString(m.date) === getLocalDateString(selectedDate));
     const dayMoodObj = dayMoodEntry ? MOOD_LIST.find(m => m.key === dayMoodEntry.mood) : null;
     
-    const dayAvoidanceCheckins = avoidanceCheckins.filter(ac => ac.checkin_date === selectedDate);
+    const dayAvoidanceCheckins = avoidanceCheckins.filter(ac => getLocalDateString(ac.checkin_date) === getLocalDateString(selectedDate));
     
     return {
       daySessions,
@@ -541,8 +541,37 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         else targetPeriod = 'noite';
       }
       
-      const match = moodEntries.find(m => m.date === c.checkin_date && m.period === targetPeriod)
-                 || moodEntries.find(m => m.date === c.checkin_date);
+      const checkinDateNorm = getLocalDateString(c.checkin_date || c.created_at);
+
+      // Passo A: Tente encontrar o humor no mesmo dia (Data Normalizada) e mesmo período.
+      let match = moodEntries.find(m => getLocalDateString(m.date) === checkinDateNorm && m.period === targetPeriod);
+      
+      // Passo B (Fallback 1): Se falhar, encontre qualquer registro de humor naquele mesmo dia.
+      if (!match) {
+        match = moodEntries.find(m => getLocalDateString(m.date) === checkinDateNorm);
+      }
+      
+      // Passo C (Fallback 2 - Smart Fallback): Se o usuário não registrou humor no dia exato da recaída,
+      // ordene o moodEntries por data decrescente e capture o registro de humor MAIS RECENTE anterior à data da recaída.
+      if (!match) {
+        const priorMoodEntries = [...moodEntries]
+          .filter(m => {
+            const mDate = getLocalDateString(m.date);
+            return mDate < checkinDateNorm;
+          })
+          .sort((a, b) => {
+            const aDate = getLocalDateString(a.date);
+            const bDate = getLocalDateString(b.date);
+            if (aDate !== bDate) {
+              return bDate.localeCompare(aDate);
+            }
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+        
+        if (priorMoodEntries.length > 0) {
+          match = priorMoodEntries[0];
+        }
+      }
                  
       if (match) {
         if (match.energy && match.energy in byEnergy) {
@@ -695,12 +724,12 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   // PILLAR D — HUMOR / MOOD GATHERING & CROSS-INSIGHTS
   // ----------------------------------------------------
   const moodAnalytics = useMemo(() => {
-    // 1. Get filtered mood logs based on selected period
+    // 1. Get filtered mood logs based on selected period with safe local date normalization
     const targetSet = period === 'all' 
       ? null 
       : getDatesRangeSet(0, period === 'today' ? 1 : (period === 'week' ? 7 : 30));
     const filtered = targetSet 
-      ? moodEntries.filter(m => targetSet.has(m.date))
+      ? moodEntries.filter(m => targetSet.has(getLocalDateString(m.date)))
       : moodEntries;
 
     // 2. Compute dominant mood of the period
@@ -735,13 +764,26 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
 
     // 4. Mood over time strip (Option A: a per-day strip/heatmap)
-    const totalDays = period === 'today' ? 1 : (period === 'week' ? 7 : 30);
+    let totalDays = period === 'today' ? 1 : (period === 'week' ? 7 : 30);
+    if (period === 'all' && moodEntries.length > 0) {
+      const dates = moodEntries.map(m => getLocalDateString(m.date)).filter(Boolean);
+      if (dates.length > 0) {
+        dates.sort();
+        const oldestStr = dates[0];
+        const oldestDate = new Date(oldestStr + 'T12:00:00');
+        const todayDate = new Date();
+        const diffTime = todayDate.getTime() - oldestDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        totalDays = Math.max(30, diffDays + 1);
+      }
+    }
+
     const stripDays = Array.from({ length: totalDays }, (_, idx) => {
       const d = new Date();
       d.setDate(d.getDate() - (totalDays - 1 - idx)); // oldest to newest (left to right)
       const dStr = getLocalDateString(d);
       
-      const dayMoods = moodEntries.filter(m => m.date === dStr);
+      const dayMoods = moodEntries.filter(m => getLocalDateString(m.date) === dStr);
       let dayDominant: MoodKey | null = null;
       if (dayMoods.length > 0) {
         const counts: Record<string, number> = {};
@@ -786,8 +828,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     const dailyDominantMood: Record<string, MoodKey> = {};
     const dailyMoodsMap: Record<string, MoodEntry[]> = {};
     moodEntries.forEach(m => {
-      if (!dailyMoodsMap[m.date]) dailyMoodsMap[m.date] = [];
-      dailyMoodsMap[m.date].push(m);
+      const normalizedDate = getLocalDateString(m.date);
+      if (normalizedDate) {
+        if (!dailyMoodsMap[normalizedDate]) dailyMoodsMap[normalizedDate] = [];
+        dailyMoodsMap[normalizedDate].push(m);
+      }
     });
 
     Object.entries(dailyMoodsMap).forEach(([dateStr, list]) => {
@@ -853,8 +898,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       }
 
       // Morning down day check
-      const morningDownDays = moodEntries.filter(m => m.period === 'manha' && m.mood === 'prabaixo').map(m => m.date);
-      const morningClearDays = moodEntries.filter(m => m.period === 'manha' && m.mood !== 'prabaixo' && m.mood !== 'ansioso').map(m => m.date);
+      const morningDownDays = moodEntries.filter(m => m.period === 'manha' && m.mood === 'prabaixo').map(m => getLocalDateString(m.date));
+      const morningClearDays = moodEntries.filter(m => m.period === 'manha' && m.mood !== 'prabaixo' && m.mood !== 'ansioso').map(m => getLocalDateString(m.date));
       if (morningDownDays.length >= 1 && morningClearDays.length >= 2) {
         const avgDown = morningDownDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningDownDays.length;
         const avgClear = morningClearDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningClearDays.length;
@@ -871,7 +916,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       const weekdayCounts: Record<number, Record<MoodKey, number>> = {};
       
       moodEntries.forEach(m => {
-        const dateObj = new Date(m.date + 'T12:00:00'); // avoid timezone offsets
+        const dateObj = new Date(getLocalDateString(m.date) + 'T12:00:00'); // avoid timezone offsets
         const wday = dateObj.getDay();
         if (!weekdayCounts[wday]) {
           weekdayCounts[wday] = { animado: 0, tranquilo: 0, neutro: 0, ansioso: 0, prabaixo: 0 };
@@ -948,7 +993,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     moodEntries.forEach(m => {
       if (!m.energy) return;
-      const key = `${m.date}_${m.period}`;
+      const key = `${getLocalDateString(m.date)}_${m.period}`;
       const minsObj = periodFocusDuration[key] || 0;
       focusDurationByEnergy[m.energy].push(minsObj);
     });
@@ -1008,7 +1053,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     // RISK PATTERN (gentle, never shaming)
     const tiredFocusDates = moodEntries
       .filter(m => m.energy === 'cansado')
-      .map(m => m.date)
+      .map(m => getLocalDateString(m.date))
       .filter(date => (dailyFocusDurationOnStats[date] || 0) > 0);
 
     let nextDayFocusAfterTiredSum = 0;
