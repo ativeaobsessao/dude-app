@@ -367,7 +367,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         })(),
       ]);
 
-      const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as MoodEntry[]) : [];
+      const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as any[]).map(item => ({
+        ...item,
+        date: item.entry_date || item.date
+      })) : [];
       let combinedMoods = [...fetchedMoods];
       try {
         const cachedStr = localStorage.getItem('dude-mood-entries');
@@ -544,7 +547,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       ]);
 
       if (moodRes && moodRes.data && !moodRes.error) {
-        const sortedMoods = [...(moodRes.data as MoodEntry[])];
+        const sortedMoods = (moodRes.data as any[]).map(item => ({
+          ...item,
+          date: item.entry_date || item.date
+        }));
         sortedMoods.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         set({ moodEntries: sortedMoods });
         try {
@@ -1953,7 +1959,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         .from('mood_entries')
         .insert({
           user_id: userId,
-          date,
+          entry_date: date,
           period,
           mood,
           energy: energy || null
@@ -1963,14 +1969,15 @@ export const useDataStore = create<DataState>((set, get) => ({
       
       if (error) throw error;
       if (data) {
-        const finalEntries = get().moodEntries.map(m => m.id === tempId ? data : m);
+        const mappedData = { ...data, date: data.entry_date || data.date };
+        const finalEntries = get().moodEntries.map(m => m.id === tempId ? mappedData : m);
         set({ moodEntries: finalEntries });
         try {
           localStorage.setItem('dude-mood-entries', JSON.stringify(finalEntries));
         } catch (err) {
           console.error('Local Storage update mood error:', err);
         }
-        return data;
+        return mappedData;
       }
     } catch (err) {
       console.warn('Supabase sync warning for mood entry (cached locally only):', err);

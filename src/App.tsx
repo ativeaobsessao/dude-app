@@ -129,7 +129,7 @@ export default function App() {
           .from('mood_entries')
           .select('id')
           .eq('user_id', user.id)
-          .eq('date', todayStr)
+          .eq('entry_date', todayStr)
           .eq('period', period)
       ]);
 
