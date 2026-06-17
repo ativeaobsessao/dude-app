@@ -58,6 +58,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   // Selected cell in Humor heat map
   const [tappedMoodDayStr, setTappedMoodDayStr] = useState<string | null>(null);
 
+  // Modal expander state for completed tasks
+  const [showCompletedTasksModal, setShowCompletedTasksModal] = useState(false);
+
   // Selected date snapshot for correlation analysis (Máquina do Tempo)
   const selectedDateSnapshot = useMemo(() => {
     if (!selectedDate) return null;
@@ -1275,6 +1278,13 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       .sort((a, b) => new Date(b.created_at || b.checkin_date).getTime() - new Date(a.created_at || a.checkin_date).getTime());
   }, [avoidanceCheckins, habits]);
 
+  const completedTasksCount = useMemo(() => {
+    const periodSessionIds = new Set(periodSessions.map(s => s.id));
+    return sessionTasks.filter(t => periodSessionIds.has(t.session_id) && t.completed).length;
+  }, [periodSessions, sessionTasks]);
+
+  const firstName = profile?.full_name?.split(' ')[0] || 'Campeão';
+
   return (
     <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
       <motion.div
@@ -1285,16 +1295,16 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       >
         {/* HEADER SECTION */}
         <header className="space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#6ee7a8]/10 border border-[#6ee7a8]/30 rounded-full text-[#6ee7a8]">
             <Sparkles size={13} className="animate-pulse" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider font-sans">Raio-X do seu Tempo</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-widest font-sans">Raio-X do seu Tempo</span>
           </div>
-          <div className="space-y-1">
-            <h2 className="text-2xl md:text-3.5xl font-black tracking-tight text-text-primary uppercase font-sans">
-              Centro de Inteligência Pessoal
+          <div className="space-y-1 text-left">
+            <h2 className="text-3xl md:text-4.5xl font-extrabold tracking-tight text-text-primary font-sans leading-tight">
+              {firstName}, Aqui está o seu Centro de Inteligência
             </h2>
-            <p className="text-xs md:text-sm text-text-secondary/70 font-medium max-w-2xl leading-normal">
-              Uma visão completa de como você está utilizando seu tempo e construindo consistência.
+            <p className="text-sm md:text-base text-text-secondary/80 font-medium max-w-2xl leading-normal font-sans">
+              Uma visão completa de como você está utilizando seu tempo e construindo novos hábitos.
             </p>
           </div>
         </header>
@@ -1355,147 +1365,200 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
           {/* METRICS BENTO GRID */}
           <section className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
-            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Sessões</span>
-              <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.sessionCount}</span>
+            {/* Card 1: Sessões */}
+            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
+              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{supportingStats.sessionCount}</span>
+              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Sessões</span>
             </div>
-            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Projetos</span>
-              <span className="text-2xl font-black text-text-primary font-mono mt-2">{supportingStats.projectsCount}</span>
+            {/* Card 2: Projetos */}
+            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
+              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{supportingStats.projectsCount}</span>
+              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Projetos</span>
             </div>
-            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Dias Invictos</span>
-              <span className="text-2xl font-black text-primary-green font-mono mt-2">
-                {currentStreak} {currentStreak === 1 ? 'dia invicto' : 'dias invictos'}
-              </span>
+            {/* Card 3: Dias Invictos */}
+            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
+              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-[#6ee7a8] font-mono block leading-none">{currentStreak}</span>
+              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Dias Invictos</span>
             </div>
-            <div className="bg-white/[0.01] border border-white/5 p-4 rounded-2.5xl flex flex-col justify-between font-sans">
-              <span className="text-[10px] uppercase tracking-wider text-text-secondary/65 font-semibold font-sans">Recorde Pessoal</span>
-              <span className="text-2xl font-black text-text-primary font-mono mt-2">
-                {bestStreak} {bestStreak === 1 ? 'dia seguido' : 'dias seguidos'}
-              </span>
+            {/* Card 4: Recorde Pessoal */}
+            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
+              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{bestStreak}</span>
+              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Recorde Pessoal</span>
             </div>
           </section>
         </div>
 
-        {/* TAREFAS REALIZADAS NO DIA (migrated from HeroSection, respects generator select) */}
-        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-              <CheckSquare size={12} className="text-primary-green" /> Tarefas Realizadas {
-                period === 'today' ? 'no Dia' : period === 'week' ? 'na Semana' : period === 'month' ? 'no Mês' : 'no Total'
-              }
-            </h3>
-            <span className="text-[10px] md:text-xs font-mono font-medium text-text-secondary/50 bg-white/5 px-2.5 py-0.5 rounded-full">
-              {periodSessions.length} {periodSessions.length === 1 ? 'sessão' : 'sessões'}
-            </span>
-          </div>
+        {/* TAREFAS REALIZADAS NO DIA - SUBSTITUÍDO POR CARD EXPANSÍVEL BENTO E MODAL */}
+        <section className="font-sans">
+          <button
+            onClick={() => setShowCompletedTasksModal(true)}
+            className="w-full flex items-center justify-between p-5 bg-white/[0.01] hover:bg-white/[0.025] border border-white/5 hover:border-primary-green/30 rounded-3xl transition-all duration-300 group cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-4 font-sans">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-green/20 to-primary-green/5 flex items-center justify-center border border-primary-green/20 text-xl font-sans group-hover:scale-105 transition-transform">
+                ✅
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-lg font-black text-text-primary tracking-tight font-sans block group-hover:text-primary-green transition-colors leading-tight">
+                  {completedTasksCount} {completedTasksCount === 1 ? 'Tarefa Concluída' : 'Tarefas Concluídas'} {
+                    period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'no Total'
+                  }
+                </span>
+                <span className="text-xs text-text-secondary/60 font-semibold block uppercase tracking-wider">
+                  Visualizar Diário de Atividades e Métricas · {periodSessions.length} {periodSessions.length === 1 ? 'sessão' : 'sessões'}
+                </span>
+              </div>
+            </div>
+            <div className="text-text-secondary/40 group-hover:text-primary-green transition-all duration-300 transform group-hover:translate-x-1 p-2 bg-white/5 rounded-full">
+              <ChevronDown size={14} className="-rotate-90" />
+            </div>
+          </button>
 
-          <div className="space-y-4 text-left">
-            {periodSessions.length > 0 ? (
-              periodSessions.map(session => {
-                const resolved = resolverNomeSessao(session, habits, projects);
-                const isPartial = session.parcial === true || 
-                                 (session.actual_duration_minutes !== null && 
-                                  session.actual_duration_minutes !== undefined && 
-                                  session.actual_duration_minutes < session.duration_minutes);
-                const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
-                const formattedDuration = formatSessionDuration(durationToUse);
-                const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+          {/* OVERLAY MODAL FOR COMPLETED TASKS & LOGS */}
+          <AnimatePresence>
+            {showCompletedTasksModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowCompletedTasksModal(false)}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
+                />
 
-                const tasks = sessionTasks.filter(t => t.session_id === session.id);
-                const completedTasks = tasks.filter(t => t.completed);
-
-                return (
-                  <div key={session.id} className="flex gap-3 text-left items-start border-b border-white/5 pb-3 last:border-b-0 last:pb-0 font-sans">
-                    <CheckSquare 
-                      size={14} 
-                      className="shrink-0 mt-1" 
-                      style={{ color: isPartial ? 'var(--amber)' : '#10b981' }}
-                    />
-                    <div className="flex-1 min-w-0 font-sans">
-                      <div className="flex items-center gap-2 flex-wrap font-sans">
-                        <span className="text-sm font-semibold text-text-primary break-words max-w-full">
-                          {resolved.titulo}
-                        </span>
-                        <span className="text-text-secondary/30">—</span>
-                        <span className="text-xs text-text-secondary/65 truncate font-light uppercase tracking-widest font-mono font-bold">
-                          {resolved.projeto}
-                        </span>
-                        {session.scheduled_activity_id && (
-                          <span 
-                            className="inline-flex items-center font-bold font-mono"
-                            style={{
-                              backgroundColor: 'rgba(167, 139, 250, 0.12)',
-                              border: '0.5px solid rgba(167, 139, 250, 0.25)',
-                              color: 'var(--violet)',
-                              fontSize: '9px',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              padding: '2px 6px',
-                              borderRadius: '999px',
-                              lineHeight: '1'
-                            }}
-                          >
-                            AGENDADA
-                          </span>
-                        )}
-                        {isPartial && (
-                          <span 
-                            className="inline-flex items-center font-bold font-mono"
-                            style={{
-                              backgroundColor: 'rgba(251, 191, 36, 0.12)',
-                              border: '0.5px solid rgba(251, 191, 36, 0.25)',
-                              color: 'var(--amber)',
-                              fontSize: '9px',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              padding: '2px 6px',
-                              borderRadius: '999px',
-                              lineHeight: '1'
-                            }}
-                          >
-                            INCOMPLETA
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="text-[11px] font-normal leading-normal mt-[2px] flex items-center gap-1.5 text-text-secondary/50 font-mono">
-                        <span>{timeRange}</span>
-                        <span className="text-text-secondary/30">·</span>
-                        <span>{formattedDuration}</span>
-                      </div>
-
-                      {/* Checklist */}
-                      {completedTasks.length > 0 && (
-                        <div className="mt-2 space-y-1 pl-1 font-sans">
-                          {completedTasks.map(task => (
-                            <div key={task.id} className="flex items-center gap-2 text-xs text-text-secondary/80 font-sans">
-                              <span className="text-primary-green select-none text-[13px]">☑</span>
-                              <span className="line-through decoration-white/10 text-text-secondary/50 font-sans">{task.description}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                {/* Modal Container */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                  className="relative w-full max-w-2xl bg-surface border border-white/10 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[85vh] font-sans"
+                >
+                  {/* Modal Header */}
+                  <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                    <div className="space-y-1 text-left">
+                      <h4 className="text-lg md:text-xl font-extrabold text-text-primary tracking-tight font-sans flex items-center gap-2">
+                        <span className="text-primary-green">☑</span> Diário de Atividades Concluídas
+                      </h4>
+                      <p className="text-xs text-text-secondary/65 uppercase tracking-wider font-semibold font-mono">
+                        {periodSessions.length} {periodSessions.length === 1 ? 'sessão registrada' : 'sessões registradas'} no período selecionado
+                      </p>
                     </div>
+                    <button
+                      onClick={() => setShowCompletedTasksModal(false)}
+                      className="p-2.5 hover:bg-white/5 rounded-xl text-text-secondary/70 hover:text-text-primary transition-colors cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
-                );
-              })
-            ) : (
-              <p className="text-xs md:text-sm text-text-secondary/40 italic font-light pt-2 text-center font-sans">
-                Nenhuma sessão realizada neste período.
-              </p>
+
+                  {/* Modal Scrollable Body */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar text-left font-sans">
+                    {periodSessions.length > 0 ? (
+                      periodSessions.map(session => {
+                        const resolved = resolverNomeSessao(session, habits, projects);
+                        const isPartial = session.parcial === true || 
+                                         (session.actual_duration_minutes !== null && 
+                                          session.actual_duration_minutes !== undefined && 
+                                          session.actual_duration_minutes < session.duration_minutes);
+                        const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
+                        const formattedDuration = formatSessionDuration(durationToUse);
+                        const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
+
+                        const tasks = sessionTasks.filter(t => t.session_id === session.id);
+                        const completedTasks = tasks.filter(t => t.completed);
+
+                        return (
+                          <div key={session.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-2xl flex gap-3.5 items-start font-sans">
+                            <CheckSquare 
+                              size={15} 
+                              className="shrink-0 mt-1" 
+                              style={{ color: isPartial ? 'var(--amber)' : '#10b981' }}
+                            />
+                            <div className="flex-1 min-w-0 font-sans">
+                              <div className="flex items-center gap-2 flex-wrap font-sans">
+                                <span className="text-sm md:text-base font-extrabold text-text-primary break-words max-w-full">
+                                  {resolved.titulo}
+                                </span>
+                                <span className="text-text-secondary/30">—</span>
+                                <span className="text-xs text-text-secondary/60 truncate font-bold uppercase tracking-widest font-mono">
+                                  {resolved.projeto}
+                                </span>
+                                {session.scheduled_activity_id && (
+                                  <span 
+                                    className="inline-flex items-center font-bold font-mono text-[9px] bg-purple-500/10 border border-purple-500/20 text-purple-400 tracking-wider py-0.5 px-2 rounded-full"
+                                  >
+                                    AGENDADA
+                                  </span>
+                                )}
+                                {isPartial && (
+                                  <span 
+                                    className="inline-flex items-center font-bold font-mono text-[9px] bg-amber-500/10 border border-amber-500/20 text-amber-400 tracking-wider py-0.5 px-2 rounded-full"
+                                  >
+                                    INCOMPLETA
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="text-[11px] md:text-xs font-semibold leading-normal mt-1 flex items-center gap-1.5 text-text-secondary/50 font-mono">
+                                <span>{timeRange}</span>
+                                <span className="text-text-secondary/30">·</span>
+                                <span>{formattedDuration}</span>
+                              </div>
+
+                              {/* Checklist tasks of the session */}
+                              {tasks.length > 0 ? (
+                                <div className="mt-3.5 space-y-2 pl-1 border-t border-white/5 pt-3 font-sans">
+                                  {tasks.map(task => (
+                                    <div key={task.id} className="flex items-center gap-2.5 text-xs md:text-sm text-text-secondary/80 font-sans">
+                                      <span className={task.completed ? "text-primary-green select-none font-bold" : "text-text-secondary/30 select-none"}>
+                                        {task.completed ? "☑" : "☐"}
+                                      </span>
+                                      <span className={task.completed ? "line-through decoration-white/10 text-text-secondary/40 font-medium" : "text-text-primary font-medium"}>
+                                        {task.description}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] md:text-xs text-text-secondary/40 italic font-medium mt-3 font-sans">
+                                  Nenhum item de checklist associado a esta sessão de foco.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs md:text-sm text-text-secondary/40 italic font-light pt-4 text-center font-sans">
+                        Nenhuma sessão realizada neste período.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-5 border-t border-white/5 bg-white/[0.01] flex justify-end">
+                    <button
+                      onClick={() => setShowCompletedTasksModal(false)}
+                      className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold text-text-primary uppercase tracking-wider rounded-xl transition-all cursor-pointer font-sans"
+                    >
+                      Fechar Diário
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
             )}
-          </div>
+          </AnimatePresence>
         </section>
 
         {/* ONDE SEU TEMPO FOI */}
-        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
+        <section className="bg-white/[0.015] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
           <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
             <Target size={12} className="text-primary-green" /> Onde seu tempo foi
           </h3>
 
-          <div className="space-y-4 font-sans">
+          <div className="space-y-4 font-sans text-left">
             {projectDistribution.length === 0 ? (
               <div className="py-8 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-2xl font-sans">
                 <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans">Sem sessões de foco neste período.</p>
@@ -1506,60 +1569,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                   <div className="flex justify-between items-baseline text-xs md:text-sm font-sans">
                     <span className="font-semibold text-text-primary max-w-[65%] truncate block font-sans">{item.name}</span>
                     <span className="text-text-secondary/80 text-right whitespace-nowrap block font-sans">
-                      {formatCompactDuration(item.mins)} · <strong className="text-primary-green font-bold">{item.percent}%</strong>
+                      {formatCompactDuration(item.mins)} · <strong className="text-[#6ee7a8] font-bold">{item.percent}%</strong>
                     </span>
                   </div>
                   {/* Compact progress bar */}
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-primary-green rounded-full transition-all duration-300" 
+                      className="h-full bg-gradient-to-r from-primary-green/80 to-[#6ee7a8] rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(110,231,168,0.3)]" 
                       style={{ width: `${item.percent}%` }}
                     />
                   </div>
                 </div>
               ))
             )}
-          </div>
-        </section>
-
-        {/* CONSISTÊNCIA DE AÇÕES */}
-        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
-          <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
-            <Activity size={12} className="text-primary-green" /> Consistência de Ações
-          </h3>
-
-          <div className="flex items-center justify-between gap-4 font-sans">
-            <div className="space-y-1 font-sans">
-              <span className="text-[10px] md:text-xs font-semibold text-text-secondary/75 uppercase tracking-wide block font-sans">Eficácia Geral</span>
-              <p className="text-xs text-text-secondary/70 leading-normal max-w-[280px] font-sans">
-                Você participou de focar, hábitos ou prevenção de distrações em <strong className="text-text-primary font-bold">{consistencyStats.activeDays}</strong> de <strong className="text-text-primary font-bold">{consistencyStats.totalDays} dias</strong> selecionados.
-              </p>
-            </div>
-
-            {/* Minimalist radial circle */}
-            <div className="relative w-18 h-18 shrink-0 font-sans">
-              <svg className="w-full h-full transform -rotate-90 animate-fade-in" viewBox="0 0 36 36">
-                <path
-                  className="text-white/5"
-                  strokeWidth="3.5"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-primary-green transition-all duration-700"
-                  strokeWidth="3.5"
-                  strokeDasharray={`${consistencyStats.rate}, 100`}
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xs md:text-sm font-bold font-mono text-primary-green leading-none">{consistencyStats.rate}%</span>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -1614,6 +1636,68 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 Sem foco registrado nos últimos 7 dias.
               </p>
             )}
+          </div>
+        </section>
+
+        {/* SUA EVOLUÇÃO (BENTO INSIGHTS GRID) */}
+        <section className="space-y-4 font-sans text-left">
+          <div className="space-y-1">
+            <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-text-primary font-sans">
+              Sua Evolução
+            </h3>
+            <p className="text-xs md:text-sm text-text-secondary/70 leading-normal font-sans">
+              A DUDE analisou seu histórico comportamental e mapeou estas tendências de alta performance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+            {/* Card 1: Foco e Projetos */}
+            <div className="p-5 bg-white/[0.012] border border-white/5 hover:border-white/10 rounded-3xl flex flex-col justify-between font-sans min-h-[140px] text-left transition-all duration-300">
+              <span className="text-[10px] md:text-xs font-bold text-[#6ee7a8] uppercase tracking-widest block">🎯 Foco e Projetos</span>
+              <p className="text-sm md:text-base font-semibold text-text-primary leading-relaxed mt-2.5 font-sans">
+                {projectDistribution.length > 0 ? (
+                  `Você dedicou ${formatCompactDuration(projectDistribution[0].mins)} ao projeto "${projectDistribution[0].name}" neste período, consolidando seu foco.`
+                ) : (
+                  `Inicie uma sessão de foco vinculada a um de seus projetos para que a DUDE identifique sua área dominante de flow.`
+                )}
+              </p>
+            </div>
+
+            {/* Card 2: Consistência (Streak) */}
+            <div className="p-5 bg-white/[0.012] border border-white/5 hover:border-white/10 rounded-3xl flex flex-col justify-between font-sans min-h-[140px] text-left transition-all duration-300">
+              <span className="text-[10px] md:text-xs font-bold text-[#6ee7a8] uppercase tracking-widest block">🔥 Consistência e Ritmo</span>
+              <p className="text-sm md:text-base font-semibold text-text-primary leading-relaxed mt-2.5 font-sans">
+                {currentStreak > 0 ? (
+                  `Sua consistência está ativa com ${currentStreak} ${currentStreak === 1 ? 'dia invicto de foco acumulado' : 'dias invictos de foco acumulados'} seguidos.`
+                ) : (
+                  `Seu recorde de foco é de ${bestStreak} ${bestStreak === 1 ? 'dia seguido' : 'dias seguidos'}. Inicie hoje para restabelecer seu ritmo!`
+                )}
+              </p>
+            </div>
+
+            {/* Card 3: Humor / Neurociência */}
+            <div className="p-5 bg-white/[0.012] border border-white/5 hover:border-white/10 rounded-3xl flex flex-col justify-between font-sans min-h-[140px] text-left transition-all duration-300">
+              <span className="text-[10px] md:text-xs font-bold text-[#6ee7a8] uppercase tracking-widest block">🧠 Estado de Disposição</span>
+              <p className="text-sm md:text-base font-semibold text-text-primary leading-relaxed mt-2.5 font-sans">
+                {moodAnalytics.dominantMoodOfPeriod ? (
+                  `Identificamos que nos dias em que seu humor esteve "${MOODS[moodAnalytics.dominantMoodOfPeriod]?.label || 'Equilibrado'}", sua produtividade média tendeu a ser superior.`
+                ) : (
+                  `A DUDE cruzará seu nível de humor com seu foco à medida que você registrar novos rituais diários.`
+                )}
+              </p>
+            </div>
+
+            {/* Card 4: Palavra Cumprida / Compromissos */}
+            <div className="p-5 bg-white/[0.012] border border-white/5 hover:border-white/10 rounded-3xl flex flex-col justify-between font-sans min-h-[140px] text-left transition-all duration-300">
+              <span className="text-[10px] md:text-xs font-bold text-[#6ee7a8] uppercase tracking-widest block">🛡️ Palavra Cumprida</span>
+              <p className="text-sm md:text-base font-semibold text-text-primary leading-relaxed mt-2.5 font-sans">
+                {scheduleCompliance.rate > 0 ? (
+                  `Você manteve uma taxa excelente com ${scheduleCompliance.rate}% de palavra cumprida em seus compromissos e rituais agendados.`
+                ) : (
+                  `Acompanhe a integridade dos seus acordos diários agendando novos rituais de autocuidado e trabalho profundo.`
+                )}
+              </p>
+            </div>
           </div>
         </section>
 
@@ -2359,132 +2443,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                         </p>
                       </div>
                     ) : (
-                      <>
-                        {/* 1. MOOD OVER TIME (Heatmap / Strip) */}
-                        <div className="space-y-3 font-sans">
-                          <div className="flex justify-between items-baseline font-sans">
-                            <span className="text-xs font-bold text-text-primary uppercase tracking-wider block font-sans">Evolução do Humor</span>
-                            <span className="text-[10px] text-text-secondary/60 font-sans">Toque em um dia para ver os períodos</span>
-                          </div>
-
-                          <div className="w-full bg-white/[0.015] border border-white/5 p-4 rounded-xl space-y-3 font-sans">
-                            {/* Flex layout with gap matching heatmaps */}
-                            <div className={`grid ${period === 'week' ? 'grid-cols-7' : 'grid-cols-5 sm:grid-cols-10'} gap-2 w-full font-sans`}>
-                              {moodAnalytics.stripDays.map((day, idx) => {
-                                const hasMood = !!day.dominantMood;
-                                const md = day.dominantMood ? MOODS[day.dominantMood] : null;
-                                const isSelected = tappedMoodDayStr === day.dateStr;
-
-                                return (
-                                  <button
-                                    key={idx}
-                                    onClick={() => setTappedMoodDayStr(isSelected ? null : day.dateStr)}
-                                    className={`relative flex flex-col items-center justify-between p-2 rounded-xl border transition-all duration-300 aspect-square sm:aspect-auto hover:brightness-110 active:scale-95 cursor-pointer select-none font-sans ${
-                                      hasMood 
-                                        ? 'border-white/5 hover:scale-105' 
-                                        : 'bg-white/[0.02] border-white/[0.02] text-text-secondary/30'
-                                    } ${isSelected ? 'ring-2 ring-primary-green/60 border-primary-green scale-105 shadow-inner' : ''}`}
-                                    style={{
-                                      backgroundColor: md ? `${md.color}15` : undefined,
-                                      borderColor: md ? `${md.color}35` : undefined,
-                                    }}
-                                  >
-                                    <span className="text-[9px] font-bold text-text-secondary/60 uppercase tracking-tight block">
-                                      {day.dayName}
-                                    </span>
-                                    <span className="text-[10px] font-bold text-text-secondary/50 block tracking-tighter my-0.5">
-                                      {day.dayLabel.split(' ')[0]}
-                                    </span>
-                                    <div className="flex items-center justify-center h-6 w-full text-sm">
-                                      {md ? (
-                                        <span role="img" aria-label={md.label} className="animate-fade-in block">
-                                          {md.emoji}
-                                        </span>
-                                      ) : (
-                                        <span className="text-text-secondary/40">·</span>
-                                      )}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Tapped Day Detail Section */}
-                            {tappedMoodDayStr && (() => {
-                              const selectedDay = moodAnalytics.stripDays.find(d => d.dateStr === tappedMoodDayStr);
-                              if (!selectedDay) return null;
-
-                              const pWeights = { manha: 'Manhã 🌅', tarde: 'Tarde ☀️', noite: 'Noite 🌙' };
-
-                              return (
-                                <motion.div 
-                                  initial={{ opacity: 0, y: -5 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  className="p-3 bg-white/[0.02] border border-white/5 rounded-lg space-y-2 mt-2 font-sans text-left"
-                                >
-                                  <span className="text-[10px] font-bold text-text-secondary/80 uppercase tracking-wider block">
-                                    Registros detalhados em {selectedDay.dayLabel}:
-                                  </span>
-                                  <div className="grid grid-cols-3 gap-2 font-sans">
-                                    {(['manha', 'tarde', 'noite'] as const).map(pKey => {
-                                      const matching = selectedDay.allMoods.find(m => m.period === pKey);
-                                      const mdMeta = matching ? MOODS[matching.mood] : null;
-
-                                      return (
-                                        <div key={pKey} className="p-2 bg-white/[0.01] border border-white/5 rounded-lg text-center space-y-1 font-sans">
-                                          <span className="text-[9px] font-semibold text-text-secondary/50 block uppercase">
-                                            {pWeights[pKey]}
-                                          </span>
-                                          <div className="text-xs font-bold font-sans flex items-center justify-center gap-1">
-                                            {mdMeta ? (
-                                              <span className="flex items-center gap-1">
-                                                <span>{mdMeta.emoji}</span>
-                                                <span className="capitalize text-[10px] text-text-primary" style={{ color: mdMeta.color }}>{mdMeta.label}</span>
-                                              </span>
-                                            ) : (
-                                              <span className="text-text-secondary/40 text-[10px] font-normal">-</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </motion.div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-
-                        {/* 2. MOOD DISTRIBUTION (Breakdown bars) */}
-                        <div className="space-y-3 font-sans">
-                          <span className="text-xs font-bold text-text-primary uppercase tracking-wider block font-sans font-sans">Distribuição dos Tons de Humor</span>
-                          
-                          <div className="space-y-2 bg-white/[0.015] border border-white/5 p-4 rounded-xl font-sans">
-                            {moodAnalytics.distribution.map((item) => (
-                              <div key={item.key} className="space-y-1.5 font-sans font-sans">
-                                <div className="flex justify-between items-baseline text-xs font-sans">
-                                  <span className="font-semibold text-text-primary uppercase tracking-wider text-[10px] flex items-center gap-1.5 min-w-[100px] block">
-                                    <span>{item.emoji}</span>
-                                    <span>{item.label}</span>
-                                  </span>
-                                  <span className="text-text-secondary text-right text-[10px] font-semibold font-mono block">
-                                    {item.count} {item.count === 1 ? 'registro' : 'registros'} · <strong className="font-bold" style={{ color: item.color }}>{item.percent}%</strong>
-                                  </span>
-                                </div>
-                                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full rounded-full transition-all duration-500" 
-                                    style={{ 
-                                      width: `${item.percent}%`,
-                                      backgroundColor: item.color
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
+                      <div className="space-y-4 font-sans text-left">
                         {/* 3. NEW ACTIONABLE ENERGY & FOCUS INSIGHTS */}
                         <div className="space-y-4 font-sans bg-white/[0.015] border border-white/5 p-4 rounded-xl">
                           <h4 className="text-[11px] md:text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5 leading-none">
@@ -2562,7 +2521,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                             </div>
                           )}
                         </div>
-                      </>
+                      </div>
                     )}
                   </motion.div>
                 )}
