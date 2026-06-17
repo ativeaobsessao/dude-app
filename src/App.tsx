@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon, FolderKanban, Layers } from 'lucide-react';
+import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon, FolderKanban, Layers, Zap } from 'lucide-react';
 import { TaskListScreen } from './components/dashboard/TaskListScreen';
 import { CinematicBackground } from './components/layout/CinematicBackground';
 import { HeroSection } from './components/dashboard/HeroSection';
@@ -23,6 +23,7 @@ import { useTimerStore } from './store/useTimerStore';
 import { AccountPanel } from './components/layout/AccountPanel';
 import { PWAInstallPrompt } from './components/layout/PWAInstallPrompt';
 import { PWAProvider } from './context/PWAContext';
+import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate } from './lib/utils';
 import { supabase } from './lib/supabase';
 
@@ -40,6 +41,8 @@ import { ReagendarModal, ReconfigurarModal } from './components/agenda/ScheduleP
 import { MoodRitualModal } from './components/mood/MoodRitualModal';
 import { MOODS } from './lib/mood';
 import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
+
+const ENABLE_QUICK_CAPTURE = true;
 
 export default function App() {
   const { signOut, user } = useAuthStore();
@@ -111,6 +114,7 @@ export default function App() {
 
   const [manualShutdownOpen, setManualShutdownOpen] = useState(false);
   const [manualShutdownDate, setManualShutdownDate] = useState('');
+  const [showQuickCapture, setShowQuickCapture] = useState(false);
 
   const runServerPopupCheck = async () => {
     if (!user) return;
@@ -815,6 +819,13 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        {ENABLE_QUICK_CAPTURE && (
+          <QuickCaptureModal
+            isOpen={showQuickCapture}
+            onClose={() => setShowQuickCapture(false)}
+          />
+        )}
+
         <AnimatePresence>
           {showSignOutConfirm && (
             <motion.div 
@@ -887,8 +898,19 @@ export default function App() {
         </AnimatePresence>
 
         <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex items-center justify-between">
-          {/* Left Spacer to perfectly balance the avatar on the right */}
-          <div className="w-10 h-10 md:block hidden" />
+          {/* Quick Capture Trigger or Left Spacer to perfectly balance the avatar on the right */}
+          {ENABLE_QUICK_CAPTURE ? (
+            <button
+              id="quick-capture-trigger-btn"
+              onClick={() => setShowQuickCapture(true)}
+              className="w-10 h-10 rounded-full border border-border-custom hover:border-[#6ee7a8] active:scale-95 transition-all cursor-pointer focus:outline-none flex items-center justify-center text-text-secondary hover:text-[#6ee7a8] shrink-0 bg-surface/10"
+              title="Acesso Rápido"
+            >
+              <Zap size={18} className="text-[#6ee7a8] fill-[#6ee7a8]/15" />
+            </button>
+          ) : (
+            <div className="w-10 h-10 md:block hidden" />
+          )}
 
           {/* Centered DUDE Brand (Text-only as required) */}
           <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center pointer-events-none select-none">
