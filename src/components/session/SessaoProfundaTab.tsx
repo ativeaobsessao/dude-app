@@ -197,9 +197,10 @@ export const SessaoProfundaTab = () => {
   };
 
   // Add a task to the checklist in the preparation step
-  const handleAddPendingTask = () => {
-    if (newTaskInput.trim()) {
-      setPendingTasks([...pendingTasks, newTaskInput.trim()]);
+  const handleAddPendingTask = (valueToSubmit?: string) => {
+    const val = (typeof valueToSubmit === 'string' ? valueToSubmit : newTaskInput).trim();
+    if (val) {
+      setPendingTasks(prev => [...prev, val]);
       setNewTaskInput('');
     }
   };
@@ -400,16 +401,22 @@ export const SessaoProfundaTab = () => {
                 className="flex-1 h-12 bg-surface/30 px-4 rounded-xl border border-white/5 text-sm tracking-tight text-text-primary placeholder:text-text-secondary/40 focus:outline-none"
                 value={newTaskInput}
                 onChange={e => setNewTaskInput(e.target.value)}
+                enterKeyHint="done"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleAddPendingTask();
+                    e.currentTarget.value = '';
+                    e.currentTarget.blur();
                   }
+                }}
+                onBlur={e => {
+                  handleAddPendingTask(e.target.value);
                 }}
               />
               <button
                 type="button"
-                onClick={handleAddPendingTask}
+                onClick={() => handleAddPendingTask()}
                 className="h-12 w-12 bg-green/10 hover:bg-green/20 border border-green/20 rounded-xl flex items-center justify-center text-green transition-all"
               >
                 <Plus size={18} />

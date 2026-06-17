@@ -304,10 +304,11 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   };
 
   // Toggle Subtask inside form builder
-  const handleFormAddSubtask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSubtaskText.trim()) return;
-    setSubtasksList([...subtasksList, { text: newSubtaskText.trim(), completed: false }]);
+  const handleFormAddSubtask = (e?: React.FormEvent, valueToSubmit?: string) => {
+    if (e) e.preventDefault();
+    const val = (typeof valueToSubmit === 'string' ? valueToSubmit : newSubtaskText).trim();
+    if (!val) return;
+    setSubtasksList(prev => [...prev, { text: val, completed: false }]);
     setNewSubtaskText('');
   };
 
@@ -1077,6 +1078,18 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                       onChange={(e) => setNewSubtaskText(e.target.value)}
                       placeholder="Adicionar item..."
                       className="flex-1 bg-[#161817] border border-white/5 rounded-2xl px-4 py-3.5 text-xs text-text-primary outline-none focus:border-green/50 placeholder:text-text-secondary/30"
+                      enterKeyHint="done"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleFormAddSubtask(undefined);
+                          e.currentTarget.value = '';
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(e) => {
+                        handleFormAddSubtask(undefined, e.target.value);
+                      }}
                     />
                     <button 
                       type="submit"
