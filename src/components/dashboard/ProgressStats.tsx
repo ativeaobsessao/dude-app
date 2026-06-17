@@ -725,9 +725,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   // ----------------------------------------------------
   const moodAnalytics = useMemo(() => {
     // 1. Get filtered mood logs based on selected period with safe local date normalization
-    const targetSet = period === 'all' 
+    // To prevent single-day lock when period is 'today', we auto-expand the visualization to 'month' (last 30 days) to display past entries and patterns.
+    const analyticPeriod = period === 'today' ? 'month' : period;
+    const targetSet = analyticPeriod === 'all' 
       ? null 
-      : getDatesRangeSet(0, period === 'today' ? 1 : (period === 'week' ? 7 : 30));
+      : getDatesRangeSet(0, analyticPeriod === 'week' ? 7 : 30);
     const filtered = targetSet 
       ? moodEntries.filter(m => targetSet.has(getLocalDateString(m.date)))
       : moodEntries;
@@ -764,8 +766,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
 
     // 4. Mood over time strip (Option A: a per-day strip/heatmap)
-    let totalDays = period === 'today' ? 1 : (period === 'week' ? 7 : 30);
-    if (period === 'all' && moodEntries.length > 0) {
+    let totalDays = analyticPeriod === 'week' ? 7 : 30;
+    if (analyticPeriod === 'all' && moodEntries.length > 0) {
       const dates = moodEntries.map(m => getLocalDateString(m.date)).filter(Boolean);
       if (dates.length > 0) {
         dates.sort();
