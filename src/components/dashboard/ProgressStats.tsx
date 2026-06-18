@@ -4,7 +4,7 @@ import { SuaEvolucaoModal } from './SuaEvolucaoModal';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
-  Sun, CheckSquare, Brain
+  Sun, CheckSquare, Brain, CheckCircle2
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -1399,8 +1399,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             className="w-full flex items-center justify-between p-5 bg-white/[0.01] hover:bg-white/[0.025] border border-white/5 hover:border-primary-green/30 rounded-3xl transition-all duration-300 group cursor-pointer text-left"
           >
             <div className="flex items-center gap-4 font-sans">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-green/20 to-primary-green/5 flex items-center justify-center border border-primary-green/20 text-xl font-sans group-hover:scale-105 transition-transform">
-                ✅
+              <div className="w-10 h-10 rounded-xl bg-[#6ee7a8]/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="text-[#6ee7a8]" size={20} />
               </div>
               <div className="space-y-0.5">
                 <span className="text-lg font-black text-text-primary tracking-tight font-sans block group-hover:text-primary-green transition-colors leading-tight">
@@ -1645,14 +1645,14 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
         {/* PROGRESSIVE DISCLOSURE INNER TRIGGER BANNER ("Mapa do Tempo") */}
         <section className="font-sans">
-          <div className="p-6 bg-gradient-to-br from-primary-green/[0.05] to-primary-green/[0.015] border border-primary-green/20 rounded-3xl space-y-4 flex flex-col md:flex-row md:items-center md:justify-between md:space-y-0 relative overflow-hidden select-none">
+          <div className="p-6 bg-gradient-to-br from-primary-green/[0.05] to-primary-green/[0.015] border border-primary-green/20 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-green/5 blur-2xl rounded-full pointer-events-none" />
             
             <div className="flex gap-4 items-start md:items-center">
               <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
                 <Brain className="text-[#6ee7a8] animate-pulse" size={24} />
               </div>
-              <div className="space-y-1 text-left">
+              <div className="space-y-1 text-left max-w-sm md:max-w-md">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse" />
                   <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#6ee7a8] block">Insights Comportamentais</span>
@@ -1660,8 +1660,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
                   O Mapa do seu Tempo
                 </h4>
-                <p className="text-xs md:text-sm text-text-secondary/70 max-w-lg font-light leading-normal font-sans">
-                  A DUDE identificou padrões comportamentais pelo seu uso recente. Descubra tendências de flow, consistência, humor e engajamento.
+                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
+                  A DUDE identificou padrões comportamentais pelo seu uso recente.
                 </p>
               </div>
             </div>
