@@ -10,6 +10,7 @@ import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTod
 import { resolverNomeSessao } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
+import { AntiVicioModal } from './AntiVicioModal';
 
 const getDolphinColor = (p: number, index: number, alpha?: number) => {
   const stops: { t: number, color: [number, number, number] }[] = [
@@ -96,6 +97,7 @@ export const ActiveSession = () => {
   const [showLateConfig, setShowLateConfig] = useState(false);
   const [showResourcesModal, setShowResourcesModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [showTasksOverlay, setShowTasksOverlay] = useState(false);
   const [sessionTasksLocal, setSessionTasksLocal] = useState<string[]>([]);
@@ -971,6 +973,19 @@ export const ActiveSession = () => {
                     🔗 VER/SALVAR LINKS
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setIsAntiVicioOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-red-500/5 border border-red-500/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-2xl text-red-400 group transition-all cursor-pointer"
+                >
+                  <span className="text-xs font-black tracking-widest text-red-400 group-hover:text-red-300 uppercase">
+                    🛡️ AUTOCONTROLE - TÔ COM VONTADE
+                  </span>
+                </button>
               </div>
 
               <button
@@ -1560,6 +1575,12 @@ export const ActiveSession = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AntiVicioModal
+        isOpen={isAntiVicioOpen}
+        onClose={() => setIsAntiVicioOpen(false)}
+        isDeepSessionContext={true}
+      />
     </div>
   );
 };

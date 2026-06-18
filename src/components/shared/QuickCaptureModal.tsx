@@ -11,7 +11,7 @@ interface QuickCaptureModalProps {
 
 export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuthStore();
-  const { addNote, addLink, showNotification, projects } = useDataStore();
+  const { addNote, addLink, showNotification, projects, activities } = useDataStore();
 
   const [view, setView] = useState<'menu' | 'note' | 'link'>('menu');
 
@@ -20,6 +20,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedActivityId, setSelectedActivityId] = useState('');
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -31,6 +32,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
       setLinkTitle('');
       setLinkUrl('');
       setSelectedProjectId('');
+      setSelectedActivityId('');
     }
   }, [isOpen]);
 
@@ -42,10 +44,17 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
     if (!content) return;
     setIsSaving(true);
     try {
-      const result = await addNote(user.id, content);
+      const result = await addNote(
+        user.id, 
+        content, 
+        selectedProjectId || undefined, 
+        selectedActivityId || undefined
+      );
       if (result) {
         showNotification('Anotação capturada com sucesso! ⚡', 'success');
         setNoteContent('');
+        setSelectedProjectId('');
+        setSelectedActivityId('');
       }
     } catch (err) {
       console.error('Erro ao salvar anotação:', err);
@@ -166,6 +175,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
 
           {view === 'note' && (
             <div className="space-y-5 animate-fade-in text-left">
+              {/* 1. Textarea original */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Sua Anotação</label>
                 <textarea
@@ -182,14 +192,46 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
                       e.currentTarget.blur();
                     }
                   }}
-                  onBlur={(e) => {
-                    handleSaveNote(e.target.value);
-                  }}
-                  className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30 resize-none min-h-[100px]"
+                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30 resize-none min-h-[100px]"
                   autoFocus
                 />
               </div>
 
+              {/* 2. Seletor de Projetos */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Projeto Relacionado (Opcional)</label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-[#c5cdd0] outline-none focus:border-primary-green transition-all font-bold cursor-pointer"
+                >
+                  <option value="" className="bg-[#121212] text-text-secondary/50">Nenhum Projeto</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-[#121212] text-text-primary">
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Seletor de Atividades */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Atividade Relacionada (Opcional)</label>
+                <select
+                  value={selectedActivityId}
+                  onChange={(e) => setSelectedActivityId(e.target.value)}
+                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-[#c5cdd0] outline-none focus:border-primary-green transition-all font-bold cursor-pointer"
+                >
+                  <option value="" className="bg-[#121212] text-text-secondary/50">Nenhuma Atividade</option>
+                  {activities.map((act) => (
+                    <option key={act.id} value={act.id} className="bg-[#121212] text-text-primary">
+                      {act.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 4. Botão de Salvar atual */}
               <div className="space-y-3">
                 <button
                   id="quick-note-save-btn"
