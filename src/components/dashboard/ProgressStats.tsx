@@ -1353,7 +1353,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                 Tempo de Foco {period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'Acumulado Total'}
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-fallback font-extrabold tracking-tight text-text-primary whitespace-nowrap inline-block font-mono" style={{ fontSize: 'clamp(2.75rem, 8vw, 4rem)', fontWeight: 800 }}>
+                <span className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tracking-tight whitespace-nowrap inline-block font-mono">
                   {formatCompactDuration(period === 'all' ? totalFocusAllTimeMins : currentPeriodMins)}
                 </span>
               </div>
@@ -1368,26 +1368,26 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </section>
 
           {/* METRICS BENTO GRID */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 font-sans py-4 select-none">
             {/* Card 1: Sessões */}
-            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
-              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{supportingStats.sessionCount}</span>
-              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Sessões</span>
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{supportingStats.sessionCount}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Sessões</span>
             </div>
             {/* Card 2: Projetos */}
-            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
-              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{supportingStats.projectsCount}</span>
-              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Projetos</span>
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{supportingStats.projectsCount}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Projetos</span>
             </div>
             {/* Card 3: Dias Invictos */}
-            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
-              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-[#6ee7a8] font-mono block leading-none">{currentStreak}</span>
-              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Dias Invictos</span>
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-[#6ee7a8] mb-1 block leading-none">{currentStreak}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Dias Invictos</span>
             </div>
             {/* Card 4: Recorde Pessoal */}
-            <div className="bg-white/[0.01] border border-white/5 p-5 rounded-3xl flex flex-col justify-between min-h-[120px] font-sans text-left transition-all duration-300 hover:border-white/10">
-              <span className="text-4xl md:text-5.5xl font-black tracking-tight text-text-primary font-mono block leading-none">{bestStreak}</span>
-              <span className="text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/50 font-bold font-sans mt-3 block">Recorde Pessoal</span>
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{bestStreak}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Recorde Pessoal</span>
             </div>
           </section>
         </div>
@@ -1557,7 +1557,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </section>
 
         {/* ONDE SEU TEMPO FOI */}
-        <section className="bg-white/[0.015] border border-white/5 p-6 rounded-3xl space-y-5 font-sans">
+        <section className="space-y-5 font-sans">
           <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
             <Target size={12} className="text-primary-green" /> Onde seu tempo foi
           </h3>
@@ -1590,7 +1590,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         </section>
 
         {/* BLOCK 3: EVOLUÇÃO DISCIPLINADA (BARS HEIGHT BUG FIXED) */}
-        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-4 font-sans">
+        <section className="space-y-4 font-sans">
           <div className="flex items-center justify-between font-sans">
             <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
               <BarChart2 size={12} className="text-primary-green" /> Evolução de Concentração

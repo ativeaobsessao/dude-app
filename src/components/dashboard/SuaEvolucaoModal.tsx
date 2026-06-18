@@ -346,7 +346,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               
               {/* CARD 1: Domínio e Janela de Ouro */}
-              <div className="p-5 md:p-6 bg-white/[0.015] border border-white/5 rounded-3xl flex flex-col justify-between hover:border-white/10 transition-all duration-300 min-h-[190px] relative overflow-hidden group">
+              <div className="p-5 md:p-6 border-l-2 border-[#6ee7a8]/30 pl-4 md:pl-6 flex flex-col justify-between transition-all duration-300 min-h-[190px] relative overflow-hidden group">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="text-[#6ee7a8]" size={18} />
@@ -357,7 +357,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
 
                   {card1Data ? (
                     <p className="text-sm md:text-base font-medium text-text-primary leading-relaxed font-sans text-left">
-                      A sua maior profundidade ocorreu no projeto <span className="text-[#6ee7a8] font-bold">{card1Data.project}</span>. A atividade principal foi <span className="text-text-primary font-bold">{card1Data.activity}</span> (<span className="font-bold">{card1Data.hours}h</span> investidas). Sua Janela de Ouro de imersão ocorre no período da <span className="text-[#6ee7a8] font-bold">{card1Data.period}</span>.
+                      A sua maior profundidade ocorreu no projeto <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#6ee7a8]/10 border border-[#6ee7a8]/20 text-[#6ee7a8] font-bold text-xs mx-1">{card1Data.project}</span>. A atividade principal foi <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-text-primary font-bold text-xs mx-1">{card1Data.activity}</span> (<span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-text-primary font-bold text-xs mx-1">{card1Data.hours}h</span> investidas). Sua Janela de Ouro de imersão ocorre no período da <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#6ee7a8]/10 border border-[#6ee7a8]/20 text-[#6ee7a8] font-bold text-xs mx-1">{card1Data.period}</span>.
                     </p>
                   ) : (
                     <div className="py-6 text-left">
@@ -370,7 +370,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
               </div>
 
               {/* CARD 2: Alerta de Vulnerabilidade */}
-              <div className="p-5 md:p-6 bg-white/[0.015] border border-white/5 rounded-3xl flex flex-col justify-between hover:border-white/10 transition-all duration-300 min-h-[190px] relative overflow-hidden group">
+              <div className="p-5 md:p-6 border-l-2 border-red-500/30 pl-4 md:pl-6 flex flex-col justify-between transition-all duration-300 min-h-[190px] relative overflow-hidden group">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="text-red-400" size={18} />
@@ -381,7 +381,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
 
                   {card2Data ? (
                     <p className="text-sm md:text-base font-medium text-text-primary leading-relaxed font-sans text-left">
-                      Ponto de atenção: O histórico revela que a impulsividade ganha força no período da <span className="text-red-400 font-bold">{card2Data.period}</span>, quando sua Bateria Cognitiva registra energia <span className="text-red-400 font-bold">{card2Data.energy}</span> e humor <span className="text-red-400 font-bold">{card2Data.mood}</span>.
+                      Ponto de atenção: O histórico revela que a impulsividade ganha força no período da <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs mx-1">{card2Data.period}</span>, quando sua Bateria Cognitiva registra energia <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs mx-1">{card2Data.energy}</span> e humor <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs mx-1">{card2Data.mood}</span>.
                     </p>
                   ) : (
                     <div className="py-6 text-left">
@@ -394,7 +394,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
               </div>
 
               {/* CARD 3: Raio-X de Hábitos (Com Regra da Vitrine) */}
-              <div className="p-5 md:p-6 bg-white/[0.015] border border-white/5 rounded-3xl flex flex-col justify-between hover:border-white/10 transition-all duration-300 relative overflow-hidden col-span-1 md:col-span-2">
+              <div className="p-5 md:p-6 border-l-2 border-[#6ee7a8]/30 pl-4 md:pl-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden col-span-1 md:col-span-2">
                 <div className="space-y-5 w-full">
                   <div className="flex items-center gap-2">
                     <Award className="text-[#6ee7a8]" size={18} />
@@ -419,7 +419,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
                         {visibleHabits.map(habit => (
                           <div 
                             key={habit.id} 
-                            className="p-3 bg-white/[0.005] border border-white/[0.03] rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-white/[0.015] transition-all"
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/[0.03] pb-3 mb-3 last:border-0 last:mb-0 last:pb-0 transition-all font-sans"
                           >
                             <span className="text-sm font-bold text-text-primary block sm:inline">
                               {habit.name}
@@ -447,7 +447,7 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
               </div>
 
               {/* CARD 4: Termômetro Anti-Vício (Dual Progress Bar + Vitrine) */}
-              <div className="p-5 md:p-6 bg-white/[0.015] border border-white/5 rounded-3xl flex flex-col justify-between hover:border-white/10 transition-all duration-300 relative overflow-hidden col-span-1 md:col-span-2">
+              <div className="p-5 md:p-6 border-l-2 border-[#6ee7a8]/30 pl-4 md:pl-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden col-span-1 md:col-span-2">
                 <div className="space-y-5 w-full">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="text-red-400" size={18} />
@@ -474,33 +474,37 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
                           return (
                             <div 
                               key={vice.id} 
-                              className="p-4 bg-white/[0.005] border border-white/[0.03] rounded-2xl space-y-2 hover:bg-white/[0.015] transition-all"
+                              className="border-b border-white/[0.03] pb-3 mb-3 last:border-0 last:mb-0 last:pb-0 transition-all space-y-2 text-left"
                             >
-                              <div className="flex justify-between items-center text-sm">
-                                <span className="font-bold text-text-primary">
+                              {/* Linha 1: Título do vício */}
+                              <div className="text-left">
+                                <span className="text-base font-black text-text-primary">
                                   {vice.name}
-                                </span>
-                                <span className="text-xs font-mono text-text-secondary/80">
-                                  Resistências: <strong className="text-primary-green font-bold">{metrics.resist}</strong> vs Recaídas: <strong className="text-red-400 font-bold">{metrics.recai}</strong>
                                 </span>
                               </div>
 
-                              {/* Dual Progress Bar Component */}
-                              <div className="w-full h-2 rounded-full flex overflow-hidden bg-white/10 mt-2">
+                              {/* Linha 2: A Nova Molinha Segmentada */}
+                              <div className="w-full h-1.5 flex gap-1 mt-2">
                                 {metrics.total > 0 ? (
                                   <>
                                     <div 
-                                      className="bg-primary-green transition-all" 
+                                      className="bg-[#6ee7a8] rounded-full transition-all" 
                                       style={{ width: `${metrics.safeResistPercent}%` }} 
                                     />
                                     <div 
-                                      className="bg-red-500/80 transition-all font-sans" 
+                                      className="bg-red-500 rounded-full transition-all" 
                                       style={{ width: `${metrics.safeRecaiPercent}%` }} 
                                     />
                                   </>
                                 ) : (
                                   <div className="w-full bg-white/10 rounded-full h-full" />
                                 )}
+                              </div>
+
+                              {/* Linha 3: Legenda Minimalista */}
+                              <div className="flex justify-between text-[10px] font-mono mt-1.5">
+                                <span className="text-[#6ee7a8]">● {metrics.resist} vitórias</span>
+                                <span className="text-red-400">● {metrics.recai} quedas</span>
                               </div>
                             </div>
                           );
