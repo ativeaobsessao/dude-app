@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, ShieldAlert, X, Brain, HelpCircle, Sparkles } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
@@ -8,28 +8,61 @@ interface AntiVicioModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDeepSessionContext?: boolean;
+  initialHabitId?: string;
 }
 
-export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false }: AntiVicioModalProps) => {
+const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, initialHabitId }: AntiVicioModalProps) => {
   const dataStore = useDataStore();
   const { habits, profile } = dataStore;
 
   const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
 
   const [selectedHabitId, setSelectedHabitId] = useState<string>(
-    avoidHabits.length > 0 ? avoidHabits[0].id : ''
+    initialHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : '')
   );
   const [selectedTag, setSelectedTag] = useState<string>('Impulso Súbito');
   const [note, setNote] = useState<string>('');
   const [successCheckedIn, setSuccessCheckedIn] = useState<boolean>(false);
+  const [timeLeft, setTimeLeft] = useState<number>(10 * 60);
 
-  const triggerTags = [
-    { label: '🔥 Impulso Súbito', value: 'Impulso Súbito' },
-    { label: '🤯 Ansiedade/Estresse', value: 'Ansiedade/Estresse' },
-    { label: '🥱 Tédio/Inatividade', value: 'Tédio/Inatividade' },
-    { label: '💤 Fadiga/Exaustão', value: 'Fadiga/Exaustão' },
-    { label: '🌍 Gatilho Ambiental', value: 'Gatilho Ambiental' }
-  ];
+  // Sync selectedHabitId with initialHabitId when modal opening and initialHabitId changes
+  useEffect(() => {
+    if (isOpen) {
+      if (initialHabitId) {
+        setSelectedHabitId(initialHabitId);
+      } else if (avoidHabits.length > 0) {
+        setSelectedHabitId(avoidHabits[0].id);
+      }
+      setNote('');
+      setSuccessCheckedIn(false);
+    }
+  }, [isOpen, initialHabitId]);
+
+  // Countdown logic for Urge Surfing
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Reset timer when modal opens
+    setTimeLeft(10 * 60);
+
+    const intervalId = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalId);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen]);
 
   const handleCheckin = async (status: 'success' | 'relapse') => {
     if (!profile?.id) {
@@ -76,6 +109,14 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false }
       }, 1200);
     }
   };
+
+  const triggerTags = [
+    { label: '🔥 Impulso Súbito', value: 'Impulso Súbito' },
+    { label: '🤯 Ansiedade/Estresse', value: 'Ansiedade/Estresse' },
+    { label: '🥱 Tédio/Inatividade', value: 'Tédio/Inatividade' },
+    { label: '💤 Fadiga/Exaustão', value: 'Fadiga/Exaustão' },
+    { label: '🌍 Gatilho Ambiental', value: 'Gatilho Ambiental' }
+  ];
 
   if (!isOpen) return null;
 
@@ -141,6 +182,21 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false }
                 Um impulso dura em média de <strong className="text-white">5 a 10 minutos</strong>. Respire profundamente. Se você registrar este momento, dará um passo crucial para reescrever seus caminhos neurais.
               </p>
 
+              {/* Urge Surfing Timer */}
+              {timeLeft > 0 ? (
+                <div className="text-5xl md:text-6xl font-mono font-black text-transparent bg-clip-text bg-gradient-to-b from-[#6ee7a8] to-white/70 drop-shadow-[0_0_15px_rgba(110,231,168,0.2)] text-center my-6">
+                  {formatTime(timeLeft)}
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="py-4 px-6 my-6 text-center rounded-2xl bg-[#6ee7a8]/10 border border-[#6ee7a8]/35 shadow-[0_0_20px_rgba(110,231,168,0.1)] text-[#6ee7a8] font-bold text-xs uppercase tracking-wider"
+                >
+                  O pico do impulso passou. Você assumiu o controle.
+                </motion.div>
+              )}
+
               {/* Habit / Vice Selector */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
@@ -204,7 +260,9 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false }
                   type="button"
                   onClick={() => handleCheckin('success')}
                   disabled={avoidHabits.length === 0}
-                  className="flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-[#6ee7a8] to-[#4ade80] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(110,231,168,0.2)]"
+                  className={`flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-[#6ee7a8] to-[#4ade80] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(110,231,168,0.2)] ${
+                    timeLeft === 0 ? 'animate-pulse' : ''
+                  }`}
                 >
                   <ShieldCheck size={18} />
                   Resisti

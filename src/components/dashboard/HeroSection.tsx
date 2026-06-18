@@ -10,6 +10,7 @@ import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
 import { useAgendaAlertEngine } from '../../hooks/useAgendaAlertEngine';
+import { AntiVicioModal } from './AntiVicioModal';
 
 interface HeroSectionProps {
   tasks?: any[];
@@ -19,6 +20,9 @@ interface HeroSectionProps {
 export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps) => {
   const timer = useTimerStore();
   const dataStore = useDataStore();
+  
+  const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
+  const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
   
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
 
@@ -1198,14 +1202,24 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                       <div className="grid grid-cols-2 gap-2.5 relative z-10 font-sans">
                         <button
                           type="button"
-                          onClick={() => handleResisti(habit, windowLabel, checkinPeriod)}
+                          onClick={() => {
+                            setAntiVicioHabitId(habit.id);
+                            setIsAntiVicioOpen(true);
+                            dismissAntiVicio(habit.id, windowLabel);
+                            registerCooldown(habit.id);
+                          }}
                           className="py-3 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
                         >
                           ✓ Resisti
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRecai(habit, windowLabel, checkinPeriod)}
+                          onClick={() => {
+                            setAntiVicioHabitId(habit.id);
+                            setIsAntiVicioOpen(true);
+                            dismissAntiVicio(habit.id, windowLabel);
+                            registerCooldown(habit.id);
+                          }}
                           className="py-3 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
                         >
                           Recaí
@@ -1817,6 +1831,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           </div>
         )}
       </AnimatePresence>
+
+      <AntiVicioModal
+        isOpen={isAntiVicioOpen}
+        onClose={() => setIsAntiVicioOpen(false)}
+        initialHabitId={antiVicioHabitId}
+      />
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">

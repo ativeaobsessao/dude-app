@@ -1,6 +1,7 @@
 import { useDataStore } from '../../store/useDataStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { SuaEvolucaoModal } from './SuaEvolucaoModal';
+import { TrendsAntiVicioModal } from './TrendsAntiVicioModal';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
@@ -55,6 +56,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
   // Progressive disclosure evolution modal state
   const [isEvolucaoModalOpen, setIsEvolucaoModalOpen] = useState(false);
+
+  // Trends anti-vicio modal state
+  const [isTrendsOpen, setIsTrendsOpen] = useState(false);
 
   // Multi-pillar expander state
   const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | 'mood' | null>(null);
@@ -1676,6 +1680,38 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </section>
 
+        {/* TRENDS ANTI-VÍCIO BANNER */}
+        <section className="font-sans">
+          <div className="p-6 bg-gradient-to-br from-red-500/[0.03] to-red-500/[0.01] border border-red-500/10 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-2xl rounded-full pointer-events-none" />
+            
+            <div className="flex gap-4 items-start md:items-center">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center text-xl shrink-0">
+                <Target size={24} className="animate-pulse" />
+              </div>
+              <div className="space-y-1 text-left max-w-sm md:max-w-md">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-400 block">Autópsia de Recaídas</span>
+                </div>
+                <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
+                  Trends Anti-Vício
+                </h4>
+                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
+                  Veja exatamente os gatilhos que te fazem tropeçar nos vícios e entenda como evitá-los.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsTrendsOpen(true)}
+              className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-200 hover:text-white border border-red-500/45 font-extrabold text-xs uppercase tracking-widest rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/5 cursor-pointer text-center md:self-center shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <span>VER MEUS GATILHOS ➔</span>
+            </button>
+          </div>
+        </section>
+
         {/* SEU HISTÓRICO DE SESSÕES PROFUNDAS POR DATAS */}
         <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
           <div className="flex flex-col space-y-1 select-none">
@@ -2000,6 +2036,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
       {/* MODAL PORTAL: SUA EVOLUÇÃO (ORÁCULO) */}
       <SuaEvolucaoModal isOpen={isEvolucaoModalOpen} onClose={() => setIsEvolucaoModalOpen(false)} />
+
+      {/* MODAL PORTAL: TRENDS ANTI-VÍCIO */}
+      <TrendsAntiVicioModal isOpen={isTrendsOpen} onClose={() => setIsTrendsOpen(false)} />
     </div>
   );
 };

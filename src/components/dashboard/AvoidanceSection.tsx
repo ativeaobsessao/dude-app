@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Shield, ShieldAlert, Sparkles, Flame, Plus, Brain, Calendar, Trash2, Pencil, BarChart2, ChevronDown, Check, X, AlertTriangle, UserCheck, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Habit, AvoidanceCheckin } from '../../types';
+import { AntiVicioModal } from './AntiVicioModal';
 
 // Helper to get formatted date string: YYYY-MM-DD
 const getLocalDateString = (d = new Date()) => {
@@ -469,6 +470,8 @@ export const AvoidanceSection = () => {
   
   const [activePromptHabitId, setActivePromptHabitId] = useState<string | null>(null);
   const [activePromptPeriod, setActivePromptPeriod] = useState<string | null>(null);
+  const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
+  const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [relapseModal, setRelapseModal] = useState<{
@@ -770,10 +773,16 @@ export const AvoidanceSection = () => {
                         metrics={metrics}
                         promptVisible={promptVisible}
                         activePromptPeriod={activePromptPeriod}
-                        onCheckinSubmit={handleCheckinSubmit}
+                        onCheckinSubmit={async (id) => {
+                          setAntiVicioHabitId(id);
+                          setIsAntiVicioOpen(true);
+                        }}
                         onEdit={triggerEditAvoidanceModal}
                         onDelete={(id, name) => setShowDeleteConfirm({ id, name })}
-                        onOpenRelapseModal={(id, name) => setRelapseModal({ isOpen: true, habitId: id, habitName: name, step: 'trigger' })}
+                        onOpenRelapseModal={(id) => {
+                          setAntiVicioHabitId(id);
+                          setIsAntiVicioOpen(true);
+                        }}
                         onSetUrgeTimer={dataStore.setUrgeTimerSeconds}
                         habitCheckins={habitCheckins}
                         last14Days={last14Days}
@@ -1093,6 +1102,12 @@ export const AvoidanceSection = () => {
           );
         })()}
       </AnimatePresence>
+
+      <AntiVicioModal
+        isOpen={isAntiVicioOpen}
+        onClose={() => setIsAntiVicioOpen(false)}
+        initialHabitId={antiVicioHabitId}
+      />
     </section>
   );
 };
