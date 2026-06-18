@@ -237,13 +237,6 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleSaveLink();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (e.target.value.trim() && linkUrl.trim()) {
-                      handleSaveLink(e.target.value, linkUrl);
                     }
                   }}
                   autoFocus
@@ -263,13 +256,6 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleSaveLink();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    if (linkTitle.trim() && e.target.value.trim()) {
-                      handleSaveLink(linkTitle, e.target.value);
                     }
                   }}
                 />
