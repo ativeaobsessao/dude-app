@@ -1,5 +1,6 @@
 import { useDataStore } from '../../store/useDataStore';
 import { motion, AnimatePresence } from 'motion/react';
+import { SuaEvolucaoModal } from './SuaEvolucaoModal';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
@@ -2000,53 +2001,5 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       {/* MODAL PORTAL: SUA EVOLUÇÃO (ORÁCULO) */}
       <SuaEvolucaoModal isOpen={isEvolucaoModalOpen} onClose={() => setIsEvolucaoModalOpen(false)} />
     </div>
-  );
-};
-
-interface SuaEvolucaoModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => {
-  if (!isOpen) return null;
-
-  return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-[#0c0f12] border border-white/10 w-full max-w-2xl rounded-3xl p-6 relative overflow-hidden text-left font-sans"
-        >
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <X size={20} />
-          </button>
-          
-          <div className="space-y-4 font-sans">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary-green/10 flex items-center justify-center">
-                <Brain className="text-primary-green animate-pulse" size={20} />
-              </div>
-              <div className="text-left">
-                <h3 className="text-lg font-bold text-text-primary font-sans">Sua Evolução</h3>
-                <p className="text-xs text-text-secondary/60 font-sans">Oráculo de Inteligência Comportamental</p>
-              </div>
-            </div>
-
-            <div className="py-12 text-center bg-white/[0.015] border border-dashed border-white/5 rounded-2xl font-sans space-y-2">
-              <p className="text-sm font-bold text-text-primary font-sans">Carregando Oráculo...</p>
-              <p className="text-xs text-text-secondary/60 max-w-md mx-auto leading-normal font-sans">
-                Sua máquina de insights de alta performance está compilando e cruzando seus dados de flow, hábitos, blindagem e acordos.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
   );
 };
