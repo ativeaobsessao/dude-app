@@ -1130,7 +1130,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className={`w-full ${pendingAvoidanceHabits.length > 1 ? 'max-w-lg' : 'max-w-md'} bg-surface-2 border border-border-custom rounded-3xl p-6 space-y-6 shadow-2xl relative`}
+                className={`w-full ${pendingAvoidanceHabits.length > 1 ? 'max-w-lg' : 'max-w-md'} bg-surface-2 border border-border-custom rounded-3xl p-6 space-y-6 shadow-2xl relative flex flex-col max-h-[90vh]`}
               >
                 {/* Close Button */}
                 <button
@@ -1158,7 +1158,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 </div>
 
                 {/* Render pending habits stacked vertically */}
-                <div className="flex flex-col gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1 pb-6">
                   {pendingAvoidanceHabits.map((currentItem) => {
                     const { habit, windowLabel, checkinPeriod } = currentItem;
                     const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
