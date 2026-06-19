@@ -1439,25 +1439,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </section>
         </div>
 
-        {/* WAVE 2C: IDENTITY LAYER (Atomic Habits) */}
-        <section className="space-y-4 font-sans pt-4 border-t border-white/5">
-          {/* Identity Headline Banner */}
-          <div className="p-5 bg-gradient-to-r from-primary-green/[0.04] to-primary-green/[0.012] border border-primary-green/15 rounded-3xl relative overflow-hidden select-none cursor-default">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-green/5 blur-2xl rounded-full pointer-events-none" />
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse" />
-              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-primary-green block">
-                Sua Identidade
-              </span>
-            </div>
-            <h3 className="text-sm md:text-lg lg:text-xl font-bold md:font-extrabold text-text-primary leading-normal">
-              {identityData.headline}
-            </h3>
-            <p className="text-[10px] sm:text-[11px] md:text-xs lg:text-sm text-text-secondary/80 mt-1.5 font-light italic">
-              "A verdadeira mudança de comportamento ocorre através da mudança de identidade." — Atomic Habits
-            </p>
-          </div>
-        </section>
+
 
         {/* TAREFAS REALIZADAS NO DIA - SUBSTITUÍDO POR CARD EXPANSÍVEL BENTO E MODAL */}
         <section className="font-sans">
@@ -2186,7 +2168,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                       <div className="space-y-1 select-none font-sans">
                         <div className="flex items-center gap-1.5 leading-none">
                           <Flame className="text-orange-500 fill-orange-500/20 animate-pulse shrink-0" size={26} />
-                          <span className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-400 font-mono tracking-tight leading-none uppercase">
+                          <span className="text-4xl md:text-5xl font-black font-sans tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 leading-none uppercase">
                             {mStreak} {mStreak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
                           </span>
                         </div>
@@ -2197,8 +2179,8 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
                       {/* Grid de Batalha: bolinhas para os últimos 7 dias */}
                       <div className="space-y-1.5 pt-1 border-t border-white/5 select-none font-sans">
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#6ee7a8]/50 font-mono block">
-                          Grid de Batalha (Limpas vs Quedas)
+                        <span className="text-[9px] font-mono font-bold text-text-secondary/40 uppercase tracking-widest block">
+                          Últimos 7 dias
                         </span>
                         <div className="flex gap-3 items-center justify-start overflow-x-auto py-1.5 no-scrollbar">
                           {last7Days.map((day, dIdx) => {
@@ -2242,9 +2224,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                       {/* Bloco de Inteligência */}
                       <div className="grid grid-cols-2 gap-3 pt-2 select-none font-sans">
                         {/* O Cofre */}
-                        <div className="p-3 bg-white/[0.015] border border-white/5 rounded-2xl flex flex-col justify-between space-y-2">
+                        <div className="flex flex-col justify-between space-y-2">
                           <div className="text-left font-sans">
-                            <span className="text-[8.5px] font-extrabold font-mono text-text-secondary/40 uppercase tracking-widest block leading-tight">O COFRE</span>
+                            <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight">O COFRE</span>
                             <div className="flex items-baseline gap-1 mt-1">
                               <span className="text-lg font-bold text-[#6ee7a8] font-mono leading-none">{totalLimpo}</span>
                               <span className="text-[9px] text-text-secondary/50 font-medium">limpos</span>
@@ -2259,12 +2241,12 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                         </div>
 
                         {/* Ponto Cego */}
-                        <div className="p-3 bg-white/[0.015] border border-white/5 rounded-2xl flex flex-col justify-between space-y-2">
+                        <div className="flex flex-col justify-between space-y-2">
                           {mFalls.length > 0 ? (
                             <div className="space-y-1 text-left h-full flex flex-col justify-between">
                               <div className="text-left font-sans">
-                                <span className="text-[8.5px] font-extrabold font-mono text-red-400/60 uppercase tracking-widest block leading-tight">PONTO CEGO</span>
-                                <div className="text-[11px] font-bold text-text-primary mt-1.5 leading-snug flex items-start gap-1 font-sans font-sans">
+                                <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight">PONTO CEGO</span>
+                                <div className="text-[11px] font-bold text-text-primary mt-1.5 leading-snug flex items-start gap-1 font-sans">
                                   <span className="text-red-400 shrink-0 select-none">⚠️</span>
                                   <span className="truncate max-w-[85px]">{peakTriggerStr}</span>
                                 </div>
@@ -2279,7 +2261,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
                           ) : (
                             <div className="flex flex-col h-full justify-between text-left font-sans">
                               <div className="text-left font-sans">
-                                <span className="text-[8.5px] font-extrabold font-mono text-text-secondary/40 uppercase tracking-widest block leading-tight font-sans">PONTO CEGO</span>
+                                <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight font-sans">PONTO CEGO</span>
                               </div>
                               <p className="text-[9.5px] text-[#6ee7a8]/80 italic leading-snug pt-1 whitespace-normal">
                                 🛡️ Coletando dados do seu padrão de queda...
@@ -2383,6 +2365,26 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               Nenhuma reflexão de autoconsciência registrada ultimamente. Da próxima vez, anote suas reflexões no final do SOS.
             </div>
           )}
+        </section>
+
+        {/* WAVE 2C: IDENTITY LAYER (Atomic Habits) */}
+        <section className="space-y-4 font-sans pt-4 border-t border-white/5">
+          {/* Identity Headline Banner */}
+          <div className="p-5 bg-gradient-to-r from-primary-green/[0.04] to-primary-green/[0.012] border border-[#6ee7a8]/15 rounded-3xl relative overflow-hidden select-none cursor-default">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#6ee7a8]/5 blur-2xl rounded-full pointer-events-none" />
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6ee7a8] animate-pulse" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#6ee7a8] block">
+                Sua Identidade
+              </span>
+            </div>
+            <h3 className="text-sm md:text-lg lg:text-xl font-bold md:font-extrabold text-text-primary leading-normal">
+              {identityData.headline}
+            </h3>
+            <p className="text-[10px] sm:text-[11px] md:text-xs lg:text-sm text-text-secondary/80 mt-1.5 font-light italic">
+              "A verdadeira mudança de comportamento ocorre através da mudança de identidade." — Atomic Habits
+            </p>
+          </div>
         </section>
 
       </motion.div>
