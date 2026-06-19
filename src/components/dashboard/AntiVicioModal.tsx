@@ -66,6 +66,44 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
     return () => clearInterval(intervalId);
   }, [isOpen]);
 
+  const handleSaveGhostQuote = async (status: 'success' | 'relapse', content: string, habitId: string, triggerType: string) => {
+    if (!profile?.id) return null;
+
+    let result = null;
+    const timestamp = new Date().toISOString();
+
+    if (associatedCheckinId) {
+      // Bound Context Mode: UPDATE the silently-created check-in!
+      const updateData = {
+        trigger_tag: triggerType,
+        trigger_note: content.trim() || null,
+        created_at: timestamp
+      };
+      const ok = await dataStore.updateAvoidanceCheckin(associatedCheckinId, updateData);
+      if (ok) {
+        result = true;
+      }
+    } else {
+      // General Mode: CREATE a new check-in database record
+      const checkinData = {
+        user_id: profile.id,
+        habit_id: habitId,
+        checkin_date: getLocalDateString(),
+        checkin_period: 'window',
+        status,
+        trigger_tag: triggerType,
+        trigger_note: content.trim() || null,
+        created_at: timestamp
+      };
+      result = await dataStore.addAvoidanceCheckin(checkinData);
+    }
+
+    // Force a fresh direct fetch from the database to guarantee 100% reactive synchrony in the dashboard
+    await dataStore.fetchAvoidanceCheckins(profile.id);
+
+    return result;
+  };
+
   const handleCheckin = async (status: 'success' | 'relapse') => {
     if (!profile?.id) {
       dataStore.showNotification('Faça login para salvar o check-in.', 'error');
@@ -85,32 +123,8 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
     const currentHabit = avoidHabits.find(h => h.id === habitId);
     const habitName = currentHabit ? currentHabit.name : 'Vício';
 
-    let result = null;
-
-    if (associatedCheckinId) {
-      // Bound Context Mode: UPDATE the silently-created check-in!
-      const updateData = {
-        trigger_tag: selectedTag,
-        trigger_note: note.trim() || null
-      };
-      const ok = await dataStore.updateAvoidanceCheckin(associatedCheckinId, updateData);
-      if (ok) {
-        result = true;
-      }
-    } else {
-      // General Mode: CREATE a new check-in
-      const checkinData = {
-        user_id: profile.id,
-        habit_id: habitId,
-        checkin_date: getLocalDateString(),
-        checkin_period: 'window',
-        status,
-        trigger_tag: selectedTag,
-        trigger_note: note.trim() || null,
-        created_at: new Date().toISOString()
-      };
-      result = await dataStore.addAvoidanceCheckin(checkinData);
-    }
+    // Call the dedicated mutational function to write permanently to the database
+    const result = await handleSaveGhostQuote(status, note, habitId, selectedTag);
 
     if (result) {
       if (status === 'success') {
