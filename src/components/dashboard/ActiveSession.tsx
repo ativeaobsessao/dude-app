@@ -159,13 +159,13 @@ export const ActiveSession = () => {
   const [noteActivityId, setNoteActivityId] = useState('');
   const [linkProjectId, setLinkProjectId] = useState(timer.projectId || '');
 
-  const sessionNotes = useMemo(() => {
-    if (!timer.startTime) return [];
-    return dataStore.notes.filter(note => {
-      const noteTime = new Date(note.created_at).getTime();
-      return noteTime >= timer.startTime!;
-    });
-  }, [dataStore.notes, timer.startTime]);
+  const filteredNotes = useMemo(() => {
+    let list = [...dataStore.notes];
+    if (noteProjectId) {
+      list = list.filter(note => note.project_id === noteProjectId);
+    }
+    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [dataStore.notes, noteProjectId]);
 
   const { triggerNotification, unlockAudio } = useSessionNotifications();
   const hasObservedFinish = useRef(false);
@@ -1137,25 +1137,29 @@ export const ActiveSession = () => {
                 <div className="border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8 flex flex-col h-full">
                   <div className="pb-3 flex justify-between items-center">
                     <label className="text-[10px] font-black tracking-widest text-text-secondary/40 uppercase font-sans">
-                      Anotações desta Sessão
+                      {noteProjectId ? (
+                        `HISTÓRICO: ${(dataStore.projects.find(p => p.id === noteProjectId)?.name || 'PROJETO').toUpperCase()}`
+                      ) : (
+                        "HISTÓRICO DE ANOTAÇÕES"
+                      )}
                     </label>
-                    {sessionNotes.length > 0 && (
+                    {filteredNotes.length > 0 && (
                       <span className="px-2 py-0.5 bg-primary-green/10 text-primary-green rounded-full text-[9px] font-extrabold uppercase font-mono">
-                        {sessionNotes.length} {sessionNotes.length === 1 ? 'Nota' : 'Notas'}
+                        {filteredNotes.length} {filteredNotes.length === 1 ? 'Nota' : 'Notas'}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto max-h-[380px] pr-1 space-y-3 custom-scrollbar">
-                    {sessionNotes.length === 0 ? (
+                  <div className="flex-1 overflow-y-auto max-h-[250px] md:max-h-[380px] pr-2 space-y-3 custom-scrollbar">
+                    {filteredNotes.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center py-10 space-y-2">
                         <StickyNote size={24} className="text-text-secondary/10" />
                         <p className="text-xs text-text-secondary/30 italic font-light">
-                          Nenhuma anotação registrada ainda nesta sessão de foco.
+                          Nenhuma anotação registrada ainda neste contexto.
                         </p>
                       </div>
                     ) : (
-                      sessionNotes.map((note) => {
+                      filteredNotes.map((note) => {
                         const noteProject = dataStore.projects.find(p => p.id === note.project_id);
                         const noteActivity = dataStore.activities.find(a => a.id === note.activity_id);
                         return (
