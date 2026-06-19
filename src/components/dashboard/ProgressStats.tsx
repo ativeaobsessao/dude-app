@@ -58,7 +58,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   const [isEvolucaoModalOpen, setIsEvolucaoModalOpen] = useState(false);
 
   // Trends anti-vicio modal state
-  const [isTrendsOpen, setIsTrendsOpen] = useState(false);
+  const [isTrendsModalOpen, setIsTrendsModalOpen] = useState(false);
 
   // Multi-pillar expander state
   const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | 'mood' | null>(null);
@@ -2024,270 +2024,37 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </section>
 
-        {/* SEÇÃO 3: TRENDS ANTI-VÍCIO (SALA DE GUERRA COCKPIT) */}
-        <section id="trends-anti-vicio" className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
-          <div className="flex justify-between items-center select-none font-sans">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-                <Flame size={20} className="animate-pulse" />
+        {/* PROGRESSIVE DISCLOSURE CONTROL: TRENDS ANTI-VÍCIO GATILHO */}
+        <section className="font-sans">
+          <div className="p-6 bg-gradient-to-br from-red-500/[0.05] to-red-500/[0.015] border border-red-500/20 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-2xl rounded-full pointer-events-none" />
+            
+            <div className="flex gap-4 items-start md:items-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
+                <Flame className="text-orange-500 animate-pulse" size={24} />
               </div>
-              <div className="space-y-0.5 text-left">
-                <div className="flex items-center gap-1.5 font-sans">
+              <div className="space-y-1 text-left max-w-sm md:max-w-md font-sans">
+                <div className="flex items-center gap-1.5 mb-0.5 font-sans">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-400 block font-bold">SALA DE GUERRA</span>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#6ee7a8] block">Prevenção e Análise</span>
                 </div>
-                <h3 className="text-lg font-black text-text-primary tracking-tight font-sans">
+                <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
                   Trends Anti-Vício
-                </h3>
+                </h4>
+                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
+                  Monitore sua blindagem e histórico de autocontrole.
+                </p>
               </div>
             </div>
-            <span className="text-xs font-mono text-text-secondary/50 font-bold bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
-              {avoidanceHabitsList.length} blindagens
-            </span>
+
+            <button
+              onClick={() => setIsTrendsModalOpen(true)}
+              className="px-6 py-3 bg-[#6ee7a8] hover:bg-[#5cd697] text-black font-extrabold text-xs uppercase tracking-widest rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary-green/10 cursor-pointer text-center md:self-center shrink-0 flex items-center justify-center gap-1.5 font-sans"
+            >
+              <span>Abrir Sala de Guerra</span>
+              <span>➔</span>
+            </button>
           </div>
-
-          {vicesHeadline && (
-            <div className="p-3.5 bg-red-500/[0.03] border border-red-500/10 rounded-2xl flex items-center gap-3 font-sans text-left">
-              <span className="text-red-400 text-sm">🛡️</span>
-              <p className="text-xs md:text-[13px] font-bold tracking-wide text-text-primary">
-                {vicesHeadline}
-              </p>
-            </div>
-          )}
-
-          {sortedVices.length === 0 ? (
-            <div className="py-12 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-3xl select-none font-sans">
-              <Shield className="text-text-secondary/30 mx-auto mb-3" size={28} />
-              <p className="text-xs md:text-sm text-text-secondary/50 italic font-sans dark:text-text-secondary/40">
-                Nenhum vício cadastrado para blindagem.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6 pt-1 font-sans">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-sans">
-                {visibleVices.map((vice) => {
-                  const mStreak = avoidanceStreaks[vice.id] || 0;
-                  const mFalls = avoidanceCheckins.filter(
-                    c => c.habit_id === vice.id && (c.status === 'relapse' || c.status === 'recai')
-                  );
-
-                  // Streak status dynamically generated based on Neuroscience rule
-                  const statusString = mStreak < 3 
-                    ? "Zona de Perigo: Risco de abstinência aguda." 
-                    : mStreak < 21 
-                    ? "Força de vontade em construção. Não abaixe a guarda." 
-                    : "Caminhos neurais reescritos. Hábito enfraquecendo.";
-
-                  // Calculate cofre values
-                  const totalLimpo = avoidanceCheckins.filter(
-                    c => c.habit_id === vice.id && (c.status === 'success' || c.status === 'resisti')
-                  ).length;
-                  
-                  // Chronological streaks calculation for recorde vitalício
-                  const checkinsChrono = avoidanceCheckins
-                    .filter(c => c.habit_id === vice.id && (c.status === 'success' || c.status === 'resisti' || c.status === 'relapse' || c.status === 'recai'))
-                    .sort((a, b) => new Date(a.checkin_date || 0).getTime() - new Date(b.checkin_date || 0).getTime());
-
-                  let currentAcc = 0;
-                  let maxStk = 0;
-                  checkinsChrono.forEach(chk => {
-                    if (chk.status === 'success' || chk.status === 'resisti') {
-                      currentAcc++;
-                      if (currentAcc > maxStk) maxStk = currentAcc;
-                    } else {
-                      currentAcc = 0;
-                    }
-                  });
-                  const bestStkVal = Math.max(maxStk, mStreak);
-
-                  // Analyze peak trigger & hours
-                  let peakTriggerStr = '';
-                  let peakHourStr = '';
-                  if (mFalls.length > 0) {
-                    const fallbackCounts: { [k: string]: number } = {};
-                    mFalls.forEach(f => {
-                      const tg = f.trigger_tag || f.trigger_note || 'Gatilho Geral';
-                      fallbackCounts[tg] = (fallbackCounts[tg] || 0) + 1;
-                    });
-                    let maxFallsCount = 0;
-                    Object.entries(fallbackCounts).forEach(([k, count]) => {
-                      if (count > maxFallsCount) {
-                        maxFallsCount = count;
-                        peakTriggerStr = k;
-                      }
-                    });
-
-                    // Hours analyze
-                    const hourCounts: { [h: number]: number } = {};
-                    mFalls.forEach(f => {
-                      const dtStr = f.created_at || f.checkin_date;
-                      if (dtStr) {
-                        try {
-                          const dtObj = new Date(dtStr);
-                          const hour = dtObj.getHours();
-                          hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-                        } catch {}
-                      }
-                    });
-                    let maxHoursLogged = -1;
-                    let maxHourCount = 0;
-                    Object.entries(hourCounts).forEach(([h, count]) => {
-                      if (count > maxHourCount) {
-                        maxHourCount = count;
-                        maxHoursLogged = parseInt(h);
-                      }
-                    });
-                    if (maxHoursLogged !== -1) {
-                      peakHourStr = `${String(maxHoursLogged).padStart(2, '0')}:00`;
-                    }
-                  }
-
-                  // Dots generation helpers (last 7 calendar days)
-                  const last7Days = Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - (6 - i));
-                    return d;
-                  });
-
-                  return (
-                    <div 
-                      key={vice.id}
-                      className="bg-white/[0.015] hover:bg-white/[0.025] border border-white/5 hover:border-red-500/20 p-5 rounded-3xl flex flex-col justify-between space-y-4 text-left transition-all duration-300 relative overflow-hidden group"
-                    >
-                      {/* Name of vice / header */}
-                      <div className="flex justify-between items-start select-none font-sans">
-                        <span className="text-base font-extrabold text-text-primary tracking-tight truncate max-w-[70%] font-sans">
-                          {vice.name}
-                        </span>
-                        <span className="text-[9px] font-mono font-bold bg-[#6ee7a8]/10 text-primary-green border border-[#6ee7a8]/15 px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 select-none">
-                          ATIVO
-                        </span>
-                      </div>
-
-                      {/* Streak de Fogo */}
-                      <div className="space-y-1 select-none font-sans">
-                        <div className="flex items-center gap-1.5 leading-none">
-                          <Flame className="text-orange-500 fill-orange-500/20 animate-pulse shrink-0" size={26} />
-                          <span className="text-4xl md:text-5xl font-black font-sans tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 leading-none uppercase">
-                            {mStreak} {mStreak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
-                          </span>
-                        </div>
-                        <p className="text-[10.5px] leading-snug font-medium text-text-secondary/70 font-sans min-h-[32px]">
-                          {statusString}
-                        </p>
-                      </div>
-
-                      {/* Grid de Batalha: bolinhas para os últimos 7 dias */}
-                      <div className="space-y-1.5 pt-1 border-t border-white/5 select-none font-sans">
-                        <span className="text-[9px] font-mono font-bold text-text-secondary/40 uppercase tracking-widest block">
-                          Últimos 7 dias
-                        </span>
-                        <div className="flex gap-3 items-center justify-start overflow-x-auto py-1.5 no-scrollbar">
-                          {last7Days.map((day, dIdx) => {
-                            const dStr = getLocalDateString(day);
-                            const checkinsOnDay = avoidanceCheckins.filter(c => {
-                              if (c.habit_id !== vice.id) return false;
-                              const formattedValue = c.checkin_date ? getLocalDateString(new Date(c.checkin_date)) : '';
-                              return formattedValue === dStr;
-                            });
-
-                            const isRelapse = checkinsOnDay.some(c => c.status === 'relapse' || c.status === 'recai');
-                            const isSuccess = checkinsOnDay.some(c => c.status === 'success' || c.status === 'resisti');
-                            const dayInit = day.toLocaleDateString('pt-BR', { weekday: 'narrow' }).toUpperCase();
-                            const isTd = dStr === getLocalDateString(new Date());
-
-                            let dotColor = 'bg-white/[0.04] border border-white/10 text-text-secondary/35';
-                            let dotLabel = 'Sem registros';
-                            if (isRelapse) {
-                              dotColor = 'bg-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.5)]';
-                              dotLabel = 'Queda registrada';
-                            } else if (isSuccess) {
-                              dotColor = 'bg-[#6ee7a8] shadow-[0_0_8px_rgba(110,231,168,0.5)] bg-primary-green';
-                              dotLabel = 'Dia Limpo';
-                            }
-
-                            return (
-                              <div key={dIdx} className="flex flex-col items-center gap-1 shrink-0 font-mono">
-                                <span className={`text-[8.5px] font-extrabold font-mono ${isTd ? 'text-text-primary' : 'text-text-secondary/40'}`}>
-                                  {dayInit}
-                                </span>
-                                <div 
-                                  className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${dotColor}`}
-                                  title={`${day.toLocaleDateString('pt-BR')}: ${dotLabel}`}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Bloco de Inteligência */}
-                      <div className="grid grid-cols-2 gap-3 pt-2 select-none font-sans">
-                        {/* O Cofre */}
-                        <div className="flex flex-col justify-between space-y-2">
-                          <div className="text-left font-sans">
-                            <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight">O COFRE</span>
-                            <div className="flex items-baseline gap-1 mt-1">
-                              <span className="text-lg font-bold text-[#6ee7a8] font-mono leading-none">{totalLimpo}</span>
-                              <span className="text-[9px] text-text-secondary/50 font-medium">limpos</span>
-                            </div>
-                            <div className="text-[10px] text-text-secondary/40 mt-1 font-sans">
-                              Recorde: <span className="font-mono font-bold text-text-primary">{bestStkVal}d</span>
-                            </div>
-                          </div>
-                          <p className="text-[9px] font-bold text-[#6ee7a8]/75 tracking-tight pt-1.5 border-t border-white/5 mt-1 block w-full text-left font-sans">
-                            ⏳ ~{Math.round(totalLimpo * 1.5)}h salvas
-                          </p>
-                        </div>
-
-                        {/* Ponto Cego */}
-                        <div className="flex flex-col justify-between space-y-2">
-                          {mFalls.length > 0 ? (
-                            <div className="space-y-1 text-left h-full flex flex-col justify-between">
-                              <div className="text-left font-sans">
-                                <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight">PONTO CEGO</span>
-                                <div className="text-[11px] font-bold text-text-primary mt-1.5 leading-snug flex items-start gap-1 font-sans">
-                                  <span className="text-red-400 shrink-0 select-none">⚠️</span>
-                                  <span className="truncate max-w-[85px]">{peakTriggerStr}</span>
-                                </div>
-                              </div>
-                              {peakHourStr && (
-                                <div className="text-[9.5px] font-semibold text-text-secondary/70 flex items-center gap-1 mt-0.5 pt-1.5 border-t border-white/5 text-left font-sans">
-                                  <span className="text-[#6ee7a8] shrink-0 select-none">⏰</span>
-                                  <span className="truncate">Risco: <span className="font-mono font-bold text-text-primary">{peakHourStr}</span></span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex flex-col h-full justify-between text-left font-sans">
-                              <div className="text-left font-sans">
-                                <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-tight font-sans">PONTO CEGO</span>
-                              </div>
-                              <p className="text-[9.5px] text-[#6ee7a8]/80 italic leading-snug pt-1 whitespace-normal">
-                                🛡️ Coletando dados do seu padrão de queda...
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-                  );
-                })}
-              </div>
-
-              {sortedVices.length > 3 && (
-                <div className="pt-2 flex justify-start font-sans">
-                  <button
-                    onClick={() => setShowAllVices(!showAllVices)}
-                    className="text-xs font-mono font-bold text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer py-1 font-bold"
-                  >
-                    <span>{showAllVices ? '↑ Mostrar menos' : `↓ Ver todas as ${sortedVices.length} proteções`}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </section>
 
         {/* SEÇÃO 4: REGISTRO DE CAMPO (GHOST QUOTES) */}
@@ -2393,7 +2160,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       <SuaEvolucaoModal isOpen={isEvolucaoModalOpen} onClose={() => setIsEvolucaoModalOpen(false)} />
 
       {/* MODAL PORTAL: TRENDS ANTI-VÍCIO */}
-      <TrendsAntiVicioModal isOpen={isTrendsOpen} onClose={() => setIsTrendsOpen(false)} />
+      <TrendsAntiVicioModal isOpen={isTrendsModalOpen} onClose={() => setIsTrendsModalOpen(false)} />
     </div>
   );
 };
