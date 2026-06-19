@@ -140,10 +140,32 @@ export const ActiveSession = () => {
     }
   }, [showLateConfig, timer.projectId, timer.activityId, timer.activityName]);
 
+  useEffect(() => {
+    if (showNoteModal) {
+      setNoteProjectId(timer.projectId || '');
+      setNoteActivityId('');
+    }
+  }, [showNoteModal, timer.projectId]);
+
+  useEffect(() => {
+    if (showLinkModal) {
+      setLinkProjectId(timer.projectId || '');
+    }
+  }, [showLinkModal, timer.projectId]);
+
   // Note Creation State
   const [noteContent, setNoteContent] = useState('');
   const [noteProjectId, setNoteProjectId] = useState(timer.projectId || '');
   const [noteActivityId, setNoteActivityId] = useState('');
+  const [linkProjectId, setLinkProjectId] = useState(timer.projectId || '');
+
+  const sessionNotes = useMemo(() => {
+    if (!timer.startTime) return [];
+    return dataStore.notes.filter(note => {
+      const noteTime = new Date(note.created_at).getTime();
+      return noteTime >= timer.startTime!;
+    });
+  }, [dataStore.notes, timer.startTime]);
 
   const { triggerNotification, unlockAudio } = useSessionNotifications();
   const hasObservedFinish = useRef(false);
@@ -508,7 +530,7 @@ export const ActiveSession = () => {
     await dataStore.addLink(user.id, {
       title: title,
       url: url,
-      projectId: timer.projectId || null,
+      projectId: linkProjectId || null,
       habitId: timer.habitId || null
     });
     setNewLinkUrl('');
@@ -1014,11 +1036,11 @@ export const ActiveSession = () => {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               style={{ willChange: 'transform' }}
-              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-xl w-full space-y-10 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+              className="bg-surface border border-border-white p-8 md:p-10 rounded-[2.5rem] max-w-4xl w-full space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
             >
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
-                  <StickyNote className="text-primary-green" /> Registro Rápido
+                  <StickyNote className="text-primary-green" /> Registro Rápido & Bloco de Notas
                 </h3>
                 <button
                   type="button"
@@ -1033,77 +1055,155 @@ export const ActiveSession = () => {
                 </button>
               </div>
 
-              <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
-                    <CustomSelect
-                      value={noteProjectId}
-                      onChange={val => setNoteProjectId(val)}
-                      placeholder="Sem Projeto"
-                      options={[
-                        { value: '', label: 'Sem Projeto' },
-                        ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
-                      ]}
-                    />
+              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-8">
+                {/* COLUMN L: Note creation */}
+                <div className="space-y-6 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
+                        <CustomSelect
+                          value={noteProjectId}
+                          onChange={val => setNoteProjectId(val)}
+                          placeholder="Sem Projeto"
+                          options={[
+                            { value: '', label: 'Sem Projeto' },
+                            ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                          ]}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
+                        <CustomSelect
+                          value={noteActivityId}
+                          onChange={val => setNoteActivityId(val)}
+                          placeholder="Sem Atividade"
+                          options={[
+                            { value: '', label: 'Sem Atividade' },
+                            ...dataStore.activities
+                              .filter(a => !noteProjectId || a.project_id === noteProjectId)
+                              .map(a => ({ value: a.id, label: a.name }))
+                          ]}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-left py-1">
+                      <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest flex items-center gap-2">
+                        📅 {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 font-sans">Nova Anotação</label>
+                      <textarea
+                        placeholder="O que precisa registrar agora para não esquecer?"
+                        autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAddNote();
+                          }
+                        }}
+                        className="w-full bg-surface/40 border border-border-white rounded-2xl p-5 text-base font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
+                        value={noteContent}
+                        onChange={e => setNoteContent(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
-                    <CustomSelect
-                      value={noteActivityId}
-                      onChange={val => setNoteActivityId(val)}
-                      placeholder="Sem Atividade"
-                      options={[
-                        { value: '', label: 'Sem Atividade' },
-                        ...dataStore.activities
-                          .filter(a => !noteProjectId || a.project_id === noteProjectId)
-                          .map(a => ({ value: a.id, label: a.name }))
-                      ]}
-                    />
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNoteModal(false);
+                        setShowResourcesModal(true);
+                      }}
+                      className="flex-1 py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+                    >
+                      ← Voltar
+                    </button>
+                    <button
+                      disabled={!noteContent}
+                      onClick={handleAddNote}
+                      className="flex-[2] py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_20px_40px_rgba(110,231,168,0.2)]"
+                    >
+                      Gravar Nota
+                    </button>
                   </div>
                 </div>
 
-                <div className="text-left py-2">
-                   <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest flex items-center gap-2">
-                     📅 {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                   </p>
-                </div>
+                {/* COLUMN R: Note History (INLINE) */}
+                <div className="border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8 flex flex-col h-full">
+                  <div className="pb-3 flex justify-between items-center">
+                    <label className="text-[10px] font-black tracking-widest text-text-secondary/40 uppercase font-sans">
+                      Anotações desta Sessão
+                    </label>
+                    {sessionNotes.length > 0 && (
+                      <span className="px-2 py-0.5 bg-primary-green/10 text-primary-green rounded-full text-[9px] font-extrabold uppercase font-mono">
+                        {sessionNotes.length} {sessionNotes.length === 1 ? 'Nota' : 'Notas'}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Anotação</label>
-                  <textarea
-                    placeholder="O que precisa registrar agora?"
-                    autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddNote();
-                      }
-                    }}
-                    className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
-                    value={noteContent}
-                    onChange={e => setNoteContent(e.target.value)}
-                  />
+                  <div className="flex-1 overflow-y-auto max-h-[380px] pr-1 space-y-3 custom-scrollbar">
+                    {sessionNotes.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center py-10 space-y-2">
+                        <StickyNote size={24} className="text-text-secondary/10" />
+                        <p className="text-xs text-text-secondary/30 italic font-light">
+                          Nenhuma anotação registrada ainda nesta sessão de foco.
+                        </p>
+                      </div>
+                    ) : (
+                      sessionNotes.map((note) => {
+                        const noteProject = dataStore.projects.find(p => p.id === note.project_id);
+                        const noteActivity = dataStore.activities.find(a => a.id === note.activity_id);
+                        return (
+                          <div
+                            key={note.id}
+                            className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/10 transition-all group space-y-2 text-left"
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] text-text-secondary/40 font-mono">
+                                🕒 {new Date(note.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('Tem certeza que deseja excluir esta nota?')) {
+                                    dataStore.deleteNote(note.id);
+                                  }
+                                }}
+                                className="p-1 text-red-500/40 hover:text-red-400 rounded transition-colors"
+                                title="Excluir nota"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                            <p className="text-xs text-text-primary/95 whitespace-pre-wrap font-light leading-relaxed">
+                              {note.content}
+                            </p>
+                            
+                            {(noteProject || noteActivity) && (
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {noteProject && (
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-text-secondary/60">
+                                    📁 {noteProject.name}
+                                  </span>
+                                )}
+                                {noteActivity && (
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-[#6ee7b7]/60 font-medium">
+                                    ⚡ {noteActivity.name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex gap-4">
-                <button
-                  onClick={() => {
-                    setShowNoteModal(false);
-                    setShowResourcesModal(true);
-                  }}
-                  className="flex-1 py-5 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
-                >
-                  ← Voltar
-                </button>
-                <button
-                  disabled={!noteContent}
-                  onClick={handleAddNote}
-                  className="flex-[2] py-5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_20px_40px_rgba(110,231,168,0.2)]"
-                >
-                  Ok
-                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1143,30 +1243,45 @@ export const ActiveSession = () => {
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  placeholder="Cole seu link aqui..."
-                  autoComplete="off"
-                  enterKeyHint="done"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSaveLink();
-                    }
-                  }}
-                  className="flex-1 bg-surface/40 border border-border-white rounded-2xl px-5 py-3.5 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px]"
-                  value={newLinkUrl}
-                  onChange={e => setNewLinkUrl(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveLink}
-                  disabled={!newLinkUrl.trim()}
-                  className="px-6 py-3.5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_10px_20px_rgba(110,231,168,0.15)] flex items-center justify-center shrink-0"
-                >
-                  Salvar
-                </button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 font-sans">Vincular a um Projeto</label>
+                  <CustomSelect
+                    value={linkProjectId}
+                    onChange={val => setLinkProjectId(val)}
+                    placeholder="Sem Projeto"
+                    options={[
+                      { value: '', label: 'Sem Projeto' },
+                      ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    placeholder="Cole seu link aqui..."
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveLink();
+                      }
+                    }}
+                    className="flex-1 bg-surface/40 border border-border-white rounded-2xl px-5 py-3.5 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px]"
+                    value={newLinkUrl}
+                    onChange={e => setNewLinkUrl(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveLink}
+                    disabled={!newLinkUrl.trim()}
+                    className="px-6 py-3.5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_10px_20px_rgba(110,231,168,0.15)] flex items-center justify-center shrink-0"
+                  >
+                    Salvar
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1180,51 +1295,61 @@ export const ActiveSession = () => {
                       Nenhum link salvo ainda.
                     </p>
                   ) : (
-                    dataStore.savedLinks.map((link) => (
-                      <div
-                        key={link.id}
-                        className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 transition-all group"
-                      >
-                        <div className="flex-1 min-w-0 pr-3">
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={() => dataStore.registerLinkAccess(link.id)}
-                            className="text-sm font-medium text-text-primary hover:text-primary-green transition-colors block truncate"
-                          >
-                            {link.title || link.url}
-                          </a>
-                          <span className="text-[9px] text-text-secondary/40 font-mono block truncate mt-0.5">
-                            {link.url}
-                          </span>
+                    dataStore.savedLinks.map((link) => {
+                      const linkProj = dataStore.projects.find(p => p.id === link.project_id);
+                      return (
+                        <div
+                          key={link.id}
+                          className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 transition-all group"
+                        >
+                          <div className="flex-1 min-w-0 pr-3">
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={() => dataStore.registerLinkAccess(link.id)}
+                              className="text-sm font-medium text-text-primary hover:text-primary-green transition-colors block truncate"
+                            >
+                              {link.title || link.url}
+                            </a>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="text-[9px] text-text-secondary/40 font-mono truncate">
+                                {link.url}
+                              </span>
+                              {linkProj && (
+                                <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-[8px] font-semibold text-text-secondary inline-flex items-center gap-1">
+                                  📁 {linkProj.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 text-text-secondary/50 hover:text-text-primary rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                              title="Abrir Link"
+                            >
+                              <Link size={14} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('Deseja realmente excluir este link?')) {
+                                  dataStore.deleteLink(link.id);
+                                }
+                              }}
+                              className="p-2 text-red-500/50 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                              title="Excluir Link"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-2 text-text-secondary/50 hover:text-text-primary rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                            title="Abrir Link"
-                          >
-                            <Link size={14} />
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm('Deseja realmente excluir este link?')) {
-                                dataStore.deleteLink(link.id);
-                              }
-                            }}
-                            className="p-2 text-red-500/50 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                            title="Excluir Link"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
