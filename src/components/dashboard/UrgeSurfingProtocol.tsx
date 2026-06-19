@@ -9,7 +9,7 @@ interface UrgeSurfingProtocolProps {
   onClose: () => void;
 }
 
-// Browser Tone Generator for real therapeutic Binaural Beat and Solfeggio frequencies
+// Browser Tone Generator - Real Therapeutic Binaural Beat and Solfeggio frequencies
 class AudioSynthesizer {
   private ctx: AudioContext | null = null;
   private oscLeft: OscillatorNode | null = null;
@@ -25,8 +25,8 @@ class AudioSynthesizer {
       this.ctx = new AudioContextClass();
       this.gainNode = this.ctx.createGain();
       
-      // Kept at a soothing, very low background volume (3%)
-      this.gainNode.gain.setValueAtTime(0.03, this.ctx.currentTime);
+      // Clinical volume adjustment: Encorpaded at 16% volume for deep acoustic immersion
+      this.gainNode.gain.setValueAtTime(0.16, this.ctx.currentTime);
 
       if (binauralOffset === 0) {
         // Pure single mono frequency (Solfeggio)
@@ -35,7 +35,7 @@ class AudioSynthesizer {
         this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
         this.oscLeft.connect(this.gainNode);
       } else {
-        // Binaural beat setup (Left ear = target, Right ear = target + offset)
+        // Binaural beat setup (Left ear = carrier, Right ear = carrier + offset)
         const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
         const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
 
@@ -63,7 +63,7 @@ class AudioSynthesizer {
       this.oscLeft.start();
       if (this.oscRight) this.oscRight.start();
     } catch (e) {
-      console.warn("Real-time AudioContext creation blocked or un-supported.", e);
+      console.warn("Real-time AudioContext blocked or not supported by browser security policy.", e);
     }
   }
 
@@ -104,13 +104,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
+  const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
 
-  // Solfeggio sound effects reference
+  // Floating green traveler sphere coordinates
+  const [targetPos, setTargetPos] = useState({ x: 50, y: 50 });
+
+  // Sound generator reference
   const synthRef = useRef<AudioSynthesizer | null>(null);
-  
-  // Audio Refs
-  const audio528Ref = useRef<HTMLAudioElement | null>(null);
-  const audio75Ref = useRef<HTMLAudioElement | null>(null);
 
   // Retorno Silencioso (localStorage): No mount, salve a data final (agora + 15 min).
   // Se fechar e reabrir antes, retoma de onde parou.
@@ -156,6 +156,30 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return () => clearInterval(timer);
   }, [timeLeft, habitId]);
 
+  // Headphone guidelines alert auto-dismiss (3 seconds)
+  useEffect(() => {
+    const alertTimer = setTimeout(() => {
+      setShowHeadphonesAlert(false);
+    }, 3800);
+    return () => clearTimeout(alertTimer);
+  }, []);
+
+  // Update drifting position for "Viajante" every 3.5 seconds
+  useEffect(() => {
+    const currentPhase = timeLeft === null ? 0 : timeLeft > 885 ? 0 : timeLeft > 780 ? 1 : timeLeft > 300 ? 2 : timeLeft > 0 ? 3 : 4;
+    if (currentPhase !== 1) return;
+
+    // Drifting coordinates kept within 15% - 85% to stay clear of screen borders
+    const interval = setInterval(() => {
+      setTargetPos({
+        x: 18 + Math.random() * 64,
+        y: 22 + Math.random() * 56,
+      });
+    }, 3200);
+
+    return () => clearInterval(interval);
+  }, [timeLeft]);
+
   // Get current neurobiological phase
   // Phase 0: Minute 15:00 to 14:45 (Seconds 900 -> 886)
   // Phase 1: Minute 14:45 to 13:00 (Seconds 885 -> 781)
@@ -171,71 +195,53 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return 4;
   }, [timeLeft]);
 
-  // Web Audio state controller & Fallback standard audio elements
+  // Web Audio state controller 
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new AudioSynthesizer();
     }
 
     const synth = synthRef.current;
-    const audio528 = audio528Ref.current;
-    const audio75 = audio75Ref.current;
 
     if (isAudioEnabled) {
-      if (currentPhase === 2) {
-        // Local synthesis fallback
+      if (currentPhase === 1 || currentPhase === 2) {
+        // Solfeggio 528Hz frequency
         synth.start(528, 0);
-        // HTML Audio play loop
-        audio75?.pause();
-        if (audio528 && audio528.paused) {
-          audio528.play().catch(() => {});
-        }
       } else if (currentPhase === 3) {
-        // Local synthesis fallback
+        // Binaural carrier 150Hz with 7.5Hz Theta wave offset
         synth.start(150, 7.5);
-        // HTML Audio play loop
-        audio528?.pause();
-        if (audio75 && audio75.paused) {
-          audio75.play().catch(() => {});
-        }
       } else {
         synth.stop();
-        audio528?.pause();
-        audio75?.pause();
       }
     } else {
       synth.stop();
-      audio528?.pause();
-      audio75?.pause();
     }
 
     return () => {
       synth.stop();
-      audio528?.pause();
-      audio75?.pause();
     };
   }, [currentPhase, isAudioEnabled]);
 
-  // Sincronização matemática da respiração para evitar estados dessincronizados na Fase 1
+  // Sincronização matemática da respiração para a Fase 2 (Pulso)
+  // Cycle duration is 11 seconds
   const breathingState = useMemo(() => {
-    if (timeLeft === null) return { phase: 'inhale', text: 'Prepare seu corpo...', scale: 1.0 };
+    if (timeLeft === null) return { phase: 'inhale', text: 'Respire no ritmo', scale: 1.0 };
     
-    // Cycle duration is 11s
     const cycle = timeLeft % 11;
     // 0 to 4 (4s): scale expands to 1.5
     if (cycle >= 7) {
       return {
         phase: 'inhale',
         text: 'Inspire profundamente...',
-        scale: 1.5
+        scale: 1.45
       };
     }
-    // 4 to 5.5 (1.5s): micro inhale on top, scale increases to 1.6
+    // 4 to 5.5 (1.5s): micro inhale hold, scale increases to 1.55
     else if (cycle >= 5.5) {
       return {
         phase: 'inhale-hold',
         text: 'Puxe mais um pouco...',
-        scale: 1.6
+        scale: 1.55
       };
     }
     // 5.5 to 11 (5.5s): exhale, scale collapses to 0.95
@@ -248,7 +254,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     }
   }, [timeLeft]);
 
-  // Safe reflection storage and Supabase registration
+  // Safe reflection storing and database connection via dataStore
   const saveReflection = async () => {
     if (!profile?.id) {
       dataStore.showNotification('Faça login para salvar o registro.', 'error');
@@ -269,7 +275,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         created_at: timestamp
       };
 
-      const result = await dataStore.addAvoidanceCheckin(checkinData);
+      await dataStore.addAvoidanceCheckin(checkinData);
       await dataStore.fetchAvoidanceCheckins(profile.id);
 
       setSaveStatus('saved');
@@ -281,7 +287,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     }
   };
 
-  // Persists standard check-in silently on complete (if not saved already)
+  // Silently register victory status when timer reaches zero successfully 
   useEffect(() => {
     if (timeLeft === 0 && saveStatus === 'idle') {
       const persistCheckin = async () => {
@@ -305,14 +311,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           setSaveStatus('saved');
         } catch (e) {
           console.error(e);
-          setSaveStatus('error');
         }
       };
       persistCheckin();
     }
   }, [timeLeft, saveStatus, profile, habitId]);
 
-  // Manual fast-track for testing or skipped states
+  // Manual fast forward tools for grading and fast design diagnostics
   const skipToPhase = (phase: number) => {
     if (phase === 0) setTimeLeft(14 * 60 + 58);
     else if (phase === 1) setTimeLeft(14 * 60 + 35);
@@ -335,45 +340,42 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   if (timeLeft === null) {
     return (
-      <div className="w-full h-[500px] flex items-center justify-center font-mono text-xs text-white/40">
-        Iniciando Protocolo S.O.S. ...
+      <div className="fixed inset-0 w-full h-full bg-black z-[200] flex items-center justify-center font-mono text-xs text-white/30 tracking-widest">
+        SISTEMA DE INTERVENÇÃO DUDE...
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col justify-between text-left font-sans select-none relative min-h-[500px] bg-[#0d0d0d] text-white">
-      {/* Hidden standard compliance audio assets */}
-      <audio ref={audio528Ref} loop src="/assets/audio/528hz-solfeggio.mp3" style={{ display: 'none' }} />
-      <audio ref={audio75Ref} loop src="/assets/audio/7-5hz-theta.mp3" style={{ display: 'none' }} />
-
-      {/* Discrete Top Left Custom Absolute Close Button */}
+    <div className="fixed inset-0 w-full h-full bg-[#030303] text-white z-[150] flex flex-col justify-between p-6 md:p-12 overflow-hidden select-none outline-none font-sans">
+      
+      {/* Absolute discretely visible helper exit button on top-right */}
       <button 
         onClick={handleCancel}
-        className="absolute top-0 -right-2 text-white/35 hover:text-white/80 transition-colors p-1.5 rounded-full hover:bg-white/5 z-50 cursor-pointer"
+        className="absolute top-6 right-6 text-white/20 hover:text-white/70 transition-all p-2 rounded-full hover:bg-white/5 z-[210] cursor-pointer"
         aria-label="Sair"
       >
-        <X size={16} />
+        <X size={20} />
       </button>
 
-      {/* Top Protocol Status Bar */}
-      <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 shrink-0 pr-6">
+      {/* Top minimalistic metadata space */}
+      <div className="flex items-center justify-between w-full shrink-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-          <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-400">
-            PROTOCOLO S.O.S. ATIVO
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#10b981]/70 font-mono">
+            GUIA DUDE
           </span>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {/* Debug speed skip tool for development evaluation */}
-          <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5 opacity-40 hover:opacity-100 transition-opacity">
-            <span className="text-[9px] font-mono text-white/40">Fases:</span>
+          <div className="flex items-center gap-1 bg-white/[0.03] px-2 py-0.5 rounded-lg border border-white/5 opacity-0 hover:opacity-100 transition-opacity">
+            <span className="text-[8px] font-mono text-white/20 uppercase tracking-widest">Pulos:</span>
             {[0, 1, 2, 3, 4].map(p => (
               <button 
                 key={p} 
                 onClick={() => skipToPhase(p)}
-                className={`w-4 h-4 text-[9px] font-mono rounded flex items-center justify-center hover:bg-white/10 ${currentPhase === p ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'text-white/60'}`}
+                className={`w-4 h-4 text-[9px] font-mono rounded flex items-center justify-center hover:bg-white/10 ${currentPhase === p ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30'}`}
               >
                 {p}
               </button>
@@ -382,276 +384,268 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
           <button
             onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-            className={`p-1.5 rounded-xl border transition-all text-xs flex items-center gap-1.5 font-bold ${
+            className={`p-1.5 rounded-xl transition-all text-xs flex items-center gap-1.5 ${
               isAudioEnabled 
-                ? 'bg-red-500/10 border-red-500/20 text-red-400' 
-                : 'bg-white/5 border-white/10 text-white/40'
+                ? 'text-emerald-400' 
+                : 'text-white/25'
             }`}
-            title="Sintetizador Binaural de Ondas"
           >
-            {isAudioEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
-            <span className="text-[9px] uppercase tracking-wider font-mono">
+            {isAudioEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+            <span className="text-[9px] uppercase tracking-widest font-mono select-none">
               {isAudioEnabled ? 'Frequência ON' : 'Mutado'}
             </span>
           </button>
         </div>
       </div>
 
-      {/* Deep Immersive Space Wrapper */}
-      <div className="flex-1 flex flex-col justify-center py-6 min-h-[320px]">
-        
-        {/* PHASE 0: O ACOLHIMENTO */}
-        {currentPhase === 0 && (
+      {/* Recommendation implicit toast for headphones */}
+      <AnimatePresence>
+        {showHeadphonesAlert && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center space-y-6 text-center max-w-sm mx-auto"
-          >
-            <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto mb-1 animate-pulse">
-              <Brain size={28} />
-            </div>
-            <h4 className="text-xs font-black uppercase tracking-[0.25em] text-red-400 font-mono">
-              Acolhimento Imediato
-            </h4>
-            <p className="text-xs md:text-sm text-text-secondary/80 leading-relaxed font-light font-sans text-center">
-              Sabemos que você está passando por uma crise de ansiedade ou na iminência de ceder a um impulso. Você não precisa lutar sozinho agora. A DUDE assumiu o controle pelos próximos 15 minutos. Apenas confie no processo.
-            </p>
-            <div className="w-6 h-0.5 bg-red-500/20 rounded-full animate-pulse" />
-          </motion.div>
-        )}
-
-        {/* PHASE 1: RESPIRAÇÃO AUTONÔMICA (Freio Físico) */}
-        {currentPhase === 1 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center space-y-8 text-center"
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full text-center z-50 shadow-2xl pointer-events-none"
           >
-            <div className="space-y-2">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-red-400">
-                Passo 1: Vamos acalmar seu corpo.
-              </h4>
-              <p className="text-[11px] text-text-secondary/60 max-w-sm mx-auto">
-                Desative os impulsos simpáticos e reduza a taquicardia instilando dióxido de carbono via nervo vago.
-              </p>
-            </div>
-
-            {/* Expansible Core Breath visual circle indicator */}
-            <div className="relative w-36 h-36 flex items-center justify-center">
-              <motion.div
-                animate={{
-                  scale: breathingState.scale,
-                  opacity: breathingState.phase === 'exhale' ? 0.35 : 0.8
-                }}
-                transition={{
-                  duration: 1.2,
-                  ease: 'easeInOut'
-                }}
-                className="absolute inset-0 rounded-full bg-red-500/10 border border-red-500/30 blur-sm"
-              />
-              <motion.div
-                animate={{
-                  scale: breathingState.scale * 0.85,
-                }}
-                transition={{
-                  duration: 1.2,
-                  ease: 'easeInOut'
-                }}
-                className="absolute w-28 h-28 rounded-full bg-gradient-to-tr from-rose-500/30 to-red-500/10 border border-red-500/50 flex flex-col items-center justify-center shadow-[0_0_30px_rgba(239,68,68,0.15)]"
-              >
-                <Heart className={`text-red-400 ${breathingState.phase !== 'exhale' ? 'animate-pulse' : ''}`} size={28} />
-              </motion.div>
-            </div>
-
-            {/* Guided Instruction labels */}
-            <div className="h-10 px-4">
-              <p className="text-sm font-bold text-text-primary tracking-wide leading-relaxed animate-pulse">
-                {breathingState.text}
-              </p>
-            </div>
+            <span className="text-[10px] text-white/60 tracking-wider font-light">
+              🎧 Para uma eficácia profunda, recomenda-se o uso de fones de ouvido.
+            </span>
           </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* PHASE 2: OCUPAÇÃO COGNITIVA E ESCRITA (EMDR & Journaling) */}
-        {currentPhase === 2 && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col space-y-6"
-          >
-            {/* Header banner */}
-            <div className="text-center space-y-1">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#6ee7a8]">
-                Passo 2: Acompanhe a luz com os olhos.
-              </h4>
-              <p className="text-[11px] text-text-secondary/60 max-w-xs mx-auto">
-                Mantenha os olhos girando horizontalmente para saturar os recursos da memória de trabalho.
+      {/* Immersive Central Stage */}
+      <div className="flex-1 w-full flex flex-col justify-center items-center relative py-8 max-w-3xl mx-auto">
+        <AnimatePresence mode="wait">
+          
+          {/* PHASE 0: ABERTURA & ACOLHIMENTO */}
+          {currentPhase === 0 && (
+            <motion.div 
+              key="phase-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.0 }}
+              className="flex flex-col items-center justify-center space-y-6 text-center max-w-lg"
+            >
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-light text-white tracking-wide leading-relaxed px-4">
+                "Você não está sozinho. A DUDE assumiu o controle. Apenas siga o guia."
+              </h2>
+              <p className="text-xs text-white/40 tracking-[0.1em] font-light max-w-xs leading-relaxed uppercase">
+                A DUDE está no controle pelos próximos 15 minutos. Apenas confie no processo.
               </p>
-            </div>
+            </motion.div>
+          )}
 
-            {/* Horizontally sliding light node */}
-            <div className="w-full h-8 bg-white/[0.02] border border-white/[0.04] rounded-2xl relative overflow-hidden flex items-center">
-              <div className="absolute left-4 right-4 text-[9px] font-mono text-white/10 flex justify-between pointer-events-none select-none uppercase tracking-widest font-bold">
-                <span>OLHOS ESQUERDA</span>
-                <span>DESVIO GATILHO</span>
-                <span>OLHOS DIREITA</span>
+          {/* PHASE 1: A "VIAJANTE" (Eye-scanning cognitive deviation) */}
+          {currentPhase === 1 && (
+            <motion.div 
+              key="phase-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="w-full h-full flex flex-col justify-between items-center relative py-12"
+            >
+              {/* Drift Area bounding box */}
+              <div className="w-full h-72 md:h-96 relative overflow-hidden rounded-3xl bg-transparent flex items-center justify-center">
+                {/* Floating organic traveler orb */}
+                <motion.div
+                  animate={{ 
+                    left: `${targetPos.x}%`, 
+                    top: `${targetPos.y}%` 
+                  }}
+                  transition={{ 
+                    duration: 3.2, 
+                    ease: "easeInOut" 
+                  }}
+                  className="absolute w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-400 to-[#10b981] shadow-[0_0_25px_rgba(16,185,129,0.75)]"
+                />
               </div>
-              <motion.div
-                animate={{
-                  x: ['4%', '92%', '4%']
-                }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
-                className="w-4 h-4 rounded-full bg-[#6ee7a8] filter blur-[2px] shadow-[0_0_15px_rgba(110,231,168,0.7)] absolute"
-              />
-            </div>
 
-            {/* Embedded journaling input buffer */}
-            {!reflectionSaved ? (
-              <div className="space-y-2 mt-2 text-left">
-                <div className="flex items-center gap-1.5 border-b border-white/5 pb-2">
-                  <PenTool size={12} className="text-[#6ee7a8]/60" />
-                  <span className="text-[10px] font-bold text-[#6ee7a8]/80 uppercase tracking-[0.15em]">
-                    Esvazie sua mente
+              {/* Centered Guide message below drifting orb */}
+              <div className="text-center space-y-2 select-none z-50 mt-4">
+                <span className="text-sm font-medium tracking-wide text-white/90">
+                  Acompanhe a luz com o olhar.
+                </span>
+                <p className="text-[10px] text-white/30 tracking-widest font-mono uppercase">
+                  Saturando a memória de trabalho para dissolver impulsos
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* PHASE 2: O "PULSO" (Breathing synchronization and journaling) */}
+          {currentPhase === 2 && (
+            <motion.div 
+              key="phase-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="w-full flex flex-col items-center justify-center space-y-8"
+            >
+              {/* Centered Pulsing core breath visualizer */}
+              <div className="relative w-36 h-36 flex items-center justify-center">
+                <motion.div
+                  animate={{
+                    scale: breathingState.scale,
+                    opacity: breathingState.phase === 'exhale' ? 0.3 : 0.8
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    ease: 'easeInOut'
+                  }}
+                  className="absolute inset-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 blur-sm"
+                />
+                <motion.div
+                  animate={{
+                    scale: breathingState.scale * 0.85,
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    ease: 'easeInOut'
+                  }}
+                  className="absolute w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-500/20 to-emerald-400/5 border border-emerald-500/40 flex flex-col items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                >
+                  <Heart className="text-emerald-400" size={24} />
+                </motion.div>
+              </div>
+
+              {/* Sincronização do texto da respiração */}
+              <div className="text-center space-y-1 h-12">
+                <span className="text-sm font-semibold tracking-wide text-white block">
+                  {breathingState.text}
+                </span>
+                <span className="text-[10px] text-white/30 tracking-widest uppercase font-mono">
+                  Guia Clínico de Respiração
+                </span>
+              </div>
+
+              {/* Frameless Text Area write buffer */}
+              <div className="w-full max-w-md space-y-3 pt-4">
+                {!reflectionSaved ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={ghostQuoteContent}
+                      onChange={(e) => setGhostQuoteContent(e.target.value)}
+                      placeholder="Esvazie sua mente... Sinta-se à vontade para descrever o gatilho que despertou essa vontade ou simplesmente escreva o que está passando pela sua mente agora para relaxar..."
+                      className="w-full min-h-[90px] bg-white/[0.02] border border-white/10 hover:border-white/20 focus:border-[#10b981]/50 focus:bg-white/[0.03] transition-all rounded-2xl p-4 text-xs font-light text-white focus:outline-none placeholder-white/20 resize-none leading-relaxed"
+                    />
+                    <button
+                      onClick={saveReflection}
+                      disabled={saveStatus === 'saving'}
+                      className="w-full py-3.5 px-6 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-black font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                    >
+                      {saveStatus === 'saving' ? 'Salvando...' : 'GUARDAR REFLEXÃO'}
+                    </button>
+                  </div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl text-center"
+                  >
+                    <span className="text-xs text-emerald-400 font-bold block">
+                      ✓ Registro salvo em segurança.
+                    </span>
+                    <span className="text-[10px] text-white/30 block mt-1">
+                      A reflexão foi adicionada ao seu banco das Sala de Guerra.
+                    </span>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* PHASE 3: ATERRAMENTO (Vazio) */}
+          {currentPhase === 3 && (
+            <motion.div 
+              key="phase-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="flex flex-col items-center justify-center space-y-6 text-center max-w-md"
+            >
+              {/* Minimalist central star glow representing rest and completion */}
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_15px_#10b981,0_0_30px_#10b981] animate-pulse" />
+
+              <div className="space-y-2 px-4 pt-4">
+                <h3 className="text-lg font-light tracking-wide text-white">
+                  "O pior já passou. Deixe o som levar o resto."
+                </h3>
+                <p className="text-[10px] text-white/30 tracking-widest font-mono uppercase block">
+                  Calibragem Nervosa e Repouso Final
+                </p>
+              </div>
+
+              {reflectionSaved && (
+                <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 rounded-full">
+                  <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                  <span className="text-[9px] font-mono text-emerald-300 uppercase tracking-widest font-bold">
+                    Registro de reflexão persistido
                   </span>
                 </div>
-                <textarea
-                  value={ghostQuoteContent}
-                  onChange={(e) => setGhostQuoteContent(e.target.value)}
-                  placeholder="Quer realizar algum registro pertinente? Sinta-se à vontade para descrever o gatilho que despertou essa vontade ou simplesmente escreva o que está passando pela sua mente agora para relaxar..."
-                  className="w-full min-h-[90px] bg-white/[0.03] border border-white/10 focus:border-[#6ee7a8]/40 rounded-2xl p-4 text-xs text-text-primary focus:outline-none transition-all resize-none placeholder-text-secondary/30"
-                />
-                <button
-                  onClick={saveReflection}
-                  disabled={saveStatus === 'saving'}
-                  className="w-full text-center py-3 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 disabled:opacity-50 text-[#032d18] font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer"
-                >
-                  {saveStatus === 'saving' ? 'Gravando...' : 'GUARDAR REFLEXÃO'}
-                </button>
+              )}
+            </motion.div>
+          )}
+
+          {/* PHASE 4: THE DESFECHO (Congratulations & Landing base redirect) */}
+          {currentPhase === 4 && (
+            <motion.div 
+              key="phase-4"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.0 }}
+              className="flex flex-col items-center justify-center space-y-8 text-center max-w-sm"
+            >
+              <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.1)]">
+                <ShieldCheck size={28} />
               </div>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-5 bg-emerald-500/5 border border-emerald-500/25 rounded-2xl text-center space-y-1"
-              >
-                <p className="text-xs text-emerald-400 font-bold">✓ Registro salvo em segurança.</p>
-                <p className="text-[10px] text-emerald-400/50 font-mono">A fissura gradativamente perde sua força.</p>
-              </motion.div>
-            )}
-          </motion.div>
-        )}
 
-        {/* PHASE 3: ATERRAMENTO (Theta frequency calming) */}
-        {currentPhase === 3 && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center space-y-6 text-center"
-          >
-            <div className="space-y-1">
-              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-400">
-                Passo 3: O pior já passou.
-              </h4>
-              <p className="text-[11px] text-text-secondary/60">
-                O pico do craving se dissolveu. Permaneça em estado de repouso neural.
-              </p>
-            </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold tracking-normal uppercase text-white">
+                  Excelente. O impulso passou.
+                </h3>
+                <p className="text-xs text-white/55 font-light leading-relaxed">
+                  Você guardou seus compromissos e manteve sua retidão contra vício de <span className="text-emerald-400 font-extrabold">{habitName}</span>.
+                </p>
+              </div>
 
-            {/* Visual affirmation card */}
-            <div className="py-6 px-4 bg-white/[0.02] border border-white/5 rounded-2xl max-w-sm w-full mx-auto min-h-[90px] flex items-center justify-center">
-              <p className="text-sm font-light text-text-primary italic leading-relaxed tracking-wide">
-                "Apenas deixe a frequência levar o resto do impulso embora."
-              </p>
-            </div>
+              <div className="pt-2 w-full">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:brightness-110 active:scale-[0.99] transition-all text-black font-extrabold text-xs uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                >
+                  <ShieldCheck size={16} />
+                  VOLTAR PARA A BASE
+                </button>
+                <p className="text-white/30 text-[10px] tracking-wider mt-3 font-mono uppercase">
+                  Excelente. Vá beber um copo d'água.
+                </p>
+              </div>
+            </motion.div>
+          )}
 
-            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1.5 rounded-full select-none">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[10px] font-mono text-emerald-300 font-bold block uppercase tracking-wider">
-                ✓ Registro salvo em segurança
-              </span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* PHASE 4: COMPLETED (Successfully completed the 15-minute rescue trip) */}
-        {currentPhase === 4 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center space-y-6 text-center py-4"
-          >
-            <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-              <ShieldCheck size={36} className="animate-bounce" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-lg md:text-xl font-black text-text-primary uppercase tracking-wider">
-                Excelente. O impulso passou.
-              </h3>
-              <p className="text-xs text-text-secondary/80 max-w-xs mx-auto">
-                Você concluiu com maestria o ciclo de blindagem neurofisiológica contra <span className="text-emerald-400 font-extrabold">{habitName}</span>.
-              </p>
-            </div>
-
-            <div className="pt-2 w-full max-w-xs">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 active:scale-[0.99] transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-3xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)]"
-              >
-                <ShieldCheck size={18} />
-                VOLTAR PARA A BASE
-              </button>
-              <p className="text-[11px] text-text-secondary/50 mt-3 font-medium">
-                Agora levante, beba um copo d'água ou faça um alongamento breve.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
+        </AnimatePresence>
       </div>
 
-      {/* Footer countdown & quick-action buttons */}
-      <div className="border-t border-white/[0.06] pt-4 shrink-0 flex flex-col gap-4">
-        
-        {/* Countdown indicator */}
+      {/* Bottom timer indicator bar */}
+      <div className="w-full shrink-0 flex flex-col justify-end items-center z-50">
         {currentPhase < 4 && (
-          <div className="flex items-center justify-between pr-6">
-            <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest font-mono select-none">
-              Blindagem Temporal
-            </span>
-            <span className="text-2xl font-mono font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-white drop-shadow-[0_0_10px_rgba(239,68,68,0.15)] leading-none select-none">
+          <div className="flex flex-col items-center justify-center space-y-1">
+            <span className="text-[26px] font-mono font-black text-white select-none tracking-tight">
               {formatMinSec(timeLeft)}
             </span>
+            <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] font-mono">
+              Fase {currentPhase} integrada · Tempo Restante
+            </span>
           </div>
         )}
-
-        {/* Dynamic CTA buttons */}
-        {currentPhase < 4 && (
-          <div className="flex gap-3">
-            <button
-              onClick={handleCancel}
-              className="flex-1 text-center py-3 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/[0.08] text-white/50 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
-            >
-              Cancelar Protocolo
-            </button>
-
-            <button
-              onClick={() => skipToPhase(4)}
-              className="flex-1 text-center py-3 px-4 rounded-xl bg-red-500/10 border border-red-500/35 hover:bg-red-500/15 text-red-300 text-[10px] font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
-            >
-              Já me sinto melhor ✓
-            </button>
-          </div>
-        )}
-
       </div>
+
     </div>
   );
 };
