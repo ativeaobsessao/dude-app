@@ -267,11 +267,11 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
           </div>
 
           {/* Scrollable Frame Content */}
-          <div className="flex-1 overflow-y-auto py-6 pr-2 space-y-9 max-h-[72vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto py-6 pr-2 flex flex-col gap-9 max-h-[72vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
             {/* INLINE STATUS BAR / HEADLINE BANNER */}
             {vicesHeadline && (
-              <div className="p-4 bg-gradient-to-r from-red-500/[0.04] to-transparent border border-red-500/15 rounded-2xl flex items-center gap-3 select-text">
+              <div className="p-4 bg-gradient-to-r from-red-500/[0.04] to-transparent border border-red-500/15 rounded-2xl flex items-center gap-3 select-text shrink-0">
                 <span className="text-red-400 shrink-0 text-base">🛡️</span>
                 <p className="text-xs md:text-sm font-semibold tracking-wide text-text-primary leading-relaxed">
                   {vicesHeadline}
@@ -620,6 +620,8 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                       month: 'short'
                     });
                     const isSuccess = battle.status === 'success' || battle.status === 'resisti';
+                    const associatedHabit = habits.find(h => h.id === battle.habit_id);
+                    const habitName = associatedHabit ? associatedHabit.name : 'Vício Geral';
 
                     return (
                       <div key={battle.id} className="group flex items-start gap-4 transition-all pb-3 select-text last:pb-0">
@@ -641,6 +643,10 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[9px] font-mono uppercase tracking-wider text-text-secondary/40 font-bold block">
                               {dateStr}
+                            </span>
+                            <span className="text-[10px] font-mono text-white/20 select-none">•</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/60 font-semibold tracking-wide uppercase">
+                              ⚔️ {habitName}
                             </span>
                             <span className="text-[10px] font-mono text-white/20 select-none">•</span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-text-secondary/50 font-semibold">
@@ -667,16 +673,16 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
               )}
             </div>
 
-          </div>
+            {/* Action Footer Button in main flow */}
+            <div className="pt-6 mt-auto pb-4 shrink-0 w-full">
+              <button
+                onClick={onClose}
+                className="w-full text-center py-4 px-6 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 text-text-primary text-xs font-black uppercase tracking-[0.2em] transition-all duration-200 active:scale-[0.98] cursor-pointer"
+              >
+                Concluir Análise
+              </button>
+            </div>
 
-          {/* Action Footer */}
-          <div className="pt-6 border-t border-white/[0.06] flex items-center justify-end shrink-0 gap-3">
-            <button
-              onClick={onClose}
-              className="py-3 px-6 rounded-2xl bg-white/5 border border-white/10 hover:border-white/15 text-text-primary text-xs font-black uppercase tracking-wider transition-all duration-200 active:scale-[0.98] cursor-pointer"
-            >
-              Concluir Análise
-            </button>
           </div>
         </motion.div>
       </div>
