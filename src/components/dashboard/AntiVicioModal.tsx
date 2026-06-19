@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, ShieldAlert, X, Brain, Sparkles } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString } from '../../lib/utils';
+import { UrgeSurfingProtocol } from './UrgeSurfingProtocol';
 
 interface AntiVicioModalProps {
   isOpen: boolean;
@@ -203,7 +204,34 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
             </button>
           </div>
 
-          {successCheckedIn ? (
+          {!isVictoryMode ? (
+            // IMPULSE S.O.S MODE: Render the clinical 15-minute countdown rescue protocol
+            <div className="space-y-6">
+              {/* Vício/Habit selector to switch target context for UrgeSurfing dynamically */}
+              {avoidHabits.length > 0 && !initialHabitId && (
+                <div className="space-y-1.5 text-left border-b border-white/[0.04] pb-4">
+                  <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
+                  <select
+                    value={selectedHabitId}
+                    onChange={(e) => setSelectedHabitId(e.target.value)}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3 px-4 text-xs md:text-sm text-text-primary focus:outline-none font-bold transition-all focus:border-red-500/30"
+                  >
+                    {avoidHabits.map((habit) => (
+                      <option key={habit.id} value={habit.id} className="bg-[#121212] text-text-primary">
+                        {habit.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <UrgeSurfingProtocol 
+                key={selectedHabitId || 'general'} 
+                habitId={selectedHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : undefined)} 
+                onClose={onClose} 
+              />
+            </div>
+          ) : successCheckedIn ? (
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -220,52 +248,21 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
           ) : (
             <div className="space-y-6 font-sans pb-32 md:pb-2">
               <p className="text-xs md:text-sm text-text-secondary/80 text-left font-light leading-relaxed">
-                {isVictoryMode ? (
-                  "Parabéns por se manter na linha. Quer realizar algum registro de algum gatilho que te levou à tentação?"
-                ) : (
-                  <>
-                    Um impulso dura em média de <strong className="text-white">5 a 10 minutos</strong>. Respire profundamente. Se você registrar este momento, dará um passo crucial para reescrever seus caminhos neurais.
-                  </>
-                )}
+                Parabéns por se manter na linha. Quer realizar algum registro de algum gatilho que te levou à tentação?
               </p>
-
-              {/* Urge Surfing Timer - Hidden in victory mode */}
-              {!isVictoryMode && (
-                timeLeft > 0 ? (
-                  <div className="text-5xl md:text-6xl font-mono font-black text-transparent bg-clip-text bg-gradient-to-b from-[#6ee7a8] to-white/70 drop-shadow-[0_0_15px_rgba(110,231,168,0.2)] text-center my-6">
-                    {formatTime(timeLeft)}
-                  </div>
-                ) : (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="py-4 px-6 my-6 text-center rounded-2xl bg-[#6ee7a8]/10 border border-[#6ee7a8]/35 shadow-[0_0_20px_rgba(110,231,168,0.1)] text-[#6ee7a8] font-bold text-xs uppercase tracking-wider"
-                  >
-                    O pico do impulso passou. Você assumiu o controle.
-                  </motion.div>
-                )
-              )}
 
               {/* Habit / Vice Selector */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
-                {initialHabitId ? (
-                  isVictoryMode ? (
-                    <div className="px-3 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-xs font-mono text-emerald-300">
-                      🛡️ Blindagem ativada contra: <span className="font-sans font-bold text-emerald-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
-                    </div>
-                  ) : (
-                    <div className="px-3 py-2 bg-red-500/5 rounded-2xl border border-red-500/20 text-xs font-mono text-red-300">
-                      ⚠️ Registro de queda ativo contra: <span className="font-sans font-bold text-red-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
-                    </div>
-                  )
+                {selectedHabitId ? (
+                  <div className="px-3 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-xs font-mono text-emerald-300">
+                    🛡️ Blindagem ativada contra: <span className="font-sans font-bold text-emerald-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
+                  </div>
                 ) : avoidHabits.length > 0 ? (
                   <select
                     value={selectedHabitId}
                     onChange={(e) => setSelectedHabitId(e.target.value)}
-                    className={`w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3.5 px-4 text-sm text-text-primary focus:outline-none font-bold transition-all ${
-                      isVictoryMode ? 'focus:border-emerald-500/40' : 'focus:border-[#6ee7a8]/40'
-                    }`}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3.5 px-4 text-sm text-text-primary focus:outline-none font-bold transition-all focus:border-emerald-500/40"
                   >
                     {avoidHabits.map((habit) => (
                       <option key={habit.id} value={habit.id} className="bg-[#121212] text-text-primary">
@@ -288,9 +285,7 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
                     const isSelected = selectedTag === tag.value;
                     let selectedClass = '';
                     if (isSelected) {
-                      selectedClass = isVictoryMode 
-                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                        : 'bg-[#6ee7a8]/10 border-[#6ee7a8] text-[#6ee7a8] shadow-[0_0_15px_rgba(110,231,168,0.15)]';
+                      selectedClass = 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
                     } else {
                       selectedClass = 'bg-white/5 border-white/10 text-text-secondary/70 hover:border-white/20';
                     }
@@ -317,86 +312,23 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder={
-                    isVictoryMode 
-                      ? "O que te ajudou a manter a força de vontade neste momento? Registrar ajuda a fixar esses atalhos mentais saudáveis..."
-                      : "O que está sentindo ou pensando agora? Escrever ajuda a desarmar o mecanismo de recompensa automática..."
-                  }
-                  className={`w-full min-h-[72px] bg-white/[0.03] border border-white/10 hover:border-white/15 rounded-2xl py-3 px-4 text-xs md:text-sm text-text-primary focus:outline-none transition-all resize-none placeholder-text-secondary/40 ${
-                    isVictoryMode ? 'focus:border-emerald-500/40' : 'focus:border-[#6ee7a8]/40'
-                  }`}
+                  placeholder="O que te ajudou a manter a força de vontade neste momento? Registrar ajuda a fixar esses atalhos mentais saudáveis..."
+                  className="w-full min-h-[72px] bg-white/[0.03] border border-white/10 hover:border-white/15 rounded-2xl py-3 px-4 text-xs md:text-sm text-text-primary focus:outline-none transition-all resize-none placeholder-text-secondary/40 focus:border-emerald-500/40"
                 />
               </div>
 
               {/* Active check-in actions */}
               <div className="pt-3 font-sans">
-                {initialHabitId ? (
-                  // Bound Context Mode: A single primary submission button
-                  <button
-                    type="button"
-                    onClick={() => handleCheckin(isVictoryMode ? 'success' : 'relapse')}
-                    disabled={avoidHabits.length === 0}
-                    className={`w-full flex items-center justify-center gap-2 py-4 px-4 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer ${
-                      isVictoryMode
-                        ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-[#032d18] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                        : 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.25)]'
-                    }`}
-                  >
-                    {isVictoryMode ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
-                    {isVictoryMode ? "Anexar Reflexão" : "Registrar Gatilho"}
-                  </button>
-                ) : (
-                  // Legacy/General mode: choose status in-modal
-                  isVictoryMode ? (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckin('success')}
-                      disabled={avoidHabits.length === 0}
-                      className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)]"
-                    >
-                      <ShieldCheck size={18} />
-                      Salvar Registro de Vitória ✓
-                    </button>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        type="button"
-                        onClick={() => handleCheckin('success')}
-                        disabled={avoidHabits.length === 0}
-                        className={`flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-[#6ee7a8] to-[#4ade80] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(110,231,168,0.2)] ${
-                          timeLeft === 0 ? 'animate-pulse' : ''
-                        }`}
-                      >
-                        <ShieldCheck size={18} />
-                        Resisti
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCheckin('relapse')}
-                        disabled={avoidHabits.length === 0}
-                        className="flex items-center justify-center gap-2 py-4 px-4 bg-transparent border border-red-500/30 hover:border-red-500/5 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-red-400 font-extrabold text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer"
-                      >
-                        <ShieldAlert size={18} />
-                        Recaí
-                      </button>
-                    </div>
-                  )
-                )}
+                <button
+                  type="button"
+                  onClick={() => handleCheckin('success')}
+                  disabled={avoidHabits.length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+                >
+                  <ShieldCheck size={18} />
+                  Salvar Registro de Vitória ✓
+                </button>
               </div>
-
-              {/* Specific Rota de Fuga Escape logic */}
-              {isDeepSessionContext && (
-                <div className="pt-2 border-t border-white/[0.04] mt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-transparent border-2 border-[#6ee7a8]/40 text-[#6ee7a8]/90 hover:text-[#6ee7a8] hover:border-[#6ee7a8] hover:bg-[#6ee7a8]/5 active:scale-[0.98] transition-all font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer"
-                  >
-                    <Sparkles size={16} />
-                    VOLTA PARA SESSÃO PROFUNDA (O IMPULSO PASSOU)
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </motion.div>

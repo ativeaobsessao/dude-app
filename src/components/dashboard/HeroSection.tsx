@@ -583,7 +583,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   }, [avoidHabits, dataStore.avoidanceCheckins]);
 
   const handleToComVontade = () => {
-    dataStore.setUrgeTimerSeconds(600);
+    setAntiVicioHabitId(undefined);
+    setIsAntiVicioVictory(false);
+    setIsAntiVicioOpen(true);
   };
 
   useEffect(() => {
@@ -1352,71 +1354,77 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </button>
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
-              {hasAvoidance && (
-                <>
-                  {/* MOBILE Version */}
-                  <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
-                    <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
-                      <div className="flex items-center gap-3">
-                        {/* Icon container */}
-                        <div className="p-2.5 bg-green/10 rounded-2xl flex items-center justify-center shrink-0">
-                          <Brain size={18} className="text-green" />
-                        </div>
-                        {/* Text metadata */}
-                        <div className="flex flex-col text-left">
-                          <span className="text-[9px] font-bold text-green tracking-[0.15em] uppercase font-mono leading-none text-left">
-                            Autocontrole
-                          </span>
-                          <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
-                            {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
-                          </span>
-                        </div>
+              <>
+                {/* MOBILE Version */}
+                <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
+                  <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
+                    <div className="flex items-center gap-3">
+                      {/* Icon container */}
+                      <div className="p-2.5 bg-green/10 rounded-2xl flex items-center justify-center shrink-0">
+                        <Brain size={18} className="text-green" />
                       </div>
-
-                      {/* Amber Button: Tô com vontade */}
-                      <button
-                        type="button"
-                        onClick={handleToComVontade}
-                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-sm shrink-0"
-                      >
-                        <Hand size={12} className="shrink-0" />
-                        <span>Tô com vontade</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* DESKTOP Version */}
-                  <div className="hidden md:block w-full max-w-xl animate-fade-in pt-2">
-                    <div className="flex items-center justify-between p-4 bg-surface-2/30 hover:bg-surface-2/50 border border-white/5 rounded-2xl w-full text-left transition-all select-none">
-                      <div className="flex items-center gap-4">
-                        {/* Icon container */}
-                        <div className="p-3 bg-green/10 rounded-xl flex items-center justify-center shrink-0">
-                          <Brain size={20} className="text-green" />
-                        </div>
-                        {/* Text metadata */}
-                        <div className="flex flex-col text-left">
-                          <span className="text-[10px] font-bold text-green tracking-[0.2em] uppercase font-mono leading-none text-left">
-                            Autocontrole
-                          </span>
-                          <span className="text-xs text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
-                            {avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · {cleanLabel}
-                          </span>
-                        </div>
+                      {/* Text metadata */}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[9px] font-bold text-green tracking-[0.15em] uppercase font-mono leading-none text-left">
+                          Autocontrole
+                        </span>
+                        <span className="text-[11px] text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
+                          {hasAvoidance ? (
+                            `${avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · ${cleanLabel}`
+                          ) : (
+                            "Passando por alguma crise?"
+                          )}
+                        </span>
                       </div>
-
-                      {/* Amber Button: Tô com vontade */}
-                      <button
-                        type="button"
-                        onClick={handleToComVontade}
-                        className="flex items-center gap-2 px-5 py-3 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[44px] shadow-sm shrink-0"
-                      >
-                        <Hand size={14} className="shrink-0" />
-                        <span>Tô com vontade</span>
-                      </button>
                     </div>
+
+                    {/* Amber Button: Tô com vontade */}
+                    <button
+                      type="button"
+                      onClick={handleToComVontade}
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-2xl text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-sm shrink-0"
+                    >
+                      <Hand size={12} className="shrink-0" />
+                      <span>Tô com vontade</span>
+                    </button>
                   </div>
-                </>
-              )}
+                </div>
+
+                {/* DESKTOP Version */}
+                <div className="hidden md:block w-full max-w-xl animate-fade-in pt-2">
+                  <div className="flex items-center justify-between p-4 bg-surface-2/30 hover:bg-surface-2/50 border border-white/5 rounded-2xl w-full text-left transition-all select-none">
+                    <div className="flex items-center gap-4">
+                      {/* Icon container */}
+                      <div className="p-3 bg-green/10 rounded-xl flex items-center justify-center shrink-0">
+                        <Brain size={20} className="text-green" />
+                      </div>
+                      {/* Text metadata */}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[10px] font-bold text-green tracking-[0.2em] uppercase font-mono leading-none text-left">
+                          Autocontrole
+                        </span>
+                        <span className="text-xs text-text-dim/80 font-medium leading-none mt-1.5 whitespace-nowrap text-left">
+                          {hasAvoidance ? (
+                            `${avoidHabits.length === 1 ? '1 controle' : `${avoidHabits.length} controles`} · ${cleanLabel}`
+                          ) : (
+                            "Passando por alguma crise?"
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Amber Button: Tô com vontade */}
+                    <button
+                      type="button"
+                      onClick={handleToComVontade}
+                      className="flex items-center gap-2 px-5 py-3 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-background rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer min-h-[44px] shadow-sm shrink-0"
+                    >
+                      <Hand size={14} className="shrink-0" />
+                      <span>Tô com vontade</span>
+                    </button>
+                  </div>
+                </div>
+              </>
             </>
           )}
         </motion.div>
