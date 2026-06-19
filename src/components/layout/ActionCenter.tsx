@@ -3242,6 +3242,11 @@ export const ActionCenter = () => {
                           <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest ml-2">
                             {current}/{total} esta semana
                           </span>
+                          {current > total && (
+                            <span className="ml-2 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[9px] font-extrabold uppercase tracking-widest font-sans">
+                              Meta Superada: +{current - total} Extras
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-white/5">

@@ -1333,9 +1333,26 @@ export const useDataStore = create<DataState>((set, get) => ({
             });
 
             // Recalculate completed sessions this week
-            const completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
-              minutesByDay[dStr] >= habit.minutes_per_session
-            ).length;
+            let completedDaysThisWeek = 0;
+            if (habit.habit_mode === 'avoid') {
+              completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
+                minutesByDay[dStr] >= habit.minutes_per_session
+              ).length;
+            } else {
+              const sessionsCount = habitSessionsThisWeek.filter(s => {
+                const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+                return duration >= habit.minutes_per_session;
+              }).length;
+
+              const manualCount = get().habitCompletions.filter(hc => 
+                hc.habit_id === habitId && 
+                new Date(hc.completed_at) >= startOfWeek && 
+                !hc.focus_session_id &&
+                hc.duration_minutes >= habit.minutes_per_session
+              ).length;
+
+              completedDaysThisWeek = sessionsCount + manualCount;
+            }
 
             // Recalculate stats
             const totalMinutesAllTime = get().sessions
@@ -1346,19 +1363,19 @@ export const useDataStore = create<DataState>((set, get) => ({
               .filter(s => s.habit_id === habitId && s.completed).length;
 
             const minutesToday = minutesByDay[todayStr] || 0;
+            const sessionDuration = data.actual_duration_minutes !== null ? data.actual_duration_minutes : data.duration_minutes;
 
-            // Insert habit_completion if meta achieved today and no completion exists yet
-            if (minutesToday >= habit.minutes_per_session) {
-              const hasCompletionToday = get().habitCompletions.some(hc => 
-                hc.habit_id === habitId && 
-                hc.completed_at.startsWith(todayStr)
-              );
+            // Insert habit_completion if meta achieved and no duplication restriction applies
+            if (sessionDuration >= habit.minutes_per_session || (habit.habit_mode === 'avoid' && minutesToday >= habit.minutes_per_session)) {
+              const shouldInsertCompletion = habit.habit_mode === 'avoid'
+                ? !get().habitCompletions.some(hc => hc.habit_id === habitId && hc.completed_at.startsWith(todayStr))
+                : !get().habitCompletions.some(hc => hc.habit_id === habitId && hc.focus_session_id === data.id);
 
-              if (!hasCompletionToday) {
+              if (shouldInsertCompletion) {
                 const { data: hcData } = await supabase.from('habit_completions').insert({
                   habit_id: habitId,
                   user_id: userId,
-                  duration_minutes: minutesToday,
+                  duration_minutes: habit.habit_mode === 'avoid' ? minutesToday : sessionDuration,
                   focus_session_id: data.id,
                   completed_at: new Date().toISOString()
                 }).select().single();
@@ -1663,28 +1680,44 @@ export const useDataStore = create<DataState>((set, get) => ({
         s.completed
       );
 
-      const minutesByDay: { [dateStr: string]: number } = {};
-      habitSessionsThisWeek.forEach(s => {
-        const dStr = getLocalDateString(new Date(s.started_at));
-        const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
-        minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
-      });
-
-      // Also add any custom manual completions for this week that aren't tied to active focus sessions
-      const manualCompletionsThisWeek = get().habitCompletions.filter(hc => 
-        hc.habit_id === habitId && 
-        new Date(hc.completed_at) >= startOfWeek && 
-        !hc.focus_session_id
-      );
-      manualCompletionsThisWeek.forEach(hc => {
-        const dStr = getLocalDateString(new Date(hc.completed_at));
-        minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
-      });
-
       // Recalculate completed sessions this week
-      const completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
-        minutesByDay[dStr] >= habit.minutes_per_session
-      ).length;
+      let completedDaysThisWeek = 0;
+      if (habit.habit_mode === 'avoid') {
+        const minutesByDay: { [dateStr: string]: number } = {};
+        habitSessionsThisWeek.forEach(s => {
+          const dStr = getLocalDateString(new Date(s.started_at));
+          const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+          minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
+        });
+
+        const manualCompletionsThisWeek = get().habitCompletions.filter(hc => 
+          hc.habit_id === habitId && 
+          new Date(hc.completed_at) >= startOfWeek && 
+          !hc.focus_session_id
+        );
+        manualCompletionsThisWeek.forEach(hc => {
+          const dStr = getLocalDateString(new Date(hc.completed_at));
+          minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
+        });
+
+        completedDaysThisWeek = Object.keys(minutesByDay).filter(dStr => 
+          minutesByDay[dStr] >= habit.minutes_per_session
+        ).length;
+      } else {
+        const sessionsCount = habitSessionsThisWeek.filter(s => {
+          const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+          return duration >= habit.minutes_per_session;
+        }).length;
+
+        const manualCount = get().habitCompletions.filter(hc => 
+          hc.habit_id === habitId && 
+          new Date(hc.completed_at) >= startOfWeek && 
+          !hc.focus_session_id &&
+          hc.duration_minutes >= habit.minutes_per_session
+        ).length;
+
+        completedDaysThisWeek = sessionsCount + manualCount;
+      }
 
       const newTotal = habit.total_minutes + durationMinutes;
       const newSessions = habit.deep_sessions_count + 1;

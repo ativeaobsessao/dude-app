@@ -48,9 +48,15 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
   });
 
   // Calculate final dynamic metrics
-  const completedDaysCount = Object.keys(minutesByDay).filter(dStr => 
-    minutesByDay[dStr] >= habit.minutes_per_session
-  ).length;
+  const completedDaysCount = habit.habit_mode === 'avoid'
+    ? Object.keys(minutesByDay).filter(dStr => minutesByDay[dStr] >= habit.minutes_per_session).length
+    : (
+        habitSessionsThisWeek.filter(s => {
+          const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+          return duration >= habit.minutes_per_session;
+        }).length + 
+        manualCompletionsThisWeek.filter(hc => hc.duration_minutes >= habit.minutes_per_session).length
+      );
 
   const todayMinutes = minutesByDay[todayStr] || 0;
   const targetMinutes = habit.minutes_per_session;
@@ -160,6 +166,11 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
           <span id={`habit-${habit.id}-week-count`} className="text-[10px] text-text-secondary/40 font-bold ml-2">
             {completedDaysCount}/{habit.sessions_per_week} esta semana
           </span>
+          {completedDaysCount > habit.sessions_per_week && (
+            <span className="ml-2 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[9px] font-extrabold uppercase tracking-widest font-sans">
+              Meta Superada: +{completedDaysCount - habit.sessions_per_week} Extras
+            </span>
+          )}
         </div>
       </div>
       

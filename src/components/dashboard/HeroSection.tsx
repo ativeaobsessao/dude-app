@@ -1616,9 +1616,15 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
                 });
 
-                const completedDaysCount = Object.keys(minutesByDay).filter(dStr => 
-                  minutesByDay[dStr] >= h.minutes_per_session
-                ).length;
+                const completedDaysCount = h.habit_mode === 'avoid'
+                  ? Object.keys(minutesByDay).filter(dStr => minutesByDay[dStr] >= h.minutes_per_session).length
+                  : (
+                      habitSessionsThisWeek.filter(s => {
+                        const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+                        return duration >= h.minutes_per_session;
+                      }).length +
+                      manualCompletionsThisWeek.filter(hc => hc.duration_minutes >= h.minutes_per_session).length
+                    );
 
                 const todayMinutes = minutesByDay[todayStr] || 0;
                 const targetMinutes = h.minutes_per_session;
@@ -1680,6 +1686,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                         <span className="text-[10px] md:text-xs text-text-dim/50 font-bold whitespace-nowrap font-sans font-mono tracking-wide leading-none block shrink-0">
                           {completedDaysCount}/{h.sessions_per_week} esta semana
                         </span>
+                        {completedDaysCount > h.sessions_per_week && (
+                          <span className="mt-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-bold uppercase tracking-wider block font-sans w-fit">
+                            +{completedDaysCount - h.sessions_per_week} EXTRA
+                          </span>
+                        )}
                       </div>
 
                       {/* Weekly Streak */}
