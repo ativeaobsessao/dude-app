@@ -9,6 +9,7 @@ interface AntiVicioModalProps {
   onClose: () => void;
   isDeepSessionContext?: boolean;
   initialHabitId?: string;
+  associatedCheckinId?: string;
   isVictoryMode?: boolean;
 }
 
@@ -18,7 +19,7 @@ const formatTime = (seconds: number) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
-export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, initialHabitId, isVictoryMode = false }: AntiVicioModalProps) => {
+export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, initialHabitId, associatedCheckinId, isVictoryMode = false }: AntiVicioModalProps) => {
   const dataStore = useDataStore();
   const { habits, profile } = dataStore;
 
@@ -84,18 +85,33 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
     const currentHabit = avoidHabits.find(h => h.id === habitId);
     const habitName = currentHabit ? currentHabit.name : 'Vício';
 
-    const checkinData = {
-      user_id: profile.id,
-      habit_id: habitId,
-      checkin_date: getLocalDateString(),
-      checkin_period: 'window',
-      status,
-      trigger_tag: selectedTag,
-      trigger_note: note.trim() || null,
-      created_at: new Date().toISOString()
-    };
+    let result = null;
 
-    const result = await dataStore.addAvoidanceCheckin(checkinData);
+    if (associatedCheckinId) {
+      // Bound Context Mode: UPDATE the silently-created check-in!
+      const updateData = {
+        trigger_tag: selectedTag,
+        trigger_note: note.trim() || null
+      };
+      const ok = await dataStore.updateAvoidanceCheckin(associatedCheckinId, updateData);
+      if (ok) {
+        result = true;
+      }
+    } else {
+      // General Mode: CREATE a new check-in
+      const checkinData = {
+        user_id: profile.id,
+        habit_id: habitId,
+        checkin_date: getLocalDateString(),
+        checkin_period: 'window',
+        status,
+        trigger_tag: selectedTag,
+        trigger_note: note.trim() || null,
+        created_at: new Date().toISOString()
+      };
+      result = await dataStore.addAvoidanceCheckin(checkinData);
+    }
+
     if (result) {
       if (status === 'success') {
         dataStore.showNotification(`Excelente! Força de vontade registrada para ${habitName} ✓`, 'success');
@@ -219,7 +235,17 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
               {/* Habit / Vice Selector */}
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
-                {avoidHabits.length > 0 ? (
+                {initialHabitId ? (
+                  isVictoryMode ? (
+                    <div className="px-3 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-xs font-mono text-emerald-300">
+                      🛡️ Blindagem ativada contra: <span className="font-sans font-bold text-emerald-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 bg-red-500/5 rounded-2xl border border-red-500/20 text-xs font-mono text-red-300">
+                      ⚠️ Registro de queda ativo contra: <span className="font-sans font-bold text-red-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
+                    </div>
+                  )
+                ) : avoidHabits.length > 0 ? (
                   <select
                     value={selectedHabitId}
                     onChange={(e) => setSelectedHabitId(e.target.value)}
@@ -289,40 +315,58 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
               </div>
 
               {/* Active check-in actions */}
-              <div className="pt-3">
-                {isVictoryMode ? (
+              <div className="pt-3 font-sans">
+                {initialHabitId ? (
+                  // Bound Context Mode: A single primary submission button
                   <button
                     type="button"
-                    onClick={() => handleCheckin('success')}
+                    onClick={() => handleCheckin(isVictoryMode ? 'success' : 'relapse')}
                     disabled={avoidHabits.length === 0}
-                    className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)] font-sans"
+                    className={`w-full flex items-center justify-center gap-2 py-4 px-4 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer ${
+                      isVictoryMode
+                        ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-[#032d18] shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                        : 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.25)]'
+                    }`}
                   >
-                    <ShieldCheck size={18} />
-                    Salvar Registro de Vitória ✓
+                    {isVictoryMode ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
+                    {isVictoryMode ? "Anexar Reflexão" : "Registrar Gatilho"}
                   </button>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4">
+                  // Legacy/General mode: choose status in-modal
+                  isVictoryMode ? (
                     <button
                       type="button"
                       onClick={() => handleCheckin('success')}
                       disabled={avoidHabits.length === 0}
-                      className={`flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-[#6ee7a8] to-[#4ade80] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(110,231,168,0.2)] ${
-                        timeLeft === 0 ? 'animate-pulse' : ''
-                      }`}
+                      className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)]"
                     >
                       <ShieldCheck size={18} />
-                      Resisti
+                      Salvar Registro de Vitória ✓
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCheckin('relapse')}
-                      disabled={avoidHabits.length === 0}
-                      className="flex items-center justify-center gap-2 py-4 px-4 bg-transparent border border-red-500/30 hover:border-red-500/5 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-red-400 font-extrabold text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer"
-                    >
-                      <ShieldAlert size={18} />
-                      Recaí
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => handleCheckin('success')}
+                        disabled={avoidHabits.length === 0}
+                        className={`flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-[#6ee7a8] to-[#4ade80] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(110,231,168,0.2)] ${
+                          timeLeft === 0 ? 'animate-pulse' : ''
+                        }`}
+                      >
+                        <ShieldCheck size={18} />
+                        Resisti
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCheckin('relapse')}
+                        disabled={avoidHabits.length === 0}
+                        className="flex items-center justify-center gap-2 py-4 px-4 bg-transparent border border-red-500/30 hover:border-red-500/5 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none transition-all text-red-400 font-extrabold text-xs md:text-sm uppercase tracking-wider rounded-2xl cursor-pointer"
+                      >
+                        <ShieldAlert size={18} />
+                        Recaí
+                      </button>
+                    </div>
+                  )
                 )}
               </div>
 

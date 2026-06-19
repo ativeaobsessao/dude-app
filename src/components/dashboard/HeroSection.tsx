@@ -23,6 +23,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   
   const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
   const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
+  const [antiVicioCheckinId, setAntiVicioCheckinId] = useState<string | undefined>(undefined);
   const [isAntiVicioVictory, setIsAntiVicioVictory] = useState(false);
   
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
@@ -1129,7 +1130,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="w-full max-w-md bg-surface-2 border border-border-custom rounded-3xl p-6 space-y-6 shadow-2xl relative"
+                className={`w-full ${pendingAvoidanceHabits.length > 1 ? 'max-w-lg' : 'max-w-md'} bg-surface-2 border border-border-custom rounded-3xl p-6 space-y-6 shadow-2xl relative`}
               >
                 {/* Close Button */}
                 <button
@@ -1156,93 +1157,139 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   )}
                 </div>
 
-                {/* Render current pending habit */}
-                {(() => {
-                  const currentItem = pendingAvoidanceHabits[0];
-                  const { habit, windowLabel, checkinPeriod } = currentItem;
-                  const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-                  const isAnimating = animatingResistedHabitId === habit.id;
-                  const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
-                  const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
-                  const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
+                {/* Render pending habits stacked vertically */}
+                <div className="flex flex-col gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                  {pendingAvoidanceHabits.map((currentItem) => {
+                    const { habit, windowLabel, checkinPeriod } = currentItem;
+                    const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
+                    const isAnimating = animatingResistedHabitId === habit.id;
+                    const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
+                    const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
+                    const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
 
-                  return (
-                    <div className="bg-surface-1/50 border border-border-custom/50 rounded-2xl p-5 space-y-4 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-green/5 animate-pulse opacity-20 pointer-events-none" />
+                    return (
+                      <div key={habit.id} className="bg-surface-1/50 border border-border-custom/50 rounded-2xl p-5 space-y-4 relative overflow-hidden text-left">
+                        <div className="absolute inset-0 bg-green/5 animate-pulse opacity-20 pointer-events-none" />
 
-                      <div className="flex justify-between items-center relative z-10 w-full">
-                        <p className="text-[9px] uppercase tracking-widest font-bold text-green flex items-center gap-1.5 font-mono">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green animate-ping shrink-0" />
-                          ● {habit.name}
-                        </p>
-                        <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
-                          <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
-                          <AnimatePresence mode="popLayout">
-                            <motion.span
-                              key={isAnimating ? 'anim' : 'static'}
-                              initial={{ scale: 0.8, opacity: 0 }}
-                              animate={{ scale: 1.1, opacity: 1 }}
-                              exit={{ scale: 0.8, opacity: 0 }}
-                              className="text-xs font-mono font-black text-green inline-block"
-                            >
-                              {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
-                            </motion.span>
-                          </AnimatePresence>
+                        <div className="flex justify-between items-center relative z-10 w-full">
+                          <p className="text-[9px] uppercase tracking-widest font-bold text-green flex items-center gap-1.5 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green animate-ping shrink-0" />
+                            ● {habit.name}
+                          </p>
+                          <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
+                            <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
+                            <AnimatePresence mode="popLayout">
+                              <motion.span
+                                key={isAnimating ? 'anim' : 'static'}
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1.1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                                className="text-xs font-mono font-black text-green inline-block"
+                              >
+                                {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
+                              </motion.span>
+                            </AnimatePresence>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 relative z-10 text-left">
+                          <h4 className="text-sm font-bold text-text-primary leading-tight">
+                            Como você está com seu autocontrole agora?
+                          </h4>
+                          {isJanela && (
+                            <p className="text-[10px] font-mono text-text-dim/60 uppercase tracking-wider">
+                              Janela Programada: {mStart} às {mEnd}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5 relative z-10 font-sans">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (dataStore.profile?.id) {
+                                playVictorySound();
+                                setAnimatingResistedHabitId(habit.id);
+
+                                // Immediate silent save
+                                const todayStr = getLocalDateString(new Date());
+                                const checkinDetails = {
+                                  user_id: dataStore.profile.id,
+                                  habit_id: habit.id,
+                                  checkin_date: todayStr,
+                                  checkin_period: checkinPeriod || 'window',
+                                  status: 'success' as const,
+                                  window_label: windowLabel,
+                                  prompts_shown: 1,
+                                  created_at: new Date().toISOString()
+                                };
+                                const created = await dataStore.addAvoidanceCheckin(checkinDetails);
+                                const checkinId = created ? created.id : undefined;
+
+                                setAntiVicioHabitId(habit.id);
+                                setAntiVicioCheckinId(checkinId);
+                                setIsAntiVicioVictory(true);
+                                setIsAntiVicioOpen(true);
+
+                                dismissAntiVicio(habit.id, windowLabel);
+                                registerCooldown(habit.id);
+
+                                setTimeout(() => {
+                                  setAnimatingResistedHabitId(null);
+                                }, 1500);
+                              }
+                            }}
+                            className="py-3 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+                          >
+                            ✓ Resisti
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (dataStore.profile?.id) {
+                                // Immediate silent save
+                                const todayStr = getLocalDateString(new Date());
+                                const checkinDetails = {
+                                  user_id: dataStore.profile.id,
+                                  habit_id: habit.id,
+                                  checkin_date: todayStr,
+                                  checkin_period: checkinPeriod || 'window',
+                                  status: 'relapse' as const,
+                                  window_label: windowLabel,
+                                  prompts_shown: 1,
+                                  created_at: new Date().toISOString()
+                                };
+                                const created = await dataStore.addAvoidanceCheckin(checkinDetails);
+                                const checkinId = created ? created.id : undefined;
+
+                                setAntiVicioHabitId(habit.id);
+                                setAntiVicioCheckinId(checkinId);
+                                setIsAntiVicioVictory(false);
+                                setIsAntiVicioOpen(true);
+
+                                dismissAntiVicio(habit.id, windowLabel);
+                                registerCooldown(habit.id);
+                              }
+                            }}
+                            className="py-3 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
+                          >
+                            Recaí
+                          </button>
+                        </div>
+
+                        <div className="relative z-10">
+                          <button
+                            type="button"
+                            onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
+                            className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-text-dim rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
+                          >
+                            Depois (Adiar 2h)
+                          </button>
                         </div>
                       </div>
-
-                      <div className="space-y-1 relative z-10 text-left">
-                        <h4 className="text-sm font-bold text-text-primary leading-tight">
-                          Como você está com seu autocontrole agora?
-                        </h4>
-                        {isJanela && (
-                          <p className="text-[10px] font-mono text-text-dim/60 uppercase tracking-wider">
-                            Janela Programada: {mStart} às {mEnd}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2.5 relative z-10 font-sans">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAntiVicioHabitId(habit.id);
-                            setIsAntiVicioVictory(true);
-                            setIsAntiVicioOpen(true);
-                            dismissAntiVicio(habit.id, windowLabel);
-                            registerCooldown(habit.id);
-                          }}
-                          className="py-3 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
-                        >
-                          ✓ Resisti
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAntiVicioHabitId(habit.id);
-                            setIsAntiVicioVictory(false);
-                            setIsAntiVicioOpen(true);
-                            dismissAntiVicio(habit.id, windowLabel);
-                            registerCooldown(habit.id);
-                          }}
-                          className="py-3 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
-                        >
-                          Recaí
-                        </button>
-                      </div>
-
-                      <div className="relative z-10">
-                        <button
-                          type="button"
-                          onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
-                          className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-text-dim rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
-                        >
-                          Depois (Adiar 2h)
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })}
+                </div>
               </motion.div>
             </div>
           )}
@@ -1852,6 +1899,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         isOpen={isAntiVicioOpen}
         onClose={() => setIsAntiVicioOpen(false)}
         initialHabitId={antiVicioHabitId}
+        associatedCheckinId={antiVicioCheckinId}
         isVictoryMode={isAntiVicioVictory}
       />
 
