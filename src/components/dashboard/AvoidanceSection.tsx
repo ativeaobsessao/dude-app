@@ -472,6 +472,7 @@ export const AvoidanceSection = () => {
   const [activePromptPeriod, setActivePromptPeriod] = useState<string | null>(null);
   const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
   const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
+  const [isAntiVicioVictory, setIsAntiVicioVictory] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [relapseModal, setRelapseModal] = useState<{
@@ -775,12 +776,14 @@ export const AvoidanceSection = () => {
                         activePromptPeriod={activePromptPeriod}
                         onCheckinSubmit={async (id) => {
                           setAntiVicioHabitId(id);
+                          setIsAntiVicioVictory(true);
                           setIsAntiVicioOpen(true);
                         }}
                         onEdit={triggerEditAvoidanceModal}
                         onDelete={(id, name) => setShowDeleteConfirm({ id, name })}
                         onOpenRelapseModal={(id) => {
                           setAntiVicioHabitId(id);
+                          setIsAntiVicioVictory(false);
                           setIsAntiVicioOpen(true);
                         }}
                         onSetUrgeTimer={dataStore.setUrgeTimerSeconds}
@@ -1107,6 +1110,7 @@ export const AvoidanceSection = () => {
         isOpen={isAntiVicioOpen}
         onClose={() => setIsAntiVicioOpen(false)}
         initialHabitId={antiVicioHabitId}
+        isVictoryMode={isAntiVicioVictory}
       />
     </section>
   );

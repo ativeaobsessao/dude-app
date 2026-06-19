@@ -23,6 +23,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   
   const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
   const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
+  const [isAntiVicioVictory, setIsAntiVicioVictory] = useState(false);
   
   const firstName = dataStore.profile?.full_name?.split(' ')[0] || 'Gustavo';
 
@@ -426,9 +427,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     const results = [];
 
     for (const h of avoidHabits) {
-      // 1. Cooldown de 4 horas
+      // 1. Cooldown dinâmico: 3h para hábitos contínuos (dia_todo/full_day), 4h para os demais
+      const isContinuous = h.monitor_type === 'dia_todo' || h.avoidance_scope === 'full_day';
+      const cooldownHours = isContinuous ? 3 : 4;
       const lastChecked = cooldownsVal[h.id] || 0;
-      if (nowTime < lastChecked + 4 * 60 * 60 * 1000) {
+      if (nowTime < lastChecked + cooldownHours * 60 * 60 * 1000) {
         continue;
       }
 
@@ -1204,6 +1207,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                           type="button"
                           onClick={() => {
                             setAntiVicioHabitId(habit.id);
+                            setIsAntiVicioVictory(true);
                             setIsAntiVicioOpen(true);
                             dismissAntiVicio(habit.id, windowLabel);
                             registerCooldown(habit.id);
@@ -1216,6 +1220,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                           type="button"
                           onClick={() => {
                             setAntiVicioHabitId(habit.id);
+                            setIsAntiVicioVictory(false);
                             setIsAntiVicioOpen(true);
                             dismissAntiVicio(habit.id, windowLabel);
                             registerCooldown(habit.id);
@@ -1847,6 +1852,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         isOpen={isAntiVicioOpen}
         onClose={() => setIsAntiVicioOpen(false)}
         initialHabitId={antiVicioHabitId}
+        isVictoryMode={isAntiVicioVictory}
       />
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
