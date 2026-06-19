@@ -1420,11 +1420,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </section>
 
           {/* METRICS BENTO GRID */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 font-sans py-4 select-none">
-            {/* Card 1: Sessões */}
+          <section className="grid grid-cols-3 gap-6 md:gap-8 font-sans py-4 select-none">
+            {/* Card 1: Sessões Profundas */}
             <div className="flex flex-col justify-between text-left font-sans">
               <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{supportingStats.sessionCount}</span>
-              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Sessões</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Sessões Profundas</span>
             </div>
             {/* Card 2: Projetos */}
             <div className="flex flex-col justify-between text-left font-sans">
@@ -1435,11 +1435,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             <div className="flex flex-col justify-between text-left font-sans">
               <span className="text-4xl md:text-5xl font-black text-[#6ee7a8] mb-1 block leading-none">{currentStreak}</span>
               <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Dias Invictos</span>
-            </div>
-            {/* Card 4: Recorde Pessoal */}
-            <div className="flex flex-col justify-between text-left font-sans">
-              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{bestStreak}</span>
-              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Recorde Pessoal</span>
             </div>
           </section>
         </div>
