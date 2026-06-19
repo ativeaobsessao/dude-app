@@ -5,7 +5,7 @@ import { TrendsAntiVicioModal } from './TrendsAntiVicioModal';
 import { 
   X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
   BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
-  Sun, CheckSquare, Brain, CheckCircle2
+  Sun, CheckSquare, Brain, CheckCircle2, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -89,6 +89,11 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       dayAvoidanceCheckins,
     };
   }, [selectedDate, sessions, moodEntries, avoidanceCheckins]);
+
+  // ----------------------------------------------------
+  // TRENDS ANTI-VÍCIO DATA calculations for inline display
+  // ----------------------------------------------------
+  const [showAllVices, setShowAllVices] = useState(false);
 
   // Helper sets
   const getDatesRangeSet = (offsetStart: number, length: number) => {
@@ -482,12 +487,12 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     const streakMap: { [id: string]: number } = {};
     avoidanceHabitsList.forEach(ah => {
       const checkins = avoidanceCheckins
-        .filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'relapse'))
+        .filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'relapse' || c.status === 'resisti' || c.status === 'recai'))
         .sort((a, b) => new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime());
 
       let currentStreak = 0;
       for (const c of checkins) {
-        if (c.status === 'success') {
+        if (c.status === 'success' || c.status === 'resisti') {
           currentStreak++;
         } else {
           break;
@@ -500,7 +505,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
   const bestAvoidanceStreak = useMemo(() => {
     if (avoidanceHabitsList.length === 0) return null;
-    let maxS = 0;
+    let maxS = -1;
     let maxHabit = avoidanceHabitsList[0];
 
     avoidanceHabitsList.forEach(ah => {
@@ -511,8 +516,51 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       }
     });
 
-    return maxS > 0 ? { habit: maxHabit, streak: maxS } : null;
+    return maxS >= 0 ? { habit: maxHabit, streak: maxS } : null;
   }, [avoidanceHabitsList, avoidanceStreaks]);
+
+  const sortedVices = useMemo(() => {
+    return [...avoidanceHabitsList].sort((a, b) => {
+      const streakA = avoidanceStreaks[a.id] || 0;
+      const streakB = avoidanceStreaks[b.id] || 0;
+      return streakB - streakA;
+    });
+  }, [avoidanceHabitsList, avoidanceStreaks]);
+
+  const vicesHeadline = useMemo(() => {
+    if (!bestAvoidanceStreak || bestAvoidanceStreak.streak === 0) {
+      if (sortedVices.length > 0) {
+        return `Iniciando sua blindagem contra ${sortedVices[0].name}. Mantenha-se firme!`;
+      }
+      return null;
+    }
+    return `Maior Fortaleza: ${bestAvoidanceStreak.streak} dias limpos na blindagem contra ${bestAvoidanceStreak.habit.name}.`;
+  }, [bestAvoidanceStreak, sortedVices]);
+
+  const visibleVices = useMemo(() => {
+    return showAllVices ? sortedVices : sortedVices.slice(0, 3);
+  }, [sortedVices, showAllVices]);
+
+  const getViceMetrics = (viceId: string) => {
+    const checkins = avoidanceCheckins.filter(c => c.habit_id === viceId);
+    const resist = checkins.filter(c => c.status === 'success' || c.status === 'resisti').length;
+    const recai = checkins.filter(c => c.status === 'relapse' || c.status === 'recai').length;
+    const total = resist + recai;
+    const safeResistPercent = total > 0 ? (resist / total) * 100 : 0;
+    const safeRecaiPercent = total > 0 ? (recai / total) * 100 : 0;
+    return { resist, recai, total, safeResistPercent, safeRecaiPercent };
+  };
+
+  // Extract Avoidance check-ins with notes (GHOST QUOTES)
+  const battlesWithNotes = useMemo(() => {
+    return avoidanceCheckins
+      .filter(c => c.trigger_note && c.trigger_note.trim() !== '')
+      .sort((a, b) => {
+        const timeA = new Date(a.created_at || a.checkin_date).getTime();
+        const timeB = new Date(b.created_at || b.checkin_date).getTime();
+        return timeB - timeA;
+      });
+  }, [avoidanceCheckins]);
 
   const avoidanceAnalysis = useMemo(() => {
     const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
@@ -1680,38 +1728,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </section>
 
-        {/* TRENDS ANTI-VÍCIO BANNER */}
-        <section className="font-sans">
-          <div className="p-6 bg-gradient-to-br from-red-500/[0.03] to-red-500/[0.01] border border-red-500/10 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-2xl rounded-full pointer-events-none" />
-            
-            <div className="flex gap-4 items-start md:items-center">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center text-xl shrink-0">
-                <Target size={24} className="animate-pulse" />
-              </div>
-              <div className="space-y-1 text-left max-w-sm md:max-w-md">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-400 block">Autópsia de Recaídas</span>
-                </div>
-                <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
-                  Trends Anti-Vício
-                </h4>
-                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
-                  Veja exatamente os gatilhos que te fazem tropeçar nos vícios e entenda como evitá-los.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsTrendsOpen(true)}
-              className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-200 hover:text-white border border-red-500/45 font-extrabold text-xs uppercase tracking-widest rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-red-500/5 cursor-pointer text-center md:self-center shrink-0 flex items-center justify-center gap-1.5"
-            >
-              <span>VER MEUS GATILHOS ➔</span>
-            </button>
-          </div>
-        </section>
-
         {/* SEU HISTÓRICO DE SESSÕES PROFUNDAS POR DATAS */}
         <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
           <div className="flex flex-col space-y-1 select-none">
@@ -2028,8 +2044,173 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
               "A verdadeira mudança de comportamento ocorre através da mudança de identidade." — Atomic Habits
             </p>
           </div>
+        </section>
 
-          {/* */}
+        {/* SEÇÃO 3: TRENDS ANTI-VÍCIO */}
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+              <ShieldCheck size={20} className="animate-pulse" />
+            </div>
+            <div className="space-y-0.5 text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-400 block">Autocontrole e Fortalezas</span>
+              </div>
+              <h3 className="text-lg font-black text-text-primary tracking-tight font-sans">
+                Trends Anti-Vício
+              </h3>
+            </div>
+          </div>
+
+          {avoidanceHabitsList.length === 0 ? (
+            <p className="text-xs text-text-secondary/60 italic font-sans text-left py-2">
+              Nenhuma atividade de autocontrole registrada até o momento.
+            </p>
+          ) : (
+            <div className="space-y-5 text-left w-full">
+              {vicesHeadline && (
+                <p className="text-sm md:text-base font-semibold text-text-primary/90 border-l-2 border-red-400/75 pl-3 py-0.5 leading-relaxed font-sans">
+                  {vicesHeadline}
+                </p>
+              )}
+
+              <div className="space-y-4">
+                {visibleVices.map(vice => {
+                  const metrics = getViceMetrics(vice.id);
+                  return (
+                    <div 
+                      key={vice.id} 
+                      className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 transition-all space-y-3 text-left"
+                    >
+                      {/* Linha 1: Título do vício e streak */}
+                      <div className="flex justify-between items-center text-left">
+                        <span className="text-base font-black text-text-primary">
+                          {vice.name}
+                        </span>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 border border-red-500/15 rounded-full text-red-300 text-[10px] font-bold font-mono">
+                          <Flame size={10} className="fill-current" />
+                          <span>{avoidanceStreaks[vice.id] || 0}d limpos</span>
+                        </div>
+                      </div>
+
+                      {/* Linha 2: A Nova Molinha Segmentada */}
+                      <div className="w-full h-2 flex gap-1 bg-white/5 rounded-full overflow-hidden">
+                        {metrics.total > 0 ? (
+                          <>
+                            <div 
+                              className="bg-[#6ee7a8] rounded-l transition-all" 
+                              style={{ width: `${metrics.safeResistPercent}%` }} 
+                            />
+                            <div 
+                              className="bg-red-500 rounded-r transition-all" 
+                              style={{ width: `${metrics.safeRecaiPercent}%` }} 
+                            />
+                          </>
+                        ) : (
+                          <div className="w-full bg-white/5 rounded-full h-full" />
+                        )}
+                      </div>
+
+                      {/* Linha 3: Legenda Minimalista */}
+                      <div className="flex justify-between text-[11px] font-mono font-medium">
+                        <span className="text-[#6ee7a8]">● {metrics.resist} vitórias ({metrics.total > 0 ? Math.round(metrics.safeResistPercent) : 0}%)</span>
+                        <span className="text-red-400">● {metrics.recai} quedas ({metrics.total > 0 ? Math.round(metrics.safeRecaiPercent) : 0}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {sortedVices.length > 3 && (
+                <div className="pt-1 flex justify-start">
+                  <button
+                    onClick={() => setShowAllVices(!showAllVices)}
+                    className="text-xs font-mono font-bold text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer py-1"
+                  >
+                    <span>{showAllVices ? '↑ Mostrar menos' : `↓ Ver todas as ${sortedVices.length} proteções`}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* SEÇÃO 4: REGISTRO DE CAMPO (GHOST QUOTES) */}
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
+          <div className="flex justify-between items-center select-none">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <Brain size={20} className="animate-pulse" />
+              </div>
+              <div className="space-y-0.5 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-purple-400 block">Notas de Autoconsciência</span>
+                </div>
+                <h3 className="text-lg font-black text-text-primary tracking-tight font-sans">
+                  Registros de Campo (Ghost Quotes)
+                </h3>
+              </div>
+            </div>
+            <span className="text-xs font-mono text-text-secondary/50 font-bold bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              {battlesWithNotes.length} anotações
+            </span>
+          </div>
+
+          {battlesWithNotes.length > 0 ? (
+            <div className="space-y-5 pt-1 select-text max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+              {battlesWithNotes.map((battle) => {
+                const dateStr = new Date(battle.created_at || battle.checkin_date).toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'short'
+                });
+                const isSuccess = battle.status === 'success' || battle.status === 'resisti';
+
+                return (
+                  <div key={battle.id} className="group flex items-start gap-4 transition-all pb-3 select-text last:pb-0">
+                    {/* Status indicator */}
+                    <div className="pt-1.5 shrink-0">
+                      {isSuccess ? (
+                        <div className="w-5 h-5 rounded-full bg-[#6ee7a8]/10 border border-[#6ee7a8]/25 flex items-center justify-center text-[#6ee7a8]">
+                          <ShieldCheck size={12} />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400">
+                          <ShieldAlert size={12} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ghost quote text frame */}
+                    <div className="space-y-1.5 flex-1 border-b border-white/[0.03] pb-4 last:border-0 last:pb-0 select-text text-left">
+                      <div className="flex items-center gap-2 select-none flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-secondary/45">
+                          {dateStr}
+                        </span>
+                        <span className="text-[10px] text-white/20 select-none">•</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-text-secondary/50 font-semibold uppercase tracking-wider">
+                          {battle.trigger_tag || 'Gatilho Geral'}
+                        </span>
+                        <span className="text-[10px] text-white/20 select-none">•</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${isSuccess ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+                          {isSuccess ? 'Resistiu' : 'Recaiu'}
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs md:text-sm text-text-secondary/85 font-light italic leading-relaxed pl-2.5 border-l-2 border-white/10 select-text">
+                        "{battle.trigger_note}"
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs text-text-secondary/40 italic select-none">
+              Nenhuma reflexão de autoconsciência registrada ultimamente. Da próxima vez, anote suas reflexões no final do SOS.
+            </div>
+          )}
         </section>
 
       </motion.div>

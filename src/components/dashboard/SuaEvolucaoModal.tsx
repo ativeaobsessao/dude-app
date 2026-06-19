@@ -12,7 +12,6 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
   const { sessions, habits, avoidanceCheckins, moodEntries, projects } = useDataStore();
 
   const [showAllHabits, setShowAllHabits] = useState(false);
-  const [showAllVices, setShowAllVices] = useState(false);
 
   // ----------------------------------------------------
   // CARD 1 DATA: Domínio e Janela de Ouro (Projetos)
@@ -224,81 +223,6 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
     return showAllHabits ? sortedHabits : sortedHabits.slice(0, 3);
   }, [sortedHabits, showAllHabits]);
 
-  // ----------------------------------------------------
-  // CARD 4 DATA: Termômetro Anti-Vício (Dual Progress Bar)
-  // ----------------------------------------------------
-  const avoidanceHabitsList = useMemo(() => {
-    return habits.filter(h => h.habit_mode === 'avoid');
-  }, [habits]);
-
-  const avoidanceStreaks = useMemo(() => {
-    const streakMap: { [id: string]: number } = {};
-    avoidanceHabitsList.forEach(ah => {
-      const checkins = avoidanceCheckins
-        .filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'relapse' || c.status === 'resisti' || c.status === 'recai'))
-        .sort((a, b) => new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime());
-
-      let currentStreak = 0;
-      for (const c of checkins) {
-        if (c.status === 'success' || c.status === 'resisti') {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-      streakMap[ah.id] = currentStreak;
-    });
-    return streakMap;
-  }, [avoidanceHabitsList, avoidanceCheckins]);
-
-  const bestAvoidanceStreak = useMemo(() => {
-    if (avoidanceHabitsList.length === 0) return null;
-    let maxS = -1;
-    let maxHabit = avoidanceHabitsList[0];
-
-    avoidanceHabitsList.forEach(ah => {
-      const s = avoidanceStreaks[ah.id] || 0;
-      if (s > maxS) {
-        maxS = s;
-        maxHabit = ah;
-      }
-    });
-
-    return maxS >= 0 ? { habit: maxHabit, streak: maxS } : null;
-  }, [avoidanceHabitsList, avoidanceStreaks]);
-
-  const sortedVices = useMemo(() => {
-    return [...avoidanceHabitsList].sort((a, b) => {
-      const streakA = avoidanceStreaks[a.id] || 0;
-      const streakB = avoidanceStreaks[b.id] || 0;
-      return streakB - streakA;
-    });
-  }, [avoidanceHabitsList, avoidanceStreaks]);
-
-  const vicesHeadline = useMemo(() => {
-    if (!bestAvoidanceStreak || bestAvoidanceStreak.streak === 0) {
-      if (sortedVices.length > 0) {
-        return `Iniciando sua blindagem contra ${sortedVices[0].name}. Mantenha-se firme!`;
-      }
-      return null;
-    }
-    return `Maior Fortaleza: ${bestAvoidanceStreak.streak} dias limpos na blindagem contra ${bestAvoidanceStreak.habit.name}.`;
-  }, [bestAvoidanceStreak, sortedVices]);
-
-  const visibleVices = useMemo(() => {
-    return showAllVices ? sortedVices : sortedVices.slice(0, 3);
-  }, [sortedVices, showAllVices]);
-
-  const getViceMetrics = (viceId: string) => {
-    const checkins = avoidanceCheckins.filter(c => c.habit_id === viceId);
-    const resist = checkins.filter(c => c.status === 'success' || c.status === 'resisti').length;
-    const recai = checkins.filter(c => c.status === 'relapse' || c.status === 'recai').length;
-    const total = resist + recai;
-    const safeResistPercent = total > 0 ? (resist / total) * 100 : 0;
-    const safeRecaiPercent = total > 0 ? (recai / total) * 100 : 0;
-    return { resist, recai, total, safeResistPercent, safeRecaiPercent };
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -438,86 +362,6 @@ export const SuaEvolucaoModal = ({ isOpen, onClose }: SuaEvolucaoModalProps) => 
                             className="text-xs font-mono font-bold text-[#6ee7a8]/80 hover:text-[#6ee7a8] transition-colors flex items-center gap-1 cursor-pointer py-1"
                           >
                             <span>{showAllHabits ? '↑ Mostrar menos' : `↓ Ver todos os ${sortedHabits.length} hábitos`}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* CARD 4: Termômetro Anti-Vício (Dual Progress Bar + Vitrine) */}
-              <div className="p-5 md:p-6 border-l-2 border-[#6ee7a8]/30 pl-4 md:pl-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden col-span-1 md:col-span-2">
-                <div className="space-y-5 w-full">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="text-red-400" size={18} />
-                    <span className="text-[10px] md:text-xs font-bold text-red-400 uppercase tracking-widest block font-sans">
-                      Termômetro Anti-Vício & Blindagem
-                    </span>
-                  </div>
-
-                  {avoidanceHabitsList.length === 0 ? (
-                    <p className="text-xs text-text-secondary/60 italic font-sans text-left py-2">
-                      Sessões insuficientes para gerar biometria desta atividade.
-                    </p>
-                  ) : (
-                    <div className="space-y-4 text-left w-full">
-                      {vicesHeadline && (
-                        <p className="text-sm md:text-base font-semibold text-text-primary/90 border-l-2 border-red-400/70 pl-3 py-0.5 leading-relaxed font-sans">
-                          {vicesHeadline}
-                        </p>
-                      )}
-
-                      <div className="space-y-4.5 mt-3">
-                        {visibleVices.map(vice => {
-                          const metrics = getViceMetrics(vice.id);
-                          return (
-                            <div 
-                              key={vice.id} 
-                              className="border-b border-white/[0.03] pb-3 mb-3 last:border-0 last:mb-0 last:pb-0 transition-all space-y-2 text-left"
-                            >
-                              {/* Linha 1: Título do vício */}
-                              <div className="text-left">
-                                <span className="text-base font-black text-text-primary">
-                                  {vice.name}
-                                </span>
-                              </div>
-
-                              {/* Linha 2: A Nova Molinha Segmentada */}
-                              <div className="w-full h-1.5 flex gap-1 mt-2">
-                                {metrics.total > 0 ? (
-                                  <>
-                                    <div 
-                                      className="bg-[#6ee7a8] rounded-full transition-all" 
-                                      style={{ width: `${metrics.safeResistPercent}%` }} 
-                                    />
-                                    <div 
-                                      className="bg-red-500 rounded-full transition-all" 
-                                      style={{ width: `${metrics.safeRecaiPercent}%` }} 
-                                    />
-                                  </>
-                                ) : (
-                                  <div className="w-full bg-white/10 rounded-full h-full" />
-                                )}
-                              </div>
-
-                              {/* Linha 3: Legenda Minimalista */}
-                              <div className="flex justify-between text-[10px] font-mono mt-1.5">
-                                <span className="text-[#6ee7a8]">● {metrics.resist} vitórias</span>
-                                <span className="text-red-400">● {metrics.recai} quedas</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {sortedVices.length > 3 && (
-                        <div className="pt-2 flex justify-start">
-                          <button
-                            onClick={() => setShowAllVices(!showAllVices)}
-                            className="text-xs font-mono font-bold text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer py-1"
-                          >
-                            <span>{showAllVices ? '↑ Mostrar menos' : `↓ Ver todas as ${sortedVices.length} proteções`}</span>
                           </button>
                         </div>
                       )}
