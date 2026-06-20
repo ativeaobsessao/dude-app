@@ -40,9 +40,9 @@ export const CustomSelect = ({ options, value, onChange, placeholder = 'Selecion
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className={`w-full bg-surface-2 border border-border-custom rounded-2xl p-4 text-left text-text outline-none focus:border-green transition-all touch-manipulation min-h-[44px] flex items-center justify-between gap-2 ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
+        className={`w-full bg-surface-2 border border-border-custom rounded-2xl p-4 text-left text-text outline-none focus:border-green transition-all touch-manipulation min-h-[44px] flex items-center justify-between gap-2 min-w-0 ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
       >
-        <span className={selected ? 'text-text' : 'text-text-dim/50'}>
+        <span className={`truncate text-left flex-1 min-w-0 block ${selected ? 'text-text' : 'text-text-dim/50'}`}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown 

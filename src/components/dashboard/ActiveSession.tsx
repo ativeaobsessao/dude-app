@@ -1036,31 +1036,34 @@ export const ActiveSession = () => {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               style={{ willChange: 'transform' }}
-              className="bg-surface border border-border-white p-8 md:p-10 rounded-[2.5rem] max-w-4xl w-full space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+              className="relative bg-surface border border-border-white p-8 md:p-10 rounded-[2.5rem] max-w-4xl w-full max-h-[90vh] md:max-h-[85vh] h-full flex flex-col overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
             >
-              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              {/* Rota de Fuga - Absolute Master Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setShowResourcesModal(false);
+                }}
+                className="absolute top-4 right-4 z-50 text-text-secondary/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                title="Fechar tudo e voltar ao Timer"
+                id="notes_master_close_btn"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="flex justify-between items-center border-b border-white/5 pb-4 shrink-0 pr-8">
                 <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
                   <StickyNote className="text-primary-green" /> Registro Rápido & Bloco de Notas
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNoteModal(false);
-                    setShowResourcesModal(false);
-                  }}
-                  className="p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Fechar tudo e voltar ao Timer"
-                >
-                  <X size={18} />
-                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-8 flex-1 min-h-0 overflow-y-auto md:overflow-hidden py-2">
                 {/* COLUMN L: Note creation */}
-                <div className="space-y-6 flex flex-col justify-between">
+                <div className="space-y-6 flex flex-col justify-between shrink-0 min-w-0">
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                      <div className="space-y-2 min-w-0">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
                         <CustomSelect
                           value={noteProjectId}
@@ -1072,7 +1075,7 @@ export const ActiveSession = () => {
                           ]}
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 min-w-0">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
                         <CustomSelect
                           value={noteActivityId}
@@ -1134,8 +1137,8 @@ export const ActiveSession = () => {
                 </div>
 
                 {/* COLUMN R: Note History (INLINE) */}
-                <div className="border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8 flex flex-col h-full">
-                  <div className="pb-3 flex justify-between items-center">
+                <div className="border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8 flex flex-col min-h-0 min-w-0 md:h-full flex-1">
+                  <div className="pb-3 flex justify-between items-center shrink-0">
                     <label className="text-[10px] font-black tracking-widest text-text-secondary/40 uppercase font-sans">
                       {noteProjectId ? (
                         `HISTÓRICO: ${(dataStore.projects.find(p => p.id === noteProjectId)?.name || 'PROJETO').toUpperCase()}`
@@ -1150,7 +1153,7 @@ export const ActiveSession = () => {
                     )}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto max-h-[250px] md:max-h-[380px] pr-2 space-y-3 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto min-h-[200px] md:min-h-0 pr-2 space-y-3 custom-scrollbar pb-10">
                     {filteredNotes.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center py-10 space-y-2">
                         <StickyNote size={24} className="text-text-secondary/10" />
@@ -1191,12 +1194,12 @@ export const ActiveSession = () => {
                             {(noteProject || noteActivity) && (
                               <div className="flex flex-wrap gap-1.5 pt-1">
                                 {noteProject && (
-                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-text-secondary/60">
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-text-secondary/60 max-w-full truncate inline-block">
                                     📁 {noteProject.name}
                                   </span>
                                 )}
                                 {noteActivity && (
-                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-[#6ee7b7]/60 font-medium">
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-[#6ee7b7]/60 font-medium max-w-full truncate inline-block">
                                     ⚡ {noteActivity.name}
                                   </span>
                                 )}
