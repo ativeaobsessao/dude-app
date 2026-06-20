@@ -228,8 +228,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
     if (timeLeft === null) return -1; 
-    if (timeLeft > 295) return 0;     // NOVO: 300s a 295s (Abertura Empática - 5 segundos)
-    if (timeLeft > 210) return 1;     // 295s a 210s (Respiração Lótus)
+    if (timeLeft > 290) return 0;     // NOVO: 300s a 290s (Abertura Empática - 10 segundos)
+    if (timeLeft > 210) return 1;     // 290s a 210s (Respiração Lótus)
     if (timeLeft > 90) return 2;      // 210s a 90s (EMDR)
     if (timeLeft > 0) return 3;       // 90s a 0s (Theta/Escrita)
     return 4;
@@ -616,7 +616,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 2: A VIAJANTE / EMDR COGNITIVE TRAILER */}
+            {/* FASE 2: A VIAJANTE (EMDR) */}
             {currentPhase === 2 && (
               <motion.div 
                 key="phase-2"
@@ -624,26 +624,24 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1.0 }}
-                className="w-full h-full flex flex-col justify-between items-center py-4"
+                className="w-full h-full absolute inset-0 pointer-events-none flex flex-col justify-center items-center"
               >
-                {/* Infinite orbital visual tracking bounds */}
-                <div className="w-full h-64 md:h-[320px] relative overflow-hidden bg-transparent rounded-[32px] flex items-center justify-center">
-                  <motion.div
-                    animate={{ 
-                      x: ['-25vw', '25vw', '-20vw', '18vw', '-15vw', '-25vw'], 
-                      y: ['-8vh', '8vh', '-10vh', '10vh', '-5vh', '-8vh'] 
-                    }}
-                    transition={{ 
-                      duration: 14,
-                      ease: "easeInOut",
-                      repeat: Infinity
-                    }}
-                    className="w-5 h-5 rounded-full bg-[#10b981] shadow-[0_0_25px_10px_rgba(16,185,129,0.95),0_0_60px_22px_rgba(16,185,129,0.65),0_0_100px_35px_rgba(16,185,129,0.4)]"
-                  />
-                </div>
+                {/* A Bolinha Livre (Sem caixas limitadoras) */}
+                <motion.div
+                  animate={{ 
+                    x: ['-40vw', '40vw', '-35vw', '35vw', '-40vw'], 
+                    y: ['-25vh', '25vh', '-30vh', '30vh', '-25vh'] 
+                  }}
+                  transition={{ 
+                    duration: 18,
+                    ease: "easeInOut",
+                    repeat: Infinity
+                  }}
+                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)]"
+                />
 
-                <div className="text-center space-y-1.5 z-40 px-4">
-                  <span className="text-lg font-light tracking-wide text-white/95 leading-none block">
+                <div className="absolute bottom-1/4 text-center space-y-1.5 z-40 px-4">
+                  <span className="text-lg font-light tracking-wide text-white/95 leading-none block drop-shadow-lg">
                     Acompanhe a luz com o olhar.
                   </span>
                   <p className="text-[10px] text-white/20 tracking-[0.2em] font-mono uppercase">
@@ -672,7 +670,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 {/* Cognitive Discharge Panel */}
                 <div className="w-full flex flex-col space-y-4">
                   <span className="text-xs text-white/70 font-light leading-relaxed text-center block max-w-md mx-auto">
-                    Esvazie sua mente. Sinta-se à vontade para descrever o gatilho que despertou essa vontade ou apenas escreva o que está sentido agora (escreva apenas se quiser, continue escutando a frequência e seguindo o guiamento da DUDE).
+                    Esvazie sua mente, descreva o que sente agora. (Anotar é opcional, apenas respire e sinta a frequência)
                   </span>
 
                   <div className="relative w-full">
