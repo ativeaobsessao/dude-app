@@ -227,10 +227,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const currentPhase = useMemo(() => {
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
-    if (timeLeft === null) return 0;
-    if (timeLeft > 210) return 1;
-    if (timeLeft > 90) return 2;
-    if (timeLeft > 0) return 3;
+    if (timeLeft === null) return -1; 
+    if (timeLeft > 295) return 0;     // NOVO: 300s a 295s (Abertura Empática - 5 segundos)
+    if (timeLeft > 210) return 1;     // 295s a 210s (Respiração Lótus)
+    if (timeLeft > 90) return 2;      // 210s a 90s (EMDR)
+    if (timeLeft > 0) return 3;       // 90s a 0s (Theta/Escrita)
     return 4;
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
@@ -523,6 +524,26 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[340px]">
           <AnimatePresence mode="wait">
             
+            {/* FASE 0: ABERTURA EMPÁTICA (5 Segundos) */}
+            {currentPhase === 0 && (
+              <motion.div 
+                key="phase-0"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 1.0, ease: "easeOut" }}
+                className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
+              >
+                <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
+                  "Você não está sozinho. A DUDE assumiu o controle. Apenas siga o guia."
+                </h2>
+                <div className="h-[1px] w-12 bg-white/10" />
+                <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
+                  Fase 0 · Absorção Inicial
+                </span>
+              </motion.div>
+            )}
+
             {/* FASE 1: FREIO VAGAL (Breath control loops with Apple Lotus Waves) */}
             {currentPhase === 1 && (
               <motion.div 
