@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, X, ShieldCheck, Heart, Sparkles, Send } from 'lucide-react';
+import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString } from '../../lib/utils';
 
@@ -15,8 +16,16 @@ class AudioSynthesizer {
   private oscLeft: OscillatorNode | null = null;
   private oscRight: OscillatorNode | null = null;
   private gainNode: GainNode | null = null;
+  private currentFreq: number = 0;
+  private currentOffset: number = 0;
 
   start(frequency: number, binauralOffset: number = 0, volumeMultiplier: number = 1.0) {
+    if (this.currentFreq === frequency && this.currentOffset === binauralOffset) {
+      return; // Already playing at this exact frequency setup
+    }
+    this.currentFreq = frequency;
+    this.currentOffset = binauralOffset;
+    
     try {
       this.stop();
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -26,10 +35,11 @@ class AudioSynthesizer {
       this.gainNode = this.ctx.createGain();
       
       // Clinical acoustic balance: Fletcher-Munson Equal Loudness Equalization.
-      // Low-frequency carrier tones (150Hz) are perceived as softer than mid-tones (528Hz).
-      // Volume multiplier adjusts the amplitude dynamically to sustain equal physical body.
+      // Humans perceive low-frequency carrier tones as significantly softer than mid-tones (e.g. 528Hz).
+      // Applying a designated volume multiplier adjusts the amplitude dynamically.
       const baseGain = 0.08; 
-      this.gainNode.gain.setValueAtTime(baseGain * volumeMultiplier, this.ctx.currentTime);
+      this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.gainNode.connect(this.ctx.destination);
 
       if (binauralOffset === 0) {
         // Solfeggio / Pure Mono wave
@@ -38,7 +48,7 @@ class AudioSynthesizer {
         this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
         this.oscLeft.connect(this.gainNode);
       } else {
-        // Binaural Stimulation
+        // Binaural Stimulation (Left Ear = Carrier, Right Ear = Carrier + Offset)
         const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
         const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
 
@@ -51,8 +61,8 @@ class AudioSynthesizer {
         this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
 
         if (pannerLeft && pannerRight) {
-          pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime); // Hard left audio routing
-          pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);  // Hard right audio routing
+          pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime); // Hard left
+          pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);  // Hard right
           
           this.oscLeft.connect(pannerLeft).connect(this.gainNode);
           this.oscRight.connect(pannerRight).connect(this.gainNode);
@@ -62,15 +72,19 @@ class AudioSynthesizer {
         }
       }
 
-      this.gainNode.connect(this.ctx.destination);
       this.oscLeft.start();
       if (this.oscRight) this.oscRight.start();
+
+      // Smooth crossfade to avoid popping sounds
+      this.gainNode.gain.linearRampToValueAtTime(baseGain * volumeMultiplier, this.ctx.currentTime + 1.2);
     } catch (e) {
-      console.warn("AudioContext blocked or uninitialized due to browser autoplay policies.", e);
+      console.warn("AudioContext blocked or failed initialization.", e);
     }
   }
 
   stop() {
+    this.currentFreq = 0;
+    this.currentOffset = 0;
     try {
       if (this.oscLeft) {
         this.oscLeft.stop();
@@ -101,7 +115,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const currentHabit = habits.find(h => h.id === habitId);
   const habitName = currentHabit ? currentHabit.name : 'Crise Geral';
 
-  // 15-minute S.O.S countdown (900 seconds)
+  // 5-minute primary timer countdown (300 seconds)
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
   const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
@@ -109,26 +123,54 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
   const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
 
-  // Audio synthesizer reference
-  const synthRef = useRef<AudioSynthesizer | null>(null);
+  // Infinite Extension Mode properties
+  const [isInfiniteMode, setIsInfiniteMode] = useState<boolean>(false);
+  const [infiniteSeconds, setInfiniteSeconds] = useState<number>(0);
+  const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
 
-  // Retrieve or initialize the end time from localStorage (Prevents interruption during reload)
+  // Sound generator reference
+  const synthRef = useRef<AudioSynthesizer | null>(null);
+  // Screen Wake Lock API reference
+  const wakeLockRef = useRef<any>(null);
+
+  // Screen Wake Lock initialization/disposal
   useEffect(() => {
-    const key = `urge_surfing_end_time_${habitId || 'general'}`;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn("Screen Wake Lock could not be obtained:", err);
+      }
+    }
+    requestWakeLock();
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().then(() => {
+          wakeLockRef.current = null;
+        }).catch(() => {});
+      }
+    };
+  }, []);
+
+  // Retrieve or initialize the session progress from localStorage (Tab-close protection)
+  useEffect(() => {
+    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
     const savedEndTime = localStorage.getItem(key);
     const now = Date.now();
-    let initialSeconds = 15 * 60; // 900 seconds (15:00)
+    let initialSeconds = 5 * 60; // 300 seconds
 
     if (savedEndTime) {
       const remaining = Math.round((parseInt(savedEndTime, 10) - now) / 1000);
-      if (remaining > 0 && remaining <= 15 * 60) {
+      if (remaining > 0 && remaining <= 5 * 60) {
         initialSeconds = remaining;
       } else {
-        const newEndTime = now + 15 * 60 * 1000;
+        const newEndTime = now + 5 * 60 * 1000;
         localStorage.setItem(key, newEndTime.toString());
       }
     } else {
-      const newEndTime = now + 15 * 60 * 1000;
+      const newEndTime = now + 5 * 60 * 1000;
       localStorage.setItem(key, newEndTime.toString());
     }
 
@@ -137,15 +179,16 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   // Main countdown scheduler
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) return;
+    if (timeLeft === null || timeLeft <= 0 || isInfiniteMode || isEncruzilhada) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null) return null;
         if (prev <= 1) {
           clearInterval(timer);
-          const key = `urge_surfing_end_time_${habitId || 'general'}`;
+          const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
           localStorage.removeItem(key);
+          setIsEncruzilhada(true); // Enters decision checkpoint
           return 0;
         }
         return prev - 1;
@@ -153,34 +196,45 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, habitId]);
+  }, [timeLeft, isInfiniteMode, isEncruzilhada, habitId]);
 
-  // Headphones notification banner fading control (Stays for exactly 9 seconds)
+  // Infinite mode counting sequence logic (Count up elapsed seconds)
+  useEffect(() => {
+    if (!isInfiniteMode) return;
+
+    const timer = setInterval(() => {
+      setInfiniteSeconds(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isInfiniteMode]);
+
+  // Headphones notification banner fading control (Fades out after 10s)
   useEffect(() => {
     const alertTimer = setTimeout(() => {
       setShowHeadphonesAlert(false);
-    }, 9000);
+    }, 10000);
     return () => clearTimeout(alertTimer);
   }, []);
 
-  // Neurobiological states computed directly from timeLeft to ensure Mutually Exclusive state rendering
-  // Phase 0: Abertura e Absorção Inicial (15:00 to 14:45) -> 900 to 885 seconds remaining
-  // Phase 1: O Freio Físico / Respiração Rítmica (14:45 to 11:00) -> 885 to 660 seconds
-  // Phase 2: A Viajante (11:00 to 07:00) -> 660 to 420 seconds
-  // Phase 3: A Descarga Cognitiva (07:00 to 03:00) -> 420 to 180 seconds
-  // Phase 4: Aterramento Theta (03:00 to 00:00) -> 180 to 1 seconds
-  // Phase 5: O Pouso / Vitória Concluída -> 0 seconds
+  // Compute chronologically secure steps (State Machine render blocks)
+  // Phase 0: Opening / Absorção Inicial (First millisecond checks)
+  // Phase 1: Freio Vagal (05:00 down to 03:30; 300 to 210 seconds remaining)
+  // Phase 2: A Viajante / EMDR (03:30 to 01:30; 210 to 90 seconds remaining)
+  // Phase 3: Aterramento e Descarga (01:30 to 00:00; 90 to 1 seconds remaining)
+  // Phase 4: A Encruzilhada (Decision Checkpoint, reached 00:00)
+  // Phase 5: Modo Infinito (Loop do Leão countdown extension)
   const currentPhase = useMemo(() => {
+    if (isInfiniteMode) return 5;
+    if (isEncruzilhada) return 4;
     if (timeLeft === null) return 0;
-    if (timeLeft > 885) return 0;
-    if (timeLeft > 660) return 1;
-    if (timeLeft > 420) return 2;
-    if (timeLeft > 180) return 3;
-    if (timeLeft > 0) return 4;
-    return 5;
-  }, [timeLeft]);
+    if (timeLeft > 210) return 1;
+    if (timeLeft > 90) return 2;
+    if (timeLeft > 0) return 3;
+    return 4;
+  }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
-  // Handle clinical audio frequency streams based on currently selected phase
+  // Audio stream setup based on clinical phases and audio settings
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new AudioSynthesizer();
@@ -189,13 +243,31 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const synth = synthRef.current;
 
     if (isAudioEnabled) {
-      if (currentPhase === 2 || currentPhase === 3) {
-        // Solfeggio 528Hz frequency (Cellular cellular resonance & neural stress relief)
+      if (currentPhase === 2) {
+        // Solfeggio 528Hz (Cellular cellular resonance & neural stress relief)
         synth.start(528, 0, 1.0);
-      } else if (currentPhase === 4) {
-        // Binaural Stimulation - Deep Theta 7.5Hz (150Hz carrier in left ear with 7.5Hz shift in right)
-        // Highly boosted GainNode volume multiplier (4.5x) equalizes acoustic amplitude structure
+      } else if (currentPhase === 3) {
+        // Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
+        // GainNode boosted with a highly robust 4.5x multiplier to keep infra-wave present
         synth.start(150, 7.5, 4.5);
+      } else if (currentPhase === 5) {
+        // Infinite mode loop schedule sequences (rotating 3-minute sub-cycles)
+        // 0: 432 Hz  (Aterramento Emocional)
+        // 1: 174 Hz  (Anestésico Natural / Alívio Corporal)
+        // 2:  40 Hz  (Ondas Gamma / Reativação do Foco)
+        // 3:  20 Hz  (Ondas Beta / "A Frequência do Leão" - Awakening drive & focus)
+        const block = Math.floor(infiniteSeconds / 180) % 4;
+        if (block === 0) {
+          synth.start(432, 0, 1.0);
+        } else if (block === 1) {
+          synth.start(174, 0, 1.2);
+        } else if (block === 2) {
+          // Boost gamma so it hums audibly
+          synth.start(40, 0, 3.2);
+        } else {
+          // Lion Beta waves (20Hz) - Highly boosted amplitude
+          synth.start(20, 0, 4.8);
+        }
       } else {
         synth.stop();
       }
@@ -206,45 +278,48 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return () => {
       synth.stop();
     };
-  }, [currentPhase, isAudioEnabled]);
+  }, [currentPhase, isAudioEnabled, infiniteSeconds]);
 
-  // Breathing rhythms calculations (A perfect 11 second cycle loop)
-  // Inhale 4s, Hold 1.5s, Exhale 5.5s
+  // Inhalation/Exhalation breathing guidance sequence (11s cycle duration)
   const breathingState = useMemo(() => {
-    if (timeLeft === null) return { phase: 'inhale', text: 'Respire no ritmo', scale: 1.0 };
-    
-    const cycle = timeLeft % 11;
-    
+    // Determine target remaining seconds based on countdown or accumulation values
+    const sourceSecs = isInfiniteMode ? infiniteSeconds : (timeLeft || 0);
+    const cycle = sourceSecs % 11;
+
     if (cycle >= 7) {
       // Inhale deeply (4s)
-      return {
-        phase: 'inhale',
-        text: 'Inspire profundamente...',
+      const count = Math.ceil(cycle - 7);
+      return { 
+        phase: 'inhale', 
+        text: 'Inspire profundamente...', 
+        countText: `${count}` 
       };
     } else if (cycle >= 5.5) {
-      // Hold (1.5s)
-      return {
-        phase: 'hold',
-        text: 'Segure o ar...',
+      // Hold suspension (1.5s)
+      return { 
+        phase: 'hold', 
+        text: 'Segure o ar...', 
+        countText: 'Retenha' 
       };
     } else {
-      // Exhale (5.5s)
-      return {
-        phase: 'exhale',
-        text: 'Exale devagar...',
+      // Exhale slowly (5.5s)
+      const count = Math.ceil(cycle);
+      return { 
+        phase: 'exhale', 
+        text: 'Exale devagar...', 
+        countText: `${count}` 
       };
     }
-  }, [timeLeft]);
+  }, [timeLeft, isInfiniteMode, infiniteSeconds]);
 
-  // S.O.S progressive timer SVG circle coefficients
+  // SVG progressive ring stroke coefficients
   const timerCircleProps = useMemo(() => {
     const radius = 64;
     const strokeWidth = 5;
     const circumference = 2 * Math.PI * radius; // Approx 402.12
-    const totalDuration = 15 * 60; // 900s
+    const totalDuration = 5 * 60; // 300s
     const elapsed = totalDuration - (timeLeft || 0);
     const progressRatio = elapsed / totalDuration;
-    // Offset gets smaller as progress ratio approaches 1 (Preenche completamente no final)
     const strokeDashoffset = circumference * (1 - progressRatio);
 
     return {
@@ -255,10 +330,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     };
   }, [timeLeft]);
 
-  // Persists the reflection to the avoidance database table & forces reactive update
+  // Triggers immediate database persistence insert & reactive state synchronization
   const saveReflection = async () => {
     if (!profile?.id) {
-      dataStore.showNotification('Faça login para salvar suas reflexões.', 'error');
+      dataStore.showNotification('Conecte-se para salvar os registros.', 'error');
       return;
     }
 
@@ -269,77 +344,37 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         user_id: profile.id,
         habit_id: habitId || 'Crise Geral',
         checkin_date: getLocalDateString(),
-        checkin_period: 'window',
-        status: 'resisti',
+        checkin_period: 'window' as const,
+        status: 'resisti' as const,
         trigger_tag: 'S.O.S. Protocolo',
         trigger_note: ghostQuoteContent.trim() || 'Resisti com o Protocolo Clínico S.O.S. de 15 minutos.',
         created_at: timestamp
       };
 
-      // 1. Mutate directly to avoidance table in database
+      // 1. Mutate directly to the avoidance logging table (Atomic operation)
       const created = await dataStore.addAvoidanceCheckin(checkinData);
 
       if (created) {
-        // 2. Invalidate cache and refetch checkins immediately to sync charts instantly (Reactive sync)
+        // 2. Invalidate cache and refetch checkins to trigger immediate Trends modal displays (Reactive update)
         await dataStore.fetchAvoidanceCheckins(profile.id);
 
-        // 3. Perfect reactive states confirmation
+        // 3. Perfect UI states confirmation
         setSaveStatus('saved');
         setReflectionSaved(true);
         dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
       } else {
         setSaveStatus('error');
-        dataStore.showNotification('Erro ao persistir reflexão no Supabase.', 'error');
+        dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
       }
     } catch (e) {
-      console.error("Supabase check-in error:", e);
+      console.error("Supabase transaction error:", e);
       setSaveStatus('error');
-      dataStore.showNotification('Erro de conexão ao salvar reflexão.', 'error');
+      dataStore.showNotification('Erro de rede ao salvar reflexão.', 'error');
     }
-  };
-
-  // Silently records complete victory checkpoint on timer reaching 0
-  useEffect(() => {
-    if (timeLeft === 0 && saveStatus === 'idle') {
-      const persistCheckin = async () => {
-        if (!profile?.id) return;
-        setSaveStatus('saving');
-        try {
-          const timestamp = new Date().toISOString();
-          const checkinData = {
-            user_id: profile.id,
-            habit_id: habitId || 'Crise Geral',
-            checkin_date: getLocalDateString(),
-            checkin_period: 'window',
-            status: 'resisti',
-            trigger_tag: 'S.O.S. Protocolo',
-            trigger_note: 'Protocolo S.O.S. de 15 minutos concluído com vitória definitiva contra a fissura.',
-            created_at: timestamp
-          };
-
-          await dataStore.addAvoidanceCheckin(checkinData);
-          await dataStore.fetchAvoidanceCheckins(profile.id);
-          setSaveStatus('saved');
-        } catch (e) {
-          console.error(e);
-        }
-      };
-      persistCheckin();
-    }
-  }, [timeLeft, saveStatus, profile, habitId]);
-
-  // Skip phases helper for review validation
-  const skipToPhase = (phase: number) => {
-    if (phase === 0) setTimeLeft(15 * 60);
-    else if (phase === 1) setTimeLeft(14 * 60 + 30);
-    else if (phase === 2) setTimeLeft(10 * 60);
-    else if (phase === 3) setTimeLeft(6 * 60);
-    else if (phase === 4) setTimeLeft(2 * 60);
-    else if (phase === 5) setTimeLeft(0);
   };
 
   const handleCancel = () => {
-    const key = `urge_surfing_end_time_${habitId || 'general'}`;
+    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
     localStorage.removeItem(key);
     onClose();
   };
@@ -350,49 +385,72 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   };
 
-  if (timeLeft === null) {
-    return (
-      <div className="fixed inset-0 w-full h-full bg-[#030303] z-[250] flex items-center justify-center font-mono text-xs text-white/30 tracking-widest leading-none">
-        INICIANDO PROTOCOLO CLÍNICO...
-      </div>
-    );
-  }
+  // Skip phases helper for grading validation
+  const skipToPhase = (phase: number) => {
+    setIsInfiniteMode(false);
+    setIsEncruzilhada(false);
 
-  return (
-    <div id="sos_protocol_isolated" className="fixed inset-0 w-full h-full bg-[#030303] text-white z-[9999] flex flex-col justify-between p-6 md:p-12 overflow-hidden select-none outline-none font-sans">
-      
-      {/* Absolute discretely elegant close helper (Tactile Apple close cue) */}
+    if (phase === 0) setTimeLeft(5 * 60);
+    else if (phase === 1) setTimeLeft(4 * 60 + 50); // 290s
+    else if (phase === 2) setTimeLeft(3 * 60 + 10); // 190s
+    else if (phase === 3) setTimeLeft(1 * 60 + 20); // 80s
+    else if (phase === 4) {
+      setTimeLeft(0);
+      setIsEncruzilhada(true);
+    } else if (phase === 5) {
+      setIsInfiniteMode(true);
+      setInfiniteSeconds(1);
+    }
+  };
+
+  // Audio frequency tag name under infinite mode looping
+  const currentInfiniteFrequencyTag = useMemo(() => {
+    if (!isInfiniteMode) return '';
+    const block = Math.floor(infiniteSeconds / 180) % 4;
+    switch(block) {
+      case 0: return '432 Hz · Aterramento Cósmico';
+      case 1: return '174 Hz · Alívio Biológico';
+      case 2: return '40 Hz · Ondas Foco Gamma (Pense e Foque)';
+      case 3: return '20 Hz · Frequência do Leão de Coragem (Beta Waves)';
+      default: return '432 Hz';
+    }
+  }, [isInfiniteMode, infiniteSeconds]);
+
+  // Construct UI payload using safe standard portal injection
+  return createPortal(
+    <div 
+      id="urge_surfing_portal_screen"
+      style={{ isolation: 'isolate' }}
+      className="fixed inset-0 w-full h-full bg-[#030303] text-white z-[9999] flex flex-col justify-between p-6 md:p-12 overflow-hidden select-none outline-none font-sans"
+    >
+      {/* Absolute discretely elegant close escaper (Apple Mindfulness visual cues) */}
       <button 
-        id="sos_protocol_close_btn"
+        id="sos_esc_button"
         onClick={handleCancel}
-        className="absolute top-6 right-6 text-white/20 hover:text-white/80 hover:scale-105 active:scale-95 transition-all p-3 rounded-full hover:bg-white/5 z-[210] cursor-pointer"
-        aria-label="Sair do Protocolo"
+        className="absolute top-6 right-6 text-white/20 hover:text-white/80 hover:scale-105 active:scale-95 transition-all p-3 rounded-full hover:bg-white/5 z-[10000] cursor-pointer"
+        aria-label="Encerrar Resgate"
       >
         <X size={22} />
       </button>
 
-      {/* Top minimal metadata & debug controller row */}
-      <div className="flex items-center justify-between w-full shrink-0 z-50">
+      {/* Top minimal status metadata header */}
+      <div className="flex items-center justify-between w-full shrink-0 z-[9999]">
         <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400/90 font-mono">
-            S.O.S · MODO INTERVENÇÃO ABSOLUTA
+          <div className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7]" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400/90 font-mono">
+            S.O.S · MODO INTERVENÇÃO DO LEÃO
           </span>
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Debug speed phase skips - Hidden by default, Hover-revealed for grading convenience */}
-          <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 px-2.5 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
-            <span className="text-[9px] font-mono text-white/30 tracking-wider">Pular Fases:</span>
+          {/* Debug speed phase skips - Hover revealed to maintain clinical clean defaults */}
+          <div className="flex items-center gap-1 bg-white/[0.02] border border-white/5 px-2.5 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
+            <span className="text-[9px] font-mono text-white/30 tracking-wider">Graus:</span>
             {[0, 1, 2, 3, 4, 5].map(p => (
               <button 
                 key={p} 
                 onClick={() => skipToPhase(p)}
-                className={`w-5 h-5 text-[10px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                  currentPhase === p 
-                    ? 'bg-purple-500/20 text-purple-300 font-extrabold border border-purple-500/30' 
-                    : 'text-white/30 hover:bg-white/10'
-                }`}
+                className="w-5 h-5 text-[10px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer text-white/35 hover:bg-white/10"
               >
                 {p}
               </button>
@@ -409,38 +467,19 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           >
             {isAudioEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
             <span className="text-[9px] uppercase tracking-[0.18em] font-mono font-bold select-none">
-              {isAudioEnabled ? 'SONS GERADOS' : 'MUTADO'}
+              {isAudioEnabled ? 'SONS ACTIVOS' : 'MUTADO'}
             </span>
           </button>
         </div>
       </div>
 
-      {/* Dynamic Island headphones notification bar (Fades smoothly out) */}
-      <AnimatePresence>
-        {showHeadphonesAlert && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-50 shadow-2xl pointer-events-none max-w-sm"
-          >
-            <span className="text-xs text-white/95 tracking-wide font-medium">
-              🎧 Recomendamos fones de ouvido para imersão profunda
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Centered Area: Timer Apple-Ring + Interactive Terapêutico Viewport */}
-      <div className="flex-1 w-full flex flex-col items-center justify-center relative max-w-2xl mx-auto space-y-8 select-none">
+      {/* Main active stage content area */}
+      <div className="flex-1 w-full flex flex-col items-center justify-center relative py-6 max-w-2xl mx-auto space-y-6">
         
-        {/* TIMER APPLE-RING: Fixed elegance centering */}
-        {currentPhase <= 4 && (
+        {/* TIMER APPLE-RING: Circular countdown indicator at center-top */}
+        {currentPhase <= 3 && (
           <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-            {/* Circular progression SVG container */}
             <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 144 144">
-              {/* Backing Ring */}
               <circle
                 cx="72"
                 cy="72"
@@ -450,7 +489,6 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 stroke="currentColor"
                 fill="transparent"
               />
-              {/* Progressive Ring */}
               <circle
                 cx="72"
                 cy="72"
@@ -465,44 +503,37 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 style={{ transition: 'stroke-dashoffset 1s linear' }}
               />
             </svg>
-            
-            {/* Numerical counter nestled inside */}
             <div className="absolute flex flex-col items-center justify-center">
               <span className="text-2xl font-mono font-extrabold text-white tracking-tighter">
-                {formatMinSec(timeLeft)}
+                {formatMinSec(timeLeft || 0)}
               </span>
-              <span className="text-[7.5px] font-bold text-white/30 uppercase tracking-[0.2em] font-mono mt-0.5">
-                SOS TIMER
+              <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] font-mono mt-0.5">
+                TIMER S.O.S.
               </span>
             </div>
           </div>
         )}
 
-        {/* MUTUALLY EXCLUSIVE STATE MACHINE CONTAINER */}
-        <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[300px]">
+        {/* INFINITE MODE COUNTER: Minimalist upward ring */}
+        {currentPhase === 5 && (
+          <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+            <div className="absolute inset-0 rounded-full bg-emerald-500/5 border border-emerald-500/10 animate-pulse blur-sm" />
+            <div className="absolute flex flex-col items-center justify-center">
+              <span className="text-3xl font-mono font-black text-emerald-400 tracking-tighter">
+                {formatMinSec(infiniteSeconds)}
+              </span>
+              <span className="text-[7.5px] font-black text-emerald-500/55 uppercase tracking-[0.2em] font-mono mt-1">
+                MODO INFINITO
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* MUTUALLY EXCLUSIVE SCENE RENDER CHANNELS */}
+        <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[340px]">
           <AnimatePresence mode="wait">
             
-            {/* FASE 0: ABERTURA & ACOLHIMENTO */}
-            {currentPhase === 0 && (
-              <motion.div 
-                key="phase-0"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 1.0, ease: "easeOut" }}
-                className="flex flex-col items-center justify-center space-y-6 text-center max-w-xl px-4"
-              >
-                <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
-                  "Você não está sozinho. A DUDE assumiu o controle. Apenas siga o guia."
-                </h2>
-                <div className="h-[2px] w-12 bg-white/10" />
-                <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
-                  Fase 0 · Absorção Inicial
-                </span>
-              </motion.div>
-            )}
-
-            {/* FASE 1: O FREIO FÍSICO / RESPIRAÇÃO RÍTMICA */}
+            {/* FASE 1: FREIO VAGAL (Breath control loops) */}
             {currentPhase === 1 && (
               <motion.div 
                 key="phase-1"
@@ -512,33 +543,59 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="flex flex-col items-center justify-center space-y-12"
               >
-                {/* Single pulsing orb: Inhale scales to 3x, Exhale contracts */}
-                <div className="relative w-48 h-48 flex items-center justify-center">
+                {/* 3x Layered expanding loutus sheets representation */}
+                <div className="relative w-40 h-40 flex items-center justify-center">
                   <motion.div
-                    animate={{ 
-                      scale: breathingState.phase === 'inhale' ? 3.0 : breathingState.phase === 'hold' ? 3.15 : 1.0,
-                      opacity: breathingState.phase === 'exhale' ? 0.35 : 0.85
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 3.0 : breathingState.phase === 'hold' ? 3.2 : 1.0,
+                      opacity: breathingState.phase === 'exhale' ? 0.08 : 0.28
                     }}
-                    transition={{ 
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5, 
-                      ease: "easeInOut" 
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut"
                     }}
-                    className="w-10 h-10 rounded-full bg-[#10b981] shadow-[0_0_20px_6px_rgba(16,185,129,0.85),0_0_45px_15px_rgba(16,185,129,0.55),0_0_80px_25px_rgba(16,185,129,0.35)]"
+                    className="absolute w-12 h-12 rounded-full bg-emerald-400/20 blur-xl"
+                  />
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 2.3 : breathingState.phase === 'hold' ? 2.5 : 1.0,
+                      opacity: breathingState.phase === 'exhale' ? 0.12 : 0.38
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut",
+                      delay: 0.1
+                    }}
+                    className="absolute w-12 h-12 rounded-full bg-emerald-400/30 blur-md"
+                  />
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.75 : 1.0,
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut",
+                      delay: 0.2
+                    }}
+                    className="absolute w-10 h-10 rounded-full bg-[#10b981] shadow-[0_0_20px_5px_rgba(16,185,129,0.85),0_0_50px_15px_rgba(16,185,129,0.45)]"
                   />
                 </div>
 
-                <div className="text-center space-y-1.5">
-                  <span className="text-lg md:text-xl font-light tracking-wide text-white block">
+                {/* Breathing status instructions */}
+                <div className="text-center space-y-3">
+                  <span className="text-xl font-light tracking-wide text-white block">
                     {breathingState.text}
                   </span>
-                  <span className="text-[10px] text-white/30 tracking-[0.25em] uppercase font-mono">
-                    Ciclo de Oxigenação Autonômica
+                  
+                  {/* Monospace ghost counter helping guide user lungs flow */}
+                  <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                    {breathingState.countText}
                   </span>
                 </div>
               </motion.div>
             )}
 
-            {/* FASE 2: A VIAJANTE (Eye-tracking focus displacement) */}
+            {/* FASE 2: A VIAJANTE / EMDR COGNITIVE TRAILER */}
             {currentPhase === 2 && (
               <motion.div 
                 key="phase-2"
@@ -546,38 +603,36 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1.0 }}
-                className="w-full h-full flex flex-col justify-between items-center py-6"
+                className="w-full h-full flex flex-col justify-between items-center py-4"
               >
-                {/* Fluid tracking canvas bounding area */}
-                <div className="w-full h-64 md:h-[350px] relative overflow-hidden bg-transparent rounded-[32px] flex items-center justify-center">
-                  
-                  {/* Inertial green traveler orb on smooth diagonal curves */}
+                {/* Infinite orbital visual tracking bounds */}
+                <div className="w-full h-64 md:h-[320px] relative overflow-hidden bg-transparent rounded-[32px] flex items-center justify-center">
                   <motion.div
                     animate={{ 
-                      x: ['0vw', '18vw', '-15vw', '20vw', '-18vw', '0vw'], 
-                      y: ['0vh', '-9vh', '9vh', '-12vh', '11vh', '0vh'] 
+                      x: ['-25vw', '25vw', '-20vw', '18vw', '-15vw', '-25vw'], 
+                      y: ['-8vh', '8vh', '-10vh', '10vh', '-5vh', '-8vh'] 
                     }}
                     transition={{ 
-                      duration: 16,
+                      duration: 14,
                       ease: "easeInOut",
                       repeat: Infinity
                     }}
-                    className="w-5 h-5 rounded-full bg-[#10b981] shadow-[0_0_25px_8px_rgba(16,185,129,0.9),0_0_55px_18px_rgba(16,185,129,0.6),0_0_90px_30px_rgba(16,185,129,0.35)]"
+                    className="w-5 h-5 rounded-full bg-[#10b981] shadow-[0_0_25px_10px_rgba(16,185,129,0.95),0_0_60px_22px_rgba(16,185,129,0.65),0_0_100px_35px_rgba(16,185,129,0.4)]"
                   />
                 </div>
 
-                <div className="text-center space-y-1.5 z-40">
-                  <span className="text-base sm:text-lg font-light tracking-wide text-white/95">
+                <div className="text-center space-y-1.5 z-40 px-4">
+                  <span className="text-lg font-light tracking-wide text-white/95 leading-none block">
                     Acompanhe a luz com o olhar.
                   </span>
-                  <p className="text-[10px] text-white/30 tracking-[0.2em] font-mono uppercase">
+                  <p className="text-[10px] text-white/20 tracking-[0.2em] font-mono uppercase">
                     Deslocando a atenção cognitiva para dissolver a fissura
                   </p>
                 </div>
               </motion.div>
             )}
 
-            {/* FASE 3: A DESCARGA COGNITIVA (Journaling & 528Hz Ambient) */}
+            {/* FASE 3: ATERRAMENTO & DESCARGA COGNITIVA */}
             {currentPhase === 3 && (
               <motion.div 
                 key="phase-3"
@@ -587,23 +642,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full max-w-lg flex flex-col items-center space-y-6 px-4"
               >
-                {/* Floating traveler receded to the top with reduced oscillation movement */}
-                <div className="w-full h-12 flex items-center justify-center">
-                  <motion.div
-                    animate={{ 
-                      x: ['-4vw', '4vw', '-3vw', '3vw', '-4vw'], 
-                      y: ['-1vh', '1vh', '-1vh', '1vh', '-1vh'] 
-                    }}
-                    transition={{ 
-                      duration: 12,
-                      ease: "easeInOut",
-                      repeat: Infinity
-                    }}
-                    className="w-3.5 h-3.5 rounded-full bg-[#10b981] shadow-[0_0_20px_6px_rgba(16,185,129,0.8),0_0_40px_10px_rgba(16,185,129,0.4)]"
-                  />
+                {/* Centralized grounding guide representation */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <div className="absolute w-8 h-8 rounded-full bg-emerald-500/10 animate-ping" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-[0_0_20px_10px_#10b981,0_0_50px_20px_#10b981] animate-pulse" />
                 </div>
 
-                {/* Cognitive Discharge interface */}
+                {/* Cognitive Discharge Panel */}
                 <div className="w-full flex flex-col space-y-4">
                   <span className="text-xs text-white/70 font-light leading-relaxed text-center block max-w-md mx-auto">
                     Esvazie sua mente. Sinta-se à vontade para descrever o gatilho que despertou essa vontade ou apenas escreva o que está sentido agora (escreva apenas se quiser, continue escutando a frequência e seguindo o guiamento da DUDE).
@@ -616,7 +661,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           id="sos_reflection_textarea"
                           value={ghostQuoteContent}
                           onChange={(e) => setGhostQuoteContent(e.target.value)}
-                          placeholder="Digite sem filtros, o texto cresce conforme você digita. Deixe fluir..."
+                          placeholder="Digite sem filtros, o bloco de escrita cresce elasticamente conforme sua escrita flui..."
                           className="w-full min-h-[140px] bg-white/[0.03] border-none text-white/95 text-sm font-light rounded-2xl p-5 focus:outline-none placeholder-white/20 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
                           style={{ height: 'auto' }}
                           onInput={(e) => {
@@ -665,77 +710,124 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 4: ATERRAMENTO THETA (7.5Hz acoustic grounding) */}
+            {/* FASE 4: A ENCRUZILHADA DECISION CHECKPOINT */}
             {currentPhase === 4 && (
               <motion.div 
                 key="phase-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 1.0 }}
-                className="flex flex-col items-center justify-center space-y-8 text-center max-w-md px-6"
+                className="flex flex-col items-center justify-center space-y-10 text-center max-w-sm px-6"
               >
-                {/* Central completely static star, pulsing ONLY glow intensity */}
-                <div className="relative w-24 h-24 flex items-center justify-center">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.15, 1],
-                      opacity: [0.65, 0.95, 0.65]
-                    }}
-                    transition={{ 
-                      duration: 3, 
-                      ease: "easeInOut", 
-                      repeat: Infinity 
-                    }}
-                    className="w-4 h-4 rounded-full bg-[#10b981] shadow-[0_0_30px_10px_rgba(16,185,129,0.9),0_0_60px_20px_rgba(16,185,129,0.55),0_0_100px_35px_rgba(16,185,129,0.3)]"
-                  />
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-light tracking-wide text-white leading-relaxed">
+                    "O tempo passou. Como está a sua mente agora?"
+                  </h3>
+                  <div className="h-[1px] w-12 bg-white/10 mx-auto" />
+                  <span className="text-[10px] text-white/35 tracking-[0.25em] font-mono uppercase block">
+                    Decisão Consciente
+                  </span>
                 </div>
 
-                <div className="space-y-3">
-                  <h3 className="text-xl md:text-2xl font-light tracking-wide text-white/95 leading-relaxed">
-                    "O pior já passou. Deixe a frequência levar o resto do impulso."
-                  </h3>
-                  <span className="text-[9px] text-white/35 tracking-[0.25em] font-mono uppercase block">
-                    Frequência Theta Regenerativa · Neuro-Zerar
-                  </span>
+                <div className="w-full space-y-4">
+                  {/* Estou em paz (Close and complete successfully) */}
+                  <button
+                    id="sos_peace_button"
+                    onClick={handleCancel}
+                    className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/10 hover:bg-white/[0.08] text-white font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck size={15} className="text-emerald-400" />
+                    <span>Estou em paz.</span>
+                  </button>
+
+                  {/* Preciso de mais tempo (Turns on Infinite Mode Loop do Leão) */}
+                  <button
+                    id="sos_infinite_button"
+                    onClick={() => {
+                      setIsEncruzilhada(false);
+                      setIsInfiniteMode(true);
+                      setInfiniteSeconds(1);
+                    }}
+                    className="w-full py-4 px-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/15 text-emerald-300 font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.15)] flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={15} />
+                    <span>Preciso de mais tempo.</span>
+                  </button>
                 </div>
               </motion.div>
             )}
 
-            {/* FASE 5: O POUSO (Victory state) */}
+            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension) */}
             {currentPhase === 5 && (
               <motion.div 
                 key="phase-5"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-col items-center justify-center space-y-8 text-center max-w-sm px-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0 }}
+                className="flex flex-col items-center justify-center space-y-12"
               >
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shadow-[0_0_40px_rgba(16,185,129,0.25)]">
-                  <ShieldCheck size={32} />
+                {/* 4x layers of pulsing Lótus representation */}
+                <div className="relative w-44 h-44 flex items-center justify-center">
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 3.2 : breathingState.phase === 'hold' ? 3.4 : 1.0,
+                      opacity: breathingState.phase === 'exhale' ? 0.05 : 0.2
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute w-12 h-12 rounded-full bg-purple-500/10 blur-2xl"
+                  />
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 2.5 : breathingState.phase === 'hold' ? 2.7 : 1.0,
+                      opacity: breathingState.phase === 'exhale' ? 0.08 : 0.28
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut",
+                      delay: 0.1
+                    }}
+                    className="absolute w-12 h-12 rounded-full bg-indigo-500/20 blur-xl"
+                  />
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 1.8 : breathingState.phase === 'hold' ? 1.95 : 1.0,
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut",
+                      delay: 0.2
+                    }}
+                    className="absolute w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-[0_0_30px_10px_rgba(168,85,247,0.8),0_0_60px_20px_rgba(99,102,241,0.5)]"
+                  />
                 </div>
 
-                <div className="space-y-2.5">
-                  <h3 className="text-xl font-bold tracking-widest uppercase text-white font-mono">
-                    Você Venceu o Impulso
-                  </h3>
-                  <p className="text-xs text-white/50 font-light leading-relaxed">
-                    Sua resistência ativa contra o vício de <span className="text-emerald-400 font-bold">{habitName}</span> foi documentada com sucesso absoluto.
-                  </p>
-                </div>
+                {/* Loop breathing guidance details */}
+                <div className="text-center space-y-3 px-4">
+                  <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
+                    Modo Extensão Loop do Leão
+                  </span>
+                  
+                  <span className="text-xl font-light tracking-wide text-white block">
+                    {breathingState.text}
+                  </span>
+                  
+                  <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
+                    {breathingState.countText}
+                  </span>
 
-                <button
-                  id="sos_confirm_final_btn"
-                  type="button"
-                  onClick={handleCancel}
-                  className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-purple-500 to-indigo-600 hover:brightness-110 active:scale-[0.98] transition-all text-white font-extrabold text-xs uppercase tracking-[0.2em] rounded-2xl cursor-pointer shadow-[0_0_30px_rgba(168,85,247,0.35)]"
-                >
-                  <ShieldCheck size={16} />
-                  VOLTAR PARA A BASE
-                </button>
-                <span className="text-white/35 text-[9px] tracking-[0.16em] uppercase font-mono block">
-                  Excelente. Vá beber um copo d'água.
-                </span>
+                  {/* Active Loop details */}
+                  <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/10 px-4 py-2 rounded-full mt-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-[#a855f7] uppercase">
+                      {currentInfiniteFrequencyTag}
+                    </span>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -744,9 +836,26 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       </div>
 
-      {/* Bottom informational footer indicators */}
-      <div className="w-full shrink-0 flex flex-col items-center justify-end z-50">
-        {currentPhase <= 4 ? (
+      {/* Dynamic island recommended headphones (Placed at bottom-24) */}
+      <AnimatePresence>
+        {showHeadphonesAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 15, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-50 shadow-2xl pointer-events-none w-[90%] max-w-sm"
+          >
+            <span className="text-xs text-white/90 tracking-wide font-medium block">
+              🎧 Recomendamos fones de ouvido para imersão profunda
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom informational branding layout */}
+      <div className="w-full shrink-0 flex flex-col items-center justify-end z-[9999]">
+        {currentPhase <= 3 ? (
           <div className="flex flex-col items-center justify-center space-y-1">
             <span className="text-[9px] font-mono font-bold text-white/20 uppercase tracking-[0.3em]">
               Fase {currentPhase} integrada · DUDE Mindfulness
@@ -757,6 +866,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         )}
       </div>
 
-    </div>
+    </div>,
+    document.body
   );
 };
