@@ -433,44 +433,34 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         <X size={22} />
       </button>
 
-      {/* Top minimal status metadata header */}
-      <div className="flex items-center justify-between w-full shrink-0 z-[9999]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7]" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400/90 font-mono">
-            S.O.S · MODO INTERVENÇÃO DO LEÃO
+      {/* Symmetrical audio mute button placed elegantly in top-left to replace clutter */}
+      <div className="absolute top-6 left-6 z-[10000]">
+        <button
+          onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+          className={`p-3 rounded-xl transition-all text-xs flex items-center gap-2 hover:bg-white/5 ${
+            isAudioEnabled 
+              ? 'text-purple-400 hover:text-purple-300' 
+              : 'text-white/30 hover:text-white/50'
+          }`}
+        >
+          {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          <span className="text-[9px] uppercase tracking-[0.18em] font-mono font-bold select-none hidden sm:inline">
+            {isAudioEnabled ? 'SONS ATIVOS' : 'MUTADO'}
           </span>
-        </div>
+        </button>
+      </div>
 
-        <div className="flex items-center gap-4">
-          {/* Debug speed phase skips - Hover revealed to maintain clinical clean defaults */}
-          <div className="flex items-center gap-1 bg-white/[0.02] border border-white/5 px-2.5 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
-            <span className="text-[9px] font-mono text-white/30 tracking-wider">Graus:</span>
-            {[0, 1, 2, 3, 4, 5].map(p => (
-              <button 
-                key={p} 
-                onClick={() => skipToPhase(p)}
-                className="w-5 h-5 text-[10px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer text-white/35 hover:bg-white/10"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-            className={`p-2 rounded-xl transition-all text-xs flex items-center gap-2 ${
-              isAudioEnabled 
-                ? 'text-purple-400 hover:text-purple-300' 
-                : 'text-white/30 hover:text-white/50'
-            }`}
+      {/* Hidden tester phase skips - Hover revealed at bottom-left corner to keep top pristine */}
+      <div className="absolute bottom-6 left-6 z-[10000] flex items-center gap-1 bg-white/[0.01] hover:bg-white/[0.04] px-2 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
+        {[0, 1, 2, 3, 4, 5].map(p => (
+          <button 
+            key={p} 
+            onClick={() => skipToPhase(p)}
+            className="w-5 h-5 text-[9px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer text-white/30 hover:bg-white/20 hover:text-white"
           >
-            {isAudioEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
-            <span className="text-[9px] uppercase tracking-[0.18em] font-mono font-bold select-none">
-              {isAudioEnabled ? 'SONS ACTIVOS' : 'MUTADO'}
-            </span>
+            {p}
           </button>
-        </div>
+        ))}
       </div>
 
       {/* Main active stage content area */}
@@ -533,7 +523,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[340px]">
           <AnimatePresence mode="wait">
             
-            {/* FASE 1: FREIO VAGAL (Breath control loops) */}
+            {/* FASE 1: FREIO VAGAL (Breath control loops with Apple Lotus Waves) */}
             {currentPhase === 1 && (
               <motion.div 
                 key="phase-1"
@@ -543,41 +533,51 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="flex flex-col items-center justify-center space-y-12"
               >
-                {/* 3x Layered expanding loutus sheets representation */}
+                {/* 4x Layered concentric expanding lotus circles */}
                 <div className="relative w-40 h-40 flex items-center justify-center">
+                  {/* Camada 1 (Externa): bg-emerald-500/10 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 3.0 : breathingState.phase === 'hold' ? 3.2 : 1.0,
-                      opacity: breathingState.phase === 'exhale' ? 0.08 : 0.28
+                      scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
                       ease: "easeInOut"
                     }}
-                    className="absolute w-12 h-12 rounded-full bg-emerald-400/20 blur-xl"
+                    className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
                   />
+                  {/* Camada 2: bg-emerald-500/20 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.3 : breathingState.phase === 'hold' ? 2.5 : 1.0,
-                      opacity: breathingState.phase === 'exhale' ? 0.12 : 0.38
+                      scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut",
-                      delay: 0.1
+                      ease: "easeInOut"
                     }}
-                    className="absolute w-12 h-12 rounded-full bg-emerald-400/30 blur-md"
+                    className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
                   />
+                  {/* Camada 3: bg-emerald-500/30 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.75 : 1.0,
+                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut",
-                      delay: 0.2
+                      ease: "easeInOut"
                     }}
-                    className="absolute w-10 h-10 rounded-full bg-[#10b981] shadow-[0_0_20px_5px_rgba(16,185,129,0.85),0_0_50px_15px_rgba(16,185,129,0.45)]"
+                    className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
+                  />
+                  {/* Camada 4 (Núcleo): bg-emerald-400 com leve glow */}
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
                   />
                 </div>
 
@@ -655,7 +655,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </span>
 
                   <div className="relative w-full">
-                    {!reflectionSaved ? (
+                     {!reflectionSaved ? (
                       <div className="space-y-4">
                         <textarea
                           id="sos_reflection_textarea"
@@ -758,7 +758,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension) */}
+            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension with Apple Lotus Waves style) */}
             {currentPhase === 5 && (
               <motion.div 
                 key="phase-5"
@@ -768,41 +768,51 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="flex flex-col items-center justify-center space-y-12"
               >
-                {/* 4x layers of pulsing Lótus representation */}
-                <div className="relative w-44 h-44 flex items-center justify-center">
+                {/* 4x layers of pulsing Lótus representation in Purple/Indigo */}
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  {/* Camada 1: bg-purple-500/10 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 3.2 : breathingState.phase === 'hold' ? 3.4 : 1.0,
-                      opacity: breathingState.phase === 'exhale' ? 0.05 : 0.2
+                      scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
                       ease: "easeInOut"
                     }}
-                    className="absolute w-12 h-12 rounded-full bg-purple-500/10 blur-2xl"
+                    className="absolute w-40 h-40 rounded-full bg-purple-500/10"
                   />
+                  {/* Camada 2: bg-purple-500/20 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.5 : breathingState.phase === 'hold' ? 2.7 : 1.0,
-                      opacity: breathingState.phase === 'exhale' ? 0.08 : 0.28
+                      scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut",
-                      delay: 0.1
+                      ease: "easeInOut"
                     }}
-                    className="absolute w-12 h-12 rounded-full bg-indigo-500/20 blur-xl"
+                    className="absolute w-40 h-40 rounded-full bg-purple-500/20"
                   />
+                  {/* Camada 3: bg-indigo-500/30 */}
                   <motion.div
                     animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.8 : breathingState.phase === 'hold' ? 1.95 : 1.0,
+                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
                     }}
                     transition={{
                       duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut",
-                      delay: 0.2
+                      ease: "easeInOut"
                     }}
-                    className="absolute w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 shadow-[0_0_30px_10px_rgba(168,85,247,0.8),0_0_60px_20px_rgba(99,102,241,0.5)]"
+                    className="absolute w-40 h-40 rounded-full bg-indigo-500/30"
+                  />
+                  {/* Camada 4: bg-gradient-to-tr from-purple-500 to-indigo-500 with slight glow */}
+                  <motion.div
+                    animate={{
+                      scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                    }}
+                    transition={{
+                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.5)]"
                   />
                 </div>
 
@@ -836,15 +846,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       </div>
 
-      {/* Dynamic island recommended headphones (Placed at bottom-24) */}
+      {/* Dynamic island recommended headphones (Placed at top-[24vh] in high negative space) */}
       <AnimatePresence>
         {showHeadphonesAlert && (
           <motion.div 
-            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            initial={{ opacity: 0, y: -15, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-50 shadow-2xl pointer-events-none w-[90%] max-w-sm"
+            className="absolute top-[24vh] left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-[10010] shadow-2xl pointer-events-none w-[90%] max-w-sm"
           >
             <span className="text-xs text-white/90 tracking-wide font-medium block">
               🎧 Recomendamos fones de ouvido para imersão profunda
