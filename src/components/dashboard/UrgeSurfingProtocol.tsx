@@ -626,16 +626,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 pointer-events-none flex flex-col justify-center items-center"
               >
-                {/* A Bolinha Livre (Sem caixas limitadoras) */}
+                {/* A Bolinha Livre (Movimento Orgânico Lissajous) */}
                 <motion.div
                   animate={{ 
-                    x: ['-40vw', '40vw', '-35vw', '35vw', '-40vw'], 
-                    y: ['-25vh', '25vh', '-30vh', '30vh', '-25vh'] 
+                    x: ['-42vw', '30vw', '-20vw', '42vw', '-42vw'], 
+                    y: ['-35vh', '35vh', '-15vh', '-35vh', '-35vh'] 
                   }}
                   transition={{ 
-                    duration: 18,
-                    ease: "easeInOut",
-                    repeat: Infinity
+                    x: { duration: 23, ease: "easeInOut", repeat: Infinity },
+                    y: { duration: 17, ease: "easeInOut", repeat: Infinity }
                   }}
                   className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)]"
                 />
