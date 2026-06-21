@@ -141,6 +141,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [infiniteSeconds, setInfiniteSeconds] = useState<number>(0);
   const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
   const [infiniteNote, setInfiniteNote] = useState<string>('');
+  const [phase3Seconds, setPhase3Seconds] = useState<number>(0);
+
+  // Refs for tracking check-in updates and text concatenation under Directive 1
+  const lastSavedCheckinIdRef = useRef<string | null>(null);
+  const lastSavedTextRef = useRef<string>('');
 
   // Sound generator reference
   const synthRef = useRef<AudioSynthesizer | null>(null);
@@ -198,6 +203,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null) return null;
+        if (prev === 1) {
+          // Congelamento Empático: se está no último segundo da Fase 3 e o usuário começou a digitar mas não salvou, congele o tempo.
+          if (ghostQuoteContent.trim().length > 0 && !reflectionSaved) {
+            return 1;
+          }
+        }
         if (prev <= 1) {
           clearInterval(timer);
           const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
@@ -210,7 +221,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, isInfiniteMode, isEncruzilhada, habitId]);
+  }, [timeLeft, isInfiniteMode, isEncruzilhada, habitId, ghostQuoteContent, reflectionSaved]);
 
   // Infinite mode counting sequence logic (Count up elapsed seconds)
   useEffect(() => {
@@ -254,6 +265,20 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (infiniteSeconds < 126) return 2;
     return 3;
   }, [infiniteSeconds]);
+
+  // Invisible counter for Phase 3 Nudge (300 seconds)
+  useEffect(() => {
+    if (currentPhase !== 3 || reflectionSaved) {
+      setPhase3Seconds(0);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setPhase3Seconds(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentPhase, reflectionSaved]);
 
   // Audio stream setup based on clinical phases and audio settings
   useEffect(() => {
@@ -361,31 +386,72 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     setSaveStatus('saving');
     try {
       const timestamp = new Date().toISOString();
-      const checkinData = {
-        user_id: profile.id,
-        habit_id: habitId || 'Crise Geral',
-        checkin_date: getLocalDateString(),
-        checkin_period: 'window' as const,
-        status: 'resisti' as const,
-        trigger_tag: 'S.O.S. Protocolo',
-        trigger_note: ghostQuoteContent.trim() || 'Resisti com o Protocolo Clínico S.O.S. de 15 minutos.',
-        created_at: timestamp
-      };
+      const totalSecondsActive = isInfiniteMode ? (300 + infiniteSeconds) : (300 - (timeLeft || 0));
+      
+      const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
+      const defaultPlaceholder = 'Resisti com a Sessão Profunda Guiada.';
+      const rawText = currentText || defaultPlaceholder;
 
-      // 1. Mutate directly to the avoidance logging table (Atomic operation)
-      const created = await dataStore.addAvoidanceCheckin(checkinData);
+      // Concatenate content if we have already saved during this session
+      let mergedText = rawText;
+      if (lastSavedCheckinIdRef.current && lastSavedTextRef.current) {
+        if (rawText && rawText !== lastSavedTextRef.current && rawText !== defaultPlaceholder) {
+          mergedText = `${lastSavedTextRef.current} | ${rawText}`;
+        } else {
+          mergedText = lastSavedTextRef.current;
+        }
+      }
 
-      if (created) {
-        // 2. Invalidate cache and refetch checkins to trigger immediate Trends modal displays (Reactive update)
-        await dataStore.fetchAvoidanceCheckins(profile.id);
-
-        // 3. Perfect UI states confirmation
-        setSaveStatus('saved');
-        setReflectionSaved(true);
-        dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
+      if (lastSavedCheckinIdRef.current) {
+        // If already saved, perform an atomic UPDATE on the same record
+        const updateData = {
+          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
+          time_spent: totalSecondsActive
+        };
+        const success = await dataStore.updateAvoidanceCheckin(lastSavedCheckinIdRef.current, updateData);
+        if (success) {
+          lastSavedTextRef.current = mergedText;
+          await dataStore.fetchAvoidanceCheckins(profile.id);
+          setSaveStatus('saved');
+          setReflectionSaved(true);
+          dataStore.showNotification('Reflexão atualizada com sucesso ✓', 'success');
+        } else {
+          setSaveStatus('error');
+          dataStore.showNotification('Erro ao atualizar registro no banco.', 'error');
+        }
       } else {
-        setSaveStatus('error');
-        dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
+        // First-time save (Insert payload cleanly)
+        const checkinData: any = {
+          user_id: profile.id,
+          habit_id: habitId || 'Crise Geral',
+          checkin_date: getLocalDateString(),
+          checkin_period: 'window',
+          status: 'success',
+          trigger_tag: 'SESSÃO PROFUNDA GUIADA',
+          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
+          created_at: timestamp,
+          time_spent: totalSecondsActive
+        };
+
+        const created = await dataStore.addAvoidanceCheckin(checkinData);
+
+        if (created) {
+          lastSavedCheckinIdRef.current = created.id;
+          lastSavedTextRef.current = mergedText;
+          await dataStore.fetchAvoidanceCheckins(profile.id);
+          setSaveStatus('saved');
+          setReflectionSaved(true);
+          dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
+
+          // Descongelar Fase 3: Se o usuário estiver congelado no último segundo da Fase 3, avança automaticamente
+          if (timeLeft === 1) {
+            setTimeLeft(0);
+            setIsEncruzilhada(true);
+          }
+        } else {
+          setSaveStatus('error');
+          dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
+        }
       }
     } catch (e) {
       console.error("Supabase transaction error:", e);
@@ -948,15 +1014,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         Espaço de Anotação Livre
                       </span>
                     </motion.div>
-
-                    {/* Elegant translucent Textarea */}
-                    <div className="relative w-full max-w-md z-40 pointer-events-auto">
+ 
+                    {/* Elegant translucent Textarea and Actions */}
+                    <div className="relative w-full max-w-md z-40 pointer-events-auto space-y-4">
                       <textarea
                         id="sos_infinite_reflection_textarea"
                         value={infiniteNote}
                         onChange={(e) => setInfiniteNote(e.target.value)}
                         placeholder="Digite sem pressa, solte o fluxo de consciência..."
-                        className="w-full min-h-[140px] bg-white/[0.03] border border-white/5 hover:border-white/10 focus:border-purple-500/30 focus:outline-none text-white/95 text-sm font-light rounded-2xl p-5 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
+                        className="w-full min-h-[140px] bg-white/[0.03] border border-white/5 hover:border-white/10 focus:border-[#10b981]/30 focus:outline-none text-white/95 text-sm font-light rounded-2xl p-5 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
                         style={{ height: 'auto' }}
                         onInput={(e) => {
                           const target = e.target as HTMLTextAreaElement;
@@ -964,8 +1030,51 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           target.style.height = `${target.scrollHeight}px`;
                         }}
                       />
-                    </div>
 
+                      {saveStatus === 'saved' && (
+                        <motion.div
+                          id="sos_infinite_save_confirmation"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="py-3 px-4 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl text-center space-y-1 shadow-md"
+                        >
+                          <span className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-1 uppercase tracking-wider leading-none">
+                            <ShieldCheck size={14} /> Registro da sessão atualizado ✓
+                          </span>
+                        </motion.div>
+                      )}
+
+                      <div className="flex flex-col gap-3">
+                        <button
+                          id="sos_infinite_submit_reflection_btn"
+                          onClick={saveReflection}
+                          disabled={saveStatus === 'saving'}
+                          className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-[11px] uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2"
+                        >
+                          {saveStatus === 'saving' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                              <span>Sincronizando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={13} />
+                              <span>GUARDAR REFLEXÃO</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          id="sos_infinite_finish_btn"
+                          onClick={handleCancel}
+                          className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 font-extrabold text-[11px] uppercase tracking-[0.2em] border border-white/10 transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <ShieldCheck size={14} className="text-emerald-400" />
+                          <span>CONCLUIR SESSÃO</span>
+                        </button>
+                      </div>
+                    </div>
+ 
                     {/* A Bolinha Soberana (em Mirror Loop) flutuando z-[99999] e sem bloquear cliques */}
                     <motion.div
                       animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
@@ -998,6 +1107,56 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
             <span className="text-xs text-white/90 tracking-wide font-medium block">
               🎧 Recomendamos fones de ouvido para imersão profunda
             </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+ 
+      {/* Nudge Fase 3 - Glassmorphism notification overspread */}
+      <AnimatePresence>
+        {currentPhase === 3 && phase3Seconds >= 300 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-[10020] p-6"
+          >
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] max-w-md text-center space-y-6 shadow-2xl relative">
+              <p className="text-white text-base font-light leading-relaxed">
+                "Você já externalizou bastante coisa. Salve este registro para libertar sua mente e darmos o próximo passo."
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => saveReflection()}
+                  disabled={saveStatus === 'saving'}
+                  className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)]"
+                >
+                  {saveStatus === 'saving' ? 'Salvando...' : 'GUARDAR REGISTRO'}
+                </button>
+                <button
+                  onClick={() => setPhase3Seconds(0)}
+                  className="text-white/40 hover:text-white/60 text-[10px] uppercase tracking-widest font-mono py-2"
+                >
+                  Continuar Escrevendo
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
+      <AnimatePresence>
+        {currentPhase === 5 && isInfiniteMode && (infiniteSeconds > 0 && infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.5 }}
+            className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-[24px] text-center z-[10015] shadow-2xl w-[90%] max-w-md"
+          >
+            <p className="text-white text-xs font-light leading-relaxed">
+              "A crise foi contida e a mente está limpa. Salve seu registro, feche a sessão e volte a dominar suas tarefas. O mundo real te espera."
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
