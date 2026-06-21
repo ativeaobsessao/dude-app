@@ -1148,11 +1148,14 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
  
                     {/* A Bolinha Soberana (em EMDR Loop) flutuando z-[99999] com aceleração estocástica contínua */}
                     <motion.div
-                      animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
+                      animate={{ 
+                        x: ['calc(-50vw + 12px)', 'calc(50vw - 12px)'], 
+                        y: ['calc(-50vh + 12px)', 'calc(50vh - 12px)'] 
+                      }}
                       transition={{ 
-                        // Velocidade Base: 7s (X) e 9s (Y) | Velocidade do Pico: 1.2s (X) e 1.5s (Y)
-                        x: { duration: isAccelerated ? 1.2 : 7, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: isAccelerated ? 1.5 : 9, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                        // Velocidade Clínica Base: 1.1s (X) / 1.3s (Y) | Velocidade Sacádica (Pico): 0.35s (X) / 0.45s (Y)
+                        x: { duration: isAccelerated ? 0.35 : 1.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: isAccelerated ? 0.45 : 1.3, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                       }}
                       className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                     />
