@@ -16,6 +16,7 @@ class AudioSynthesizer {
   private oscLeft: OscillatorNode | null = null;
   private oscRight: OscillatorNode | null = null;
   private gainNode: GainNode | null = null;
+  private compressorNode: DynamicsCompressorNode | null = null;
   private currentFreq: number = 0;
   private currentOffset: number = 0;
 
@@ -33,13 +34,21 @@ class AudioSynthesizer {
       
       this.ctx = new AudioContextClass();
       this.gainNode = this.ctx.createGain();
+      this.compressorNode = this.ctx.createDynamicsCompressor();
       
-      // Clinical acoustic balance: Fletcher-Munson Equal Loudness Equalization.
-      // Humans perceive low-frequency carrier tones as significantly softer than mid-tones (e.g. 528Hz).
-      // Applying a designated volume multiplier adjusts the amplitude dynamically.
+      // Limitador de estúdio para impedir clipping
+      this.compressorNode.threshold.setValueAtTime(-12, this.ctx.currentTime);
+      this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
+      this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
+      this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
+      this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
+
       const baseGain = 0.08; 
       this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
-      this.gainNode.connect(this.ctx.destination);
+      
+      // Conectar GainNode ao CompressorNode e este ao destino
+      this.gainNode.connect(this.compressorNode);
+      this.compressorNode.connect(this.ctx.destination);
 
       if (binauralOffset === 0) {
         // Solfeggio / Pure Mono wave
@@ -75,7 +84,7 @@ class AudioSynthesizer {
       this.oscLeft.start();
       if (this.oscRight) this.oscRight.start();
 
-      // Smooth crossfade to avoid popping sounds
+      // Smooth crossfade to avoid popping sounds using linearRampToValueAtTime
       this.gainNode.gain.linearRampToValueAtTime(baseGain * volumeMultiplier, this.ctx.currentTime + 1.2);
     } catch (e) {
       console.warn("AudioContext blocked or failed initialization.", e);
@@ -97,6 +106,9 @@ class AudioSynthesizer {
       if (this.gainNode) {
         this.gainNode.disconnect();
       }
+      if (this.compressorNode) {
+        this.compressorNode.disconnect();
+      }
       if (this.ctx && this.ctx.state !== 'closed') {
         this.ctx.close();
       }
@@ -104,6 +116,7 @@ class AudioSynthesizer {
     this.oscLeft = null;
     this.oscRight = null;
     this.gainNode = null;
+    this.compressorNode = null;
     this.ctx = null;
   }
 }
@@ -127,6 +140,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [isInfiniteMode, setIsInfiniteMode] = useState<boolean>(false);
   const [infiniteSeconds, setInfiniteSeconds] = useState<number>(0);
   const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
+  const [infiniteNote, setInfiniteNote] = useState<string>('');
 
   // Sound generator reference
   const synthRef = useRef<AudioSynthesizer | null>(null);
@@ -235,6 +249,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return 4;
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
+  const infiniteAct = useMemo(() => {
+    if (infiniteSeconds < 120) return 1;
+    if (infiniteSeconds < 126) return 2;
+    return 3;
+  }, [infiniteSeconds]);
+
   // Audio stream setup based on clinical phases and audio settings
   useEffect(() => {
     if (!synthRef.current) {
@@ -263,11 +283,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         } else if (block === 1) {
           synth.start(174, 0, 1.2);
         } else if (block === 2) {
-          // Boost gamma so it hums audibly
-          synth.start(40, 0, 3.2);
+          // Boost gamma so it hums audibly (Compressor holds clipping)
+          synth.start(40, 0, 9.5);
         } else {
           // Lion Beta waves (20Hz) - Highly boosted amplitude
-          synth.start(20, 0, 4.8);
+          synth.start(20, 0, 8.0);
         }
       } else {
         synth.stop();
@@ -648,22 +668,22 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </p>
                 </motion.div>
 
-                {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous */}
+                {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous Mirror */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0, x: '0vw', y: '0vh' }}
                   animate={{ 
                     opacity: 1,
                     scale: 1,
-                    x: ['0vw', '-42vw', '30vw', '-20vw', '42vw', '-42vw'], 
-                    y: ['0vh', '-35vh', '35vh', '-15vh', '-35vh', '-35vh'] 
+                    x: ['-42vw', '42vw'], 
+                    y: ['-35vh', '35vh'] 
                   }}
                   transition={{ 
                     opacity: { delay: 6.5, duration: 1 },
                     scale: { delay: 6.5, duration: 1, ease: "easeOut" },
-                    x: { delay: 7.5, duration: 23, ease: "easeInOut", repeat: Infinity },
-                    y: { delay: 7.5, duration: 17, ease: "easeInOut", repeat: Infinity }
+                    x: { delay: 7.5, duration: 17, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                    y: { delay: 7.5, duration: 23, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                   }}
-                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)]"
+                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                 />
               </motion.div>
             )}
@@ -794,7 +814,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension with Apple Lotus Waves style) */}
+            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension with three acts) */}
             {currentPhase === 5 && (
               <motion.div 
                 key="phase-5"
@@ -802,78 +822,161 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1.0 }}
-                className="flex flex-col items-center justify-center space-y-12"
+                className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* 4x layers of pulsing Lótus representation in Purple/Indigo */}
-                <div className="relative w-40 h-40 flex items-center justify-center">
-                  {/* Camada 1: bg-purple-500/10 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-purple-500/10"
-                  />
-                  {/* Camada 2: bg-purple-500/20 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-purple-500/20"
-                  />
-                  {/* Camada 3: bg-indigo-500/30 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-indigo-500/30"
-                  />
-                  {/* Camada 4: bg-gradient-to-tr from-purple-500 to-indigo-500 with slight glow */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.5)]"
-                  />
-                </div>
+                {/* ATO 1: Respirador Lótus (De 0 a 119 segundos) */}
+                {infiniteAct === 1 && (
+                  <motion.div 
+                    key="infinite-act-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex flex-col items-center justify-center space-y-12"
+                  >
+                    {/* 4x layers of pulsing Lótus representation in Purple/Indigo */}
+                    <div className="relative w-40 h-40 flex items-center justify-center">
+                      {/* Camada 1: bg-purple-500/10 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-purple-500/10"
+                      />
+                      {/* Camada 2: bg-purple-500/20 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-purple-500/20"
+                      />
+                      {/* Camada 3: bg-indigo-500/30 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-indigo-500/30"
+                      />
+                      {/* Camada 4: bg-gradient-to-tr from-purple-500 to-indigo-500 with slight glow */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.5)]"
+                      />
+                    </div>
 
-                {/* Loop breathing guidance details */}
-                <div className="text-center space-y-3 px-4">
-                  <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
-                    Modo Extensão Loop do Leão
-                  </span>
-                  
-                  <span className="text-xl font-light tracking-wide text-white block">
-                    {breathingState.text}
-                  </span>
-                  
-                  <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
-                    {breathingState.countText}
-                  </span>
+                    {/* Loop breathing guidance details */}
+                    <div className="text-center space-y-3 px-4 max-w-lg mt-6">
+                      <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
+                        Modo Extensão Loop do Leão
+                      </span>
+                      
+                      <span className="text-sm font-light tracking-wide text-white block leading-relaxed">
+                        "Está tudo bem, se acalme, se quiser faça mais alguns ciclos de respiração guiada. O que verdadeiramente importa agora é: escute o som das frequências."
+                      </span>
+                      
+                      <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
+                        {breathingState.countText}
+                      </span>
 
-                  {/* Active Loop details */}
-                  <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/10 px-4 py-2 rounded-full mt-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-[#a855f7] uppercase">
-                      {currentInfiniteFrequencyTag}
+                      {/* Active Loop details */}
+                      <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/10 px-4 py-2 rounded-full mt-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                        <span className="text-[9px] font-mono font-bold tracking-widest text-[#a855f7] uppercase">
+                          {currentInfiniteFrequencyTag}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ATO 2: Transição Silenciosa (De 120 a 125 segundos) */}
+                {infiniteAct === 2 && (
+                  <motion.div 
+                    key="infinite-act-2"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center space-y-4 px-6 max-w-md"
+                  >
+                    <p className="text-xl md:text-2xl font-light tracking-wide text-white leading-relaxed">
+                      "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                    </p>
+                    <div className="h-[1px] w-12 bg-white/10 mx-auto" />
+                    <span className="text-[10px] text-white/35 tracking-[0.2em] font-mono uppercase block">
+                      Preparando campo perceptual
                     </span>
-                  </div>
-                </div>
+                  </motion.div>
+                )}
+
+                {/* ATO 3: A Bolinha Soberana e o Bloco de Anotação (A partir de 126 segundos) */}
+                {infiniteAct === 3 && (
+                  <motion.div 
+                    key="infinite-act-3"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="w-full flex flex-col items-center justify-center space-y-8 px-4"
+                  >
+                    {/* Copy slid down (rodapé) and small */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ y: "160px", scale: 0.85, opacity: 1 }}
+                      transition={{ duration: 1.0, ease: "easeInOut" }}
+                      className="text-center px-6 max-w-md z-30 pointer-events-none absolute"
+                    >
+                      <p className="text-sm font-light tracking-wide text-white/60 leading-relaxed">
+                        "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                      </p>
+                      <span className="text-[9px] text-[#10b981]/60 tracking-[0.2em] font-mono uppercase block mt-1">
+                        Espaço de Anotação Livre
+                      </span>
+                    </motion.div>
+
+                    {/* Elegant translucent Textarea */}
+                    <div className="relative w-full max-w-md z-40 pointer-events-auto">
+                      <textarea
+                        id="sos_infinite_reflection_textarea"
+                        value={infiniteNote}
+                        onChange={(e) => setInfiniteNote(e.target.value)}
+                        placeholder="Digite sem pressa, solte o fluxo de consciência..."
+                        className="w-full min-h-[140px] bg-white/[0.03] border border-white/5 hover:border-white/10 focus:border-purple-500/30 focus:outline-none text-white/95 text-sm font-light rounded-2xl p-5 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
+                        style={{ height: 'auto' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
+                      />
+                    </div>
+
+                    {/* A Bolinha Soberana (em Mirror Loop) flutuando z-[99999] e sem bloquear cliques */}
+                    <motion.div
+                      animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
+                      transition={{ 
+                        x: { duration: 17, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: 23, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                      }}
+                      className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
+                    />
+                  </motion.div>
+                )}
               </motion.div>
             )}
 
