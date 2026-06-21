@@ -1355,29 +1355,32 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
               <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
-                {/* CARD DE EMERGÊNCIA / SESSÃO PROFUNDA GUIADA */}
-                <div className="flex flex-row items-center justify-between w-full p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl gap-3">
+                {/* CARD DE SESSÃO PROFUNDA GUIADA (FIX LARGURA) */}
+                <div className="flex flex-row items-center justify-between w-full p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl gap-2">
                   
-                  {/* 1. Ícone Ultra-Compacto */}
-                  <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                    <Brain className="w-5 h-5 text-purple-400" />
+                  {/* 1. Ícone Compacto */}
+                  <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <Brain className="w-4 h-4 text-purple-400" />
                   </div>
 
-                  {/* 2. Texto com min-w-0 (Impede o esmagamento do Flexbox) */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11.5px] leading-snug text-gray-300 font-medium text-left line-clamp-2">
+                  {/* 2. Texto da Esquerda (Agora tem espaço para respirar) */}
+                  <div className="flex-1 min-w-0 px-1">
+                    <p className="text-[11px] leading-tight text-gray-300 font-medium text-left line-clamp-2">
                       Acalme sua mente e reduza sua impulsividade
                     </p>
                   </div>
 
-                  {/* 3. Botão Roxo Sólido (Sem neon) e Compacto */}
-                  <div className="shrink-0">
+                  {/* 3. Botão Roxo em Duas Linhas (A Mágica do Espaço) */}
+                  <div className="shrink-0 max-w-[130px]">
                     <button 
                       onClick={handleToComVontade}
                       type="button"
-                      className="relative overflow-hidden bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9.5px] px-3.5 py-2.5 rounded-xl whitespace-nowrap tracking-tight shadow-lg cursor-pointer"
+                      className="relative overflow-hidden w-full bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9px] px-2.5 py-2 rounded-xl flex items-center justify-center text-center shadow-lg cursor-pointer"
                     >
-                      <span className="relative z-10">✋ INICIAR SESSÃO PROFUNDA GUIADA</span>
+                      <span className="relative z-10 flex flex-col items-center leading-tight">
+                        <span>✋ INICIAR SESSÃO</span>
+                        <span>PROFUNDA GUIADA</span>
+                      </span>
                       {/* Animação Shimmer (Brilho) */}
                       <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0" />
                     </button>
