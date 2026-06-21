@@ -616,7 +616,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 2: A VIAJANTE (EMDR) */}
+            {/* FASE 2: A VIAJANTE (EMDR - Cinematic Choreography) */}
             {currentPhase === 2 && (
               <motion.div 
                 key="phase-2"
@@ -624,29 +624,47 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1.0 }}
-                className="w-full h-full absolute inset-0 pointer-events-none flex flex-col justify-center items-center"
+                className="w-full h-full absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible"
               >
-                {/* A Bolinha Livre (Movimento Orgânico Lissajous) */}
+                {/* Texto Empático: Fica no centro por 6s, depois desce */}
                 <motion.div
+                  initial={{ y: "-5vh", opacity: 0 }}
                   animate={{ 
-                    x: ['-42vw', '30vw', '-20vw', '42vw', '-42vw'], 
-                    y: ['-35vh', '35vh', '-15vh', '-35vh', '-35vh'] 
+                    y: ["-5vh", "-5vh", "25vh"], 
+                    opacity: [0, 1, 1, 1] 
                   }}
                   transition={{ 
-                    x: { duration: 23, ease: "easeInOut", repeat: Infinity },
-                    y: { duration: 17, ease: "easeInOut", repeat: Infinity }
+                    duration: 7.5, 
+                    times: [0, 0.1, 0.8, 1], // Aparece rápido (10%), fica parado até 80% (6s), desce no final
+                    ease: "easeInOut" 
                   }}
-                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)]"
-                />
-
-                <div className="absolute bottom-1/4 text-center space-y-1.5 z-40 px-4">
+                  className="absolute text-center space-y-1.5 z-40 px-4 w-full"
+                >
                   <span className="text-lg font-light tracking-wide text-white/95 leading-none block drop-shadow-lg">
                     Acompanhe a luz com o olhar.
                   </span>
                   <p className="text-[10px] text-white/20 tracking-[0.2em] font-mono uppercase">
                     Deslocando a atenção cognitiva para dissolver a fissura
                   </p>
-                </div>
+                </motion.div>
+
+                {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0, x: '0vw', y: '0vh' }}
+                  animate={{ 
+                    opacity: 1,
+                    scale: 1,
+                    x: ['0vw', '-42vw', '30vw', '-20vw', '42vw', '-42vw'], 
+                    y: ['0vh', '-35vh', '35vh', '-15vh', '-35vh', '-35vh'] 
+                  }}
+                  transition={{ 
+                    opacity: { delay: 6.5, duration: 1 },
+                    scale: { delay: 6.5, duration: 1, ease: "easeOut" },
+                    x: { delay: 7.5, duration: 23, ease: "easeInOut", repeat: Infinity },
+                    y: { delay: 7.5, duration: 17, ease: "easeInOut", repeat: Infinity }
+                  }}
+                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)]"
+                />
               </motion.div>
             )}
 
