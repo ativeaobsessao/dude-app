@@ -1358,28 +1358,25 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 {/* MOBILE Version */}
                 <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
                   <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
-                    <div className="flex items-center gap-3 min-w-0 pr-1.5">
-                      {/* Icon container with subtle purple glow */}
-                      <div className="p-2.5 bg-purple-500/10 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(168,85,247,0.15)] border border-purple-500/20">
-                        <Brain size={18} className="text-purple-400" />
-                      </div>
-                      {/* Text metadata */}
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="text-[11px] text-text-dim/95 font-medium leading-tight max-w-[145px] sm:max-w-xs animate-pulse">
-                          Acalme sua mente e reduza sua impulsividade
-                        </span>
-                      </div>
+                    <div className="shrink-0 p-2 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/15 shadow-[0_0_10px_rgba(168,85,247,0.1)]">
+                      <Brain size={16} className="text-purple-400" />
+                    </div>
+                    {/* Text metadata */}
+                    <div className="flex-1 mx-2.5 min-w-0">
+                      <span className="text-[11px] leading-tight text-left text-gray-300 line-clamp-2 block font-medium">
+                        Acalme sua mente e reduza sua impulsividade
+                      </span>
                     </div>
 
                     {/* Premium Purple Button: Iniciador de Sessão com Shimmer */}
                     <button
                       type="button"
                       onClick={handleToComVontade}
-                      className="group relative overflow-hidden flex items-center justify-center gap-1 px-3 py-2.5 bg-[#A855F7] hover:bg-[#B567FA] text-white rounded-2xl text-[9px] sm:text-[10px] font-extrabold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[40px] shadow-[0_0_15px_rgba(168,85,247,0.25)] shrink-0 whitespace-nowrap"
+                      className="shrink-0 group relative overflow-hidden flex items-center justify-center gap-1 px-3 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[9px] font-bold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[38px] shadow-[0_0_15px_rgba(168,85,247,0.2)] whitespace-nowrap"
                     >
                       <span className="relative z-10">✋ INICIAR SESSÃO PROFUNDA GUIADA</span>
                       {/* Sweep Shimmer Effect */}
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
                         <div className="absolute top-0 left-0 h-full w-[40%] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[shimmer_3s_infinite]" />
                       </div>
                     </button>
@@ -1389,24 +1386,21 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 {/* DESKTOP Version */}
                 <div className="hidden md:block w-full max-w-xl animate-fade-in pt-2">
                   <div className="flex items-center justify-between p-4 bg-surface-2/30 hover:bg-surface-2/50 border border-white/5 rounded-2xl w-full text-left transition-all select-none">
-                    <div className="flex items-center gap-4 min-w-0 pr-3">
-                      {/* Icon container with subtle purple glow */}
-                      <div className="p-3 bg-purple-500/10 rounded-xl flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(168,85,247,0.2)] border border-purple-500/15">
-                        <Brain size={20} className="text-purple-400" />
-                      </div>
-                      {/* Text metadata */}
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="text-xs sm:text-[13px] text-text-dim/95 font-medium leading-normal">
-                          Acalme sua mente e reduza sua impulsividade
-                        </span>
-                      </div>
+                    <div className="shrink-0 p-2.5 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/15 shadow-[0_0_12px_rgba(168,85,247,0.15)]">
+                      <Brain size={18} className="text-purple-400" />
+                    </div>
+                    {/* Text metadata */}
+                    <div className="flex-1 mx-3 min-w-0">
+                      <span className="text-xs sm:text-[13px] leading-tight text-left text-gray-300 line-clamp-2 block font-medium">
+                        Acalme sua mente e reduza sua impulsividade
+                      </span>
                     </div>
 
                     {/* Premium Purple Button: Iniciador de Sessão com Shimmer */}
                     <button
                       type="button"
                       onClick={handleToComVontade}
-                      className="group relative overflow-hidden flex items-center justify-center gap-2 px-5 py-3 bg-[#A855F7] hover:bg-[#B567FA] text-white rounded-xl text-[10px] sm:text-xs font-extrabold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[44px] shadow-[0_0_20px_rgba(168,85,247,0.3)] shrink-0 whitespace-nowrap"
+                      className="shrink-0 group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[42px] shadow-[0_0_20px_rgba(168,85,247,0.25)] whitespace-nowrap"
                     >
                       <span className="relative z-10">✋ INICIAR SESSÃO PROFUNDA GUIADA</span>
                       {/* Sweep Shimmer Effect */}
