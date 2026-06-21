@@ -1355,29 +1355,29 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
               <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
-                {/* CARD DE SESSÃO PROFUNDA GUIADA (FIX LARGURA) */}
+                {/* CARD DE SESSÃO PROFUNDA GUIADA (PROPORÇÕES CORRIGIDAS) */}
                 <div className="flex flex-row items-center justify-between w-full p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl gap-2">
                   
-                  {/* 1. Ícone Compacto */}
-                  <div className="shrink-0 flex items-center justify-center w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                  {/* 1. Ícone Reduzido */}
+                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20">
                     <Brain className="w-4 h-4 text-purple-400" />
                   </div>
 
-                  {/* 2. Texto da Esquerda (Agora tem espaço para respirar) */}
+                  {/* 2. Texto da Esquerda Aumentado */}
                   <div className="flex-1 min-w-0 px-1">
-                    <p className="text-[11px] leading-tight text-gray-300 font-medium text-left line-clamp-2">
+                    <p className="text-xs leading-snug text-gray-300 font-medium text-left line-clamp-2">
                       Acalme sua mente e reduza sua impulsividade
                     </p>
                   </div>
 
-                  {/* 3. Botão Roxo em Duas Linhas (A Mágica do Espaço) */}
-                  <div className="shrink-0 max-w-[130px]">
+                  {/* 3. Botão Roxo Alargado para UX Premium */}
+                  <div className="shrink-0 w-[150px]">
                     <button 
                       onClick={handleToComVontade}
                       type="button"
-                      className="relative overflow-hidden w-full bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9px] px-2.5 py-2 rounded-xl flex items-center justify-center text-center shadow-lg cursor-pointer"
+                      className="relative overflow-hidden w-full bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9.5px] px-2 py-2.5 rounded-xl flex items-center justify-center text-center shadow-lg cursor-pointer animate-none"
                     >
-                      <span className="relative z-10 flex flex-col items-center leading-tight">
+                      <span className="relative z-10 flex flex-col items-center leading-tight gap-0.5">
                         <span>✋ INICIAR SESSÃO</span>
                         <span>PROFUNDA GUIADA</span>
                       </span>
