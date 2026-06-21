@@ -322,7 +322,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return () => clearInterval(timer);
   }, [currentPhase, reflectionSaved]);
 
-  // Audio stream setup based on clinical phases and audio settings
+  // 1. Hook de Orquestração (O Piloto): Muda frequências e muta o som sem matar a classe
   useEffect(() => {
     if (!synthRef.current) {
       synthRef.current = new AudioSynthesizer();
@@ -361,11 +361,16 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     } else {
       synth.stop();
     }
-
-    return () => {
-      synth.stop();
-    };
   }, [currentPhase, isAudioEnabled, infiniteSeconds]);
+
+  // 2. Hook de Limpeza (A Faxina): Garante o Garbage Collection apenas quando o componente desmonta (fechar tela)
+  useEffect(() => {
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.stop();
+      }
+    };
+  }, []);
 
   // Inhalation/Exhalation breathing guidance sequence (11s cycle duration)
   const breathingState = useMemo(() => {
