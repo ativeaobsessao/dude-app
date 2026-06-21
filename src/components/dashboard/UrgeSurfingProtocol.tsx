@@ -302,9 +302,9 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
   const infiniteAct = useMemo(() => {
-    if (infiniteSeconds <= 7) return 1;
-    if (infiniteSeconds <= 89) return 2;
-    if (infiniteSeconds <= 95) return 3;
+    if (infiniteSeconds <= 6) return 1;
+    if (infiniteSeconds <= 90) return 2;
+    if (infiniteSeconds <= 96) return 3;
     return 4;
   }, [infiniteSeconds]);
 
@@ -374,28 +374,41 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   // Inhalation/Exhalation breathing guidance sequence (11s cycle duration)
   const breathingState = useMemo(() => {
-    // Determine target remaining seconds based on countdown or accumulation values
-    const sourceSecs = isInfiniteMode ? infiniteSeconds : (timeLeft || 0);
-    const cycle = sourceSecs % 11;
+    let elapsedForBreathing = 0;
+    if (isInfiniteMode) {
+      if (infiniteSeconds >= 7) {
+        elapsedForBreathing = infiniteSeconds - 7;
+      } else {
+        elapsedForBreathing = 0;
+      }
+    } else {
+      if (timeLeft !== null && timeLeft <= 290) {
+        elapsedForBreathing = 290 - timeLeft;
+      } else {
+        elapsedForBreathing = 0;
+      }
+    }
 
-    if (cycle >= 7) {
-      // Inhale deeply (4s)
-      const count = Math.ceil(cycle - 7);
+    const cycle = elapsedForBreathing % 11;
+
+    if (cycle < 4) {
+      // De 0 a 4 segundos: INSPIRAR PROFUNDAMENTE (Cresce a Lótus)
+      const count = Math.min(4, Math.floor(cycle) + 1);
       return { 
         phase: 'inhale', 
         text: 'Inspire profundamente...', 
         countText: `${count}` 
       };
-    } else if (cycle >= 5.5) {
-      // Hold suspension (1.5s)
+    } else if (cycle < 5.5) {
+      // De 4 a 5.5 segundos: AGUARDE / RETENHA O AR (Lótus estática no topo)
       return { 
         phase: 'hold', 
         text: 'Segure o ar...', 
         countText: 'Retenha' 
       };
     } else {
-      // Exhale slowly (5.5s)
-      const count = Math.ceil(cycle);
+      // De 5.5 a 11 segundos: EXPIRE DEVAGAR (Lótus encolhe suavemente)
+      const count = Math.min(6, Math.floor(cycle - 5.5) + 1);
       return { 
         phase: 'exhale', 
         text: 'Exale devagar...', 
@@ -1037,7 +1050,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       </span>
                       
                       <span className="text-sm font-light tracking-wide text-white block leading-relaxed">
-                        "Está tudo bem, se acalme, se quiser faça mais alguns ciclos de respiração guiada. O que verdadeiramente importa agora é: escute o som das frequências."
+                        {breathingState.text}
                       </span>
                       
                       <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
