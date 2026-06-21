@@ -1354,63 +1354,37 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </button>
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
-              <>
-                {/* MOBILE Version */}
-                <div className="md:hidden block w-full max-w-[340px] sm:max-w-md animate-fade-in pt-1">
-                  <div className="flex items-center justify-between p-3.5 bg-surface-2/40 hover:bg-surface-2/65 rounded-3xl w-full text-left transition-all select-none">
-                    <div className="shrink-0 p-2 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/15 shadow-[0_0_10px_rgba(168,85,247,0.1)]">
-                      <Brain size={16} className="text-purple-400" />
-                    </div>
-                    {/* Text metadata */}
-                    <div className="flex-1 mx-2.5 min-w-0">
-                      <span className="text-[11px] leading-tight text-left text-gray-300 line-clamp-2 block font-medium">
-                        Acalme sua mente e reduza sua impulsividade
-                      </span>
-                    </div>
+              <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
+                {/* CARD DE EMERGÊNCIA / SESSÃO PROFUNDA GUIADA */}
+                <div className="flex flex-row items-center justify-between w-full p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl gap-3">
+                  
+                  {/* 1. Ícone Ultra-Compacto */}
+                  <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <Brain className="w-5 h-5 text-purple-400" />
+                  </div>
 
-                    {/* Premium Purple Button: Iniciador de Sessão com Shimmer */}
-                    <button
-                      type="button"
+                  {/* 2. Texto com min-w-0 (Impede o esmagamento do Flexbox) */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11.5px] leading-snug text-gray-300 font-medium text-left line-clamp-2">
+                      Acalme sua mente e reduza sua impulsividade
+                    </p>
+                  </div>
+
+                  {/* 3. Botão Roxo Sólido (Sem neon) e Compacto */}
+                  <div className="shrink-0">
+                    <button 
                       onClick={handleToComVontade}
-                      className="shrink-0 group relative overflow-hidden flex items-center justify-center gap-1 px-3 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[9px] font-bold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[38px] shadow-[0_0_15px_rgba(168,85,247,0.2)] whitespace-nowrap"
+                      type="button"
+                      className="relative overflow-hidden bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9.5px] px-3.5 py-2.5 rounded-xl whitespace-nowrap tracking-tight shadow-lg cursor-pointer"
                     >
                       <span className="relative z-10">✋ INICIAR SESSÃO PROFUNDA GUIADA</span>
-                      {/* Sweep Shimmer Effect */}
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
-                        <div className="absolute top-0 left-0 h-full w-[40%] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[shimmer_3s_infinite]" />
-                      </div>
+                      {/* Animação Shimmer (Brilho) */}
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0" />
                     </button>
                   </div>
-                </div>
 
-                {/* DESKTOP Version */}
-                <div className="hidden md:block w-full max-w-xl animate-fade-in pt-2">
-                  <div className="flex items-center justify-between p-4 bg-surface-2/30 hover:bg-surface-2/50 border border-white/5 rounded-2xl w-full text-left transition-all select-none">
-                    <div className="shrink-0 p-2.5 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/15 shadow-[0_0_12px_rgba(168,85,247,0.15)]">
-                      <Brain size={18} className="text-purple-400" />
-                    </div>
-                    {/* Text metadata */}
-                    <div className="flex-1 mx-3 min-w-0">
-                      <span className="text-xs sm:text-[13px] leading-tight text-left text-gray-300 line-clamp-2 block font-medium">
-                        Acalme sua mente e reduza sua impulsividade
-                      </span>
-                    </div>
-
-                    {/* Premium Purple Button: Iniciador de Sessão com Shimmer */}
-                    <button
-                      type="button"
-                      onClick={handleToComVontade}
-                      className="shrink-0 group relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-tight transition-all active:scale-[0.98] cursor-pointer min-h-[42px] shadow-[0_0_20px_rgba(168,85,247,0.25)] whitespace-nowrap"
-                    >
-                      <span className="relative z-10">✋ INICIAR SESSÃO PROFUNDA GUIADA</span>
-                      {/* Sweep Shimmer Effect */}
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
-                        <div className="absolute top-0 left-0 h-full w-[40%] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[shimmer_3s_infinite]" />
-                      </div>
-                    </button>
-                  </div>
                 </div>
-              </>
+              </div>
             </>
           )}
         </motion.div>
