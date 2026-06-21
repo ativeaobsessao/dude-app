@@ -192,18 +192,18 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
     const savedEndTime = localStorage.getItem(key);
     const now = Date.now();
-    let initialSeconds = 5 * 60; // 300 seconds
+    let initialSeconds = 346; // 346 seconds
 
     if (savedEndTime) {
       const remaining = Math.round((parseInt(savedEndTime, 10) - now) / 1000);
-      if (remaining > 0 && remaining <= 5 * 60) {
+      if (remaining > 0 && remaining <= 346) {
         initialSeconds = remaining;
       } else {
-        const newEndTime = now + 5 * 60 * 1000;
+        const newEndTime = now + 346 * 1000;
         localStorage.setItem(key, newEndTime.toString());
       }
     } else {
-      const newEndTime = now + 5 * 60 * 1000;
+      const newEndTime = now + 346 * 1000;
       localStorage.setItem(key, newEndTime.toString());
     }
 
@@ -294,18 +294,18 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
     if (timeLeft === null) return -1; 
-    if (timeLeft > 290) return 0;     // NOVO: 300s a 290s (Abertura Empática - 10 segundos)
-    if (timeLeft > 210) return 1;     // 290s a 210s (Respiração Lótus)
-    if (timeLeft > 90) return 2;      // 210s a 90s (EMDR)
-    if (timeLeft > 0) return 3;       // 90s a 0s (Theta/Escrita)
-    return 4;
+    if (timeLeft > 336) return 0;     // 346s a 336s: Fase 0 (Abertura Empática)
+    if (timeLeft > 240) return 1;     // 336s a 240s: Fase 1A (4-7-8) e 1B (Box Breathing)
+    if (timeLeft > 120) return 2;     // 240s a 120s: Fase 2 (EMDR)
+    if (timeLeft > 0) return 3;       // 120s a 1s: Fase 3 (Escrita)
+    return 4;                         // 0s: Encruzilhada
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
   const infiniteAct = useMemo(() => {
-    if (infiniteSeconds <= 6) return 1;
-    if (infiniteSeconds <= 90) return 2;
-    if (infiniteSeconds <= 96) return 3;
-    return 4;
+    if (infiniteSeconds <= 6) return 1;    // 0 a 6: Frase da Lótus no centro
+    if (infiniteSeconds <= 86) return 2;   // 7 a 86: Lótus Box Breathing
+    if (infiniteSeconds <= 93) return 3;   // 87 a 93: Frase EMDR no centro
+    return 4;                              // >= 94: Bolinha EMDR + Caixa de texto + Frase no rodapé
   }, [infiniteSeconds]);
 
   // Invisible counter for Phase 3 Nudge (300 seconds)
@@ -372,57 +372,43 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     };
   }, []);
 
-  // Inhalation/Exhalation breathing guidance sequence (11s cycle duration)
+  // Inhalation/Exhalation breathing guidance sequence (Zero-aligned multi-technique clinical engine)
   const breathingState = useMemo(() => {
-    let elapsedForBreathing = 0;
-    if (isInfiniteMode) {
-      if (infiniteSeconds >= 7) {
-        elapsedForBreathing = infiniteSeconds - 7;
-      } else {
-        elapsedForBreathing = 0;
-      }
-    } else {
-      if (timeLeft !== null && timeLeft <= 290) {
-        elapsedForBreathing = 290 - timeLeft;
-      } else {
-        elapsedForBreathing = 0;
-      }
+    // Fase 1A: O Extintor 4-7-8 (De 336s a 279s)
+    if (currentPhase === 1 && timeLeft > 279) {
+      const elapsed = 336 - (timeLeft || 336);
+      const cycle = elapsed % 19;
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
+      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 7.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 11) + 1}`, duration: 8.0 };
     }
-
-    const cycle = elapsedForBreathing % 11;
-
-    if (cycle < 4) {
-      // De 0 a 4 segundos: INSPIRAR PROFUNDAMENTE (Cresce a Lótus)
-      const count = Math.min(4, Math.floor(cycle) + 1);
-      return { 
-        phase: 'inhale', 
-        text: 'Inspire profundamente...', 
-        countText: `${count}` 
-      };
-    } else if (cycle < 5.5) {
-      // De 4 a 5.5 segundos: AGUARDE / RETENHA O AR (Lótus estática no topo)
-      return { 
-        phase: 'hold', 
-        text: 'Segure o ar...', 
-        countText: 'Retenha' 
-      };
-    } else {
-      // De 5.5 a 11 segundos: EXPIRE DEVAGAR (Lótus encolhe suavemente)
-      const count = Math.min(6, Math.floor(cycle - 5.5) + 1);
-      return { 
-        phase: 'exhale', 
-        text: 'Exale devagar...', 
-        countText: `${count}` 
-      };
+    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 272s, após os 7s de frase empática)
+    if (currentPhase === 1 && timeLeft <= 272 && timeLeft > 240) {
+      const elapsed = 272 - (timeLeft || 272);
+      const cycle = elapsed % 16;
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 8) + 1}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
     }
-  }, [timeLeft, isInfiniteMode, infiniteSeconds]);
+    // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4 (Inicia em 7s, após os 7s de frase empática)
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 7 && infiniteSeconds <= 86) {
+      const elapsed = infiniteSeconds - 7;
+      const cycle = elapsed % 16;
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 8) + 1}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
+    }
+    return { phase: 'idle', text: '', countText: '', duration: 4.0 };
+  }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
 
   // SVG progressive ring stroke coefficients
   const timerCircleProps = useMemo(() => {
     const radius = 64;
     const strokeWidth = 5;
     const circumference = 2 * Math.PI * radius; // Approx 402.12
-    const totalDuration = 5 * 60; // 300s
+    const totalDuration = 346; // 346s
     const elapsed = totalDuration - (timeLeft || 0);
     const progressRatio = elapsed / totalDuration;
     const strokeDashoffset = circumference * (1 - progressRatio);
@@ -445,7 +431,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     setSaveStatus('saving');
     try {
       const timestamp = new Date().toISOString();
-      const totalSecondsActive = isInfiniteMode ? (300 + infiniteSeconds) : (300 - (timeLeft || 0));
+      const totalSecondsActive = isInfiniteMode ? (346 + infiniteSeconds) : (346 - (timeLeft || 0));
       
       const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
       const defaultPlaceholder = 'Resisti com a Sessão Profunda Guiada.';
@@ -717,67 +703,161 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1.0 }}
-                className="flex flex-col items-center justify-center space-y-12"
+                className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* 4x Layered concentric expanding lotus circles */}
-                <div className="relative w-40 h-40 flex items-center justify-center">
-                  {/* Camada 1 (Externa): bg-emerald-500/10 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
-                  />
-                  {/* Camada 2: bg-emerald-500/20 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
-                  />
-                  {/* Camada 3: bg-emerald-500/30 */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
-                  />
-                  {/* Camada 4 (Núcleo): bg-emerald-400 com leve glow */}
-                  <motion.div
-                    animate={{
-                      scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
-                    }}
-                    transition={{
-                      duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
-                  />
-                </div>
+                <AnimatePresence mode="wait">
+                  {/* Fase 1A: De 336 a 279, renderize a Lótus 4-7-8 */}
+                  {timeLeft !== null && timeLeft > 279 && (
+                    <motion.div
+                      key="phase-1a-lotus"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-12"
+                    >
+                      {/* 4x Layered concentric expanding lotus circles */}
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
+                        />
+                      </div>
 
-                {/* Breathing status instructions */}
-                <div className="text-center space-y-3">
-                  <span className="text-xl font-light tracking-wide text-white block">
-                    {breathingState.text}
-                  </span>
-                  
-                  {/* Monospace ghost counter helping guide user lungs flow */}
-                  <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
-                    {breathingState.countText}
-                  </span>
-                </div>
+                      {/* Breathing status instructions */}
+                      <div className="text-center space-y-3">
+                        <span className="text-xl font-light tracking-wide text-white block">
+                          {breathingState.text}
+                        </span>
+                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                          {breathingState.countText}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Transição Limpa: De 279 a 272 */}
+                  {timeLeft !== null && timeLeft <= 279 && timeLeft > 272 && (
+                    <motion.div
+                      key="phase-1-text"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
+                    >
+                      <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
+                        "Vamos mudar de ritmo. Acompanhe o flow para retomar o controle da sua mente."
+                      </h2>
+                      <div className="h-[1px] w-12 bg-white/10" />
+                      <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
+                        Fase 1B · Transição de Respiração
+                      </span>
+                    </motion.div>
+                  )}
+
+                  {/* Fase 1B: De 272 a 240, renderize a Lótus Box Breathing */}
+                  {timeLeft !== null && timeLeft <= 272 && (
+                    <motion.div
+                      key="phase-1b-lotus"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-12"
+                    >
+                      {/* 4x Layered concentric expanding lotus circles */}
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
+                        />
+                      </div>
+
+                      {/* Breathing status instructions */}
+                      <div className="text-center space-y-3">
+                        <span className="text-xl font-light tracking-wide text-white block">
+                          {breathingState.text}
+                        </span>
+                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                          {breathingState.countText}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
@@ -815,18 +895,14 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
                 {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous Mirror */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0, x: '0vw', y: '0vh' }}
                   animate={{ 
-                    opacity: 1,
-                    scale: 1,
-                    x: ['-42vw', '42vw'], 
-                    y: ['-35vh', '35vh'] 
+                    x: ['calc(-50vw + 12px)', 'calc(50vw - 12px)'], 
+                    y: ['calc(-50vh + 12px)', 'calc(50vh - 12px)'] 
                   }}
+                  exit={{ x: '0vw', y: '0vh', scale: 0, opacity: 0, transition: { duration: 1.0, ease: "anticipate" } }}
                   transition={{ 
-                    opacity: { delay: 6.5, duration: 1 },
-                    scale: { delay: 6.5, duration: 1, ease: "easeOut" },
-                    x: { delay: 7.5, duration: 17, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                    y: { delay: 7.5, duration: 23, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                    x: { duration: isAccelerated ? 1.4 : 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                    y: { duration: isAccelerated ? 1.8 : 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                   }}
                   className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                 />
@@ -1003,7 +1079,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
                         }}
                         transition={{
-                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          duration: breathingState.duration,
                           ease: "easeInOut"
                         }}
                         className="absolute w-40 h-40 rounded-full bg-purple-500/10"
@@ -1014,7 +1090,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
                         }}
                         transition={{
-                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          duration: breathingState.duration,
                           ease: "easeInOut"
                         }}
                         className="absolute w-40 h-40 rounded-full bg-purple-500/20"
@@ -1025,7 +1101,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
                         }}
                         transition={{
-                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          duration: breathingState.duration,
                           ease: "easeInOut"
                         }}
                         className="absolute w-40 h-40 rounded-full bg-indigo-500/30"
@@ -1036,7 +1112,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
                         }}
                         transition={{
-                          duration: breathingState.phase === 'inhale' ? 4.0 : breathingState.phase === 'hold' ? 1.5 : 5.5,
+                          duration: breathingState.duration,
                           ease: "easeInOut"
                         }}
                         className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.5)]"
@@ -1068,7 +1144,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 3: Mensagem Transicional Central (De 90 a 95 segundos) */}
+                {/* ATO 3: Mensagem Transicional Central (De 87 a 93 segundos) */}
                 {infiniteAct === 3 && (
                   <motion.div 
                     key="infinite-act-3"
@@ -1079,7 +1155,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     className="text-center space-y-4 px-6 max-w-md"
                   >
                     <p className="text-xl md:text-2xl font-light tracking-wide text-white leading-relaxed">
-                      "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                      "Acompanhe a bolinha até a mente se acalmar."
                     </p>
                     <div className="h-[1px] w-12 bg-white/10 mx-auto" />
                     <span className="text-[10px] text-white/35 tracking-[0.2em] font-mono uppercase block">
@@ -1166,9 +1242,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         y: ['calc(-50vh + 12px)', 'calc(50vh - 12px)'] 
                       }}
                       transition={{ 
-                        // Velocidade Clínica Base: 1.1s (X) / 1.3s (Y) | Velocidade Sacádica (Pico): 0.35s (X) / 0.45s (Y)
-                        x: { duration: isAccelerated ? 0.35 : 1.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: isAccelerated ? 0.45 : 1.3, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                        x: { duration: isAccelerated ? 1.4 : 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: isAccelerated ? 1.8 : 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                       }}
                       className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                     />
