@@ -1355,34 +1355,35 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
               <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
-                {/* CARD DE SESSÃO PROFUNDA GUIADA (PROPORÇÕES CORRIGIDAS) */}
-                <div className="flex flex-row items-center justify-between w-full p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl gap-2">
+                {/* CARD SESSÃO PROFUNDA GUIADA - APPLE CALM TECH */}
+                <div className="w-full flex items-center justify-between bg-white/[0.03] border border-white/5 p-4 rounded-2xl shadow-lg backdrop-blur-md">
                   
-                  {/* 1. Ícone Reduzido */}
-                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                    <Brain className="w-4 h-4 text-purple-400" />
-                  </div>
-
-                  {/* 2. Texto da Esquerda Aumentado */}
-                  <div className="flex-1 min-w-0 px-1">
-                    <p className="text-xs leading-snug text-gray-300 font-medium text-left line-clamp-2">
-                      Acalme sua mente e reduza sua impulsividade
+                  {/* Área Esquerda: Ícone e Copy (55% do espaço) */}
+                  <div className="flex items-center gap-3 w-[55%] pr-2">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0">
+                      <Brain size={18} className="text-purple-400" />
+                    </div>
+                    <p className="text-white/80 font-light text-[13px] leading-snug">
+                      Acalme sua mente<br />e reduza sua impulsividade
                     </p>
                   </div>
 
-                  {/* 3. Botão Roxo Alargado para UX Premium */}
-                  <div className="shrink-0 w-[150px]">
+                  {/* Área Direita: Botão CTA (45% do espaço) */}
+                  <div className="w-[45%] flex justify-end shrink-0">
                     <button 
                       onClick={handleToComVontade}
                       type="button"
-                      className="relative overflow-hidden w-full bg-[#7E22CE] hover:bg-[#6B21A8] transition-colors text-white font-bold text-[9.5px] px-2 py-2.5 rounded-xl flex items-center justify-center text-center shadow-lg cursor-pointer animate-none"
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.05)]"
                     >
-                      <span className="relative z-10 flex flex-col items-center leading-tight gap-0.5">
-                        <span>✋ INICIAR SESSÃO</span>
-                        <span>PROFUNDA GUIADA</span>
-                      </span>
-                      {/* Animação Shimmer (Brilho) */}
-                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0" />
+                      <Hand size={14} className="text-emerald-400 shrink-0" />
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-emerald-400 font-extrabold text-[9px] uppercase tracking-widest leading-tight">
+                          Iniciar Sessão
+                        </span>
+                        <span className="text-emerald-500/60 font-bold text-[8px] uppercase tracking-[0.15em] leading-tight mt-0.5">
+                          Profunda Guiada
+                        </span>
+                      </div>
                     </button>
                   </div>
 
