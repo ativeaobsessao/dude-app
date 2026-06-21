@@ -69,6 +69,8 @@ export type AvoidanceCheckin = {
   created_at: string;
   window_label?: string | null;
   prompts_shown?: number;
+  intensity?: number | null;
+  time_spent?: number | null;
 };
 
 export type HabitCompletion = {

@@ -445,6 +445,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       if (lastSavedCheckinIdRef.current) {
         // If already saved, perform an atomic UPDATE on the same record
         const updateData = {
+          status: 'resisti',
+          intensity: 5,
           trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
           time_spent: totalSecondsActive
         };
@@ -466,7 +468,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           habit_id: habitId || 'Crise Geral',
           checkin_date: getLocalDateString(),
           checkin_period: 'window',
-          status: 'success',
+          status: 'resisti',
+          intensity: 5,
           trigger_tag: 'SESSÃO PROFUNDA GUIADA',
           trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
           created_at: timestamp,
@@ -1191,7 +1194,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
       <AnimatePresence>
-        {currentPhase === 5 && isInfiniteMode && (infiniteSeconds > 0 && infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
+        {currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 300 && (infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
