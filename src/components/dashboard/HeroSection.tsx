@@ -1355,36 +1355,27 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
               {/* Autocontrole Strip - MOBILE & DESKTOP */}
               <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
-                {/* CARD SESSÃO PROFUNDA GUIADA - APPLE CALM TECH */}
-                <div className="w-full flex items-center justify-between bg-white/[0.03] border border-white/5 p-4 rounded-2xl shadow-lg backdrop-blur-md">
+                {/* ZONA DE AÇÃO: SESSÃO PROFUNDA GUIADA */}
+                <div className="w-full flex flex-col gap-3 mt-2">
                   
-                  {/* Área Esquerda: Ícone e Copy (55% do espaço) */}
-                  <div className="flex items-center gap-3 w-[55%] pr-2">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 shrink-0">
-                      <Brain size={18} className="text-purple-400" />
-                    </div>
-                    <p className="text-white/80 font-light text-[13px] leading-snug">
-                      Acalme sua mente<br />e reduza sua impulsividade
-                    </p>
-                  </div>
+                  {/* Card Hero (Botão 100% de largura) */}
+                  <button 
+                    onClick={handleToComVontade}
+                    type="button"
+                    className="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 p-4 rounded-2xl transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.05)] backdrop-blur-md"
+                  >
+                    <Hand size={18} className="text-emerald-400 shrink-0" />
+                    <span className="text-emerald-400 font-extrabold text-[11px] sm:text-xs uppercase tracking-widest leading-none mt-0.5">
+                      Iniciar Sessão Profunda Guiada
+                    </span>
+                  </button>
 
-                  {/* Área Direita: Botão CTA (45% do espaço) */}
-                  <div className="w-[45%] flex justify-end shrink-0">
-                    <button 
-                      onClick={handleToComVontade}
-                      type="button"
-                      className="w-full flex items-center justify-center gap-2 py-2.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-all active:scale-95 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.05)]"
-                    >
-                      <Hand size={14} className="text-emerald-400 shrink-0" />
-                      <div className="flex flex-col items-start text-left">
-                        <span className="text-emerald-400 font-extrabold text-[9px] uppercase tracking-widest leading-tight">
-                          Iniciar Sessão
-                        </span>
-                        <span className="text-emerald-500/60 font-bold text-[8px] uppercase tracking-[0.15em] leading-tight mt-0.5">
-                          Profunda Guiada
-                        </span>
-                      </div>
-                    </button>
+                  {/* Legenda de Suporte (Obrigatório 1 única linha com Truncate) */}
+                  <div className="flex items-center justify-center gap-2 px-4 w-full opacity-80 animate-fade-in">
+                    <Brain size={14} className="text-purple-400 shrink-0" />
+                    <p className="text-white/60 font-light text-[12px] truncate">
+                      Acalme sua mente e reduza sua impulsividade
+                    </p>
                   </div>
 
                 </div>
