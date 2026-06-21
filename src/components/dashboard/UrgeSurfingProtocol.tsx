@@ -24,8 +24,13 @@ class AudioSynthesizer {
     const baseGain = 0.08;
     const targetVolume = baseGain * volumeMultiplier;
 
+    // BLINDAGEM 1: Impede o React de recriar a rampa a cada 1 segundo se a frequência for a mesma
+    if (this.ctx && this.currentFreq === frequency && this.currentOffset === binauralOffset) {
+      return; 
+    }
+
     if (this.ctx && this.oscLeft && this.gainNode) {
-      // Smooth frequency & volume crossfade transition to prevent any popping sounds
+      // Transição suave (Anti-estalo)
       this.currentFreq = frequency;
       this.currentOffset = binauralOffset;
       const currentTime = this.ctx.currentTime;
@@ -49,7 +54,7 @@ class AudioSynthesizer {
       this.gainNode = this.ctx.createGain();
       this.compressorNode = this.ctx.createDynamicsCompressor();
       
-      // Limitador de estúdio para impedir clipping
+      // Limitador de estúdio
       this.compressorNode.threshold.setValueAtTime(-12, this.ctx.currentTime);
       this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
       this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
@@ -58,18 +63,15 @@ class AudioSynthesizer {
 
       this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
       
-      // Conectar GainNode ao CompressorNode e este ao destino
       this.gainNode.connect(this.compressorNode);
       this.compressorNode.connect(this.ctx.destination);
 
       if (binauralOffset === 0) {
-        // Solfeggio / Pure Mono wave
         this.oscLeft = this.ctx.createOscillator();
         this.oscLeft.type = 'sine';
         this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
         this.oscLeft.connect(this.gainNode);
       } else {
-        // Binaural Stimulation (Left Ear = Carrier, Right Ear = Carrier + Offset)
         const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
         const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
 
@@ -82,8 +84,8 @@ class AudioSynthesizer {
         this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
 
         if (pannerLeft && pannerRight) {
-          pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime); // Hard left
-          pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);  // Hard right
+          pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime);
+          pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);
           
           this.oscLeft.connect(pannerLeft).connect(this.gainNode);
           this.oscRight.connect(pannerRight).connect(this.gainNode);
@@ -96,7 +98,6 @@ class AudioSynthesizer {
       this.oscLeft.start();
       if (this.oscRight) this.oscRight.start();
 
-      // Smooth crossfade using setTargetAtTime to prevent clicks or popping sounds
       this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.05);
     } catch (e) {
       console.warn("AudioContext blocked or failed initialization.", e);
@@ -104,26 +105,26 @@ class AudioSynthesizer {
   }
 
   stop() {
+    if (this.ctx && this.gainNode) {
+      // BLINDAGEM 2: Fade-out suave de encerramento antes de matar os nós
+      this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
+      setTimeout(() => {
+        this.killNodes();
+      }, 100);
+      return;
+    }
+    this.killNodes();
+  }
+
+  private killNodes() {
     this.currentFreq = 0;
     this.currentOffset = 0;
     try {
-      if (this.oscLeft) {
-        this.oscLeft.stop();
-        this.oscLeft.disconnect();
-      }
-      if (this.oscRight) {
-        this.oscRight.stop();
-        this.oscRight.disconnect();
-      }
-      if (this.gainNode) {
-        this.gainNode.disconnect();
-      }
-      if (this.compressorNode) {
-        this.compressorNode.disconnect();
-      }
-      if (this.ctx && this.ctx.state !== 'closed') {
-        this.ctx.close();
-      }
+      if (this.oscLeft) { this.oscLeft.stop(); this.oscLeft.disconnect(); }
+      if (this.oscRight) { this.oscRight.stop(); this.oscRight.disconnect(); }
+      if (this.gainNode) this.gainNode.disconnect();
+      if (this.compressorNode) this.compressorNode.disconnect();
+      if (this.ctx && this.ctx.state !== 'closed') this.ctx.close();
     } catch (e) {}
     this.oscLeft = null;
     this.oscRight = null;
@@ -337,22 +338,21 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         // GainNode boosted with a highly robust 4.5x multiplier to keep infra-wave present
         synth.start(150, 7.5, 4.5);
       } else if (currentPhase === 5) {
-        // Infinite mode loop schedule sequences (rotating 3-minute sub-cycles)
-        // 0: 432 Hz  (Aterramento Emocional)
-        // 1: 174 Hz  (Anestésico Natural / Alívio Corporal)
-        // 2:  40 Hz  (Ondas Gamma / Reativação do Foco)
-        // 3:  20 Hz  (Ondas Beta / "A Frequência do Leão" - Awakening drive & focus)
-        const block = Math.floor(infiniteSeconds / 180) % 4;
-        if (block === 0) {
+        // Loop Total: 840 Segundos (14 minutos)
+        const cycleTime = infiniteSeconds % 840;
+        
+        if (cycleTime < 180) {
+          // 0 a 3 min: 432 Hz - Aterramento Emocional
           synth.start(432, 0, 1.0);
-        } else if (block === 1) {
+        } else if (cycleTime < 360) {
+          // 3 a 6 min: 174 Hz - Alívio Físico
           synth.start(174, 0, 1.2);
-        } else if (block === 2) {
-          // Boost gamma so it hums audibly (Compressor holds clipping)
+        } else if (cycleTime < 540) {
+          // 6 a 9 min: 40 Hz - Foco Gamma
           synth.start(40, 0, 9.5);
         } else {
-          // Lion Beta waves (20Hz) - Highly boosted amplitude
-          synth.start(20, 0, 8.0);
+          // 9 a 14 min (Duração estendida de 5 min): 888 Hz Binaural - Abundância & Flow
+          synth.start(888, 8, 1.5);
         }
       } else {
         synth.stop();
@@ -536,26 +536,30 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   // Dynamic mapped frequency for the Apple Glassmorphic Card
   const currentInfiniteFrequencyCardText = useMemo(() => {
     if (!isInfiniteMode) return '';
-    const block = Math.floor(infiniteSeconds / 180) % 4;
-    switch(block) {
-      case 0: return '📻 432Hz - Onda Alfa';
-      case 1: return '📻 174Hz - Onda Solfeggio';
-      case 2: return '📻 40Hz - Onda Gamma';
-      case 3: return '📻 20Hz - Onda Beta';
-      default: return '📻 432Hz - Onda Alfa';
+    const cycleTime = infiniteSeconds % 840;
+    if (cycleTime < 180) {
+      return '📻 432Hz - Onda Alfa';
+    } else if (cycleTime < 360) {
+      return '📻 174Hz - Onda Solfeggio';
+    } else if (cycleTime < 540) {
+      return '📻 40Hz - Onda Gamma';
+    } else {
+      return '📻 888Hz - Onda Theta';
     }
   }, [isInfiniteMode, infiniteSeconds]);
 
   // Audio frequency tag name under infinite mode looping
   const currentInfiniteFrequencyTag = useMemo(() => {
     if (!isInfiniteMode) return '';
-    const block = Math.floor(infiniteSeconds / 180) % 4;
-    switch(block) {
-      case 0: return '432 Hz · Aterramento Cósmico';
-      case 1: return '174 Hz · Alívio Biológico';
-      case 2: return '40 Hz · Ondas Foco Gamma (Pense e Foque)';
-      case 3: return '20 Hz · Frequência do Leão de Coragem (Beta Waves)';
-      default: return '432 Hz';
+    const cycleTime = infiniteSeconds % 840;
+    if (cycleTime < 180) {
+      return '432 Hz · Aterramento Cósmico';
+    } else if (cycleTime < 360) {
+      return '174 Hz · Alívio Biológico';
+    } else if (cycleTime < 540) {
+      return '40 Hz · Ondas Foco Gamma (Pense e Foque)';
+    } else {
+      return '888 Hz · Abundância & Flow (Binaural Theta)';
     }
   }, [isInfiniteMode, infiniteSeconds]);
 
