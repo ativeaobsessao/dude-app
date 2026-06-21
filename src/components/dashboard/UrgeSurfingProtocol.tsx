@@ -302,9 +302,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
   const infiniteAct = useMemo(() => {
-    if (infiniteSeconds < 120) return 1;
-    if (infiniteSeconds < 126) return 2;
-    return 3;
+    if (infiniteSeconds <= 7) return 1;
+    if (infiniteSeconds <= 89) return 2;
+    if (infiniteSeconds <= 95) return 3;
+    return 4;
   }, [infiniteSeconds]);
 
   // Invisible counter for Phase 3 Nudge (300 seconds)
@@ -538,13 +539,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (!isInfiniteMode) return '';
     const cycleTime = infiniteSeconds % 840;
     if (cycleTime < 180) {
-      return '📻 432Hz - Onda Alfa';
+      return '📻 432 hertz - Frequência do Aterramento';
     } else if (cycleTime < 360) {
-      return '📻 174Hz - Onda Solfeggio';
+      return '📻 174 hertz - Frequência do Alívio';
     } else if (cycleTime < 540) {
-      return '📻 40Hz - Onda Gamma';
+      return '📻 40 hertz - Frequência do Foco';
     } else {
-      return '📻 888Hz - Onda Theta';
+      return '📻 888 hertz - Frequência da Prosperidade';
     }
   }, [isInfiniteMode, infiniteSeconds]);
 
@@ -950,13 +951,30 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* ATO 1: Respirador Lótus (De 0 a 119 segundos) */}
+                {/* ATO 1: Totalmente minimalista (De 0 a 7 segundos) */}
                 {infiniteAct === 1 && (
                   <motion.div 
                     key="infinite-act-1"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    transition={{ duration: 1.0 }}
+                    className="text-center px-6 max-w-lg mx-auto"
+                  >
+                    <p className="text-lg md:text-xl font-light tracking-wide text-white/95 leading-relaxed">
+                      "Está tudo bem, se acalme, se quiser faça mais alguns ciclos de respiração guiada. O que verdadeiramente importa agora é: escute o som das frequências."
+                    </p>
+                  </motion.div>
+                )}
+
+                {/* ATO 2: Respirador Lótus (De 8 a 89 segundos) */}
+                {infiniteAct === 2 && (
+                  <motion.div 
+                    key="infinite-act-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.0 }}
                     className="flex flex-col items-center justify-center space-y-12"
                   >
                     {/* 4x layers of pulsing Lótus representation in Purple/Indigo */}
@@ -1032,13 +1050,14 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 2: Transição Silenciosa (De 120 a 125 segundos) */}
-                {infiniteAct === 2 && (
+                {/* ATO 3: Mensagem Transicional Central (De 90 a 95 segundos) */}
+                {infiniteAct === 3 && (
                   <motion.div 
-                    key="infinite-act-2"
+                    key="infinite-act-3"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8 }}
                     className="text-center space-y-4 px-6 max-w-md"
                   >
                     <p className="text-xl md:text-2xl font-light tracking-wide text-white leading-relaxed">
@@ -1046,37 +1065,32 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     </p>
                     <div className="h-[1px] w-12 bg-white/10 mx-auto" />
                     <span className="text-[10px] text-white/35 tracking-[0.2em] font-mono uppercase block">
-                      Preparando campo perceptual
+                      Preparando campo perceptual...
                     </span>
                   </motion.div>
                 )}
 
-                {/* ATO 3: A Bolinha Soberana e o Bloco de Anotação (A partir de 126 segundos) */}
-                {infiniteAct === 3 && (
+                {/* ATO 4: Modo Foco Ativo (A partir de 96 segundos) */}
+                {infiniteAct === 4 && (
                   <motion.div 
-                    key="infinite-act-3"
+                    key="infinite-act-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="w-full flex flex-col items-center justify-center space-y-8 px-4"
                   >
-                    {/* Texto Empático: Movido para o rodapé absoluto da tela, blindado contra esmagamento */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 1.0, ease: "easeInOut" }}
-                      className="absolute bottom-8 left-0 right-0 px-6 text-center z-40 pointer-events-none"
-                    >
-                      <p className="text-sm font-light tracking-wide text-white/60 leading-relaxed">
+                    {/* Texto Empático: Fixado no rodapé absoluto da tela, blindado contra esmagamento */}
+                    <div className="absolute bottom-8 left-0 right-0 px-6 text-center z-40 pointer-events-none">
+                      <p className="text-xs font-light tracking-wide text-white/60 leading-relaxed">
                         "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
                       </p>
-                      <span className="text-[9px] text-[#10b981]/60 tracking-[0.2em] font-mono uppercase block mt-1">
-                        Espaço de Anotação Livre
+                      <span className="text-[8px] text-[#10b981]/50 tracking-[0.2em] font-mono uppercase block mt-0.5">
+                        Espaço de Resgate Perceptual Ativo
                       </span>
-                    </motion.div>
+                    </div>
  
-                    {/* Elegant translucent Textarea and Actions */}
-                    <div className="relative w-full max-w-md z-40 pointer-events-auto space-y-4">
+                    {/* Elegant translucent text input workspace */}
+                    <div className="relative w-full max-w-md z-40 space-y-4">
                       <textarea
                         id="sos_infinite_reflection_textarea"
                         value={infiniteNote}
@@ -1127,7 +1141,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       </div>
                     </div>
  
-                    {/* A Bolinha Soberana (em Mirror Loop) flutuando z-[99999] e sem bloquear cliques com aceleração randômica contínua */}
+                    {/* A Bolinha Soberana (em EMDR Loop) flutuando z-[99999] com aceleração estocástica contínua */}
                     <motion.div
                       animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
                       transition={{ 
@@ -1199,7 +1213,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
       <AnimatePresence>
-        {currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 300 && (infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
+        {currentPhase === 5 && isInfiniteMode && infiniteSeconds > 0 && (infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
