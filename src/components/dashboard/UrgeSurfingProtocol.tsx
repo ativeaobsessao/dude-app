@@ -21,9 +21,22 @@ class AudioSynthesizer {
   private currentOffset: number = 0;
 
   start(frequency: number, binauralOffset: number = 0, volumeMultiplier: number = 1.0) {
-    if (this.currentFreq === frequency && this.currentOffset === binauralOffset) {
-      return; // Already playing at this exact frequency setup
+    const baseGain = 0.08;
+    const targetVolume = baseGain * volumeMultiplier;
+
+    if (this.ctx && this.oscLeft && this.gainNode) {
+      // Smooth frequency & volume crossfade transition to prevent any popping sounds
+      this.currentFreq = frequency;
+      this.currentOffset = binauralOffset;
+      const currentTime = this.ctx.currentTime;
+      this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.05);
+      if (this.oscRight) {
+        this.oscRight.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.05);
+      }
+      this.gainNode.gain.setTargetAtTime(targetVolume, currentTime, 0.05);
+      return;
     }
+
     this.currentFreq = frequency;
     this.currentOffset = binauralOffset;
     
@@ -43,7 +56,6 @@ class AudioSynthesizer {
       this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
       this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
 
-      const baseGain = 0.08; 
       this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
       
       // Conectar GainNode ao CompressorNode e este ao destino
@@ -84,8 +96,8 @@ class AudioSynthesizer {
       this.oscLeft.start();
       if (this.oscRight) this.oscRight.start();
 
-      // Smooth crossfade to avoid popping sounds using linearRampToValueAtTime
-      this.gainNode.gain.linearRampToValueAtTime(baseGain * volumeMultiplier, this.ctx.currentTime + 1.2);
+      // Smooth crossfade using setTargetAtTime to prevent clicks or popping sounds
+      this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.05);
     } catch (e) {
       console.warn("AudioContext blocked or failed initialization.", e);
     }
@@ -142,6 +154,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
   const [infiniteNote, setInfiniteNote] = useState<string>('');
   const [phase3Seconds, setPhase3Seconds] = useState<number>(0);
+  const [isAccelerated, setIsAccelerated] = useState<boolean>(false);
 
   // Refs for tracking check-in updates and text concatenation under Directive 1
   const lastSavedCheckinIdRef = useRef<string | null>(null);
@@ -233,6 +246,33 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
     return () => clearInterval(timer);
   }, [isInfiniteMode]);
+
+  // EMDR Random Acceleration logic
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let finishTimeoutId: NodeJS.Timeout;
+    
+    const scheduleNextAcceleration = () => {
+      // Random time between 15s and 25s (15000ms and 25000ms)
+      const randomDelay = Math.floor(Math.random() * 10001) + 15000;
+      
+      timeoutId = setTimeout(() => {
+        setIsAccelerated(true);
+        // After 5s, turn back to false and reschedule
+        finishTimeoutId = setTimeout(() => {
+          setIsAccelerated(false);
+          scheduleNextAcceleration();
+        }, 5000);
+      }, randomDelay);
+    };
+
+    scheduleNextAcceleration();
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(finishTimeoutId);
+    };
+  }, []);
 
   // Headphones notification banner fading control (Fades out after 10s)
   useEffect(() => {
@@ -489,6 +529,19 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       setInfiniteSeconds(1);
     }
   };
+
+  // Dynamic mapped frequency for the Apple Glassmorphic Card
+  const currentInfiniteFrequencyCardText = useMemo(() => {
+    if (!isInfiniteMode) return '';
+    const block = Math.floor(infiniteSeconds / 180) % 4;
+    switch(block) {
+      case 0: return '📻 432Hz - Onda Alfa';
+      case 1: return '📻 174Hz - Onda Solfeggio';
+      case 2: return '📻 40Hz - Onda Gamma';
+      case 3: return '📻 20Hz - Onda Beta';
+      default: return '📻 432Hz - Onda Alfa';
+    }
+  }, [isInfiniteMode, infiniteSeconds]);
 
   // Audio frequency tag name under infinite mode looping
   const currentInfiniteFrequencyTag = useMemo(() => {
@@ -1000,12 +1053,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     exit={{ opacity: 0 }}
                     className="w-full flex flex-col items-center justify-center space-y-8 px-4"
                   >
-                    {/* Copy slid down (rodapé) and small */}
+                    {/* Texto Empático: Movido para o rodapé absoluto da tela, blindado contra esmagamento */}
                     <motion.div
                       initial={{ opacity: 0 }}
-                      animate={{ y: "160px", scale: 0.85, opacity: 1 }}
+                      animate={{ opacity: 1 }}
                       transition={{ duration: 1.0, ease: "easeInOut" }}
-                      className="text-center px-6 max-w-md z-30 pointer-events-none absolute"
+                      className="absolute bottom-8 left-0 right-0 px-6 text-center z-40 pointer-events-none"
                     >
                       <p className="text-sm font-light tracking-wide text-white/60 leading-relaxed">
                         "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
@@ -1031,19 +1084,6 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         }}
                       />
 
-                      {saveStatus === 'saved' && (
-                        <motion.div
-                          id="sos_infinite_save_confirmation"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="py-3 px-4 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl text-center space-y-1 shadow-md"
-                        >
-                          <span className="text-[10px] text-emerald-400 font-bold flex items-center justify-center gap-1 uppercase tracking-wider leading-none">
-                            <ShieldCheck size={14} /> Registro da sessão atualizado ✓
-                          </span>
-                        </motion.div>
-                      )}
-
                       <div className="flex flex-col gap-3">
                         <button
                           id="sos_infinite_submit_reflection_btn"
@@ -1064,6 +1104,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           )}
                         </button>
 
+                        {/* CARD DE FREQUÊNCIA PREMIUM (Glassmorphism Apple-style) */}
+                        <div className="mt-1 px-5 py-2.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-xs tracking-wide text-white/90 select-none shadow-md">
+                          <span className="font-mono font-medium">{currentInfiniteFrequencyCardText}</span>
+                        </div>
+
                         <button
                           id="sos_infinite_finish_btn"
                           onClick={handleCancel}
@@ -1075,12 +1120,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       </div>
                     </div>
  
-                    {/* A Bolinha Soberana (em Mirror Loop) flutuando z-[99999] e sem bloquear cliques */}
+                    {/* A Bolinha Soberana (em Mirror Loop) flutuando z-[99999] e sem bloquear cliques com aceleração randômica contínua */}
                     <motion.div
                       animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
                       transition={{ 
-                        x: { duration: 17, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: 23, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                        x: { duration: isAccelerated ? 2.5 : 11, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: isAccelerated ? 3 : 13, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                       }}
                       className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                     />
