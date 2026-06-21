@@ -115,18 +115,23 @@ export const ProjectsSection = () => {
                         key={project.id}
                         className="p-5 bg-surface/10 border border-border-white hover:border-primary-green/20 rounded-2xl flex justify-between items-center transition-all duration-200"
                       >
-                        <div className="text-left">
-                          <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">{project.name}</h4>
+                        {/* ÁREA DO TEXTO PROTEGIDA */}
+                        <div className="flex-1 min-w-0 pr-2 text-left">
+                          <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider truncate" title={project.name}>
+                            {project.name}
+                          </h4>
                           <span className="text-[9px] font-mono font-bold uppercase text-text-secondary/40 mt-1 block">
                             Criado em {new Date(project.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+
+                        {/* ÁREA DOS BOTÕES BLINDADA */}
+                        <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => {
                               window.dispatchEvent(new CustomEvent('open-action-center', {
                                 detail: { screen: 'projects', editProject: project }
-                              }));
+                               }));
                             }}
                             className="p-3 bg-white/5 hover:bg-white/10 text-text-secondary hover:text-primary-green rounded-xl transition-all flex items-center justify-center cursor-pointer border border-white/5"
                             title="Editar projeto"
