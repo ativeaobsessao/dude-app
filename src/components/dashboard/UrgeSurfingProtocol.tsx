@@ -380,7 +380,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       const cycle = elapsed % 19;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 7.0 };
-      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 11) + 1}`, duration: 8.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(19 - cycle)}`, duration: 8.0 };
     }
     // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 272s, após os 7s de frase empática)
     if (currentPhase === 1 && timeLeft <= 272 && timeLeft > 240) {
@@ -388,7 +388,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       const cycle = elapsed % 16;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 8) + 1}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(12 - cycle)}`, duration: 4.0 };
       return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
     }
     // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4 (Inicia em 7s, após os 7s de frase empática)
@@ -397,7 +397,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       const cycle = elapsed % 16;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(cycle - 8) + 1}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(12 - cycle)}`, duration: 4.0 };
       return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
     }
     return { phase: 'idle', text: '', countText: '', duration: 4.0 };
@@ -895,14 +895,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
                 {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous Mirror */}
                 <motion.div
+                  style={{ top: 0, left: 0 }}
                   animate={{ 
-                    x: ['calc(-50vw + 12px)', 'calc(50vw - 12px)'], 
-                    y: ['calc(-50vh + 12px)', 'calc(50vh - 12px)'] 
+                    x: ['0px', 'calc(100vw - 24px)'], 
+                    y: ['0px', 'calc(100% - 24px)'] 
                   }}
-                  exit={{ x: '0vw', y: '0vh', scale: 0, opacity: 0, transition: { duration: 1.0, ease: "anticipate" } }}
+                  exit={{ top: '50%', left: '50%', x: '-50%', y: '-50%', scale: 0, opacity: 0, transition: { duration: 1.0, ease: "anticipate" } }}
                   transition={{ 
-                    x: { duration: isAccelerated ? 1.4 : 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                    y: { duration: isAccelerated ? 1.8 : 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                    x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                    y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                   }}
                   className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                 />
@@ -1237,13 +1238,14 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
  
                     {/* A Bolinha Soberana (em EMDR Loop) flutuando z-[99999] com aceleração estocástica contínua */}
                     <motion.div
+                      style={{ top: 0, left: 0 }}
                       animate={{ 
-                        x: ['calc(-50vw + 12px)', 'calc(50vw - 12px)'], 
-                        y: ['calc(-50vh + 12px)', 'calc(50vh - 12px)'] 
+                        x: ['0px', 'calc(100vw - 24px)'], 
+                        y: ['0px', 'calc(100% - 24px)'] 
                       }}
                       transition={{ 
-                        x: { duration: isAccelerated ? 1.4 : 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: isAccelerated ? 1.8 : 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                        x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                       }}
                       className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                     />

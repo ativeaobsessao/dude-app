@@ -1340,8 +1340,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 )}
               </button>
 
-              {/* Autocontrole Strip - MOBILE & DESKTOP */}
-              <div className="w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto animate-fade-in pt-1">
+              {/* Autocontrole Strip - MOBILE ONLY */}
+              <div className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto animate-fade-in pt-1">
                 {/* ZONA DE AÇÃO: SESSÃO PROFUNDA GUIADA */}
                 <div className="w-full flex flex-col gap-3 mt-2">
                   
@@ -1446,6 +1446,26 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
                 {streak === 1 ? 'Dia Invicto' : 'Dias Invictos'}
               </span>
+            </div>
+          </div>
+
+          {/* NOVO CTA GUIADO - VERSÃO DESKTOP (Abaixo das métricas) */}
+          <div className="hidden md:flex flex-col gap-2 w-full mt-6">
+            <button 
+              onClick={handleToComVontade}
+              type="button"
+              className="w-full flex items-center justify-center gap-3 py-4 border border-purple-500/30 rounded-2xl transition-all active:scale-95 cursor-pointer hover:bg-purple-500/5 bg-purple-500/5"
+            >
+              <Hand size={18} className="text-purple-400" />
+              <span className="text-purple-400 font-bold text-xs uppercase tracking-widest">
+                INICIAR SESSÃO PROFUNDA GUIADA
+              </span>
+            </button>
+            <div className="flex items-center justify-center gap-2 opacity-70">
+              <Brain size={14} className="text-purple-400" />
+              <p className="text-white/60 font-light text-[12px] truncate">
+                Acalme sua mente e reduza sua impulsividade
+              </p>
             </div>
           </div>
 
