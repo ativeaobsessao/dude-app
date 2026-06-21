@@ -253,16 +253,16 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     let finishTimeoutId: NodeJS.Timeout;
     
     const scheduleNextAcceleration = () => {
-      // Random time between 15s and 25s (15000ms and 25000ms)
+      // O gatilho aleatório dispara entre 15s e 25s (15000ms and 25000ms)
       const randomDelay = Math.floor(Math.random() * 10001) + 15000;
       
       timeoutId = setTimeout(() => {
         setIsAccelerated(true);
-        // After 5s, turn back to false and reschedule
+        // O Pico Abrupto dura exatos 3.5 segundos (3500ms) antes de frear
         finishTimeoutId = setTimeout(() => {
           setIsAccelerated(false);
           scheduleNextAcceleration();
-        }, 5000);
+        }, 3500);
       }, randomDelay);
     };
 
@@ -1127,8 +1127,9 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     <motion.div
                       animate={{ x: ['-42vw', '42vw'], y: ['-35vh', '35vh'] }}
                       transition={{ 
-                        x: { duration: isAccelerated ? 2.5 : 11, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: isAccelerated ? 3 : 13, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+                        // Velocidade Base: 7s (X) e 9s (Y) | Velocidade do Pico: 1.2s (X) e 1.5s (Y)
+                        x: { duration: isAccelerated ? 1.2 : 7, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+                        y: { duration: isAccelerated ? 1.5 : 9, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
                       }}
                       className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
                     />
