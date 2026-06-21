@@ -864,7 +864,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-3xl space-y-6 md:space-y-8 py-2 md:py-4"
+        className="w-full max-w-3xl space-y-4 md:space-y-6 py-1 md:py-2"
       >
         {/* Bloco 1 — Saudação */}
         <div className="space-y-2 flex flex-col items-center w-full max-w-full overflow-hidden relative">
@@ -874,7 +874,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <span className="text-xs sm:text-sm md:text-[1rem]/[1.5rem] text-text-dim/60 md:text-text-dim font-mono tracking-[0.15em] uppercase font-bold md:font-semibold">
             {fullCustomDate}
           </span>
-          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-normal select-none max-w-full tracking-[-0.05em] mb-6 px-2 overflow-visible">
+          <p className="text-[#6EE7B7] whitespace-nowrap text-[clamp(8.5px,2.8vw,14px)] text-center italic font-medium leading-normal select-none max-w-full tracking-[-0.05em] mb-3 px-2 overflow-visible">
             Se organize para passar mais tempo com as pessoas que importam <span className="inline-block align-middle ml-1">❤️</span>
           </p>
 
@@ -965,23 +965,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </button>
             </motion.div>
           )}
-
-          {/* Seu tom de hoje: [label] chip */}
-          {activeMoodEntry && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="inline-flex items-center gap-2 px-3 py-1 bg-surface-2/65 border border-border-custom rounded-full text-[10px] uppercase font-bold tracking-wider text-text-dim mt-2 hover:bg-surface-2 transition-colors cursor-default select-none relative z-10"
-            >
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10" style={{ backgroundColor: 'var(--mood)' }} />
-              <span>Seu tom de hoje: <span className="text-text font-semibold capitalize">{activeMoodEntry.mood} {MOODS[activeMoodEntry.mood]?.emoji}</span></span>
-            </motion.div>
-          )}
         </div>
 
-        {/* THE AVERAGE RING COLUMNS (WAVE 2C / PART B) */}
-        <div className="flex flex-col items-center justify-center gap-5 w-full py-2">
+        {/* THE AVERAGE RING COLUMNS (WAVE 2C / PART B) - REDUCED VERTICAL GAP FOR ABOVE-THE-FOLD EFFECT */}
+        <div className="flex flex-col items-center justify-center gap-3.5 w-full py-1">
           {/* THE AVERAGE RING */}
           <div className="relative w-36 h-36 flex items-center justify-center rounded-full bg-white/[0.01]">
             <svg className="w-full h-full transform -rotate-90 select-none pointer-events-none" viewBox="0 0 36 36">

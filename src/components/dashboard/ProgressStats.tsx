@@ -1341,6 +1341,10 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Campeão';
 
+  const todayStr = getLocalDateString(new Date());
+  const todayMoods = moodEntries ? moodEntries.filter(m => m.date === todayStr) : [];
+  const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
+
   return (
     <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
       <motion.div
@@ -1383,6 +1387,21 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             ))}
           </div>
         </div>
+
+        {/* Seu tom de hoje: [label] chip */}
+        {activeMoodEntry && (
+          <div className="flex justify-center w-full my-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/[0.03] border border-white/5 rounded-full text-[10px] uppercase font-bold tracking-wider text-text-secondary hover:bg-white/[0.05] transition-colors cursor-default select-none relative z-10"
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10" style={{ backgroundColor: MOODS[activeMoodEntry.mood]?.color || 'var(--mood)' }} />
+              <span className="text-white/60">Seu tom de hoje: <span className="text-text-primary font-bold capitalize">{activeMoodEntry.mood} {MOODS[activeMoodEntry.mood]?.emoji}</span></span>
+            </motion.div>
+          </div>
+        )}
 
         {/* Personalized synthesis phrase */}
         <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-center gap-3">
