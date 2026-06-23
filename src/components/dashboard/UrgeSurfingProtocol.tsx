@@ -515,6 +515,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         }
       } else {
         // First-time save (Insert payload cleanly)
+      // First-time save (Insert payload cleanly)
         const checkinData: any = {
           user_id: profile.id,
           habit_id: habitId || null,
@@ -523,10 +524,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           status: 'resisti',
           intensity: 5,
           trigger_tag: 'SESSÃO PROFUNDA GUIADA',
-          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
-          created_at: timestamp,
+          trigger_note: (`[SESSÃO PROFUNDA GUIADA] ${mergedText || ''}`).trim(),
+          created_at: new Date().toISOString(),
           time_spent: totalSecondsActive
         };
+
+        // Auditoria do payload para diagnóstico
+        console.log("AUDITORIA GHOST QUOTE: Payload enviado ao dataStore:", checkinData);
 
         const created = await dataStore.addAvoidanceCheckin(checkinData);
 
