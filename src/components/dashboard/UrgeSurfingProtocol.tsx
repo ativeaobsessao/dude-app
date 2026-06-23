@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle } from 'lucide-react';
+import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle, Maximize, Minimize } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString } from '../../lib/utils';
 
@@ -116,6 +116,30 @@ class AudioSynthesizer {
     this.killNodes();
   }
 
+  playAlertChime() {
+    if (!this.ctx) return;
+    try {
+      // Cria um "Sino de Atenção" não-bloqueante por cima da frequência atual
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(888, this.ctx.currentTime); // Frequência harmônica aguda e limpa
+      
+      // Envelope de som (Ataque rápido, decay longo de 3 segundos)
+      gain.gain.setValueAtTime(0, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 3.0);
+      
+      osc.connect(gain);
+      gain.connect(this.ctx.destination); // Conecta direto ao destino para não sofrer compressão
+      
+      osc.start();
+      osc.stop(this.ctx.currentTime + 3.0);
+    } catch (e) {
+      console.warn("Chime failed", e);
+    }
+  }
+
   private killNodes() {
     this.currentFreq = 0;
     this.currentOffset = 0;
@@ -148,6 +172,20 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
   const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
+
+  // Fullscreen Native Engine (Desktop)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const toggleFullscreen = () => {
+    const element = document.getElementById('urge_surfing_portal_screen');
+    if (!element) return;
+    if (!document.fullscreenElement) {
+      element.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
 
   // Infinite Extension Mode properties
   const [isInfiniteMode, setIsInfiniteMode] = useState<boolean>(false);
@@ -362,6 +400,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       synth.stop();
     }
   }, [currentPhase, isAudioEnabled, infiniteSeconds]);
+
+  // 1.5 Alerta Sonoro a cada 15 Minutos (900 segundos) na Fase 5
+  useEffect(() => {
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds > 0 && infiniteSeconds % 900 === 0) {
+      if (isAudioEnabled && synthRef.current) {
+        synthRef.current.playAlertChime();
+      }
+    }
+  }, [infiniteSeconds, currentPhase, isInfiniteMode, isAudioEnabled]);
 
   // 2. Hook de Limpeza (A Faxina): Garante o Garbage Collection apenas quando o componente desmonta (fechar tela)
   useEffect(() => {
@@ -892,21 +939,6 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     Deslocando a atenção cognitiva para dissolver a fissura
                   </p>
                 </motion.div>
-
-                {/* A Bolinha Livre: Nasce no centro aos 6.5s e depois viaja em Lissajous Mirror */}
-                <motion.div
-                  style={{ top: 0, left: 0 }}
-                  animate={{ 
-                    x: ['0px', 'calc(100vw - 24px)'], 
-                    y: ['0px', 'calc(100% - 24px)'] 
-                  }}
-                  exit={{ top: '50%', left: '50%', x: '-50%', y: '-50%', scale: 0, opacity: 0, transition: { duration: 1.0, ease: "anticipate" } }}
-                  transition={{ 
-                    x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                    y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
-                  }}
-                  className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
-                />
               </motion.div>
             )}
 
@@ -1174,16 +1206,6 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     exit={{ opacity: 0 }}
                     className="w-full flex flex-col items-center justify-center space-y-8 px-4"
                   >
-                    {/* Texto Empático: Fixado no rodapé absoluto da tela, blindado contra esmagamento */}
-                    <div className="absolute bottom-8 left-0 right-0 px-6 text-center z-40 pointer-events-none">
-                      <p className="text-xs font-light tracking-wide text-white/60 leading-relaxed">
-                        "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
-                      </p>
-                      <span className="text-[8px] text-[#10b981]/50 tracking-[0.2em] font-mono uppercase block mt-0.5">
-                        Espaço de Resgate Perceptual Ativo
-                      </span>
-                    </div>
- 
                     {/* Elegant translucent text input workspace */}
                     <div className="relative w-full max-w-md z-40 space-y-4">
                       <textarea
@@ -1220,9 +1242,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           )}
                         </button>
 
-                        {/* CARD DE FREQUÊNCIA PREMIUM (Glassmorphism Apple-style) */}
-                        <div className="mt-1 px-5 py-2.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-xs tracking-wide text-white/90 select-none shadow-md">
-                          <span className="font-mono font-medium">{currentInfiniteFrequencyCardText}</span>
+                        {/* INDICADOR DE FREQUÊNCIA PREMIUM (Apple Native Text - Sem Caixas) */}
+                        <div className="py-2 flex items-center justify-center select-none opacity-80">
+                          <span className="text-[10px] md:text-xs tracking-[0.15em] text-white/50 font-mono uppercase font-semibold">
+                            {currentInfiniteFrequencyCardText}
+                          </span>
                         </div>
 
                         <button
@@ -1234,21 +1258,17 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           <span>CONCLUIR SESSÃO</span>
                         </button>
                       </div>
+
+                      {/* TEXTO EMPÁTICO (Fluxo Natural - Evita Sobreposição) */}
+                      <div className="pt-3 px-2 text-center pointer-events-none">
+                        <p className="text-[11px] font-light tracking-wide text-white/50 leading-relaxed">
+                          "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                        </p>
+                        <span className="text-[8px] text-[#10b981]/40 tracking-[0.2em] font-mono uppercase block mt-1">
+                          Espaço de Resgate Perceptual Ativo
+                        </span>
+                      </div>
                     </div>
- 
-                    {/* A Bolinha Soberana (em EMDR Loop) flutuando z-[99999] com aceleração estocástica contínua */}
-                    <motion.div
-                      style={{ top: 0, left: 0 }}
-                      animate={{ 
-                        x: ['0px', 'calc(100vw - 24px)'], 
-                        y: ['0px', 'calc(100% - 24px)'] 
-                      }}
-                      transition={{ 
-                        x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-                        y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
-                      }}
-                      className="absolute w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[99999] pointer-events-none"
-                    />
                   </motion.div>
                 )}
               </motion.div>
@@ -1311,7 +1331,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
       <AnimatePresence>
-        {currentPhase === 5 && isInfiniteMode && infiniteSeconds > 0 && (infiniteSeconds % 300 >= 0 && infiniteSeconds % 300 < 15) && (
+        {currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 300 && (infiniteSeconds % 300 < 15) && (
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1338,6 +1358,45 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           <div className="h-4" />
         )}
       </div>
+
+      {/* BOTÃO DE TELA CHEIA (Exclusivo Desktop) */}
+      <div className="absolute bottom-6 right-6 z-[10000] hidden md:flex">
+        <button
+          onClick={toggleFullscreen}
+          className="bg-white/[0.03] border border-white/10 hover:bg-white/10 p-3 rounded-xl text-white/40 hover:text-white transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono font-bold cursor-pointer"
+        >
+          {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+          <span>{isFullscreen ? 'Sair da Tela Cheia' : 'Modo Tela Cheia'}</span>
+        </button>
+      </div>
+
+      {/* A BOLINHA SOBERANA GLOBAL (Z-Index Absoluto sobre Timer e UI) */}
+      <AnimatePresence>
+        {(currentPhase === 2 || currentPhase === 5) && (
+          <motion.div
+            key="sovereign-emdr-ball"
+            style={{ top: 0, left: 0 }}
+            animate={{ 
+              x: ['0px', 'calc(100vw - 24px)'], 
+              y: ['0px', 'calc(100vh - 24px)'] 
+            }}
+            exit={{ 
+              top: '50%', 
+              left: '50%', 
+              x: '-50%', 
+              y: '-50%', 
+              scale: 0, 
+              opacity: 0, 
+              transition: { duration: 1.0, ease: "anticipate" } 
+            }}
+            transition={{ 
+              x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+              y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+            }}
+            className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[999999] pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
 
     </div>,
     document.body
