@@ -248,18 +248,17 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
       });
   }, [avoidanceCheckins]);
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none font-sans overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ duration: 0.22 }}
-          className="bg-[#0b0e11] border border-white/[0.08] w-full max-w-4xl rounded-[32px] p-6 md:p-8 relative overflow-hidden flex flex-col max-h-[90vh] text-left shadow-2xl"
-        >
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none font-sans overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.22 }}
+            className="bg-[#0b0e11] border border-white/[0.08] w-full max-w-4xl rounded-[32px] p-6 md:p-8 relative overflow-hidden flex flex-col max-h-[90vh] text-left shadow-2xl"
+          >
           {/* Subtle Ambient Color Gradients inside Modal (Frameless layout style) */}
           <div className="absolute top-0 right-0 w-44 h-44 bg-red-500/5 blur-3xl rounded-full pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-44 h-44 bg-[#6ee7a8]/5 blur-3xl rounded-full pointer-events-none" />
@@ -692,7 +691,9 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     setEditingNoteId(battle.id);
                                     setEditingNoteText(battle.trigger_note || '');
                                   }}
@@ -703,7 +704,11 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                               )}
                               <button
                                 type="button"
-                                onClick={() => setDeleteTarget(battle.id)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDeleteTarget(battle.id);
+                                }}
                                 disabled={isDeleting === battle.id}
                                 className="p-1.5 rounded text-red-500/80 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                               >
@@ -749,39 +754,42 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
             </div>
 
           </div>
-        </motion.div>
-      </div>
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-[#111111] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-          >
-            <h3 className="text-white font-semibold mb-2">Excluir Registro?</h3>
-            <p className="text-text-secondary text-sm mb-6">
-              Tem certeza que deseja excluir permanentemente este registro de campo? Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded border border-white/10 text-white/70 hover:bg-white/5 transition-colors text-sm font-medium cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={isDeleting === deleteTarget}
-                className="px-4 py-2 rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors text-sm font-medium cursor-pointer flex items-center justify-center"
-              >
-                {isDeleting === deleteTarget ? 'Excluindo...' : 'Confirmar'}
-              </button>
-            </div>
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-app-base/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#0b0e11] border border-white/10 rounded-[24px] p-6 max-w-sm w-full shadow-2xl relative overflow-hidden"
+            >
+              <h3 className="text-white font-semibold text-lg mb-2">Excluir Registro?</h3>
+              <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+                Tem certeza que deseja excluir permanentemente este registro de campo? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex gap-3 justify-end relative z-10">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors text-sm font-medium cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting === deleteTarget}
+                  className="px-4 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors text-sm font-medium cursor-pointer flex items-center justify-center"
+                >
+                  {isDeleting === deleteTarget ? 'Excluindo...' : 'Excluir'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
