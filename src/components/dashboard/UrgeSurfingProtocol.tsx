@@ -517,7 +517,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         // First-time save (Insert payload cleanly)
         const checkinData: any = {
           user_id: profile.id,
-          habit_id: habitId || 'Crise Geral',
+          habit_id: habitId || null,
           checkin_date: getLocalDateString(),
           checkin_period: 'window',
           status: 'resisti',
