@@ -18,15 +18,16 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este registro de campo?')) {
-      console.log('[TrendsAntiVicioModal] Deleting checkin:', id);
-      setIsDeleting(id);
-      await deleteAvoidanceCheckin(id);
-      if (profile) await fetchAvoidanceCheckins(profile.id);
-      setIsDeleting(null);
-    }
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    console.log('[TrendsAntiVicioModal] Deleting checkin:', deleteTarget);
+    setIsDeleting(deleteTarget);
+    await deleteAvoidanceCheckin(deleteTarget);
+    if (profile) await fetchAvoidanceCheckins(profile.id);
+    setIsDeleting(null);
+    setDeleteTarget(null);
   };
 
   const handleEditSave = async (id: string) => {
@@ -679,7 +680,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                                 {isSuccess ? 'Resistiu' : 'Recaiu'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-3">
                               {editingNoteId === battle.id ? (
                                 <button
                                   onClick={() => handleEditSave(battle.id)}
@@ -699,7 +700,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                                 </button>
                               )}
                               <button
-                                onClick={() => handleDelete(battle.id)}
+                                onClick={() => setDeleteTarget(battle.id)}
                                 disabled={isDeleting === battle.id}
                                 className="p-1.5 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                               >
@@ -747,6 +748,37 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
           </div>
         </motion.div>
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-[#111111] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+          >
+            <h3 className="text-white font-semibold mb-2">Excluir Registro?</h3>
+            <p className="text-text-secondary text-sm mb-6">
+              Tem certeza que deseja excluir permanentemente este registro de campo? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded border border-white/10 text-white/70 hover:bg-white/5 transition-colors text-sm font-medium cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting === deleteTarget}
+                className="px-4 py-2 rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors text-sm font-medium cursor-pointer flex items-center justify-center"
+              >
+                {isDeleting === deleteTarget ? 'Excluindo...' : 'Confirmar'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
