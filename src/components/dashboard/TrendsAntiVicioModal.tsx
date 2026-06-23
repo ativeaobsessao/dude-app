@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { 
-  X, Target, Brain, Compass, Clock, Smile, Sparkles, Activity, ShieldCheck, ShieldAlert, Flame, Shield 
+  X, Target, Brain, Compass, Clock, Smile, Sparkles, Activity, ShieldCheck, ShieldAlert, Flame, Shield, Trash2, Pencil, Check
 } from 'lucide-react';
 import { getLocalDateString } from '../../lib/utils';
 
@@ -12,8 +12,29 @@ interface TrendsAntiVicioModalProps {
 }
 
 export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOpen, onClose }) => {
-  const { avoidanceCheckins, moodEntries, habits } = useDataStore();
+  const { avoidanceCheckins, moodEntries, habits, deleteAvoidanceCheckin, updateAvoidanceCheckin, fetchAvoidanceCheckins, profile } = useDataStore();
   const [showAllVices, setShowAllVices] = useState(false);
+  
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este registro de campo?')) {
+      console.log('[TrendsAntiVicioModal] Deleting checkin:', id);
+      setIsDeleting(id);
+      await deleteAvoidanceCheckin(id);
+      if (profile) await fetchAvoidanceCheckins(profile.id);
+      setIsDeleting(null);
+    }
+  };
+
+  const handleEditSave = async (id: string) => {
+    console.log('[TrendsAntiVicioModal] Updating checkin:', id, 'New text:', editingNoteText);
+    await updateAvoidanceCheckin(id, { trigger_note: editingNoteText.trim() });
+    setEditingNoteId(null);
+    if (profile) await fetchAvoidanceCheckins(profile.id);
+  };
 
   // 1. Math Aggregation with Fallbacks & Safety Checks
   const relapses = useMemo(() => {
@@ -639,28 +660,68 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                         </div>
 
                         {/* Ghost quote text frame */}
-                        <div className="space-y-1.5 flex-1 border-b border-white/[0.02] pb-4 last:border-0 last:pb-0 select-text">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-text-secondary/40 font-bold block">
-                              {dateStr}
-                            </span>
-                            <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/60 font-semibold tracking-wide uppercase">
-                              ⚔️ {habitName}
-                            </span>
-                            <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-text-secondary/50 font-semibold">
-                              {battle.trigger_tag || 'Gatilho Geral'}
-                            </span>
-                            <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                            <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${isSuccess ? 'text-[#6ee7a8]/80' : 'text-red-400/80'}`}>
-                              {isSuccess ? 'Resistiu' : 'Recaiu'}
-                            </span>
+                        <div className="space-y-1.5 flex-1 border-b border-white/[0.02] pb-4 last:border-0 last:pb-0 select-text relative">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap flex-1">
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-text-secondary/40 font-bold block">
+                                {dateStr}
+                              </span>
+                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/60 font-semibold tracking-wide uppercase">
+                                ⚔️ {habitName}
+                              </span>
+                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-text-secondary/50 font-semibold">
+                                {battle.trigger_tag || 'Gatilho Geral'}
+                              </span>
+                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
+                              <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${isSuccess ? 'text-[#6ee7a8]/80' : 'text-red-400/80'}`}>
+                                {isSuccess ? 'Resistiu' : 'Recaiu'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {editingNoteId === battle.id ? (
+                                <button
+                                  onClick={() => handleEditSave(battle.id)}
+                                  className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                >
+                                  <Check size={12} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingNoteId(battle.id);
+                                    setEditingNoteText(battle.trigger_note || '');
+                                  }}
+                                  className="p-1.5 rounded text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDelete(battle.id)}
+                                disabled={isDeleting === battle.id}
+                                className="p-1.5 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </div>
                           
-                          <p className="text-xs md:text-sm text-text-secondary/80 font-light italic leading-relaxed pl-2 border-l-2 border-white/5 select-text">
-                            "{battle.trigger_note}"
-                          </p>
+                          {editingNoteId === battle.id ? (
+                            <div className="mt-2 pr-8">
+                              <textarea
+                                value={editingNoteText}
+                                onChange={(e) => setEditingNoteText(e.target.value)}
+                                className="w-full min-h-[60px] bg-white/5 border border-white/10 rounded p-2 text-sm text-white/90 placeholder:text-white/20 focus:outline-none focus:border-white/20 resize-none font-light italic"
+                                autoFocus
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xs md:text-sm text-text-secondary/80 font-light italic leading-relaxed pl-2 border-l-2 border-white/5 select-text mt-1.5">
+                              "{battle.trigger_note}"
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
