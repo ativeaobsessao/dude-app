@@ -680,29 +680,32 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                                 {isSuccess ? 'Resistiu' : 'Recaiu'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 relative z-10">
                               {editingNoteId === battle.id ? (
                                 <button
+                                  type="button"
                                   onClick={() => handleEditSave(battle.id)}
-                                  className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"
+                                  className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors cursor-pointer"
                                 >
                                   <Check size={12} />
                                 </button>
                               ) : (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setEditingNoteId(battle.id);
                                     setEditingNoteText(battle.trigger_note || '');
                                   }}
-                                  className="p-1.5 rounded text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+                                  className="p-1.5 rounded text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors cursor-pointer"
                                 >
                                   <Pencil size={12} />
                                 </button>
                               )}
                               <button
+                                type="button"
                                 onClick={() => setDeleteTarget(battle.id)}
                                 disabled={isDeleting === battle.id}
-                                className="p-1.5 rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                className="p-1.5 rounded text-red-500/80 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                               >
                                 <Trash2 size={12} />
                               </button>
