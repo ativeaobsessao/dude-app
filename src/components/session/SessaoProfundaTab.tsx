@@ -351,7 +351,7 @@ export const SessaoProfundaTab = () => {
           {/* DURATION INPUT */}
           <div className="space-y-2 text-left p-4 rounded-2xl bg-surface/5 border border-white/5">
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-text-secondary/60 flex items-center gap-1.5">
-              <Clock size={12} className="text-green" /> Duração Estimada de Foco
+              <Clock size={12} className="text-green" /> DURAÇÃO DA SESSÃO PROFUNDA
             </label>
             
             <div className="flex items-center gap-4 py-2">
@@ -359,6 +359,9 @@ export const SessaoProfundaTab = () => {
                 <span className="text-[9px] font-bold text-text-secondary/40 uppercase block">Horas</span>
                 <input 
                   type="number"
+                  inputMode="numeric"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                   min="0"
                   max="12"
                   value={hours || ''}
@@ -375,6 +378,9 @@ export const SessaoProfundaTab = () => {
                 <span className="text-[9px] font-bold text-text-secondary/40 uppercase block">Minutos</span>
                 <input 
                   type="number"
+                  inputMode="numeric"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                   min="0"
                   max="59"
                   value={minutes || ''}
