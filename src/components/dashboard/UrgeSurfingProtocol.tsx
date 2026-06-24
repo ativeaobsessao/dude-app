@@ -340,9 +340,9 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
   const infiniteAct = useMemo(() => {
-    if (infiniteSeconds <= 8) return 1;    // 0 a 8: Ato 1 (Abertura)
-    if (infiniteSeconds <= 88) return 2;   // 9 a 88: Transição A (Lótus Box Breathing)
-    if (infiniteSeconds <= 96) return 3;   // 89 a 96: Ato 2 (Transição EMDR)
+    if (infiniteSeconds <= 11) return 1;    // 0 a 11: Ato 1 (Abertura)
+    if (infiniteSeconds <= 91) return 2;   // 12 a 91: Transição A (Lótus Box Breathing)
+    if (infiniteSeconds <= 96) return 3;   // 92 a 96: Ato 2 (Transição EMDR)
     return 4;                              // >= 97: Transição B (Bolinha EMDR)
   }, [infiniteSeconds]);
 
@@ -439,8 +439,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
     }
     // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
-    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 9 && infiniteSeconds <= 88) {
-      const elapsed = infiniteSeconds - 9;
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
+      const elapsed = infiniteSeconds - 12;
       const cycle = elapsed % 16;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
@@ -1078,7 +1078,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* ATO 1: Totalmente minimalista (De 0 a 8 segundos) */}
+                {/* ATO 1: Totalmente minimalista (De 0 a 11 segundos) */}
                 {infiniteAct === 1 && (
                   <motion.div 
                     key="infinite-act-1"
@@ -1094,7 +1094,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* TRANSIÇÃO A: Respirador Lótus (De 9 a 88 segundos) */}
+                {/* TRANSIÇÃO A: Respirador Lótus (De 12 a 91 segundos) */}
                 {infiniteAct === 2 && (
                   <motion.div 
                     key="infinite-act-2"
@@ -1177,7 +1177,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 2: Mensagem Transicional Central (De 89 a 96 segundos) */}
+                {/* ATO 2: Mensagem Transicional Central (De 92 a 96 segundos) */}
                 {infiniteAct === 3 && (
                   <motion.div 
                     key="infinite-act-3"
