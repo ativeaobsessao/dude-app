@@ -1527,7 +1527,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 setIsEditingGoal(true);
               }}
               // 👇 NOVA LINHA APLICADA: bg-transparent, text-gray-400 e hover sutil. Dimensões mantidas.
-              className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-transparent border border-white/10 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all cursor-pointer select-none"
+              className="flex items-center justify-center gap-2 px-4 py-1.5 bg-transparent text-sm font-medium text-gray-500 hover:text-gray-300 transition-colors cursor-pointer select-none"
             >
               <Settings size={14} className="text-gray-400" />
               <span>Ajustar minha meta diária</span>
