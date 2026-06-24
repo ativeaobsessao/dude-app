@@ -1518,20 +1518,19 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             )}
           </div>
 
-         {/* Prominent Adjust Goal Control */}
-        <div className="flex flex-col items-center justify-center pt-3 pb-1 w-full">
-          {!isEditingGoal ? (
-            <button
-              onClick={() => {
-                setTempGoal(targetMinutes);
-                setIsEditingGoal(true);
-              }}
-              // 👇 NOVA LINHA APLICADA: bg-transparent, text-gray-400 e hover sutil. Dimensões mantidas.
-              className="flex items-center justify-center gap-2 px-4 py-1.5 bg-transparent text-sm font-medium text-gray-500 hover:text-gray-300 transition-colors cursor-pointer select-none"
-            >
-              <Settings size={14} className="text-gray-400" />
-              <span>Ajustar minha meta diária</span>
-            </button>
+          {/* Prominent Adjust Goal Control */}
+          <div className="flex flex-col items-center justify-center pt-3 pb-1 w-full">
+            {!isEditingGoal ? (
+              <button
+                onClick={() => {
+                  setTempGoal(targetMinutes);
+                  setIsEditingGoal(true);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 bg-white/5 backdrop-blur-sm text-sm font-medium text-gray-300 transition-all shadow-sm cursor-pointer select-none"
+              >
+                <Settings size={14} className="text-gray-400" />
+                <span>Ajustar minha meta diária</span>
+              </button>
             ) : (
               <div className="flex flex-col items-center gap-2 bg-surface-1 border border-border-custom p-3.5 rounded-2xl shadow-2xl w-full max-w-[280px] animate-fade-in font-sans">
                 <div className="flex items-center justify-between w-full">
@@ -1600,9 +1599,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           <div className="w-full flex justify-center pt-2">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
-              className="w-full max-w-[340px] py-3 sm:py-3.5 border border-green/20 hover:border-green/45 bg-green/5 hover:bg-green/10 text-green font-mono font-bold uppercase tracking-wider text-[11px] rounded-2xl flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full max-w-[340px] py-3 sm:py-3.5 border border-white/10 hover:border-white/25 bg-transparent hover:bg-white/5 text-gray-400 hover:text-gray-200 font-mono font-bold uppercase tracking-wider text-[11px] rounded-full flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
             >
-              <Moon size={13} className="fill-green/15 group-hover:scale-115 transition-transform" />
+              <Moon size={13} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
               <span>Fechar meu dia</span>
             </button>
           </div>
