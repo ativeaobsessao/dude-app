@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
-import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame } from 'lucide-react';
+import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame, CheckCircle2, Settings } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { MOODS } from '../../lib/mood';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
@@ -1475,16 +1475,19 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             onClick={() => onNavigateToLists?.()}
             className="hidden md:flex w-full max-w-xl mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-2 animate-fade-in flex-col items-center justify-center hover:opacity-85 transition-opacity"
           >
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl">📋</span>
-              <span className="text-sm font-semibold text-text-primary leading-normal">
-                Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
-              </span>
+            <div className="flex justify-between items-center w-full max-w-[240px] mb-1.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-500" />
+                <span className="text-sm text-gray-300 font-medium">Tarefas do dia</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-white font-medium">{completedTasksCount} <span className="text-gray-500">/ {totalTasksCount} concluídas</span></span>
+              </div>
             </div>
             {totalTasksCount > 0 && (
-              <div className="w-full max-w-[240px] h-0.5 bg-white/10 rounded-full mt-2.5 overflow-hidden">
+              <div className="w-full max-w-[240px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-green rounded-full transition-all duration-500" 
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
                   style={{ width: `${(completedTasksCount / totalTasksCount) * 100}%` }} 
                 />
               </div>
@@ -1496,16 +1499,19 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             onClick={() => onNavigateToLists?.()}
             className="md:hidden w-full max-w-[340px] sm:max-w-md mx-auto pt-4 pb-2 text-center cursor-pointer select-none mt-1 animate-fade-in flex-col items-center justify-center"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-[15px]">📋</span>
-              <span className="text-[11px] sm:text-xs font-semibold text-text-primary leading-normal">
-                Você fez <span className="text-green font-bold">{completedTasksCount}</span> das <span className="text-text-primary font-bold">{totalTasksCount}</span> tarefas que planejou para hoje
-              </span>
+            <div className="flex justify-between items-center w-full max-w-[240px] mb-1">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-500" />
+                <span className="text-xs text-gray-300 font-medium">Tarefas do dia</span>
+              </div>
+              <div className="text-xs">
+                <span className="text-white font-medium">{completedTasksCount} <span className="text-gray-500">/ {totalTasksCount} concluídas</span></span>
+              </div>
             </div>
             {totalTasksCount > 0 && (
-              <div className="w-full max-w-[180px] h-0.5 bg-white/10 rounded-full mt-2 overflow-hidden">
+              <div className="w-full max-w-[240px] h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-green rounded-full transition-all duration-500" 
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
                   style={{ width: `${(completedTasksCount / totalTasksCount) * 100}%` }} 
                 />
               </div>
@@ -1520,9 +1526,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   setTempGoal(targetMinutes);
                   setIsEditingGoal(true);
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-custom hover:border-green/20 bg-surface-1/50 hover:bg-surface-1/80 text-xs font-semibold text-text-dim hover:text-green transition-all shadow-sm cursor-pointer select-none"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 bg-white/5 backdrop-blur-sm text-sm font-medium text-gray-300 transition-all shadow-sm cursor-pointer select-none"
               >
-                <span>⚙️</span>
+                <Settings size={14} className="text-gray-400" />
                 <span>Ajustar minha meta diária</span>
               </button>
             ) : (
