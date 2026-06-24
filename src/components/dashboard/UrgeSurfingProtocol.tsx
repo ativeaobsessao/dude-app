@@ -327,7 +327,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   // Phase 2: A Viajante / EMDR (03:30 to 01:30; 210 to 90 seconds remaining)
   // Phase 3: Aterramento e Descarga (01:30 to 00:00; 90 to 1 seconds remaining)
   // Phase 4: A Encruzilhada (Decision Checkpoint, reached 00:00)
-  // Phase 5: Modo Infinito (Loop do Leão countdown extension)
+  // Phase 5: Modo Infinito (Countdown extension)
   const currentPhase = useMemo(() => {
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
@@ -340,10 +340,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
   const infiniteAct = useMemo(() => {
-    if (infiniteSeconds <= 6) return 1;    // 0 a 6: Frase da Lótus no centro
-    if (infiniteSeconds <= 86) return 2;   // 7 a 86: Lótus Box Breathing
-    if (infiniteSeconds <= 93) return 3;   // 87 a 93: Frase EMDR no centro
-    return 4;                              // >= 94: Bolinha EMDR + Caixa de texto + Frase no rodapé
+    if (infiniteSeconds <= 8) return 1;    // 0 a 8: Ato 1 (Abertura)
+    if (infiniteSeconds <= 88) return 2;   // 9 a 88: Transição A (Lótus Box Breathing)
+    if (infiniteSeconds <= 96) return 3;   // 89 a 96: Ato 2 (Transição EMDR)
+    return 4;                              // >= 97: Transição B (Bolinha EMDR)
   }, [infiniteSeconds]);
 
   // Invisible counter for Phase 3 Nudge (300 seconds)
@@ -438,9 +438,9 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(12 - cycle)}`, duration: 4.0 };
       return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
     }
-    // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4 (Inicia em 7s, após os 7s de frase empática)
-    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 7 && infiniteSeconds <= 86) {
-      const elapsed = infiniteSeconds - 7;
+    // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 9 && infiniteSeconds <= 88) {
+      const elapsed = infiniteSeconds - 9;
       const cycle = elapsed % 16;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
@@ -515,22 +515,18 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         }
       } else {
         // First-time save (Insert payload cleanly)
-      // First-time save (Insert payload cleanly)
         const checkinData: any = {
           user_id: profile.id,
-          habit_id: null,
+          habit_id: habitId || null,
           checkin_date: getLocalDateString(),
           checkin_period: 'window',
           status: 'resisti',
           intensity: 5,
           trigger_tag: 'SESSÃO PROFUNDA GUIADA',
-          trigger_note: (`[SESSÃO PROFUNDA GUIADA] ${mergedText || ''}`).trim(),
-          created_at: new Date().toISOString(),
+          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
+          created_at: timestamp,
           time_spent: totalSecondsActive
         };
-
-        // Auditoria do payload para diagnóstico
-        console.log("AUDITORIA GHOST QUOTE: Payload enviado ao dataStore:", checkinData);
 
         const created = await dataStore.addAvoidanceCheckin(checkinData);
 
@@ -1055,7 +1051,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     <span>Estou em paz.</span>
                   </button>
 
-                  {/* Preciso de mais tempo (Turns on Infinite Mode Loop do Leão) */}
+                  {/* Preciso de mais tempo (Turns on Infinite Mode) */}
                   <button
                     id="sos_infinite_button"
                     onClick={() => {
@@ -1072,7 +1068,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 5: MODO INFINITO (Loop do Leão countdown extension with three acts) */}
+            {/* FASE 5: MODO INFINITO (Extensão da sessão) */}
             {currentPhase === 5 && (
               <motion.div 
                 key="phase-5"
@@ -1082,7 +1078,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* ATO 1: Totalmente minimalista (De 0 a 7 segundos) */}
+                {/* ATO 1: Totalmente minimalista (De 0 a 8 segundos) */}
                 {infiniteAct === 1 && (
                   <motion.div 
                     key="infinite-act-1"
@@ -1098,7 +1094,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 2: Respirador Lótus (De 8 a 89 segundos) */}
+                {/* TRANSIÇÃO A: Respirador Lótus (De 9 a 88 segundos) */}
                 {infiniteAct === 2 && (
                   <motion.div 
                     key="infinite-act-2"
@@ -1159,7 +1155,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     {/* Loop breathing guidance details */}
                     <div className="text-center space-y-3 px-4 max-w-lg mt-6">
                       <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
-                        Modo Extensão Loop do Leão
+                        Modo Extensão
                       </span>
                       
                       <span className="text-sm font-light tracking-wide text-white block leading-relaxed">
@@ -1181,7 +1177,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 3: Mensagem Transicional Central (De 87 a 93 segundos) */}
+                {/* ATO 2: Mensagem Transicional Central (De 89 a 96 segundos) */}
                 {infiniteAct === 3 && (
                   <motion.div 
                     key="infinite-act-3"
@@ -1201,7 +1197,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* ATO 4: Modo Foco Ativo (A partir de 96 segundos) */}
+                {/* TRANSIÇÃO B: Modo Foco Ativo (A partir de 97 segundos) */}
                 {infiniteAct === 4 && (
                   <motion.div 
                     key="infinite-act-4"
@@ -1376,7 +1372,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       {/* A BOLINHA SOBERANA GLOBAL (Z-Index Absoluto sobre Timer e UI) */}
       <AnimatePresence>
-        {(currentPhase === 2 || currentPhase === 5) && (
+        {(currentPhase === 2 || (currentPhase === 5 && infiniteAct === 4)) && (
           <motion.div
             key="sovereign-emdr-ball"
             style={{ top: 0, left: 0 }}
