@@ -1518,19 +1518,20 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             )}
           </div>
 
-          {/* Prominent Adjust Goal Control */}
-          <div className="flex flex-col items-center justify-center pt-3 pb-1 w-full">
-            {!isEditingGoal ? (
-              <button
-                onClick={() => {
-                  setTempGoal(targetMinutes);
-                  setIsEditingGoal(true);
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 bg-white/5 backdrop-blur-sm text-sm font-medium text-gray-300 transition-all shadow-sm cursor-pointer select-none"
-              >
-                <Settings size={14} className="text-gray-400" />
-                <span>Ajustar minha meta diária</span>
-              </button>
+         {/* Prominent Adjust Goal Control */}
+        <div className="flex flex-col items-center justify-center pt-3 pb-1 w-full">
+          {!isEditingGoal ? (
+            <button
+              onClick={() => {
+                setTempGoal(targetMinutes);
+                setIsEditingGoal(true);
+              }}
+              // 👇 NOVA LINHA APLICADA: bg-transparent, text-gray-400 e hover sutil. Dimensões mantidas.
+              className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-transparent border border-white/10 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all cursor-pointer select-none"
+            >
+              <Settings size={14} className="text-gray-400" />
+              <span>Ajustar minha meta diária</span>
+            </button>
             ) : (
               <div className="flex flex-col items-center gap-2 bg-surface-1 border border-border-custom p-3.5 rounded-2xl shadow-2xl w-full max-w-[280px] animate-fade-in font-sans">
                 <div className="flex items-center justify-between w-full">
