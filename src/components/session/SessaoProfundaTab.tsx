@@ -358,16 +358,16 @@ export const SessaoProfundaTab = () => {
               <div className="flex-1 space-y-1">
                 <span className="text-[9px] font-bold text-text-secondary/40 uppercase block">Horas</span>
                 <input 
-                  type="number"
+                  type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   enterKeyHint="done"
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                  min="0"
-                  max="12"
                   value={hours || ''}
                   onChange={e => {
-                    const hVal = Math.min(12, Math.max(0, parseInt(e.target.value) || 0));
-                    setHours(hVal);
+                    const val = e.target.value.replace(/\D/g, '');
+                    const hVal = Math.min(12, Math.max(0, parseInt(val) || 0));
+                    setHours(val === '' ? 0 : hVal);
                   }}
                   className="w-full h-11 bg-surface/20 border border-white/5 rounded-xl text-center text-sm font-semibold text-text-primary focus:outline-none focus:border-green/30"
                   placeholder="0"
@@ -377,16 +377,16 @@ export const SessaoProfundaTab = () => {
               <div className="flex-1 space-y-1">
                 <span className="text-[9px] font-bold text-text-secondary/40 uppercase block">Minutos</span>
                 <input 
-                  type="number"
+                  type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   enterKeyHint="done"
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                  min="0"
-                  max="59"
                   value={minutes || ''}
                   onChange={e => {
-                    const mVal = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
-                    setMinutes(mVal);
+                    const val = e.target.value.replace(/\D/g, '');
+                    const mVal = Math.min(59, Math.max(0, parseInt(val) || 0));
+                    setMinutes(val === '' ? 0 : mVal);
                   }}
                   className="w-full h-11 bg-surface/20 border border-white/5 rounded-xl text-center text-sm font-semibold text-text-primary focus:outline-none focus:border-green/30"
                   placeholder="45"
