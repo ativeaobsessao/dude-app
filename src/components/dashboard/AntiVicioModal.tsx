@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, ShieldAlert, X, Brain, Sparkles } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
-import { getLocalDateString } from '../../lib/utils';
 import { UrgeSurfingProtocol } from './UrgeSurfingProtocol';
 
 interface AntiVicioModalProps {
@@ -14,27 +12,19 @@ interface AntiVicioModalProps {
   isVictoryMode?: boolean;
 }
 
-const formatTime = (seconds: number) => {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-};
-
-export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, initialHabitId, associatedCheckinId, isVictoryMode = false }: AntiVicioModalProps) => {
+export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedCheckinId, isVictoryMode = false }: AntiVicioModalProps) => {
   const dataStore = useDataStore();
-  const { habits, profile } = dataStore;
+  const { habits } = dataStore;
 
   const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
-
   const [selectedHabitId, setSelectedHabitId] = useState<string>(
     initialHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : '')
   );
-  const [selectedTag, setSelectedTag] = useState<string>('Impulso Súbito');
-  const [note, setNote] = useState<string>('');
-  const [successCheckedIn, setSuccessCheckedIn] = useState<boolean>(false);
-  const [timeLeft, setTimeLeft] = useState<number>(10 * 60);
 
-  // Sync selectedHabitId with initialHabitId when modal opening and initialHabitId changes
+  const [showNote, setShowNote] = useState(false);
+  const [note, setNote] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       if (initialHabitId) {
@@ -43,296 +33,143 @@ export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, 
         setSelectedHabitId(avoidHabits[0].id);
       }
       setNote('');
-      setSuccessCheckedIn(false);
+      setShowNote(false);
     }
   }, [isOpen, initialHabitId]);
 
-  // Countdown logic for Urge Surfing
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    // Reset timer when modal opens
-    setTimeLeft(10 * 60);
-
-    const intervalId = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalId);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [isOpen]);
-
-  const handleSaveGhostQuote = async (status: 'success' | 'relapse', content: string, habitId: string, triggerType: string) => {
-    if (!profile?.id) return null;
-
-    let result = null;
-    const timestamp = new Date().toISOString();
-
-    if (associatedCheckinId) {
-      // Bound Context Mode: UPDATE the silently-created check-in!
-      const updateData = {
-        trigger_tag: triggerType,
-        trigger_note: content.trim() || null,
-        created_at: timestamp
-      };
-      const ok = await dataStore.updateAvoidanceCheckin(associatedCheckinId, updateData);
-      if (ok) {
-        result = true;
-      }
-    } else {
-      // General Mode: CREATE a new check-in database record
-      const checkinData = {
-        user_id: profile.id,
-        habit_id: habitId,
-        checkin_date: getLocalDateString(),
-        checkin_period: 'window',
-        status,
-        trigger_tag: triggerType,
-        trigger_note: content.trim() || null,
-        created_at: timestamp
-      };
-      result = await dataStore.addAvoidanceCheckin(checkinData);
-    }
-
-    // Force a fresh direct fetch from the database to guarantee 100% reactive synchrony in the dashboard
-    await dataStore.fetchAvoidanceCheckins(profile.id);
-
-    return result;
-  };
-
-  const handleCheckin = async (status: 'success' | 'relapse') => {
-    if (!profile?.id) {
-      dataStore.showNotification('Faça login para salvar o check-in.', 'error');
-      return;
-    }
-
-    let habitId = selectedHabitId;
-    if (!habitId) {
-      if (avoidHabits.length > 0) {
-        habitId = avoidHabits[0].id;
-      } else {
-        dataStore.showNotification('Selecione ou cadastre um módulo antivício de controle primeiro.', 'error');
-        return;
-      }
-    }
-
-    const currentHabit = avoidHabits.find(h => h.id === habitId);
-    const habitName = currentHabit ? currentHabit.name : 'Vício';
-
-    // Call the dedicated mutational function to write permanently to the database
-    const result = await handleSaveGhostQuote(status, note, habitId, selectedTag);
-
-    if (result) {
-      if (status === 'success') {
-        dataStore.showNotification(`Excelente! Força de vontade registrada para ${habitName} ✓`, 'success');
-      } else {
-        dataStore.showNotification(`Análise registrada. O importante é o foco no progresso de longo prazo.`, 'success');
-      }
-      setSuccessCheckedIn(true);
-      setTimeout(() => {
-        onClose();
-        setSuccessCheckedIn(false);
-        setNote('');
-      }, 1200);
-    }
-  };
-
-  const triggerTags = [
-    { label: '🔥 Impulso Súbito', value: 'Impulso Súbito' },
-    { label: '🤯 Ansiedade/Estresse', value: 'Ansiedade/Estresse' },
-    { label: '🥱 Tédio/Inatividade', value: 'Tédio/Inatividade' },
-    { label: '💤 Fadiga/Exaustão', value: 'Fadiga/Exaustão' },
-    { label: '🌍 Gatilho Ambiental', value: 'Gatilho Ambiental' }
-  ];
-
   if (!isOpen) return null;
 
+  if (!isVictoryMode) {
+    return (
+      <UrgeSurfingProtocol 
+        key={selectedHabitId || 'general'} 
+        habitId={selectedHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : undefined)} 
+        onClose={onClose} 
+      />
+    );
+  }
+
+  const triggers = [
+    { value: 'stress', label: '🤯 Estresse / Ansiedade' },
+    { value: 'boredom', label: '🥱 Tédio / Inatividade' },
+    { value: 'exhaustion', label: '🪫 Cansaço / Exaustão' },
+    { value: 'sadness', label: '😔 Tristeza / Frustração' },
+    { value: 'environment', label: '📍 Ambiente / Pessoas' },
+    { value: 'random', label: '⚡ Impulso do Nada' },
+  ];
+
+  const handleTriggerClick = async (triggerValue: string) => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    
+    if (associatedCheckinId) {
+      await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
+        trigger_tag: triggerValue,
+        trigger_note: note.trim() || null
+      });
+    }
+    
+    setIsUpdating(false);
+    onClose();
+  };
+
+  const handleNoTrigger = async () => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    
+    if (associatedCheckinId) {
+      await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
+        trigger_tag: 'none',
+        trigger_note: note.trim() || null
+      });
+    }
+    
+    setIsUpdating(false);
+    onClose();
+  };
+
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        {/* Backdrop overlay */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-[#000]/80 backdrop-blur-md"
-        />
+    <div className="fixed inset-0 z-[1000] flex flex-col justify-end font-sans">
+      {/* Backdrop overlay */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 transition-opacity"
+      />
 
-        {/* Modal Sheet */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-lg bg-[#0d0d0d] border border-white/10 rounded-[32px] shadow-2xl p-6 md:p-8 max-h-[85vh] md:max-h-[90vh] overflow-y-auto custom-scrollbar select-none"
-        >
-          {/* Subtle neon glowing accent */}
-          <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full pointer-events-none ${isVictoryMode ? 'bg-emerald-500/5' : 'bg-red-500/5'}`} />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#6ee7a8]/5 blur-3xl rounded-full pointer-events-none" />
-
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
-                isVictoryMode 
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-[#6ee7a8]' 
-                  : 'bg-red-500/10 border-red-500/20 text-red-500'
-              }`}>
-                {isVictoryMode ? <ShieldCheck size={18} /> : <Brain size={18} className="animate-pulse" />}
-              </div>
-              <div className="text-left font-sans">
-                <h3 className="text-xl font-bold text-text-primary tracking-tight">
-                  {isVictoryMode ? 'Vitória Registrada! 🛡️' : 'S.O.S. Autocontrole'}
-                </h3>
-                <span className={`text-[9px] font-mono font-bold uppercase tracking-[0.2em] block ${
-                  isVictoryMode ? 'text-emerald-400/75' : 'text-red-500/75'
-                }`}>
-                  {isVictoryMode ? 'Módulo Reconectado' : 'Blindagem Psicológica'}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+      {/* Bottom Sheet */}
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="relative w-full bg-black/90 backdrop-blur-xl rounded-t-3xl border-t border-white/10 p-6 md:p-8 flex flex-col z-10"
+      >
+        {/* Header */}
+        <div className="flex flex-col space-y-2 mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Vitória Registrada! 🏆
+          </h2>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-gray-400 font-light">
+              A vontade apareceu durante a jornada? Identifique a causa:
+            </p>
+            <button 
+              onClick={() => setShowNote(!showNote)}
+              className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer opacity-80 hover:opacity-100"
+              title="Adicionar anotação"
             >
-              <X size={16} />
+              ✏️
             </button>
           </div>
+        </div>
 
-          {!isVictoryMode ? (
-            // IMPULSE S.O.S MODE: Render the clinical 15-minute countdown rescue protocol
-            <div className="space-y-6">
-              {/* Vício/Habit selector to switch target context for UrgeSurfing dynamically */}
-              {avoidHabits.length > 0 && !initialHabitId && (
-                <div className="space-y-1.5 text-left border-b border-white/[0.04] pb-4">
-                  <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
-                  <select
-                    value={selectedHabitId}
-                    onChange={(e) => setSelectedHabitId(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3 px-4 text-xs md:text-sm text-text-primary focus:outline-none font-bold transition-all focus:border-red-500/30"
-                  >
-                    {avoidHabits.map((habit) => (
-                      <option key={habit.id} value={habit.id} className="bg-[#121212] text-text-primary">
-                        {habit.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <UrgeSurfingProtocol 
-                key={selectedHabitId || 'general'} 
-                habitId={selectedHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : undefined)} 
-                onClose={onClose} 
-              />
-            </div>
-          ) : successCheckedIn ? (
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="py-12 flex flex-col items-center justify-center text-center space-y-4"
+        {/* Optional Note Textarea */}
+        <AnimatePresence>
+          {showNote && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-6"
             >
-              <div className="w-16 h-16 rounded-full bg-[#6ee7a8]/10 flex items-center justify-center text-[#6ee7a8] border border-[#6ee7a8]/20 ring-4 ring-[#6ee7a8]/5">
-                <ShieldCheck size={36} />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-lg font-bold text-text-primary">Vigilância Registrada!</h4>
-                <p className="text-xs text-text-secondary/60">Sua mente agradece pela blindagem e persistência.</p>
-              </div>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Se desejar, descreva o que sentiu..."
+                className="w-full min-h-[80px] bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-white/25 resize-none transition-colors"
+              />
             </motion.div>
-          ) : (
-            <div className="space-y-6 font-sans pb-32 md:pb-2">
-              <p className="text-xs md:text-sm text-text-secondary/80 text-left font-light leading-relaxed">
-                Parabéns por se manter na linha. Quer realizar algum registro de algum gatilho que te levou à tentação?
-              </p>
-
-              {/* Habit / Vice Selector */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">O que está testando sua atenção?</label>
-                {selectedHabitId ? (
-                  <div className="px-3 py-2 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-xs font-mono text-emerald-300">
-                    🛡️ Blindagem ativada contra: <span className="font-sans font-bold text-emerald-200">{avoidHabits.find(h => h.id === selectedHabitId)?.name || 'Módulo Ativo'}</span>
-                  </div>
-                ) : avoidHabits.length > 0 ? (
-                  <select
-                    value={selectedHabitId}
-                    onChange={(e) => setSelectedHabitId(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3.5 px-4 text-sm text-text-primary focus:outline-none font-bold transition-all focus:border-emerald-500/40"
-                  >
-                    {avoidHabits.map((habit) => (
-                      <option key={habit.id} value={habit.id} className="bg-[#121212] text-text-primary">
-                        {habit.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="p-4 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl text-center space-y-2">
-                    <p className="text-xs text-text-secondary/60">Você não tem módulos antivício configurados na aba Centro.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Neuroscience Trigger Tags */}
-              <div className="space-y-3 text-left">
-                <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Qual é o gatilho emocional?</label>
-                <div className="flex flex-wrap gap-2">
-                  {triggerTags.map((tag) => {
-                    const isSelected = selectedTag === tag.value;
-                    let selectedClass = '';
-                    if (isSelected) {
-                      selectedClass = 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]';
-                    } else {
-                      selectedClass = 'bg-white/5 border-white/10 text-text-secondary/70 hover:border-white/20';
-                    }
-                    return (
-                      <button
-                        key={tag.value}
-                        type="button"
-                        onClick={() => setSelectedTag(tag.value)}
-                        className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer ${selectedClass}`}
-                      >
-                        {tag.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Note field */}
-              <div className="space-y-1.5 text-left">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em]">Registro de Autoconsciência</label>
-                  <span className="text-[10px] font-mono text-text-secondary/40">Opcional</span>
-                </div>
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="O que te ajudou a manter a força de vontade neste momento? Registrar ajuda a fixar esses atalhos mentais saudáveis..."
-                  className="w-full min-h-[72px] bg-white/[0.03] border border-white/10 hover:border-white/15 rounded-2xl py-3 px-4 text-xs md:text-sm text-text-primary focus:outline-none transition-all resize-none placeholder-text-secondary/40 focus:border-emerald-500/40"
-                />
-              </div>
-
-              {/* Active check-in actions */}
-              <div className="pt-3 font-sans">
-                <button
-                  type="button"
-                  onClick={() => handleCheckin('success')}
-                  disabled={avoidHabits.length === 0}
-                  className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gradient-to-r from-emerald-400 to-green-500 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition-all text-[#032d18] font-black text-xs md:text-sm uppercase tracking-widest rounded-2xl cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.25)]"
-                >
-                  <ShieldCheck size={18} />
-                  Salvar Registro de Vitória ✓
-                </button>
-              </div>
-            </div>
           )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+        </AnimatePresence>
+
+        {/* Triggers Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {triggers.map((trigger) => (
+            <button
+              key={trigger.value}
+              onClick={() => handleTriggerClick(trigger.value)}
+              disabled={isUpdating}
+              className="flex items-center justify-start px-4 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-sm font-medium text-gray-200 hover:bg-white/10 active:bg-white/15 hover:border-white/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {trigger.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Footer Action */}
+        <div className="flex justify-center pb-2">
+          <button
+            onClick={handleNoTrigger}
+            disabled={isUpdating}
+            className="text-sm font-medium text-gray-500 hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            👉 A vontade não apareceu hoje
+          </button>
+        </div>
+      </motion.div>
+    </div>
   );
 };
