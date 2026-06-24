@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle, Maximize, Minimize } from 'lucide-react';
+import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle, Maximize, Minimize, CheckCircle2 } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString } from '../../lib/utils';
 
@@ -171,6 +171,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
   const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
 
   // Fullscreen Native Engine (Desktop)
@@ -507,7 +508,16 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           lastSavedTextRef.current = mergedText;
           await dataStore.fetchAvoidanceCheckins(profile.id);
           setSaveStatus('saved');
-          setReflectionSaved(true);
+          if (isInfiniteMode) {
+            setInfiniteNote('');
+            setShowSaveSuccess(true);
+            setTimeout(() => {
+              setShowSaveSuccess(false);
+              setSaveStatus('idle'); // Reset the button to the default state for the next save
+            }, 3500);
+          } else {
+            setReflectionSaved(true);
+          }
           dataStore.showNotification('Reflexão atualizada com sucesso ✓', 'success');
         } else {
           setSaveStatus('error');
@@ -535,14 +545,24 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           lastSavedTextRef.current = mergedText;
           await dataStore.fetchAvoidanceCheckins(profile.id);
           setSaveStatus('saved');
-          setReflectionSaved(true);
-          dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
-
-          // Descongelar Fase 3: Se o usuário estiver congelado no último segundo da Fase 3, avança automaticamente
-          if (timeLeft === 1) {
-            setTimeLeft(0);
-            setIsEncruzilhada(true);
+          
+          if (isInfiniteMode) {
+            setInfiniteNote('');
+            setShowSaveSuccess(true);
+            setTimeout(() => {
+              setShowSaveSuccess(false);
+              setSaveStatus('idle'); // Reset the button to the default state for the next save
+            }, 3500);
+          } else {
+            setReflectionSaved(true);
+            // Descongelar Fase 3: Se o usuário estiver congelado no último segundo da Fase 3, avança automaticamente
+            if (timeLeft === 1) {
+              setTimeLeft(0);
+              setIsEncruzilhada(true);
+            }
           }
+          
+          dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
         } else {
           setSaveStatus('error');
           dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
@@ -1395,6 +1415,39 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
             }}
             className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[999999] pointer-events-none"
           />
+        )}
+      </AnimatePresence>
+
+      {/* POP-UP DE SUCESSO (Modo Infinito) */}
+      <AnimatePresence>
+        {showSaveSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-gray-900 rounded-2xl border border-emerald-500/30 p-8 max-w-sm w-full shadow-2xl flex flex-col items-center justify-center text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
+                <CheckCircle2 size={32} className="text-emerald-500" />
+              </div>
+              <h3 className="text-white text-lg font-semibold">Reflexão guardada com segurança</h3>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">
+                Seu registro de campo foi armazenado. Você pode continuar nesta sessão o tempo que precisar.
+              </p>
+              <button
+                onClick={() => setShowSaveSuccess(false)}
+                className="mt-4 px-8 py-2.5 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-full transition-colors border border-white/10"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
