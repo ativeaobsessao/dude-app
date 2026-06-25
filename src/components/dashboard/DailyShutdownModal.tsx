@@ -4,7 +4,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString, getCurrentPeriodAndDate, formatTimeRange } from '../../lib/utils';
 import { MOOD_LIST } from '../../lib/mood';
-import { X, Moon, Check, Calendar, ChevronDown, ChevronUp, Folder } from 'lucide-react';
+import { X, Moon, Check, Calendar, ChevronDown, ChevronUp, Folder, Zap, Waves, Scale, BatteryLow, Shield, Sword, Target } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DailyShutdown } from '../../types';
 
@@ -189,6 +189,47 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     }
   };
 
+  const energyByPeriod = useMemo(() => {
+    const todayMoods = moodEntries.filter(m => m.date === targetDate);
+    const getEnergyForPeriod = (p: string) => {
+      const entry = todayMoods.find(m => m.period === p);
+      return entry?.energy || null;
+    };
+    return {
+      manha: getEnergyForPeriod('manha'),
+      tarde: getEnergyForPeriod('tarde'),
+      noite: getEnergyForPeriod('noite'),
+    };
+  }, [moodEntries, targetDate]);
+
+  const getEnergyIcon = (energy: string | null) => {
+    if (!energy) return <span className="w-4 h-px bg-white/20" />;
+    switch (energy) {
+      case 'pleno':
+      case 'energizado': return <Zap size={18} strokeWidth={1.5} className="text-zinc-300" />;
+      case 'inquieto': return <Waves size={18} strokeWidth={1.5} className="text-zinc-300" />;
+      case 'equilibrado':
+      case 'normal': return <Scale size={18} strokeWidth={1.5} className="text-zinc-300" />;
+      case 'fadigado':
+      case 'cansado': return <BatteryLow size={18} strokeWidth={1.5} className="text-zinc-300" />;
+      default: return <Zap size={18} strokeWidth={1.5} className="text-zinc-300" />;
+    }
+  };
+  
+  const getEnergyLabel = (energy: string | null) => {
+    if (!energy) return 'Não medido';
+    switch (energy) {
+      case 'pleno': return 'Pleno';
+      case 'inquieto': return 'Inquieto';
+      case 'equilibrado': return 'Equilibrado';
+      case 'fadigado': return 'Fadigado';
+      case 'cansado': return 'Cansado';
+      case 'normal': return 'Normal';
+      case 'energizado': return 'Energizado';
+      default: return energy.charAt(0).toUpperCase() + energy.slice(1);
+    }
+  };
+
   const handleDismiss = async () => {
     localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
     if (user) {
@@ -224,9 +265,16 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     return `${h}h ${m}m`;
   };
 
-  const handleConfirmShutdown = async () => {
-    setShowConfirmPopup(false);
-    await handleCompleteShutdown();
+  const handleStartDecompression = async () => {
+    // Trancar os dados
+    localStorage.setItem(`dude-shutdown-completed-${targetDate}`, 'true');
+    if (user) {
+      await addDailyShutdown(user.id, targetDate, 'completed');
+    }
+    // Fechar este modal
+    onClose();
+    // Emitir evento para abrir a descompressão
+    window.dispatchEvent(new CustomEvent('open-decompression'));
   };
 
   if (!isOpen) return null;
@@ -235,262 +283,135 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     <AnimatePresence>
       <div 
         onClick={handleDismiss}
-        className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-app-base/80 backdrop-blur-md cursor-pointer"
+        className="fixed inset-0 z-[600] flex items-end justify-center bg-black/60 backdrop-blur-md cursor-pointer"
       >
         <motion.div
           onClick={(e) => e.stopPropagation()}
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="relative w-full max-w-xl overflow-y-auto max-h-[92vh] style-scrollbar rounded-3xl bg-surface-2/95 border border-border-custom p-6 sm:p-10 shadow-2xl text-center cursor-default"
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="w-full h-[90vh] sm:max-w-xl bg-zinc-950 border-t border-zinc-800 rounded-t-[32px] p-6 sm:p-8 flex flex-col cursor-default overflow-hidden relative shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
         >
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full blur-[80px] bg-green/10 pointer-events-none" />
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6 shrink-0">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-zinc-100 tracking-tight">Resumo de Hoje</h2>
+            <button
+              onClick={handleDismiss}
+              className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer rounded-full hover:bg-zinc-900"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          {/* Close button top right */}
-          <button
-            onClick={handleDismiss}
-            className="absolute top-4 right-4 p-2 text-text-dim/40 hover:text-text hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-            title="Fechar sem revisar"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-24">
+            
+            {/* Bloco 1: Métricas de Foco */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Tempo Total Presente</span>
+              <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-light text-zinc-100 tracking-tight">{formatDuration(totalMinutes)}</span>
+                <span className="text-sm font-medium text-zinc-500">{todaySessions.length} sessões</span>
+              </div>
+            </div>
 
-          <AnimatePresence mode="wait">
-            {isCompleted ? (
-              <motion.div 
-                key="completed-state"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-10 gap-4"
-              >
-                <div className="w-16 h-16 rounded-full bg-green/10 flex items-center justify-center text-green shadow-[0_0_30px_rgba(110,231,168,0.25)] animate-pulse">
-                  <Check size={32} strokeWidth={3} />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-text tracking-tight mt-2">
-                  Dia fechado com sucesso!
-                </h3>
-                <p className="text-sm text-green font-medium tracking-wide">
-                  Bom descanso, {firstName}. Amanhã é uma nova página. 💤
-                </p>
-              </motion.div>
-            ) : (
-              <motion.div 
-                key="interactive-state"
-                className="flex flex-col items-center gap-5 sm:gap-6 relative z-10 text-left w-full"
-              >
-                {/* Header Icon */}
-                <div className="mx-auto w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-green/10 flex items-center justify-center text-green shadow-[0_0_20px_rgba(110,231,168,0.15)]">
-                  <Moon size={18} className="fill-green/10 sm:scale-110" />
-                </div>
-
-                {/* Subtitle / Title */}
-                <div className="space-y-1.5 text-center w-full">
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-green block">
-                    FECHAMENTO DE {formattedDayAndMonth}
-                  </span>
-                  <h3 className="text-lg sm:text-2xl font-mono font-black text-text tracking-tight uppercase animate-fade-in">
-                    {isCatchUp ? `Você está fechando o dia ${formattedDayAndMonth}` : `Hora de fechar o dia, ${firstName}.`}
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-md mx-auto">
-                    {isCatchUp 
-                      ? `Resumo e ritual referente ao dia ${formattedDayAndMonth}.`
-                      : "Tranque as tarefas de hoje, sinta orgulho do progresso e durma limpo."}
-                  </p>
-                </div>
-
-                {/* TODAY STATS SUMMARY ROW */}
-                <div className="grid grid-cols-3 gap-2 w-full p-3 rounded-2xl bg-surface-1/40 border border-border-custom/50 text-center">
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-text-dim/40">
-                      {isCatchUp ? 'Foco Ontem' : 'Foco Hoje'}
-                    </span>
-                    <span className="text-xs sm:text-sm font-mono font-bold text-text block">
-                      {formatDuration(totalMinutes)}
-                    </span>
-                  </div>
-                  <div className="space-y-0.5 border-l border-r border-white/5">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-text-dim/40">Sessões SP</span>
-                    <span className="text-xs sm:text-sm font-mono font-bold text-text block">
-                      {todaySessions.length}
-                    </span>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-text-dim/40">Meta Batida</span>
-                    <span className="text-xs sm:text-sm font-mono font-bold text-green block">
-                      {percent >= 100 ? '100% ✓' : `${percent}%`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Optional Mood Display */}
-                {todayMoodObj && (
-                  <div className="mx-auto flex items-center gap-1.5 px-3 py-1 bg-white/[0.02] border border-white/5 rounded-full text-[10px] text-text-dim">
-                    <span>Sintonia do dia:</span>
-                    <span className="text-xs">{todayMoodObj.emoji}</span>
-                    <span className="font-bold text-text uppercase tracking-wider text-[9px]">{todayMoodObj.label}</span>
-                  </div>
-                )}
-
-                {/* DOSSIÊ DIÁRIO - SNAPSHOT DIAGNOSTIC */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-b border-white/[0.05] py-4 text-left">
-                  {/* Bloco Biométrico */}
-                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 space-y-2">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-text-dim/50 block">STATUS BIOMÉTRICO</span>
-                    {todayMoodEntry ? (
-                      <div className="text-xs space-y-1">
-                        <p className="font-semibold text-text">
-                          ⚡ Energia: <span className="text-green">{formatEnergy(todayMoodEntry.energy)}</span>
-                        </p>
-                        <p className="font-semibold text-text">
-                          {todayMoodObj?.emoji || '🧠'} Humor: <span className="text-green">{todayMoodObj?.label || 'Neutro'}</span>
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-text-dim/40 italic">Sem registros biométricos hoje.</p>
-                    )}
-                  </div>
-
-                  {/* Bloco de Autocontrole */}
-                  <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 space-y-2">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-text-dim/50 block">AUTOCONTROLE ANTI-VÍCIO</span>
-                    <div className="text-xs space-y-1">
-                      <p className="font-semibold text-text">
-                        🛡️ Batalhas: <span className="text-green">{totalBattlesToday} programadas</span>
-                      </p>
-                      <p className="font-semibold text-text">
-                        🔥 Resultado: <span className="text-green">{avoidanceStats.wins} Vitórias</span> | <span className="text-red-400">{avoidanceStats.relapses} Recaídas</span>
-                      </p>
+            {/* Grade 2 colunas: Autocontrole e Biológicas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Bloco 2: Níveis de Energia */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Níveis de Energia</span>
+                <div className="flex justify-between items-center h-full gap-2">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
+                      {getEnergyIcon(energyByPeriod.manha)}
                     </div>
+                    <span className="text-[10px] font-medium text-zinc-400">Manhã</span>
+                  </div>
+                  <div className="w-full h-px bg-zinc-800"></div>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
+                      {getEnergyIcon(energyByPeriod.tarde)}
+                    </div>
+                    <span className="text-[10px] font-medium text-zinc-400">Tarde</span>
+                  </div>
+                  <div className="w-full h-px bg-zinc-800"></div>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
+                      {getEnergyIcon(energyByPeriod.noite)}
+                    </div>
+                    <span className="text-[10px] font-medium text-zinc-400">Noite</span>
                   </div>
                 </div>
+              </div>
 
-                {/* TIME BY PROJECT SUMMARY (THE NEW MAIN summary) */}
-                <div className="w-full space-y-2.5 text-left">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim/50 block">
-                    Tempo por Projeto
-                  </span>
-                  
-                  {timeByProject.length > 0 ? (
-                    <div className="space-y-2">
-                      {timeByProject.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 hover:bg-white/[0.03] transition-all">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Folder size={12} className="text-green shrink-0" />
-                            <span className="text-xs font-semibold text-text truncate">{item.name}</span>
-                          </div>
-                          <span className="text-xs font-mono font-black text-text-dim shrink-0">{formatDuration(item.minutes)}</span>
-                        </div>
-                      ))}
+              {/* Bloco 3: Autocontrole */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Autocontrole</span>
+                <div className="flex-1 flex flex-col justify-center gap-3">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Target size={14} className="text-zinc-500" />
+                      <span className="text-xs font-medium text-zinc-300">Programadas</span>
                     </div>
-                  ) : (
-                    <div className="py-6 text-center bg-white/[0.01] border border-white/[0.04] rounded-2xl">
-                      <p className="text-xs font-medium text-text-dim/50 font-sans">Nenhuma sessão associada a projetos hoje.</p>
+                    <span className="text-sm font-semibold text-zinc-100">{totalBattlesToday}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Shield size={14} className="text-emerald-500" />
+                      <span className="text-xs font-medium text-zinc-300">Vitórias</span>
                     </div>
-                  )}
-                </div>
-
-                {/* VER TODAS SESSÕES PROFUNDAS REGISTRADAS (ON-DEMAND DETAILED LIST) */}
-                <div className="w-full">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllSessions(!showAllSessions)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.06] hover:border-white/10 bg-white/[0.01] hover:bg-white/[0.03] text-xs font-bold text-text-dim transition-all select-none cursor-pointer"
-                  >
-                    <span className="font-mono uppercase tracking-wider text-left block">Ver todas sessões profundas registradas</span>
-                    {showAllSessions ? <ChevronUp size={14} className="text-text-dim shrink-0 ml-2" /> : <ChevronDown size={14} className="text-text-dim shrink-0 ml-2" />}
-                  </button>
-                  
-                  {showAllSessions && (
-                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto style-scrollbar pr-1 text-left">
-                      {todaySessions.length > 0 ? (
-                        todaySessions.map((s) => {
-                          const rangeStr = s.started_at ? formatTimeRange(s.started_at, s.completed_at, s.actual_duration_minutes || s.duration_minutes) : '';
-                          return (
-                            <div key={s.id} className="flex justify-between items-center p-3 rounded-xl bg-white/[0.01] border border-white/[0.03] animate-fade-in hover:bg-white/[0.02] transition-colors">
-                              <div className="flex flex-col min-w-0 pr-2">
-                                <span className="text-xs font-bold text-text truncate">🎯 {s.activity_name || 'Sessão de Foco'}</span>
-                                {rangeStr && <span className="text-[10px] text-text-dim/50 font-mono mt-0.5">{rangeStr}</span>}
-                              </div>
-                              <span className="text-xs font-mono font-bold text-text-dim shrink-0">
-                                {formatDuration(s.actual_duration_minutes || s.duration_minutes)}
-                              </span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-xs text-text-dim/50 italic text-center py-2 font-sans">Nenhuma sessão registrada.</p>
-                      )}
+                    <span className="text-sm font-semibold text-emerald-400">{avoidanceStats.wins}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <Sword size={14} className="text-rose-500" />
+                      <span className="text-xs font-medium text-zinc-300">Recaídas</span>
                     </div>
-                  )}
+                    <span className="text-sm font-semibold text-rose-400">{avoidanceStats.relapses}</span>
+                  </div>
                 </div>
+              </div>
 
-                {/* PRIMARY ACTION BUTTONS - PROMINENT ENCERRAR AND VOLTAR */}
-                <div className="flex flex-col gap-3 w-full mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPopup(true)}
-                    className="w-full py-4 bg-green hover:bg-green/95 active:scale-[0.99] hover:brightness-110 text-surface-2 rounded-2xl font-mono font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 select-none cursor-pointer shadow-lg shadow-green/5"
-                  >
-                    <span>🔒</span>
-                    <span>Encerrar dia</span>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="w-full py-4 border border-white/10 hover:bg-white/[0.03] active:scale-[0.99] text-text-dim hover:text-text rounded-2xl font-mono font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 select-none cursor-pointer"
-                  >
-                    <span>←</span>
-                    <span>Voltar ao painel</span>
-                  </button>
+            </div>
+
+            {/* Bloco 4: Tempo por Projeto */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Tempo por Projeto</span>
+              {timeByProject.length > 0 ? (
+                <div className="flex flex-col">
+                  {timeByProject.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-end py-2 border-b border-zinc-800/50 last:border-0 group">
+                      <span className="text-sm text-zinc-300 font-medium truncate pr-4">{item.name}</span>
+                      <div className="flex-1 border-b border-dotted border-zinc-700/50 mb-1.5 mx-2 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                      <span className="text-sm text-zinc-400 font-mono shrink-0">{formatDuration(item.minutes)}</span>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-sm text-zinc-500 font-medium py-2">Nenhum projeto registrado hoje.</p>
+              )}
+            </div>
 
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </div>
+
+          {/* Fixed Bottom Action */}
+          <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12">
+            <button
+              type="button"
+              onClick={handleStartDecompression}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
+            >
+              <Moon size={18} strokeWidth={2.5} />
+              Iniciar Descompressão
+            </button>
+            <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
+              Trancar dados e desligar a mente
+            </p>
+          </div>
+
         </motion.div>
       </div>
-
-      {/* CONFIRMATION POPUP FOR THE RITUAL */}
-      {showConfirmPopup && (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-app-base/95 backdrop-blur-md">
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-2 border border-border-custom p-6 sm:p-8 shadow-2xl text-center">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-[60px] bg-green/10 pointer-events-none" />
-            
-            {/* Icon */}
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-green/10 flex items-center justify-center text-green mb-4">
-              <Moon size={20} className="fill-green/10" />
-            </div>
-            
-            <h4 className="text-[1rem]/[1.5rem] font-mono font-bold text-text uppercase tracking-wider mb-2">
-              Encerrar Ritual do Dia?
-            </h4>
-            
-            <p className="text-xs sm:text-sm text-text-dim font-sans leading-relaxed text-left mb-6 bg-white/[0.02] p-4 rounded-2xl border border-white/5">
-              Fechar seu dia marca o encerramento da sua jornada de hoje — você vê seu resumo e descansa tranquilo. Se voltar a focar ainda hoje, suas sessões continuam contando normalmente. Amanhã, seu dia recomeça do zero.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <button
-                type="button"
-                onClick={handleConfirmShutdown}
-                className="flex-1 py-3.5 bg-green hover:brightness-110 text-surface-2 rounded-xl font-mono font-bold uppercase tracking-wider text-xs transition-all cursor-pointer"
-              >
-                Confirmar
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowConfirmPopup(false)}
-                className="flex-1 py-3.5 border border-white/10 hover:bg-white/5 text-text-dim hover:text-text rounded-xl font-mono font-bold uppercase tracking-wider text-xs transition-all cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </AnimatePresence>
   );
 };
