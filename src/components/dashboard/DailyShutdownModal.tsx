@@ -31,16 +31,10 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     addDailyShutdown
   } = useDataStore();
 
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [showAllSessions, setShowAllSessions] = useState(false);
-  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [taskInputs, setTaskInputs] = useState<{ [sessionId: string]: string }>({});
 
   useEffect(() => {
     if (isOpen) {
-      setIsCompleted(false);
-      setShowAllSessions(false);
-      setShowConfirmPopup(false);
     }
   }, [isOpen]);
 
@@ -236,17 +230,6 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
       await addDailyShutdown(user.id, targetDate, 'dismissed');
     }
     onClose();
-  };
-
-  const handleCompleteShutdown = async () => {
-    localStorage.setItem(`dude-shutdown-completed-${targetDate}`, 'true');
-    setIsCompleted(true);
-    if (user) {
-      await addDailyShutdown(user.id, targetDate, 'completed');
-    }
-    setTimeout(() => {
-      onClose();
-    }, 1800);
   };
 
   const handleAddTaskInline = async (sessionId: string) => {
