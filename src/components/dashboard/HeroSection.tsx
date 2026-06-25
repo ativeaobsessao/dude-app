@@ -11,6 +11,7 @@ import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
 import { useAgendaAlertEngine } from '../../hooks/useAgendaAlertEngine';
 import { AntiVicioModal } from './AntiVicioModal';
+import { InboxCaptures } from './InboxCaptures';
 
 interface HeroSectionProps {
   tasks?: any[];
@@ -905,6 +906,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </button>
             </div>
           )}
+
+          <InboxCaptures />
 
           {!isInstalled && isInitialized && !isDismissedPeriod && (
             <div className="w-full flex justify-center pt-2 animate-fade-in relative z-20">
