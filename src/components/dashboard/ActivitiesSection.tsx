@@ -130,7 +130,9 @@ export const ActivitiesSection = () => {
                               </span>
                             )}
                             <span className="text-[8px] font-mono font-bold uppercase text-text-secondary/30 self-center">
-                              Criada em {new Date(activity.created_at).toLocaleDateString('pt-BR')}
+                              {activity.scheduled_date 
+                                ? `AGENDADO PARA - ${new Date(activity.scheduled_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`
+                                : 'TAREFA PENDENTE'}
                             </span>
                           </div>
                         </div>
