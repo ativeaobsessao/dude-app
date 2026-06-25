@@ -77,7 +77,9 @@ interface DataState {
   deleteDailyTask: (id: string) => Promise<boolean>;
   syncDailyTasksRollover: (userId: string) => Promise<void>;
   
-  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null, energy?: 'cansado' | 'normal' | 'energizado' | null) => Promise<MoodEntry | null>;
+  currentEnergyState: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null;
+  setCurrentEnergyState: (state: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null) => void;
+  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null, energy?: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null) => Promise<MoodEntry | null>;
   addDailyShutdown: (userId: string, date: string, status: 'completed' | 'dismissed') => Promise<DailyShutdown | null>;
   
   fetchLinks: (userId: string) => Promise<void>;
@@ -181,6 +183,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   loading: false,
   initialFetchDone: false,
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
+  currentEnergyState: null,
+  setCurrentEnergyState: (state) => set({ currentEnergyState: state }),
   moodEntries: (() => {
     try {
       const cached = localStorage.getItem('dude-mood-entries');
