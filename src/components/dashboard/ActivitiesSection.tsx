@@ -4,7 +4,7 @@ import { Layers, ChevronDown, Plus, Trash2, Check, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
-import { getLocalDateString } from '../../lib/utils';
+import { getLocalDateString, cleanActivityName } from '../../lib/utils';
 
 export const ActivitiesSection = () => {
   const dataStore = useDataStore();
@@ -119,7 +119,7 @@ export const ActivitiesSection = () => {
                         className="p-5 bg-surface/10 border border-border-white hover:border-primary-green/20 rounded-2xl flex justify-between items-center transition-all duration-200"
                       >
                         <div className="text-left space-y-1">
-                          <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">{activity.name.split(/#HABIT:/i)[0].trim()}</h4>
+                          <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider">{cleanActivityName(activity.name)}</h4>
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
                             {linkedProjectName && (
                               <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium uppercase tracking-wider">
