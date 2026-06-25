@@ -53,6 +53,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   };
 
   const { alertSchedule, dismissSchedule } = useAgendaAlertEngine();
+  const [dismissedEnergyCard, setDismissedEnergyCard] = useState(false);
+
+  // When energy state changes, reset dismiss state
+  useEffect(() => {
+    setDismissedEnergyCard(false);
+  }, [dataStore.currentEnergyState]);
 
   // TRANSIENT ALERT BANNER LIFECYCLE
   // Trigger alarm sounds for overdue or imminent focal blocks on mount/foreground
@@ -1109,6 +1115,34 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             "{smartPhrase}"
           </p>
         </div>
+
+        {/* Energy Tracker Card */}
+        <AnimatePresence>
+          {dataStore.currentEnergyState && !dismissedEnergyCard && (
+            <motion.div
+              layout={false}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98, y: -10 }}
+              className="w-full max-w-[340px] sm:max-w-md mx-auto p-4 sm:p-5 rounded-2xl border text-center select-none relative overflow-hidden flex flex-col gap-2 font-sans transition-all z-20 bg-surface-1/80 border-border-custom/50 shadow-sm"
+            >
+              <button 
+                onClick={() => setDismissedEnergyCard(true)}
+                className="absolute top-3 right-3 text-text-secondary/40 hover:text-text-primary transition-all p-1 cursor-pointer z-10"
+                title="Dispensar"
+              >
+                <X size={14} />
+              </button>
+              
+              <p className="text-xs sm:text-sm text-text font-medium leading-relaxed pr-6 text-left">
+                {dataStore.currentEnergyState === 'pleno' && "⚡ Você está no seu pico cognitivo. Condição ideal para iniciar uma Sessão Profunda agora."}
+                {dataStore.currentEnergyState === 'inquieto' && "🌪️ Energia alta, mas dispersa. Recomendação: faça tarefas rápidas ou um Brain Dump para canalizar a mente."}
+                {dataStore.currentEnergyState === 'equilibrado' && "⚖️ Ritmo de cruzeiro. Excelente momento para focar em tarefas operacionais e rotinas."}
+                {dataStore.currentEnergyState === 'fadigado' && "🪫 Bateria baixa. Respeite seu limite cognitivo, feche o dia ou faça pausas longas."}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* TRANSIENT SCHEDULE BANNER (below the ring) */}
         <AnimatePresence mode="wait">
