@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { SessionTasksChecklist } from './SessionTasksChecklist';
+import { cleanActivityName } from '../../lib/utils';
 
 interface SessionEditPanelProps {
   initialProjectId: string | null;
@@ -52,9 +53,9 @@ export const SessionEditPanel: React.FC<SessionEditPanelProps> = ({
   ];
 
   // Render activity options (using names as value & label, plus manual override fallback)
-  const activityOptions = filteredActivities.map((a) => ({ value: a.name, label: a.name }));
+  const activityOptions = filteredActivities.map((a) => ({ value: a.name, label: cleanActivityName(a.name) }));
   if (activityName && !activityOptions.some((opt) => opt.value === activityName)) {
-    activityOptions.unshift({ value: activityName, label: activityName });
+    activityOptions.unshift({ value: activityName, label: cleanActivityName(activityName) });
   }
   if (activityOptions.length === 0 || !activityOptions.some(opt => opt.value === '')) {
     activityOptions.unshift({ value: '', label: 'Selecionar Atividade' });
