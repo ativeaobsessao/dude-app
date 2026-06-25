@@ -1,0 +1,134 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useDataStore } from '../../store/useDataStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
+import { InboxCapture } from '../../types';
+
+export const InboxCaptures = () => {
+  const { inboxCaptures, deleteInboxCapture } = useDataStore();
+  const { user } = useAuthStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  if (!user || inboxCaptures.length === 0) return null;
+
+  const handleConvertTask = (capture: InboxCapture) => {
+    setIsOpen(false);
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'listas' } }));
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-task-from-capture', {
+        detail: { text: capture.content, captureId: capture.id }
+      }));
+    }, 150);
+  };
+
+  const handleSaveNote = (capture: InboxCapture) => {
+    setIsOpen(false);
+    window.dispatchEvent(new CustomEvent('open-action-center', {
+      detail: { screen: 'notes', noteText: capture.content, captureId: capture.id }
+    }));
+  };
+
+  const handleDiscard = async (capture: InboxCapture) => {
+    if (window.confirm('Deseja excluir permanentemente esta captura?')) {
+      setDeletingId(capture.id);
+      await deleteInboxCapture(capture.id);
+      setDeletingId(null);
+      if (inboxCaptures.length <= 1) {
+        setIsOpen(false);
+      }
+    }
+  };
+
+  return (
+    <>
+      <motion.button
+        onClick={() => setIsOpen(true)}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full mt-4 flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition-colors shadow-lg shadow-black/20"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+            <Inbox size={18} className="text-indigo-400" />
+          </div>
+          <div className="text-left">
+            <h4 className="text-sm font-semibold text-zinc-100">Limbo Descarregado</h4>
+            <p className="text-xs font-medium text-zinc-400">Você tem {inboxCaptures.length} {inboxCaptures.length === 1 ? 'captura não processada' : 'capturas não processadas'} da noite anterior.</p>
+          </div>
+        </div>
+      </motion.button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-lg max-h-[85vh] bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <Inbox size={18} className="text-indigo-400" />
+                  <h3 className="text-lg font-semibold text-zinc-100">Capturas do Limbo</h3>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer rounded-full hover:bg-zinc-900"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto style-scrollbar space-y-3 pr-1">
+                <AnimatePresence>
+                  {inboxCaptures.map(capture => (
+                    <motion.div
+                      key={capture.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, height: 0, marginBottom: 0, padding: 0 }}
+                      className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 overflow-hidden"
+                    >
+                      <p className="text-sm text-zinc-300 mb-4 whitespace-pre-wrap">{capture.content}</p>
+                      <div className="flex gap-2 justify-end border-t border-zinc-800/50 pt-3">
+                        <button
+                          onClick={() => handleConvertTask(capture)}
+                          disabled={deletingId === capture.id}
+                          className="p-2 rounded-xl text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
+                          title="Converter em Tarefa"
+                        >
+                          <ArrowRightCircle size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleSaveNote(capture)}
+                          disabled={deletingId === capture.id}
+                          className="p-2 rounded-xl text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-colors"
+                          title="Salvar como Anotação"
+                        >
+                          <FileText size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDiscard(capture)}
+                          disabled={deletingId === capture.id}
+                          className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-400/10 transition-colors ml-1"
+                          title="Descartar"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
