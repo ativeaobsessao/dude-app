@@ -504,7 +504,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
 
             {/* 5. TAREFAS INTEGRADAS (CHECKLIST PREMIUM COMPATIVEL SESSÃO PROFUNDA) */}
             <div className="space-y-3 pt-2">
-              <label className={labelClasses}>5. CHECKLIST INTEGRADO (TAREFAS DA SESSÃO)</label>
+              <label className={labelClasses}>TAREFAS DA SESSÃO (OPCIONAL)</label>
               <div className="flex gap-2">
                 <input
                   type="text"
