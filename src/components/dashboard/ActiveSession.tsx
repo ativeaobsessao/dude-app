@@ -7,7 +7,7 @@ import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil, Paperclip, Link, ArrowLeft } from 'lucide-react';
-import { resolverNomeSessao } from '../../lib/utils';
+import { resolverNomeSessao, cleanActivityName } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
 import { AntiVicioModal } from './AntiVicioModal';
@@ -899,7 +899,7 @@ export const ActiveSession = () => {
                     placeholder="Selecionar Atividade"
                     options={[
                       { value: '', label: 'Selecionar Atividade' },
-                      ...filteredLateActivities.map(a => ({ value: a.id, label: a.name }))
+                      ...filteredLateActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                     ]}
                   />
                 </div>
@@ -1085,7 +1085,7 @@ export const ActiveSession = () => {
                             { value: '', label: 'Sem Atividade' },
                             ...dataStore.activities
                               .filter(a => !noteProjectId || a.project_id === noteProjectId)
-                              .map(a => ({ value: a.id, label: a.name }))
+                              .map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                           ]}
                         />
                       </div>
