@@ -16,7 +16,7 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
   const { user } = useAuthStore();
   const { addMoodEntry } = useDataStore();
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedEnergy, setSelectedEnergy] = useState<'cansado' | 'normal' | 'energizado' | null>(null);
+  const [selectedEnergy, setSelectedEnergy] = useState<'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null>(null);
   const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -105,25 +105,25 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
               </span>
               <h3 className="text-lg sm:text-2xl font-bold text-text tracking-tight animate-fade-in">
                 {step === 1 
-                  ? `Como está sua energia mental neste período ${getPeriodLabel()}?` 
+                  ? `Qual o seu nível de energia mental?` 
                   : `E como você está se sentindo neste período ${getPeriodLabel()}?`
                 }
               </h3>
-              <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-sm mx-auto animate-fade-in leading-relaxed">
-                {step === 1 
-                  ? "Seu 'combustível' pra focar agora — independente de como está seu humor." 
-                  : "Sintonize seu humor com o DUDE para calcular insights de produtividade."
-                }
-              </p>
+              {step === 2 && (
+                <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-sm mx-auto animate-fade-in leading-relaxed">
+                  Sintonize seu humor com o DUDE para calcular insights de produtividade.
+                </p>
+              )}
             </div>
 
             {step === 1 ? (
               // Step 1: Energy Axes
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mt-2 sm:mt-4 max-w-md mx-auto animate-fade-in">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mt-2 sm:mt-4 max-w-2xl mx-auto animate-fade-in">
                 {[
-                  { key: 'cansado', label: 'Cansado mentalmente', emoji: '🥱', color: '#fb7185', glow: 'rgba(251, 113, 133, 0.4)' },
-                  { key: 'normal', label: 'Normal', emoji: '😐', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.4)' },
-                  { key: 'energizado', label: 'Energizado', emoji: '⚡', color: '#34d399', glow: 'rgba(110, 231, 183, 0.4)' }
+                  { key: 'pleno', label: 'Pleno', emoji: '⚡', color: '#34d399', glow: 'rgba(110, 231, 183, 0.4)' },
+                  { key: 'inquieto', label: 'Inquieto', emoji: '🌪️', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.4)' },
+                  { key: 'equilibrado', label: 'Equilibrado', emoji: '⚖️', color: '#60a5fa', glow: 'rgba(96, 165, 250, 0.4)' },
+                  { key: 'fadigado', label: 'Fadigado', emoji: '🪫', color: '#fb7185', glow: 'rgba(251, 113, 133, 0.4)' }
                 ].map((item) => {
                   const isEnergySelected = selectedEnergy === item.key;
                   return (
@@ -132,6 +132,7 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
                       type="button"
                       onClick={() => {
                         setSelectedEnergy(item.key as any);
+                        useDataStore.getState().setCurrentEnergyState(item.key as any);
                         setStep(2);
                       }}
                       className={`group relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300 transform cursor-pointer min-h-[96px] sm:min-h-[110px] ${
@@ -284,19 +285,11 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold animate-fade-in text-center">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!user) return;
+                onClick={() => {
                   const snoozedDate = new Date();
                   snoozedDate.setDate(snoozedDate.getDate() + 7);
-                  try {
-                    await useDataStore.getState().updateProfileData(user.id, {
-                      mood_snoozed_until: snoozedDate.toISOString(),
-                      mood_status: 'paused'
-                    });
-                    useDataStore.getState().showNotification('Adiado por 7 dias. Perguntaremos depois! 📅', 'success');
-                  } catch (e) {
-                    console.error(e);
-                  }
+                  localStorage.setItem('energy_snooze_until', snoozedDate.getTime().toString());
+                  useDataStore.getState().showNotification('Adiado por 7 dias. Perguntaremos depois! 📅', 'success');
                   onClose();
                 }}
                 className="text-text-dim/60 hover:text-text transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
@@ -308,28 +301,21 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
 
               <button
                 type="button"
-                onClick={async () => {
-                  if (!user) return;
-                  try {
-                    await useDataStore.getState().updateProfileData(user.id, {
-                      mood_status: 'disabled'
-                    });
-                    useDataStore.getState().showNotification('Radar desativado. Reative nas configurações da conta a qualquer momento.', 'success');
-                  } catch (e) {
-                    console.error(e);
-                  }
+                onClick={() => {
+                  localStorage.setItem('energy_tracking_disabled', 'true');
+                  useDataStore.getState().showNotification('Radar desativado.', 'success');
                   onClose();
                 }}
                 className="text-[#f87171]/60 hover:text-[#f87171] transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
               >
-                Não quero mais rastrear minha energia
+                Não quero mais rastrear
               </button>
 
               <span className="hidden sm:inline text-text-dim/10">|</span>
 
               <button
                 type="button"
-                onClick={handleSkip}
+                onClick={() => onClose()}
                 className="text-text-dim/40 hover:text-text transition-colors cursor-pointer py-1 px-2 rounded-lg hover:bg-white/5"
               >
                 Responder mais tarde
