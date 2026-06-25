@@ -664,11 +664,11 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (error) throw error;
       if (data) {
         const parsed = data.map(act => {
-          const parts = act.name.split(' #habit:');
+          const parts = act.name.split(/#HABIT:/i);
           return {
             ...act,
-            name: parts[0],
-            habit_id: parts[1] || null
+            name: parts[0].trim(),
+            habit_id: parts[1] ? parts[1].trim() : null
           };
         });
         set({ activities: parsed });
@@ -1226,7 +1226,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addActivity: async (userId, name, projectId, habitId) => {
     try {
-      const nameWithHabit = habitId ? `${name.trim()} #habit:${habitId}` : name.trim();
+      const nameWithHabit = habitId ? `${name.trim()} #HABIT:${habitId}` : name.trim();
       const { data, error } = await supabase.from('activities').insert({ 
         user_id: userId, 
         name: nameWithHabit, 
@@ -1234,11 +1234,11 @@ export const useDataStore = create<DataState>((set, get) => ({
       }).select().single();
       if (error) throw error;
       if (data) {
-        const parts = data.name.split(' #habit:');
+        const parts = data.name.split(/#HABIT:/i);
         const parsedData = {
           ...data,
-          name: parts[0],
-          habit_id: parts[1] || null
+          name: parts[0].trim(),
+          habit_id: parts[1] ? parts[1].trim() : null
         };
         set({ activities: [parsedData, ...get().activities] });
         return parsedData;
