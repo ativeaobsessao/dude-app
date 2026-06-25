@@ -837,11 +837,13 @@ export const ActionCenter = () => {
 
       // 2. Processamento da Atividade
       if (editingActivityId) {
-        // Modo Edição
-        // Se desmarcou o checkbox (ou não possui mais hábito), o nome final não conterá o sufixo #habit
-        const finalName = finalHabitId 
-          ? `${newActivityName.trim()} #habit:${finalHabitId}` 
-          : newActivityName.trim();
+        // 1. Limpa qualquer rastro de #HABIT antigo que estava no input
+        const cleanName = newActivityName.split(/#HABIT:/i)[0].trim();
+
+        // 2. Monta o nome final baseado no switch de vinculação
+        const finalName = (linkActivityToHabit && finalHabitId) 
+          ? `${cleanName} #HABIT:${finalHabitId}` 
+          : cleanName;
 
         const { data, error } = await supabase
           .from('activities')
@@ -857,11 +859,11 @@ export const ActionCenter = () => {
         if (error) throw error;
 
         if (data) {
-          const parts = data.name.split(' #habit:');
+          const parts = data.name.split(/#HABIT:/i);
           const parsedData = {
             ...data,
-            name: parts[0],
-            habit_id: parts[1] || null
+            name: parts[0].trim(),
+            habit_id: parts[1] ? parts[1].trim() : null
           };
           const updatedActivities = dataStore.activities.map(a => a.id === editingActivityId ? parsedData : a);
           useDataStore.setState({ activities: updatedActivities });
@@ -1063,7 +1065,8 @@ export const ActionCenter = () => {
           if (pendingActivityId) {
             const activity = dataStore.activities.find(a => a.id === pendingActivityId);
             if (activity) {
-              const updatedName = `${activity.name} #habit:${createdHabit.id}`;
+              const cleanName = activity.name.split(/#HABIT:/i)[0].trim();
+              const updatedName = `${cleanName} #HABIT:${createdHabit.id}`;
               const { error: updateError } = await supabase
                 .from('activities')
                 .update({ name: updatedName })
@@ -2201,9 +2204,9 @@ export const ActionCenter = () => {
                               <div key={item.id} className="p-4 bg-surface/30 border border-white/5 rounded-2xl flex justify-between items-center transition-all hover:bg-surface/40">
                                 <div className="text-left space-y-2">
                                   <h4 className="text-sm font-medium text-text-primary">
-                                    {item.name.split('#habit:')[0].trim()}
+                                    {item.name.split(/#HABIT:/i)[0].trim()}
                                   </h4>
-                                  <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium uppercase tracking-wider text-emerald-500">
+                                  <div className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium uppercase tracking-wider text-emerald-500">
                                     {linkedProj ? linkedProj.name : 'Atividade Geral'}
                                   </div>
                                 </div>
