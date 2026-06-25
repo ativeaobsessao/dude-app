@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { X, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
+import { cleanActivityName } from '../../lib/utils';
 
 interface EditSessionModalProps {
   session: any;
@@ -128,7 +129,7 @@ export const EditSessionModal: React.FC<EditSessionModalProps> = ({ session, onC
             >
               <option value="">Nenhuma</option>
               {filteredActivities.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>{cleanActivityName(a.name)}</option>
               ))}
             </select>
           </div>
