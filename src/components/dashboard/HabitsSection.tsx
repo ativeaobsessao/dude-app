@@ -112,6 +112,13 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
     ? new Date(habit.created_at).toLocaleDateString('pt-BR') 
     : todayStr;
 
+  const orderMap: Record<string, number> = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7 };
+  const getDayName = (d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d);
+  const sortedDays = habit.recurrence_days 
+    ? [...habit.recurrence_days].sort((a, b) => (orderMap[a] || 99) - (orderMap[b] || 99)) 
+    : [];
+  const formattedTime = habit.recurrence_time ? habit.recurrence_time.substring(0, 5) : '09:00';
+
   return (
     <div 
       id={`habit-card-${habit.id}`} 
@@ -122,13 +129,15 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
     >
       <div>
         <div className="flex justify-between items-start mb-2">
-          <h4 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-            {habit.name}
-            <span className={`text-[10px] transform transition-transform duration-200 text-text-secondary/30 ${isExpanded ? 'rotate-180 text-primary-green' : ''}`}>
+          <div className="flex-1 min-w-0 pr-3 flex items-start gap-2">
+            <h4 className="text-lg font-semibold text-text-primary line-clamp-2">
+              {habit.name}
+            </h4>
+            <span className={`text-[10px] mt-2 transform transition-transform duration-200 text-text-secondary/30 flex-shrink-0 ${isExpanded ? 'rotate-180 text-primary-green' : ''}`}>
               ▼
             </span>
-          </h4>
-          <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-widest">
+          </div>
+          <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-widest whitespace-nowrap mt-1">
             {preferredTimeLabel}
           </span>
         </div>
@@ -136,7 +145,7 @@ const HabitCard = ({ habit }: { habit: Habit }) => {
           <div className="mb-4 flex items-center gap-1.5 text-[10px] font-bold text-primary-green/80 uppercase tracking-widest bg-primary-green/5 border border-primary-green/10 py-1 px-2.5 rounded-full w-fit">
             <Calendar size={11} className="text-primary-green" />
             <span>
-              Fixo: {habit.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {habit.recurrence_time || '09:00'}
+              Fixo: {sortedDays.map(getDayName).join(', ')} às {formattedTime}
             </span>
           </div>
         )}
