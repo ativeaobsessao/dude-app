@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -21,6 +21,8 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
   const [projectId, setProjectId] = useState<string>('');
   const [habitId, setHabitId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const urlInputRef = useRef<HTMLInputElement>(null);
 
   const inputClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px]";
   const labelClasses = "text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-70 mb-2 block";
@@ -90,6 +92,13 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
             onChange={(e) => setTitle(e.target.value)}
             required
             autoComplete="off"
+            enterKeyHint="next"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                urlInputRef.current?.focus();
+              }
+            }}
           />
         </div>
 
@@ -97,6 +106,7 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
           <label className={labelClasses}>Link (URL)</label>
           <input
             id="link-url-input"
+            ref={urlInputRef}
             type="text"
             placeholder="Cole o link aqui"
             className={inputClasses}
@@ -105,6 +115,13 @@ export const SavedLinksConfigScreen: React.FC<SavedLinksConfigScreenProps> = ({
             required
             autoComplete="off"
             inputMode="url"
+            enterKeyHint="done"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
           />
         </div>
 
