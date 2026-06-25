@@ -839,35 +839,89 @@ export const ActionCenter = () => {
       if (editingActivityId) {
         // 1. Limpa qualquer rastro de #HABIT antigo que estava no input
         const cleanName = newActivityName.split(/#HABIT:/i)[0].trim();
+        
+        let selectedHabitId = finalHabitId; // pode ter vindo do bloco anterior
+        
+        // 1.5. VINCULAÇÃO NOVA: Se o checkbox está ativo e não temos um habit ID ainda
+        if (linkActivityToHabit && !selectedHabitId) {
+          try {
+            const { data: newHabit, error: habitError } = await supabase
+              .from('habits')
+              .insert({
+                name: cleanName,
+                user_id: user.id,
+                total_minutes: 0,
+                deep_sessions_count: 0,
+                current_streak: 0,
+                sessions_per_week: 7,
+                minutes_per_session: 30,
+                preferred_time: 'morning',
+                weekly_streak: 0,
+                sessions_this_week: 0,
+                week_start_date: getLocalMondayStr(),
+                is_recurring: false,
+                recurrence_days: [],
+                recurrence_time: null
+              })
+              .select()
+              .single();
+
+            if (habitError) {
+              console.error(habitError);
+              throw habitError;
+            }
+            if (newHabit) {
+              selectedHabitId = newHabit.id;
+              // Atualiza store local do hábito
+              useDataStore.setState({ habits: [newHabit, ...dataStore.habits] });
+            }
+          } catch (error) {
+            console.error('Erro ao criar hábito:', error);
+            showSuccess('Erro ao criar hábito associado.');
+            setIsSaving(false);
+            return;
+          }
+        }
 
         // 2. Monta o nome final baseado no switch de vinculação
-        const finalName = (linkActivityToHabit && finalHabitId) 
-          ? `${cleanName} #HABIT:${finalHabitId}` 
-          : cleanName;
+        let finalName = cleanName;
+        if (linkActivityToHabit && selectedHabitId) {
+          finalName = `${cleanName} #HABIT:${selectedHabitId}`;
+        }
 
+        // 3. Garante que o payload não tenha undefined
         const payload = {
           name: finalName,
           project_id: newActivityProject || null
         };
 
-        const { data, error } = await supabase
-          .from('activities')
-          .update(payload)
-          .eq('id', editingActivityId)
-          .select()
-          .single();
+        try {
+          const { data, error } = await supabase
+            .from('activities')
+            .update(payload)
+            .eq('id', editingActivityId)
+            .select()
+            .single();
 
-        if (error) throw error;
+          if (error) {
+            console.error(error);
+            throw error;
+          }
 
-        if (data) {
-          const parts = data.name.split(/#HABIT:/i);
-          const parsedData = {
-            ...data,
-            name: parts[0].trim(),
-            habit_id: parts[1] ? parts[1].trim() : null
-          };
-          const updatedActivities = dataStore.activities.map(a => a.id === editingActivityId ? parsedData : a);
-          useDataStore.setState({ activities: updatedActivities });
+          if (data) {
+            const parts = data.name.split(/#HABIT:/i);
+            const parsedData = {
+              ...data,
+              name: parts[0].trim(),
+              habit_id: parts[1] ? parts[1].trim() : null
+            };
+            const updatedActivities = dataStore.activities.map(a => a.id === editingActivityId ? parsedData : a);
+            useDataStore.setState({ activities: updatedActivities });
+            showSuccess('Atividade atualizada com sucesso!');
+          }
+        } catch (updateError) {
+          console.error('Erro ao atualizar atividade:', updateError);
+          showSuccess('Erro crítico ao atualizar a atividade.');
         }
       } else {
         // Modo Criação
