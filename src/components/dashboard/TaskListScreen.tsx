@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDataStore } from '../../store/useDataStore';
-import { getLocalDateString, getLocalYesterdayDateString } from '../../lib/utils';
+import { getLocalDateString, getLocalYesterdayDateString, cleanActivityName } from '../../lib/utils';
 import { Trash2, Plus, Check, Play, Edit2, Calendar, ClipboardList, PlusCircle, X, ChevronRight, CheckSquare, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
@@ -527,7 +527,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
   const activityOptions = useMemo(() => [
     { value: '', label: 'Nenhuma Atividade Cadastrada' },
-    ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+    ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
   ], [filteredActivities]);
 
   return (
