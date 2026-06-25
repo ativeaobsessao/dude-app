@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { habitService } from '../services/habitService';
 import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { useAuthStore } from './useAuthStore';
@@ -310,7 +311,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({ loading: true });
       const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds, dt] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('habits').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        habitService.getHabitsByType('atomic', userId),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -475,10 +476,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         if (!habit.week_start_date) {
           habit.week_start_date = currentMondayStr;
           habit.sessions_this_week = 0;
-          await supabase
-            .from('habits')
-            .update({ week_start_date: currentMondayStr, sessions_this_week: 0 })
-            .eq('id', habit.id);
+          await habitService.updateHabit(habit.id, { week_start_date: currentMondayStr, sessions_this_week: 0 });
           hasChanges = true;
           continue;
         }
@@ -502,14 +500,11 @@ export const useDataStore = create<DataState>((set, get) => ({
           habit.sessions_this_week = 0;
           habit.weekly_streak = updatedWeeklyStreak;
 
-          await supabase
-            .from('habits')
-            .update({
-              week_start_date: currentMondayStr,
-              sessions_this_week: 0,
-              weekly_streak: updatedWeeklyStreak
-            })
-            .eq('id', habit.id);
+          await habitService.updateHabit(habit.id, {
+            week_start_date: currentMondayStr,
+            sessions_this_week: 0,
+            weekly_streak: updatedWeeklyStreak
+          });
 
           hasChanges = true;
         }
@@ -929,7 +924,10 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       const weekStart = getLocalMondayStr();
 
-      const { data, error } = await supabase.from('habits').insert({
+      const habitMode = extraAvoidanceParams?.habit_mode || 'build';
+      const type: 'atomic' | 'avoidance' = habitMode === 'avoid' ? 'avoidance' : 'atomic';
+
+      const { data, error } = await habitService.createHabit({
         user_id: userId,
         name: name.trim(),
         sessions_per_week: sessionsPerWeek,
@@ -943,7 +941,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
         last_generated_week: null,
         ...extraAvoidanceParams
-      }).select().single();
+      }, type);
 
       if (error) {
         console.error('Supabase error ao salvar hábito:', error);
@@ -972,12 +970,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       const oldHabit = get().habits.find(h => h.id === id);
       if (!oldHabit) return false;
 
-      const { data, error } = await supabase
-        .from('habits')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+      const type: HabitType = oldHabit.habit_mode === 'avoid' ? 'avoidance' : 'atomic';
+      const { data, error } = await habitService.updateHabit(id, updates, type);
 
       if (error) {
         console.error('Supabase error ao atualizar hábito:', error);
@@ -1177,10 +1171,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
         // Lock habit so we don't try to generate again for this week
         habit.last_generated_week = currentMondayStr;
-        await supabase
-          .from('habits')
-          .update({ last_generated_week: currentMondayStr })
-          .eq('id', habit.id);
+        await habitService.updateHabit(habit.id, { last_generated_week: currentMondayStr }, habit.habit_mode === 'avoid' ? 'avoidance' : 'atomic');
       }
 
       if (createdAny) {
@@ -1416,17 +1407,12 @@ export const useDataStore = create<DataState>((set, get) => ({
             }
 
             // Update habit record dynamically in Supabase
-            const { data: updatedHabit } = await supabase
-              .from('habits')
-              .update({
-                sessions_this_week: completedDaysThisWeek,
-                total_minutes: totalMinutesAllTime,
-                deep_sessions_count: totalDeepSessionsAllTime,
-                weekly_streak: weeklyStreak
-              })
-              .eq('id', habitId)
-              .select()
-              .single();
+            const { data: updatedHabit } = await habitService.updateHabit(habitId, {
+              sessions_this_week: completedDaysThisWeek,
+              total_minutes: totalMinutesAllTime,
+              deep_sessions_count: totalDeepSessionsAllTime,
+              weekly_streak: weeklyStreak
+            }, habit.habit_mode === 'avoid' ? 'avoidance' : 'atomic');
 
             if (updatedHabit) {
               set({ habits: get().habits.map(h => h.id === habitId ? updatedHabit : h) });
@@ -1751,12 +1737,12 @@ export const useDataStore = create<DataState>((set, get) => ({
         weeklyStreak += 1;
       }
 
-      const { data, error } = await supabase.from('habits').update({
+      const { data, error } = await habitService.updateHabit(habitId, {
         total_minutes: newTotal,
         deep_sessions_count: newSessions,
         sessions_this_week: completedDaysThisWeek,
         weekly_streak: weeklyStreak
-      }).eq('id', habitId).select().single();
+      }, habit.habit_mode === 'avoid' ? 'avoidance' : 'atomic');
 
       if (error) throw error;
       if (data) {
@@ -1892,7 +1878,11 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
 
       // Delete the habit in Supabase (foreign keys on delete set null will handle history)
-      const { error } = await supabase.from('habits').delete().eq('id', id);
+      const habitToDelete = get().habits.find(h => h.id === id);
+      if (!habitToDelete) return;
+
+      const type: HabitType = habitToDelete.habit_mode === 'avoid' ? 'avoidance' : 'atomic';
+      const { error } = await habitService.deleteHabit(id, type);
       if (error) throw error;
 
       set({ 
