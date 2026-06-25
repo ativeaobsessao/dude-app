@@ -845,13 +845,14 @@ export const ActionCenter = () => {
           ? `${cleanName} #HABIT:${finalHabitId}` 
           : cleanName;
 
+        const payload = {
+          name: finalName,
+          project_id: newActivityProject || null
+        };
+
         const { data, error } = await supabase
           .from('activities')
-          .update({
-            name: finalName,
-            project_id: newActivityProject || null,
-            habit_id: finalHabitId || null
-          })
+          .update(payload)
           .eq('id', editingActivityId)
           .select()
           .single();
