@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, Pencil, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
-import { getLocalDateString, safeParseDate } from '../../lib/utils';
+import { getLocalDateString, safeParseDate, cleanActivityName } from '../../lib/utils';
 import JSZip from 'jszip';
 
 interface NotesHistoryOverlayProps {
@@ -140,7 +140,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
     
     const tags: string[] = [];
     if (project) tags.push(`#projeto/${project.name.toLowerCase().replace(/\s+/g, '-')}`);
-    if (activity) tags.push(`#atividade/${activity.name.toLowerCase().replace(/\s+/g, '-')}`);
+    if (activity) tags.push(`#atividade/${cleanActivityName(activity.name).toLowerCase().replace(/\s+/g, '-')}`);
     
     const formattedDate = safeParseDate(note.target_date || note.created_at).toLocaleDateString('pt-BR', {
       day: 'numeric',
@@ -251,7 +251,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                 placeholder="Filtrar Atividade"
                 options={[
                   { value: '', label: 'Filtrar Atividade' },
-                  ...dataStore.activities.map(a => ({ value: a.id, label: a.name }))
+                  ...dataStore.activities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                 ]}
               />
               <input
@@ -429,7 +429,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                     {activity && (
                       <>
                         <span className="w-1 h-1 rounded-full bg-border-white" />
-                        <span className="text-text-secondary/60">{activity.name}</span>
+                        <span className="text-text-secondary/60">{cleanActivityName(activity.name)}</span>
                       </>
                     )}
                   </div>
