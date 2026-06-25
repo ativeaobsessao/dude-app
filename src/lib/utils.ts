@@ -141,6 +141,11 @@ export function isSameLocalDay(date1: Date | string, date2: Date | string): bool
   return str1 !== '' && str1 === str2;
 }
 
+export function cleanActivityName(name: string): string {
+  if (!name) return name;
+  return name.replace(/\s*#HABIT:.*$/i, '').trim();
+}
+
 export function getCurrentPeriodAndDate(now: Date = new Date()): { period: 'manha' | 'tarde' | 'noite'; dateStr: string } {
   const hours = now.getHours();
   let period: 'manha' | 'tarde' | 'noite';
