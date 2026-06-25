@@ -4,6 +4,8 @@ import { Layers, ChevronDown, Plus, Trash2, Check, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
+import { getLocalDateString } from '../../lib/utils';
+
 export const ActivitiesSection = () => {
   const dataStore = useDataStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -129,11 +131,11 @@ export const ActivitiesSection = () => {
                                 {linkedHabitName}
                               </span>
                             )}
-                            <span className="text-[8px] font-mono font-bold uppercase text-text-secondary/30 self-center">
-                              {activity.scheduled_date 
-                                ? `AGENDADO PARA - ${new Date(activity.scheduled_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`
-                                : 'TAREFA PENDENTE'}
-                            </span>
+                            {!activity.completed && activity.scheduled_date && activity.scheduled_date < getLocalDateString(new Date()) && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
+                                ATRASADA
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
