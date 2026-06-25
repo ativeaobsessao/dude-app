@@ -293,6 +293,33 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
+  // Event listener for Inbox Captures
+  useEffect(() => {
+    const handleOpenTask = (e: any) => {
+      const { text, captureId } = e.detail;
+      setEditingTask(null);
+      setTaskTitle(text);
+      setActivityManualText('');
+      // The prompt asks to put the text in "Atividade Avulsa" OR we can put the text in the "Título", and add tag.
+      // Wait, the prompt says: "Passe o texto da captura como estado inicial preenchendo automaticamente o campo "Atividade Avulsa". Injeção de Tags: Aplique silenciosamente as tags CAPTURAS e TAREFA DO DIA."
+      // Since `TaskListScreen` has `taskTitle` as the main title and `activityManualText` as the Atividade Avulsa.
+      setTaskTitle('Processar Captura');
+      setActivityManualText(`${text} #CAPTURAS #TAREFADODIA`);
+      
+      setSelectedProjectId('');
+      setSelectedHabitId('');
+      setSelectedActivityId('');
+      setSubtasksList([]);
+      setShowCreateModal(true);
+      
+      // Store the captureId in a global or state to delete upon save
+      sessionStorage.setItem('pending_capture_conversion', captureId);
+    };
+    
+    window.addEventListener('open-task-from-capture', handleOpenTask);
+    return () => window.removeEventListener('open-task-from-capture', handleOpenTask);
+  }, []);
+
   // Open modal for creating new task
   const handleOpenCreateModal = () => {
     setEditingTask(null);
@@ -402,6 +429,12 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     } else {
       await dataStore.addDailyTask(payload);
       dataStore.showNotification('Tarefa inserida na sua Lista de Hoje! 🎯', 'success');
+      
+      const captureId = sessionStorage.getItem('pending_capture_conversion');
+      if (captureId) {
+        await dataStore.deleteInboxCapture(captureId);
+        sessionStorage.removeItem('pending_capture_conversion');
+      }
     }
 
     setShowCreateModal(false);
