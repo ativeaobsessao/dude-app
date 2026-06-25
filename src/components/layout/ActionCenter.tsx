@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { unlockAudio } from '../../hooks/useSessionNotifications';
-import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
+import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString, cleanActivityName } from '../../lib/utils';
 
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
 
@@ -1525,7 +1525,7 @@ export const ActionCenter = () => {
                                   placeholder="Selecionar Atividade"
                                   options={[
                                     { value: '', label: 'Selecionar Atividade' },
-                                    ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                                    ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                                   ]}
                                 />
                               </div>
@@ -2419,7 +2419,7 @@ export const ActionCenter = () => {
                             placeholder="Sem Atividade"
                             options={[
                               { value: '', label: 'Sem Atividade' },
-                              ...(noteProject ? dataStore.activities.filter(a => a.project_id === noteProject) : dataStore.activities).map(a => ({ value: a.id, label: a.name }))
+                              ...(noteProject ? dataStore.activities.filter(a => a.project_id === noteProject) : dataStore.activities).map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                             ]}
                           />
                         </div>
