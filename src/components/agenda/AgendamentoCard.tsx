@@ -1,6 +1,7 @@
 import { useDataStore } from '../../store/useDataStore';
 import { ScheduledActivity } from '../../types';
 import { Play, CheckCircle, Ban, Hourglass } from 'lucide-react';
+import { cleanActivityName } from '../../lib/utils';
 
 interface AgendamentoCardProps {
   activity: ScheduledActivity;
@@ -23,7 +24,7 @@ export const AgendamentoCard = ({ activity, onStartSession, isHeroAgenda = false
     isHabit = true;
   } else if (activity.activity_id) {
     const act = dataStore.activities.find(a => a.id === activity.activity_id);
-    title = act?.name || title;
+    title = act ? cleanActivityName(act.name) : title;
     contextLabel = 'Tarefa Catalogada';
   }
 
