@@ -665,9 +665,9 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                     {dataStore.projects.find(p => p.id === activity.project_id)?.name}
                                   </span>
                                 )}
-                                {!isCompleted && !isCancelled && (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-medium ${activity.scheduled_date ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'}`}>
-                                    {activity.scheduled_date ? `AGENDADO PARA - ${formattedDate}` : 'TAREFA PENDENTE'}
+                                {!isCompleted && !isCancelled && activity.scheduled_date && activity.scheduled_date < todayStr && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
+                                    ATRASADA
                                   </span>
                                 )}
                                 {startTime && (
@@ -834,9 +834,9 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                 </span>
                               )}
 
-                              {!task.is_completed && (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-medium ${(task as any).scheduled_date ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'}`}>
-                                  {(task as any).scheduled_date ? `AGENDADO PARA - ${formatDelayedDate((task as any).scheduled_date)}` : 'TAREFA PENDENTE'}
+                              {!task.is_completed && (task as any).scheduled_date && (task as any).scheduled_date < todayStr && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
+                                  ATRASADA
                                 </span>
                               )}
                               
