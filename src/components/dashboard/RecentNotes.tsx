@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown, Plus, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
-import { getLocalDateString, safeParseDate } from '../../lib/utils';
+import { getLocalDateString, safeParseDate, cleanActivityName } from '../../lib/utils';
 import JSZip from 'jszip';
 
 export const RecentNotes = () => {
@@ -109,7 +109,7 @@ export const RecentNotes = () => {
     
     const tags: string[] = [];
     if (project) tags.push(`#projeto/${project.name.toLowerCase().replace(/\s+/g, '-')}`);
-    if (activity) tags.push(`#atividade/${activity.name.toLowerCase().replace(/\s+/g, '-')}`);
+    if (activity) tags.push(`#atividade/${cleanActivityName(activity.name).toLowerCase().replace(/\s+/g, '-')}`);
     
     const formattedDate = safeParseDate(note.target_date || note.created_at).toLocaleDateString('pt-BR', {
       day: 'numeric',
@@ -382,7 +382,7 @@ export const RecentNotes = () => {
                               <span className="px-2 py-0.5 bg-white/5 rounded-full">{project.name}</span>
                             )}
                             {activity && (
-                              <span className="px-2 py-0.5 bg-white/5 rounded-full">{activity.name}</span>
+                              <span className="px-2 py-0.5 bg-white/5 rounded-full">{cleanActivityName(activity.name)}</span>
                             )}
                           </div>
                           <p className="text-[9px] font-bold text-primary-green/40 uppercase tracking-widest text-left">
