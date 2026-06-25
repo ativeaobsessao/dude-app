@@ -828,7 +828,8 @@ export const ActionCenter = () => {
           .from('activities')
           .update({
             name: finalName,
-            project_id: newActivityProject || null
+            project_id: newActivityProject || null,
+            habit_id: finalHabitId || null
           })
           .eq('id', editingActivityId)
           .select()
@@ -2143,11 +2144,13 @@ export const ActionCenter = () => {
                             const linkedProj = dataStore.projects.find(p => p.id === item.project_id);
                             return (
                               <div key={item.id} className="p-4 bg-surface/30 border border-white/5 rounded-2xl flex justify-between items-center transition-all hover:bg-surface/40">
-                                <div className="text-left">
-                                  <h4 className="text-sm font-medium text-text-primary">{item.name}</h4>
-                                  <p className="text-[9px] text-text-secondary/40 font-bold uppercase tracking-widest mt-0.5">
-                                    {linkedProj ? `📁 ${linkedProj.name}` : '🌍 Atividade Geral'}
-                                  </p>
+                                <div className="text-left space-y-2">
+                                  <h4 className="text-sm font-medium text-text-primary">
+                                    {item.name.split('#habit:')[0].trim()}
+                                  </h4>
+                                  <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium uppercase tracking-wider text-emerald-500">
+                                    {linkedProj ? linkedProj.name : 'Atividade Geral'}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button
