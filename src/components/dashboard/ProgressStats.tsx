@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MOODS, MOOD_LIST, MoodKey } from '../../lib/mood';
 import { MoodEntry } from '../../types';
 
@@ -68,6 +68,18 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
   // Modal expander state for completed tasks
   const [showCompletedTasksModal, setShowCompletedTasksModal] = useState(false);
+
+  const EMPTY_STATE_PHRASES = useMemo(() => [
+    "O tempo escorre, mas a produção deixa rastros. Inicie sua primeira sessão profunda e ative os sensores de inteligência do seu painel.",
+    "Seu radar de produtividade está paralisado. Execute uma sessão profunda para que o DUDE calibre sua verdadeira velocidade de execução."
+  ], []);
+
+  const [emptyStatePhrase, setEmptyStatePhrase] = useState(EMPTY_STATE_PHRASES[0]);
+
+  useEffect(() => {
+    const randomIndex = Math.floor(Math.random() * EMPTY_STATE_PHRASES.length);
+    setEmptyStatePhrase(EMPTY_STATE_PHRASES[randomIndex]);
+  }, [EMPTY_STATE_PHRASES]);
 
   // Selected date snapshot for correlation analysis (Máquina do Tempo)
   const selectedDateSnapshot = useMemo(() => {
@@ -340,6 +352,24 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     return "Continue registrando para o DUDE mapear padrões profundos da sua evolução.";
   }, [sessions, habitCompletions, avoidanceCheckins]);
+
+  const lifetimeMetric = useMemo(() => {
+    if (sessions.length === 0) return null;
+    const totalMinutes = sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
+    const totalHours = totalMinutes / 60;
+    
+    // Find the earliest session
+    const firstSessionDate = new Date(Math.min(...sessions.map(s => new Date(s.started_at).getTime())));
+    const today = new Date();
+    
+    // Calculate days between first session and today
+    // Include the first day itself by adding 1
+    const diffTime = Math.abs(today.getTime() - firstSessionDate.getTime());
+    const lifetimeDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    
+    const averageHoursPerDay = totalHours / lifetimeDays;
+    return averageHoursPerDay.toFixed(1); // Keep 1 decimal
+  }, [sessions]);
 
   // ----------------------------------------------------
   // BLOCK 2 — FOR REAL TIMELINE ANALYSIS (Para Onde Seu Tempo Foi)
@@ -1404,13 +1434,33 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         )}
 
         {/* Personalized synthesis phrase */}
-        <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-center gap-3">
-          <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10 font-sans">
+        <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-start gap-3">
+          <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10 font-sans mt-0.5">
             <Sparkles size={11} className="text-primary-green animate-pulse" />
           </div>
-          <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary font-sans">
-            "{interpretiveHeadline}"
-          </p>
+          <div className="flex-1 flex flex-col font-sans">
+            {sessions.length === 0 ? (
+              <>
+                <p className="text-sm text-white font-medium leading-relaxed">
+                  "{emptyStatePhrase}"
+                </p>
+                <p className="text-[11px] text-white/50 mt-1.5">
+                  ↳ DUDE aguardando sua primeira execução para iniciar o rastreamento...
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-white font-medium">
+                  "{interpretiveHeadline}"
+                </p>
+                {lifetimeMetric && (
+                  <p className="text-[11px] text-white/50 mt-1.5">
+                    ↳ Média histórica: <span className="text-white/80 font-semibold">{lifetimeMetric}</span>h / dia em sessões profundas.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* PERIOD NUMBERS BLOCK (foco, sessões, projetos, "dias invictos", "recorde pessoal") */}
