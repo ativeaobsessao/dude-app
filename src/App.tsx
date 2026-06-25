@@ -43,12 +43,14 @@ import { ReagendarModal, ReconfigurarModal } from './components/agenda/ScheduleP
 import { MoodRitualModal } from './components/mood/MoodRitualModal';
 import { MOODS } from './lib/mood';
 import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
+import { DecompressionSession } from './components/dashboard/DecompressionSession';
 
 const ENABLE_QUICK_CAPTURE = true;
 
 export default function App() {
   const { signOut, user } = useAuthStore();
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -294,15 +296,18 @@ export default function App() {
         handleStartSessionFromAgenda(e.detail);
       }
     };
+    const handleOpenDecompression = () => setIsDecompressionOpen(true);
 
     window.addEventListener('open-reagendar', handleReagendarEvent);
     window.addEventListener('open-reconfigurar', handleReconfigurarEvent);
     window.addEventListener('start-scheduled-session', handleStartSessionEvent);
+    window.addEventListener('open-decompression', handleOpenDecompression);
 
     return () => {
       window.removeEventListener('open-reagendar', handleReagendarEvent);
       window.removeEventListener('open-reconfigurar', handleReconfigurarEvent);
       window.removeEventListener('start-scheduled-session', handleStartSessionEvent);
+      window.removeEventListener('open-decompression', handleOpenDecompression);
     };
   }, [user]);
 
@@ -769,6 +774,10 @@ export default function App() {
             setSelectedPopupActivity(null);
           }}
           activity={selectedPopupActivity}
+        />
+        <DecompressionSession 
+          isOpen={isDecompressionOpen}
+          onClose={() => setIsDecompressionOpen(false)}
         />
         <CinematicBackground />
         <PWAInstallPrompt />
