@@ -3,7 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomSelect } from '../ui/CustomSelect';
 import { Plus, Trash2, Calendar, Clock, AlertTriangle, X } from 'lucide-react';
-import { getLocalDateString } from '../../lib/utils';
+import { getLocalDateString, cleanActivityName } from '../../lib/utils';
 import { ScheduledActivity } from '../../types';
 
 interface CriarAgendamentoScreenProps {
@@ -450,7 +450,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
                 placeholder="Atividades do Projeto Selecionado"
                 options={[
                   { value: '', label: 'Nenhuma Selecionada' },
-                  ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                  ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                 ]}
               />
             </div>
