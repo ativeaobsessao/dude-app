@@ -150,6 +150,7 @@ export type Activity = {
   completed: boolean;
   created_at: string;
   habit_id?: string | null;
+  scheduled_date?: string | null;
 };
 
 export type SessionTask = {
