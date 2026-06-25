@@ -3263,26 +3263,40 @@ export const ActionCenter = () => {
                       evening: '🌙 Noite'
                     }[h.preferred_time] || h.preferred_time;
 
+                    const orderMap: Record<string, number> = { '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7 };
+                    const getDayName = (d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d);
+                    const sortedDays = h.recurrence_days 
+                      ? [...h.recurrence_days].sort((a, b) => (orderMap[a] || 99) - (orderMap[b] || 99)) 
+                      : [];
+                    const formattedTime = h.recurrence_time ? h.recurrence_time.substring(0, 5) : '09:00';
+
                     return (
                       <div key={h.id} className="p-6 bg-surface/10 border border-white/10 rounded-3xl space-y-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <h4 className="text-lg font-bold text-text-primary">{h.name}</h4>
-                            <div className="text-xs text-text-secondary/60 flex flex-wrap items-center gap-x-1.5">
-                              <span>
-                                {preferredTimeLabel} · {h.minutes_per_session}min por sessão
-                              </span>
-                              {h.is_recurring && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-primary-green uppercase tracking-widest bg-primary-green/10 px-2 py-0.5 rounded-full mt-0.5">
-                                  <Calendar size={10} />
-                                  Fixo: {h.recurrence_days?.map((d: string) => ({ '1': 'Seg', '2': 'Ter', '3': 'Qua', '4': 'Qui', '5': 'Sex', '6': 'Sáb', '7': 'Dom' }[d] || d)).join(', ')} às {h.recurrence_time || '09:00'}
-                                </span>
-                              )}
-                            </div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1 min-w-0 pr-3 flex items-start gap-2">
+                            <h4 className="text-lg font-semibold text-text-primary line-clamp-2">
+                              {h.name}
+                            </h4>
                           </div>
-                          <span className="text-sm font-bold text-primary-green">
-                            🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'} invicta{h.weekly_streak !== 1 ? 's' : ''}
+                          <div className="text-right whitespace-nowrap mt-1 flex flex-col items-end">
+                            <span className="text-[10px] text-text-secondary/40 font-bold uppercase tracking-widest block">
+                              {preferredTimeLabel}
+                            </span>
+                            <span className="text-sm font-bold text-primary-green block mt-1">
+                              🔥 {h.weekly_streak} {h.weekly_streak === 1 ? 'semana' : 'semanas'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-text-secondary/60 flex flex-wrap items-center gap-x-1.5 -mt-2 mb-4">
+                          <span>
+                            {h.minutes_per_session}min por sessão
                           </span>
+                          {h.is_recurring && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-primary-green uppercase tracking-widest bg-primary-green/10 px-2 py-0.5 rounded-full mt-0.5">
+                              <Calendar size={10} />
+                              Fixo: {sortedDays.map(getDayName).join(', ')} às {formattedTime}
+                            </span>
+                          )}
                         </div>
 
                         {/* Bolinhas de progresso */}
