@@ -357,6 +357,25 @@ export const ActionCenter = () => {
   const [recurrenceTimeHours, setRecurrenceTimeHours] = useState('09');
   const [recurrenceTimeMinutes, setRecurrenceTimeMinutes] = useState('00');
 
+  useEffect(() => {
+    if (recurrenceTimeHours && recurrenceTimeMinutes) {
+      const startH = parseInt(recurrenceTimeHours, 10);
+      const startM = parseInt(recurrenceTimeMinutes, 10);
+      const durH = parseInt(schedDurHH || '0', 10);
+      const durM = parseInt(schedDurMM || '0', 10);
+
+      if (!isNaN(startH) && !isNaN(startM) && !isNaN(durH) && !isNaN(durM)) {
+        const totalMinutes = startM + durM;
+        const extraHours = Math.floor(totalMinutes / 60);
+        const finalM = totalMinutes % 60;
+        const finalH = (startH + durH + extraHours) % 24;
+
+        setSchedStartHH(finalH.toString().padStart(2, '0'));
+        setSchedStartMM(finalM.toString().padStart(2, '0'));
+      }
+    }
+  }, [recurrenceTimeHours, recurrenceTimeMinutes, schedDurHH, schedDurMM]);
+
   const handleRecurrenceHoursChange = (h: string) => {
     let val = h.replace(/\D/g, '').slice(0, 2);
     if (val !== '') {
@@ -1949,7 +1968,7 @@ export const ActionCenter = () => {
                                       maxLength={3}
                                       enterKeyHint="done"
                                       placeholder="Ex: 45"
-                                      className={`${inputClasses} text-center text-xl font-bold`}
+                                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-xl font-bold"
                                       value={newHabitDuration === 0 ? '' : newHabitDuration}
                                       onFocus={(e) => e.target.select()}
                                       onChange={(e) => {
@@ -2056,7 +2075,7 @@ export const ActionCenter = () => {
                                                     maxLength={2}
                                                     enterKeyHint="done"
                                                     placeholder="09"
-                                                    className={`${inputClasses} text-center text-lg font-bold`}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold"
                                                     value={recurrenceTimeHours}
                                                     onFocus={(e) => e.target.select()}
                                                     onChange={(e) => handleRecurrenceHoursChange(e.target.value)}
@@ -2078,7 +2097,7 @@ export const ActionCenter = () => {
                                                     maxLength={2}
                                                     enterKeyHint="done"
                                                     placeholder="00"
-                                                    className={`${inputClasses} text-center text-lg font-bold`}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold"
                                                     value={recurrenceTimeMinutes}
                                                     onFocus={(e) => e.target.select()}
                                                     onChange={(e) => handleRecurrenceMinutesChange(e.target.value)}
@@ -2099,11 +2118,29 @@ export const ActionCenter = () => {
                                               <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1 text-left">
                                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
-                                                  <input type="tel" maxLength={2} placeholder="00" value={schedDurHH} onChange={(e) => setSchedDurHH(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                  <input 
+                                                    type="tel" 
+                                                    maxLength={2} 
+                                                    placeholder="00" 
+                                                    value={schedDurHH} 
+                                                    onChange={(e) => setSchedDurHH(e.target.value)} 
+                                                    enterKeyHint="done"
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold" 
+                                                  />
                                                 </div>
                                                 <div className="space-y-1 text-left">
                                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
-                                                  <input type="tel" maxLength={2} placeholder="45" value={schedDurMM} onChange={(e) => setSchedDurMM(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                  <input 
+                                                    type="tel" 
+                                                    maxLength={2} 
+                                                    placeholder="45" 
+                                                    value={schedDurMM} 
+                                                    onChange={(e) => setSchedDurMM(e.target.value)} 
+                                                    enterKeyHint="done"
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold" 
+                                                  />
                                                 </div>
                                               </div>
                                             </div>
@@ -2113,11 +2150,29 @@ export const ActionCenter = () => {
                                               <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1 text-left">
                                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
-                                                  <input type="tel" maxLength={2} placeholder="10" value={schedStartHH} onChange={(e) => setSchedStartHH(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                  <input 
+                                                    type="tel" 
+                                                    maxLength={2} 
+                                                    placeholder="10" 
+                                                    value={schedStartHH} 
+                                                    onChange={(e) => setSchedStartHH(e.target.value)} 
+                                                    enterKeyHint="done"
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold" 
+                                                  />
                                                 </div>
                                                 <div className="space-y-1 text-left">
                                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Minutos</span>
-                                                  <input type="tel" maxLength={2} placeholder="00" value={schedStartMM} onChange={(e) => setSchedStartMM(e.target.value)} className={`${inputClasses} text-center text-lg font-bold`} />
+                                                  <input 
+                                                    type="tel" 
+                                                    maxLength={2} 
+                                                    placeholder="00" 
+                                                    value={schedStartMM} 
+                                                    onChange={(e) => setSchedStartMM(e.target.value)} 
+                                                    enterKeyHint="done"
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/50 touch-manipulation min-h-[44px] text-center text-lg font-bold" 
+                                                  />
                                                 </div>
                                               </div>
                                             </div>
