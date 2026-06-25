@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { X, ArrowLeft, Send, Link as LinkIcon, FileText, Zap } from 'lucide-react';
+import { X, ArrowLeft, Send, Link as LinkIcon, FileText, Zap, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DecompressionSession } from '../dashboard/DecompressionSession';
 
 interface QuickCaptureModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   const { addNote, addLink, showNotification, projects, activities } = useDataStore();
 
   const [view, setView] = useState<'menu' | 'note' | 'link'>('menu');
+  const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
 
   // Input states
   const [noteContent, setNoteContent] = useState('');
@@ -28,6 +30,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   useEffect(() => {
     if (!isOpen) {
       setView('menu');
+      setIsDecompressionOpen(false);
       setNoteContent('');
       setLinkTitle('');
       setLinkUrl('');
@@ -113,12 +116,17 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
         className="fixed inset-0 z-[600] bg-background/80 backdrop-blur-md flex items-end sm:items-center justify-center p-4 text-left"
         onClick={onClose}
       >
+        <DecompressionSession 
+          isOpen={isDecompressionOpen}
+          onClose={() => setIsDecompressionOpen(false)}
+        />
+        
         <motion.div
           initial={{ scale: 0.95, y: 50 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.95, y: 50 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="bg-surface/95 border border-white/5 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 space-y-6 shadow-2xl overflow-y-auto max-h-[85vh]"
+          className={`bg-surface/95 border border-white/5 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 space-y-6 shadow-2xl overflow-y-auto max-h-[85vh] ${isDecompressionOpen ? 'hidden' : ''}`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -140,36 +148,54 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
 
           {/* Views */}
           {view === 'menu' && (
-            <div className="space-y-4 py-2">
-              <p className="text-xs text-text-secondary/60 text-center mb-2">
-                O que você deseja capturar neste momento?
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-6 py-2">
+              {/* Top Grid - Capture Actions */}
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   id="menu-btn-note"
                   onClick={() => setView('note')}
-                  className="p-6 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all group cursor-pointer active:scale-95"
+                  className="p-5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-start gap-4 transition-all group cursor-pointer active:scale-95"
                 >
-                  <div className="p-3 bg-[#6ee7a8]/5 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/10 transition-colors">
-                    <FileText size={24} />
+                  <div className="p-2.5 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <FileText size={20} strokeWidth={2.5} />
                   </div>
-                  <span className="text-sm font-semibold text-text-primary">📝 Anotações</span>
-                  <span className="text-[10px] text-text-secondary/50 font-medium">Salvar insights e lições</span>
+                  <div className="text-left">
+                    <span className="text-sm font-semibold text-text-primary block">Anotações</span>
+                    <span className="text-[10px] text-text-secondary/50 font-medium">Salvar insights rápidos</span>
+                  </div>
                 </button>
 
                 <button
                   id="menu-btn-link"
                   onClick={() => setView('link')}
-                  className="p-6 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-center justify-center gap-3 transition-all group cursor-pointer active:scale-95"
+                  className="p-5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-start gap-4 transition-all group cursor-pointer active:scale-95"
                 >
-                  <div className="p-3 bg-[#6ee7a8]/5 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/10 transition-colors">
-                    <LinkIcon size={24} />
+                  <div className="p-2.5 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <LinkIcon size={20} strokeWidth={2.5} />
                   </div>
-                  <span className="text-sm font-semibold text-text-primary">🔗 Links Úteis</span>
-                  <span className="text-[10px] text-text-secondary/50 font-medium">Guardar referências rápidas</span>
+                  <div className="text-left">
+                    <span className="text-sm font-semibold text-text-primary block">Links Úteis</span>
+                    <span className="text-[10px] text-text-secondary/50 font-medium">Guardar referências</span>
+                  </div>
                 </button>
               </div>
+
+              {/* Divider */}
+              <hr className="border-t border-white/5" />
+
+              {/* Base - Decompression Session */}
+              <button
+                onClick={() => setIsDecompressionOpen(true)}
+                className="w-full p-5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-[24px] flex items-center gap-4 transition-all group cursor-pointer active:scale-95 shadow-inner"
+              >
+                <div className="p-3 bg-zinc-800 text-zinc-300 rounded-2xl group-hover:bg-zinc-700 group-hover:text-white transition-colors">
+                  <Moon size={22} strokeWidth={2} />
+                </div>
+                <div className="text-left flex-1">
+                  <span className="text-[15px] font-semibold text-zinc-200 block">Sessão de Descompressão</span>
+                  <span className="text-[11px] text-zinc-500 font-medium">Reduza a carga cognitiva</span>
+                </div>
+              </button>
             </div>
           )}
 
