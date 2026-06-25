@@ -132,7 +132,7 @@ interface DataState {
     sessionTasks: string[];
     completed_at?: string;
   }) => Promise<FocusSession | null>;
-  addActivity: (userId: string, name: string, projectId?: string, habitId?: string | null) => Promise<Activity | null>;
+  addActivity: (userId: string, name: string, projectId?: string, habitId?: string | null, scheduledDate?: string | null) => Promise<Activity | null>;
   addSessionTask: (sessionId: string, userId: string, description: string, completed?: boolean) => Promise<SessionTask | null>;
   toggleSessionTask: (taskId: string) => Promise<void>;
   addPendingTask: (task: Omit<PendingTask, 'id' | 'created_at'>) => Promise<PendingTask | null>;
@@ -1215,14 +1215,19 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  addActivity: async (userId, name, projectId, habitId) => {
+  addActivity: async (userId, name, projectId, habitId, scheduledDate) => {
     try {
       const nameWithHabit = habitId ? `${name.trim()} #HABIT:${habitId}` : name.trim();
-      const { data, error } = await supabase.from('activities').insert({ 
+      const payload: any = {
         user_id: userId, 
         name: nameWithHabit, 
         project_id: projectId || null 
-      }).select().single();
+      };
+      if (scheduledDate) {
+        payload.scheduled_date = scheduledDate;
+      }
+
+      const { data, error } = await supabase.from('activities').insert(payload).select().single();
       if (error) throw error;
       if (data) {
         const parts = data.name.split(/#HABIT:/i);
