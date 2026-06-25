@@ -323,6 +323,7 @@ export const ActionCenter = () => {
   // Activity States
   const [newActivityName, setNewActivityName] = useState('');
   const [newActivityProject, setNewActivityProject] = useState('');
+  const [newActivityScheduledDate, setNewActivityScheduledDate] = useState('');
   const [linkToHabit, setLinkToHabit] = useState<'sim' | 'nao'>('nao');
   const [newActivityHabitFrequency, setNewActivityHabitFrequency] = useState(3);
   const [newActivityHabitDuration, setNewActivityHabitDuration] = useState(0);
@@ -887,10 +888,13 @@ export const ActionCenter = () => {
         }
 
         // 3. Garante que o payload não tenha undefined
-        const payload = {
+        const payload: any = {
           name: finalName,
           project_id: newActivityProject || null
         };
+        if (newActivityScheduledDate) {
+          payload.scheduled_date = newActivityScheduledDate;
+        }
 
         try {
           const { data, error } = await supabase
@@ -926,7 +930,8 @@ export const ActionCenter = () => {
           user.id,
           newActivityName.trim(),
           newActivityProject || undefined,
-          finalHabitId
+          finalHabitId,
+          newActivityScheduledDate || null
         );
         if (!activityAdded) {
           showSuccess('Erro ao processar criação da atividade.');
@@ -944,6 +949,7 @@ export const ActionCenter = () => {
       // 3. Reset do Estado & Fechamento do Modal
       setNewActivityName('');
       setNewActivityProject('');
+      setNewActivityScheduledDate('');
       setLinkActivityToHabit(false);
       setNewHabitName('');
       setEditingActivityId(null);
@@ -1971,6 +1977,16 @@ export const ActionCenter = () => {
                             />
                           </div>
 
+                          <div className="space-y-1">
+                            <label className={labelClasses}>Data de Agendamento (Opcional)</label>
+                            <input
+                              type="date"
+                              className={inputClasses}
+                              value={newActivityScheduledDate}
+                              onChange={e => setNewActivityScheduledDate(e.target.value)}
+                            />
+                          </div>
+
                           {/* Checkbox: "Vincular atividade a um hábito?" */}
                           <div className="pt-2 border-t border-white/5">
                             <label className="flex items-center gap-3 cursor-pointer select-none py-1.5 text-text-primary text-left">
@@ -2268,6 +2284,7 @@ export const ActionCenter = () => {
                                       setEditingActivityId(item.id);
                                       setNewActivityName(item.name);
                                       setNewActivityProject(item.project_id || '');
+                                      setNewActivityScheduledDate(item.scheduled_date || '');
                                       
                                       const hasHabit = !!item.habit_id;
                                       setLinkActivityToHabit(hasHabit);
