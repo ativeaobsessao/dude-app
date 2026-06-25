@@ -8,6 +8,26 @@ import { CustomSelect } from '../ui/CustomSelect';
 import { DailyTask, ScheduledActivity } from '../../types';
 import { AgendamentoCard } from '../agenda/AgendamentoCard';
 
+const isDelayed = (dateString: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const taskDate = new Date(dateString);
+  if (isNaN(taskDate.getTime())) return false;
+  taskDate.setHours(0, 0, 0, 0);
+  
+  return taskDate.getTime() < today.getTime();
+};
+
+const formatDelayedDate = (dateString: string) => {
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+};
+
 interface TaskListScreenProps {
   tasks: any[]; // handled by dataStore, but kept in props for legacy compatibility
   onTasksChange: (newTasks: any[]) => void; // legacy
@@ -586,6 +606,9 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                     const endM = totalMin % 60;
                     const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
+                    const delayed = isDelayed(activity.scheduled_date);
+                    const formattedDate = formatDelayedDate(activity.scheduled_date);
+
                     return (
                       <motion.div
                         key={item.id}
@@ -628,12 +651,28 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                 {title}
                               </span>
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60">
-                                  {contextLabel}
-                                </span>
+                                {isHabit ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-emerald-400">
+                                    HÁBITO ATÔMICO
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-blue-400">
+                                    TAREFA AGENDADA
+                                  </span>
+                                )}
+                                {activity.project_id && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-white/60">
+                                    {dataStore.projects.find(p => p.id === activity.project_id)?.name}
+                                  </span>
+                                )}
+                                {delayed && !isCompleted && !isCancelled && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
+                                    TAREFA ATRASADA - CRIADA {formattedDate}
+                                  </span>
+                                )}
                                 {startTime && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60">
-                                    {formatClockTime(startTime)} - {formatClockTime(endTime)} ({activity.duration_minutes} min)
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-white/60">
+                                    {formatClockTime(startTime)} - {endTime} ({activity.duration_minutes} min)
                                   </span>
                                 )}
                               </div>
@@ -706,7 +745,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                             <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
                               TAREFAS DA SESSÃO ({activity.tasks.length})
                             </p>
-                            <div className="pl-3 grid grid-cols-1 gap-1.5 border-l border-white/5">
+                            <div className="pl-4 grid grid-cols-1 gap-1.5 border-l border-white/5">
                               {activity.tasks.map((taskStr: string, tIdx: number) => (
                                 <div key={tIdx} className="flex items-center gap-2 text-xs relative -left-[4.5px]">
                                   <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 flex-shrink-0" />
@@ -738,6 +777,9 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                   const isRolledOver = task.rolled_from_date !== null;
                   const isYesterday = task.rolled_from_date === getLocalYesterdayDateString(todayStr);
                   const rolloverLabel = isYesterday ? "↩ veio de ontem" : "veio de dias anteriores";
+                  
+                  const delayed = isDelayed(task.created_at);
+                  const formattedDate = formatDelayedDate(task.created_at);
 
                   return (
                     <motion.div
@@ -776,19 +818,31 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                             </span>
                             
                             <div className="flex flex-wrap items-center gap-2">
-                              {isRolledOver && !task.is_completed && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/10 text-[10px] uppercase tracking-wider text-amber-500 font-sans">
-                                  {rolloverLabel}
+                              {task.habit_id ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-emerald-400">
+                                  HÁBITO ATÔMICO
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-white/60">
+                                  TAREFA DO DIA
                                 </span>
                               )}
+                              
                               {task.project_id && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60 font-sans">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider font-medium text-white/60 font-sans">
                                   {dataStore.projects.find(p => p.id === task.project_id)?.name}
                                 </span>
                               )}
-                              {task.habit_id && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60 font-sans">
-                                  {dataStore.habits.find(h => h.id === task.habit_id)?.name}
+
+                              {delayed && !task.is_completed && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
+                                  TAREFA ATRASADA - CRIADA {formattedDate}
+                                </span>
+                              )}
+                              
+                              {isRolledOver && !task.is_completed && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/10 text-[10px] uppercase tracking-wider text-amber-500 font-sans">
+                                  {rolloverLabel}
                                 </span>
                               )}
                             </div>
@@ -856,7 +910,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                           <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
                             Sessão Profunda ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})
                           </p>
-                          <div className="pl-3 grid grid-cols-1 gap-1.5 border-l border-white/5">
+                          <div className="pl-4 grid grid-cols-1 gap-1.5 border-l border-white/5">
                             {task.checklist.map((sub, sIdx) => (
                               <div 
                                 key={sIdx}
@@ -965,7 +1019,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                 </span>
                                 {item.time && (
                                   <span className="text-[9px] font-mono text-text-secondary/40 font-bold bg-white/5 px-1.5 py-0.5 rounded">
-                                    🕒 {item.time}
+                                    {item.time}
                                   </span>
                                 )}
                               </div>
