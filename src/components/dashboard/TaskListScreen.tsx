@@ -21,6 +21,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
   const [isProximosDiasOpen, setIsProximosDiasOpen] = useState(false);
   const [isHojeOpen, setIsHojeOpen] = useState(true);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // 1. GATHER ALL ITEMS OF TODAY
   const todayItems = useMemo(() => {
@@ -511,6 +512,12 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-8 md:py-12 animate-fade-in space-y-8 select-none">
+      {openMenuId && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+        />
+      )}
       
       {/* HEADER WITH ACTION */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-white/5 pb-6">
@@ -616,33 +623,93 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                               <Check size={14} strokeWidth={3} />
                             </button>
 
-                            <div className="flex flex-col gap-1 text-left">
+                            <div className="flex flex-col gap-2 text-left w-full pr-8">
+                              <span className={`text-sm font-semibold leading-relaxed ${isCompleted ? 'line-through text-text-secondary/35 font-light' : 'text-text-primary'}`}>
+                                {title}
+                              </span>
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className={`text-sm font-semibold leading-relaxed ${isCompleted ? 'line-through text-text-secondary/35 font-light' : 'text-text-primary'}`}>
-                                  {title}
-                                </span>
-                                <span className="px-2 py-0.5 bg-white/5 text-[9px] font-bold uppercase tracking-wider rounded text-text-secondary/60 font-sans">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60">
                                   {contextLabel}
                                 </span>
                                 {startTime && (
-                                  <span className="px-2 py-0.5 bg-green/10 text-green text-[9px] font-semibold tracking-wider rounded font-mono">
-                                    🕒 {formatClockTime(startTime)} - {formatClockTime(endTime)} ({activity.duration_minutes} min)
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60">
+                                    {formatClockTime(startTime)} - {formatClockTime(endTime)} ({activity.duration_minutes} min)
                                   </span>
                                 )}
                               </div>
                             </div>
                           </div>
+
+                          {/* DROPDOWN MENU */}
+                          <div className="absolute top-5 right-5 z-50">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === item.id ? null : item.id);
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 transition-all text-text-secondary/50 hover:text-white"
+                            >
+                              <span className="text-lg leading-none transform -translate-y-1">...</span>
+                            </button>
+                            
+                            {openMenuId === item.id && (
+                              <div className="absolute top-full right-0 mt-1 w-36 bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 animate-fade-in origin-top-right">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    window.dispatchEvent(new CustomEvent('open-action-center', {
+                                      detail: { screen: 'agenda', editingActivity: activity }
+                                    }));
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/5 transition-all font-sans"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    if (confirm('Ficou tarde? Deseja cancelar este agendamento?')) {
+                                      await dataStore.updateScheduledActivity(activity.id, {
+                                        status: 'cancelada',
+                                        resolved_at: new Date().toISOString()
+                                      });
+                                      dataStore.showNotification('Agendamento cancelado com sucesso.', 'success');
+                                    }
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/5 transition-all font-sans"
+                                >
+                                  Cancelar
+                                </button>
+                                <div className="h-px bg-white/5 my-1 mx-2" />
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    if (confirm('Excluir este agendamento permanentemente?')) {
+                                      await dataStore.deleteScheduledActivity(activity.id);
+                                      dataStore.showNotification('Agendamento excluído do sistema.', 'success');
+                                    }
+                                  }}
+                                  className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 transition-all font-sans"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {activity.tasks && activity.tasks.length > 0 && (
-                          <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
-                            <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">TAREFAS DA SESSÃO ({activity.tasks.length})</p>
-                            <div className="grid grid-cols-1 gap-1.5">
+                          <div className="pl-12 pr-4 text-left pt-2">
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
+                              TAREFAS DA SESSÃO ({activity.tasks.length})
+                            </p>
+                            <div className="pl-3 grid grid-cols-1 gap-1.5 border-l border-white/5">
                               {activity.tasks.map((taskStr: string, tIdx: number) => (
-                                <div key={tIdx} className="flex items-center gap-2 text-xs">
-                                  <span className="text-text-secondary/40">
-                                    <Square size={13} />
-                                  </span>
+                                <div key={tIdx} className="flex items-center gap-2 text-xs relative -left-[4.5px]">
+                                  <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 flex-shrink-0" />
                                   <span className="text-text-secondary/80 font-medium font-sans">
                                     {taskStr}
                                   </span>
@@ -652,61 +719,17 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                           </div>
                         )}
 
-                        <div className="border-t border-white/5 pt-3 pl-9.5 flex flex-wrap gap-2.5">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.dispatchEvent(new CustomEvent('open-action-center', {
-                                detail: {
-                                  screen: 'agenda',
-                                  editingActivity: activity
-                                }
-                              }));
-                            }}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                          >
-                            EDITAR
-                          </button>
-
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm('Ficou tarde? Deseja realmente cancelar este agendamento?')) {
-                                await dataStore.updateScheduledActivity(activity.id, {
-                                  status: 'cancelada',
-                                  resolved_at: new Date().toISOString()
-                                });
-                                dataStore.showNotification('Agendamento cancelado com sucesso.', 'success');
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-coral/10 text-coral rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                          >
-                            CANCELAR
-                          </button>
-
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm('Deseja realmente excluir este agendamento permanentemente?')) {
-                                await dataStore.deleteScheduledActivity(activity.id);
-                                dataStore.showNotification('Agendamento excluído do sistema.', 'success');
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-red-500 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                          >
-                            EXCLUIR
-                          </button>
-
-                          {!isCompleted && !isCancelled && (
+                        {!isCompleted && !isCancelled && (
+                          <div className="mt-2 -mx-5 -mb-5 border-t border-white/5">
                             <button
                               onClick={() => onStartSession(activity)}
-                              className="px-3.5 py-1.5 bg-green/10 hover:bg-green/20 text-green rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                              className="w-full py-3.5 text-[#6ee7a8] hover:bg-white/5 text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 font-sans rounded-b-2xl"
                             >
                               <Play size={11} fill="currentColor" />
                               <span>SESSÃO PROFUNDA</span>
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </motion.div>
                     );
                   }
@@ -747,43 +770,101 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                             <Check size={14} strokeWidth={3} />
                           </button>
                           
-                          <div className="flex flex-col gap-1 text-left font-sans">
-                            <div className="flex flex-wrap items-center gap-2 font-sans overflow-hidden">
-                              <span className={`text-sm font-semibold leading-relaxed font-sans ${task.is_completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-primary'}`}>
-                                {task.title}
-                              </span>
-                              
+                          <div className="flex flex-col gap-2 text-left w-full pr-8">
+                            <span className={`text-sm font-semibold leading-relaxed font-sans ${task.is_completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-primary'}`}>
+                              {task.title}
+                            </span>
+                            
+                            <div className="flex flex-wrap items-center gap-2">
                               {isRolledOver && !task.is_completed && (
-                                <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider rounded border border-amber-500/10 shrink-0 font-sans">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/10 text-[10px] uppercase tracking-wider text-amber-500 font-sans">
                                   {rolloverLabel}
                                 </span>
                               )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-sans font-bold text-text-secondary/50 uppercase tracking-wider">
                               {task.project_id && (
-                                <span className="font-sans">📁 {dataStore.projects.find(p => p.id === task.project_id)?.name}</span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60 font-sans">
+                                  {dataStore.projects.find(p => p.id === task.project_id)?.name}
+                                </span>
                               )}
                               {task.habit_id && (
-                                <span className="font-sans">• 🔁 {dataStore.habits.find(h => h.id === task.habit_id)?.name}</span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase tracking-wider text-white/60 font-sans">
+                                  {dataStore.habits.find(h => h.id === task.habit_id)?.name}
+                                </span>
                               )}
                             </div>
                           </div>
                         </div>
+
+                        {/* DROPDOWN MENU */}
+                        <div className="absolute top-5 right-5 z-50">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === task.id ? null : task.id);
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 transition-all text-text-secondary/50 hover:text-white"
+                          >
+                            <span className="text-lg leading-none transform -translate-y-1">...</span>
+                          </button>
+                          
+                          {openMenuId === task.id && (
+                            <div className="absolute top-full right-0 mt-1 w-36 bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 animate-fade-in origin-top-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  handleOpenEditModal(task, e as any);
+                                }}
+                                className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/5 transition-all font-sans"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  if (confirm('Deseja realmente cancelar esta tarefa?')) {
+                                    await dataStore.deleteDailyTask(task.id);
+                                    dataStore.showNotification('Tarefa cancelada.', 'success');
+                                  }
+                                }}
+                                className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/5 transition-all font-sans"
+                              >
+                                Cancelar
+                              </button>
+                              <div className="h-px bg-white/5 my-1 mx-2" />
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  if (confirm('Deseja realmente excluir esta tarefa permanentemente?')) {
+                                    await dataStore.deleteDailyTask(task.id);
+                                    dataStore.showNotification('Tarefa excluída permanentemente.', 'success');
+                                  }
+                                }}
+                                className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 transition-all font-sans"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {task.checklist && task.checklist.length > 0 && (
-                        <div className="border-t border-white/5 pt-3 pl-9.5 space-y-2 text-left">
-                          <p className="text-[9px] font-mono font-bold tracking-wider text-text-secondary/50 uppercase">Sessão Profunda ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})</p>
-                          <div className="grid grid-cols-1 gap-1.5">
+                        <div className="pl-12 pr-4 text-left pt-2">
+                          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
+                            Sessão Profunda ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})
+                          </p>
+                          <div className="pl-3 grid grid-cols-1 gap-1.5 border-l border-white/5">
                             {task.checklist.map((sub, sIdx) => (
                               <div 
                                 key={sIdx}
                                 onClick={(e) => handleToggleSubtaskActive(task, sIdx, e)}
-                                className="flex items-center gap-2 cursor-pointer text-xs select-none"
+                                className="flex items-center gap-2 cursor-pointer text-xs select-none relative -left-[4.5px]"
                               >
-                                <span className={sub.completed ? 'text-green' : 'text-text-secondary/40'}>
-                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <Square size={13} />}
+                                <span className={`${sub.completed ? 'text-green' : 'text-text-secondary/40'} flex-shrink-0 bg-surface z-10`}>
+                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 ml-[2.5px]" />}
                                 </span>
                                 <span className={`font-semibold font-sans ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
                                   {sub.text}
@@ -794,50 +875,17 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                         </div>
                       )}
 
-                      <div className="border-t border-white/5 pt-3 pl-9.5 flex flex-wrap gap-2.5">
-                        <button
-                          onClick={(e) => handleOpenEditModal(task, e)}
-                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-text-primary rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                        >
-                          EDITAR
-                        </button>
-
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (confirm('Deseja realmente cancelar esta tarefa?')) {
-                              await dataStore.deleteDailyTask(task.id);
-                              dataStore.showNotification('Tarefa cancelada.', 'success');
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-white/5 hover:bg-coral/10 text-coral rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                        >
-                          CANCELAR
-                        </button>
-
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (confirm('Deseja realmente excluir esta tarefa permanentemente?')) {
-                              await dataStore.deleteDailyTask(task.id);
-                              dataStore.showNotification('Tarefa excluída permanentemente.', 'success');
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-red-500 rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer font-sans"
-                        >
-                          EXCLUIR
-                        </button>
-
-                        {!task.is_completed && (
+                      {!task.is_completed && (
+                        <div className="mt-2 -mx-5 -mb-5 border-t border-white/5">
                           <button
                             onClick={(e) => handleStartSessaoProfunda(task, e)}
-                            className="px-3.5 py-1.5 bg-green/10 hover:bg-green/20 text-green rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                            className="w-full py-3.5 text-[#6ee7a8] hover:bg-white/5 text-[10px] font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 font-sans rounded-b-2xl"
                           >
                             <Play size={11} fill="currentColor" />
                             <span>SESSÃO PROFUNDA</span>
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })
