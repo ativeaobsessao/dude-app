@@ -3,6 +3,7 @@ import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
+import { habitService } from '../../services/habitService';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduledActivity } from '../../types';
 import { 
@@ -845,9 +846,7 @@ export const ActionCenter = () => {
         // 1.5. VINCULAÇÃO NOVA: Se o checkbox está ativo e não temos um habit ID ainda
         if (linkActivityToHabit && !selectedHabitId) {
           try {
-            const { data: newHabit, error: habitError } = await supabase
-              .from('habits')
-              .insert({
+            const { data: newHabit, error: habitError } = await habitService.createHabit({
                 name: cleanName,
                 user_id: user.id,
                 total_minutes: 0,
@@ -862,9 +861,7 @@ export const ActionCenter = () => {
                 is_recurring: false,
                 recurrence_days: [],
                 recurrence_time: null
-              })
-              .select()
-              .single();
+              }, 'atomic');
 
             if (habitError) {
               console.error(habitError);
