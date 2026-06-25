@@ -1390,7 +1390,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
           {/* Placeholder silencioso no mobile/desktop enquanto os hábitos carregam (evita flash do botão verde) */}
           {!dataStore.initialFetchDone && (
-            <div className="h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto" />
+            <div className="hidden md:block h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl mx-auto" />
           )}
 
           {dataStore.initialFetchDone && (
@@ -1398,9 +1398,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               {/* SP Button */}
               <button 
                 onClick={openDeepSession}
-                className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-[#0D0F14] rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] ${
-                  hasAvoidance ? 'hidden md:flex' : 'flex'
-                } flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl hover:scale-[1.02] duration-200 cursor-pointer text-center`}
+                className={`group relative px-5 sm:px-10 py-4 sm:py-5 bg-green text-[#0D0F14] rounded-2xl overflow-hidden transition-all hover:brightness-105 active:scale-[0.98] hidden md:flex flex-col items-center justify-center gap-1.5 mx-auto shadow-[0_4px_12px_rgba(110,231,168,0.15)] sm:shadow-[0_20px_40px_rgba(110,231,168,0.25)] touch-manipulation min-h-[56px] w-full max-w-[340px] sm:max-w-md md:max-w-xl hover:scale-[1.02] duration-200 cursor-pointer text-center`}
               >
                 <div className="flex items-center gap-2.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-app-base animate-pulse shrink-0" />
