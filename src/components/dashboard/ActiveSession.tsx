@@ -471,6 +471,7 @@ export const ActiveSession = () => {
       setIsSaving(false);
       // Redirecionar usuário para a Hero/Início
       window.dispatchEvent(new CustomEvent('close-action-center'));
+      window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
     }
   };
 
@@ -488,6 +489,10 @@ export const ActiveSession = () => {
     setShowDiscardConfirm(false);
     setShowCompleteModal(false);
     setShowNoteModal(false);
+    
+    // Redirecionar usuário para a Hero/Início
+    window.dispatchEvent(new CustomEvent('close-action-center'));
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
   };
 
   const handleAddNote = async () => {
