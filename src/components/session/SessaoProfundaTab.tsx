@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Play, Info, Sparkles, Clock } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { unlockAudio } from '../../hooks/useSessionNotifications';
+import { cleanActivityName } from '../../lib/utils';
 
 export const SessaoProfundaTab = () => {
   const timer = useTimerStore();
@@ -306,7 +307,7 @@ export const SessaoProfundaTab = () => {
                 placeholder="Selecionar Atividade"
                 options={[
                   { value: '', label: 'Selecionar Atividade' },
-                  ...filteredActivities.map(a => ({ value: a.id, label: a.name }))
+                  ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
                 ]}
               />
             </div>
