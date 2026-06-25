@@ -131,8 +131,14 @@ export const ActionCenter = () => {
       }
 
       // Prefill Anti-Vício editing/creation states
+      if (e.detail?.screen === 'notes' && e.detail?.noteText) {
+        sessionStorage.setItem('pending_note_capture', e.detail.noteText);
+        if (e.detail.captureId) {
+          sessionStorage.setItem('pending_capture_conversion', e.detail.captureId);
+        }
+      }
+
       if (e.detail?.screen === 'anti-vicio' && e.detail?.editHabit) {
-        const h = e.detail.editHabit;
         setEditingAvoidanceId(h.id);
         setAvoidanceName(h.name);
         
@@ -620,6 +626,16 @@ export const ActionCenter = () => {
   const [noteActivityId, setNoteActivityId] = useState('');
   const [noteDate, setNoteDate] = useState(getLocalDateString(new Date()));
 
+  useEffect(() => {
+    if (currentScreen === 'notes') {
+      const pendingText = sessionStorage.getItem('pending_note_capture');
+      if (pendingText) {
+        setNoteText(pendingText);
+        sessionStorage.removeItem('pending_note_capture');
+      }
+    }
+  }, [currentScreen]);
+
   const [filterProject, setFilterProject] = useState('');
   const [filterDate, setFilterDate] = useState('');
 
@@ -840,7 +856,7 @@ export const ActionCenter = () => {
       // 2. Processamento da Atividade
       if (editingActivityId) {
         // 1. Limpa qualquer rastro de #HABIT antigo que estava no input
-        const cleanName = newActivityName.split(/#HABIT:/i)[0].trim();
+        const cleanName = cleanActivityName(newActivityName);
         
         let selectedHabitId = finalHabitId; // pode ter vindo do bloco anterior
         
@@ -1123,7 +1139,7 @@ export const ActionCenter = () => {
           if (pendingActivityId) {
             const activity = dataStore.activities.find(a => a.id === pendingActivityId);
             if (activity) {
-              const cleanName = activity.name.split(/#HABIT:/i)[0].trim();
+              const cleanName = cleanActivityName(activity.name);
               const updatedName = `${cleanName} #HABIT:${createdHabit.id}`;
               const { error: updateError } = await supabase
                 .from('activities')
@@ -1269,6 +1285,13 @@ export const ActionCenter = () => {
       setNoteProject('');
       setNoteActivityId('');
       showSuccess('✅ Anotação salva!');
+      
+      const captureId = sessionStorage.getItem('pending_capture_conversion');
+      if (captureId) {
+        await dataStore.deleteInboxCapture(captureId);
+        sessionStorage.removeItem('pending_capture_conversion');
+      }
+      
       setIsOpen(false);
       setCurrentScreen(null);
     } catch (err) {
@@ -2272,7 +2295,7 @@ export const ActionCenter = () => {
                               <div key={item.id} className="p-4 bg-surface/30 border border-white/5 rounded-2xl flex justify-between items-center transition-all hover:bg-surface/40">
                                 <div className="text-left space-y-2">
                                   <h4 className="text-sm font-medium text-text-primary">
-                                    {item.name.split(/#HABIT:/i)[0].trim()}
+                                    {cleanActivityName(item.name)}
                                   </h4>
                                   <div className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium uppercase tracking-wider text-emerald-500">
                                     {linkedProj ? linkedProj.name : 'Atividade Geral'}
