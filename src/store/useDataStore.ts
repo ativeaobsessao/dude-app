@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { habitService } from '../services/habitService';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask, InboxCapture } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { useAuthStore } from './useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
@@ -70,7 +70,11 @@ interface DataState {
   savedLinks: SavedLink[];
   dailyShutdowns: DailyShutdown[];
   dailyTasks: DailyTask[];
+  inboxCaptures: InboxCapture[];
   
+  fetchInboxCaptures: (userId: string) => Promise<void>;
+  deleteInboxCapture: (id: string) => Promise<boolean>;
+
   fetchDailyTasks: (userId: string) => Promise<void>;
   addDailyTask: (task: Omit<DailyTask, 'id' | 'created_at'>) => Promise<DailyTask | null>;
   updateDailyTask: (id: string, updates: Partial<DailyTask>) => Promise<boolean>;
@@ -195,6 +199,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   })(),
   savedLinks: [],
   dailyTasks: [],
+  inboxCaptures: [],
   dailyShutdowns: (() => {
     try {
       const cached = localStorage.getItem('dude-daily-shutdowns');
@@ -313,7 +318,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchData: async (userId) => {
     try {
       set({ loading: true });
-      const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds, dt] = await Promise.all([
+      const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds, dt, ic] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         habitService.getHabitsByType('atomic', userId),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
@@ -380,6 +385,23 @@ export const useDataStore = create<DataState>((set, get) => ({
             return res;
           } catch (err) {
             console.warn('Silent fallback: daily_tasks table lookup threw an exception', err);
+            return { data: [] };
+          }
+        })(),
+        (async () => {
+          try {
+            const res = await supabase
+              .from('inbox_captures')
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false });
+            if (res.error) {
+              console.warn('Silent fallback: inbox_captures table lookup failed with error', res.error);
+              return { data: [] };
+            }
+            return res;
+          } catch (err) {
+            console.warn('Silent fallback: inbox_captures table lookup threw an exception', err);
             return { data: [] };
           }
         })(),
@@ -456,6 +478,7 @@ export const useDataStore = create<DataState>((set, get) => ({
          savedLinks: sl.data || [],
          dailyShutdowns: combinedShutdowns,
          dailyTasks: combinedDailyTasks,
+         inboxCaptures: (ic && 'data' in ic && ic.data) ? ic.data as InboxCapture[] : [],
          loading: false,
          initialFetchDone: true 
        });
@@ -2237,6 +2260,32 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (error) throw error;
     } catch (err) {
       console.error('Error in registerLinkAccess:', err);
+    }
+  },
+
+  fetchInboxCaptures: async (userId) => {
+    try {
+      const { data, error } = await supabase.from('inbox_captures').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      if (!error && data) {
+        set({ inboxCaptures: data });
+      }
+    } catch (err) {
+      console.error('Error fetching inbox captures:', err);
+    }
+  },
+
+  deleteInboxCapture: async (id) => {
+    try {
+      set(state => ({ inboxCaptures: state.inboxCaptures.filter(c => c.id !== id) }));
+      const { error } = await supabase.from('inbox_captures').delete().eq('id', id);
+      if (error) {
+        get().fetchInboxCaptures(get().profile?.id!); // re-fetch on error to sync state
+        throw error;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error deleting inbox capture:', err);
+      return false;
     }
   },
 
