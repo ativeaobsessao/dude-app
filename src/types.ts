@@ -170,7 +170,7 @@ export type MoodEntry = {
   date: string; // YYYY-MM-DD local
   period: MoodPeriod;
   mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null;
-  energy?: 'cansado' | 'normal' | 'energizado' | null;
+  energy?: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null;
   created_at: string;
 };
 
