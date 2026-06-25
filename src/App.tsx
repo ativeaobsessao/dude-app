@@ -340,11 +340,24 @@ export default function App() {
       if (isSkipped) {
         return false;
       }
+      
+      const isTrackingDisabled = localStorage.getItem('energy_tracking_disabled') === 'true';
+      if (isTrackingDisabled) {
+        return false;
+      }
+      
+      const snoozeUntil = localStorage.getItem('energy_snooze_until');
+      if (snoozeUntil) {
+        const snoozeDate = parseInt(snoozeUntil, 10);
+        if (Date.now() < snoozeDate) {
+          return false;
+        }
+      }
     } catch (e) {
-      console.error("Error reading mood skip storage:", e);
+      console.error("Error reading mood storage:", e);
     }
     
-    // Check Supabase privacy settings (GDPR)
+    // Check Supabase privacy settings (GDPR) legacy fallback
     if (profile?.mood_status === 'disabled') {
       return false;
     }
