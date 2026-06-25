@@ -209,3 +209,10 @@ export type DailyTask = {
   rolled_from_date: string | null;
   created_at: string;
 };
+
+export type InboxCapture = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+};
