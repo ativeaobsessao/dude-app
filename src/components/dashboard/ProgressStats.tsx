@@ -927,16 +927,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
 
     Object.entries(dailyMoodsMap).forEach(([dateStr, list]) => {
+      const validList = list.filter(m => m.mood !== null);
+      if (validList.length === 0) return;
+
       const counts: Record<string, number> = {};
-      list.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
+      validList.forEach(m => counts[m.mood as string] = (counts[m.mood as string] || 0) + 1);
       const maxCount = Math.max(...Object.values(counts));
       const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
       let dom: MoodKey;
       if (candidates.length === 1) {
         dom = candidates[0] as MoodKey;
       } else {
-        const periodWeights = { noite: 3, tarde: 2, manha: 1 };
-        const sortedByPeriod = [...list].sort((a, b) => (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0));
+        const periodWeights: Record<string, number> = { noite: 3, tarde: 2, manha: 1 };
+        const sortedByPeriod = [...validList].sort((a, b) => (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0));
         dom = sortedByPeriod[0].mood as MoodKey;
       }
       dailyDominantMood[dateStr] = dom;
@@ -1007,6 +1010,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       const weekdayCounts: Record<number, Record<MoodKey, number>> = {};
       
       moodEntries.forEach(m => {
+        if (!m.mood) return;
         const dateObj = new Date(getLocalDateString(m.date) + 'T12:00:00'); // avoid timezone offsets
         const wday = dateObj.getDay();
         if (!weekdayCounts[wday]) {
@@ -1084,9 +1088,17 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     moodEntries.forEach(m => {
       if (!m.energy) return;
+      
+      let mappedEnergy: 'cansado' | 'normal' | 'energizado' | null = null;
+      if (m.energy === 'cansado' || m.energy === 'fadigado') mappedEnergy = 'cansado';
+      else if (m.energy === 'energizado' || m.energy === 'inquieto') mappedEnergy = 'energizado';
+      else if (m.energy === 'normal' || m.energy === 'equilibrado' || m.energy === 'pleno') mappedEnergy = 'normal';
+      
+      if (!mappedEnergy) return;
+
       const key = `${getLocalDateString(m.date)}_${m.period}`;
       const minsObj = periodFocusDuration[key] || 0;
-      focusDurationByEnergy[m.energy].push(minsObj);
+      focusDurationByEnergy[mappedEnergy].push(minsObj);
     });
 
     const energyCounts = {
