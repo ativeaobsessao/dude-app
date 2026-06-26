@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Pause, ArrowUp } from 'lucide-react';
+import { X, Play, Pause } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 
@@ -68,7 +68,6 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     }
   };
 
-  // Impede que cliques dentro da sessão fechem modais pai acidentalmente
   const handleContainerClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -78,78 +77,69 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   return (
     <div 
       onClick={handleContainerClick}
-      className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-between text-white"
+      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans"
     >
       {/* Cabeçalho */}
-      <button 
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClose();
-        }}
-        className="absolute top-6 right-6 opacity-50 hover:opacity-100 transition-opacity p-2 cursor-pointer"
-      >
-        <X size={24} />
-      </button>
+      <div className="flex justify-end p-6">
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
+          className="text-zinc-600 hover:text-zinc-300 transition-colors p-2"
+        >
+          <X size={28} strokeWidth={1.5} />
+        </button>
+      </div>
 
-      {/* Centro da Tela */}
-      <div className="flex-1 flex flex-col items-center justify-center relative w-full">
-        {/* Respiração (Framer Motion) */}
+      {/* Centro da Tela - Ancoragem Minimalista */}
+      <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
+        {/* Círculo com respiração sutil (sem bordas grossas ou neons) */}
         <motion.div
-          animate={{ scale: [1, 1.5, 1] }}
-          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
-          className="w-48 h-48 rounded-full bg-zinc-800/40 blur-2xl absolute"
+          animate={{ scale: [1, 1.15, 1] }}
+          transition={{ duration: 8, ease: "easeInOut", repeat: Infinity }}
+          className="w-48 h-48 rounded-full border border-zinc-800/40 absolute"
         />
         
-        {/* Áudio Player */}
-        <div className="relative z-10">
+        {/* Áudio Player Minimalista */}
+        <div className="relative z-10 mt-64">
           <button 
             type="button"
             onClick={toggleAudio}
-            className="border border-zinc-700 rounded-full p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="rounded-full p-4 hover:bg-zinc-900 transition-colors flex items-center justify-center border border-zinc-800/60"
           >
-            {isPlaying ? <Pause size={24} className="text-zinc-300" /> : <Play size={24} className="text-zinc-300 ml-1" />}
+            {isPlaying ? <Pause size={20} className="text-zinc-500" /> : <Play size={20} className="text-zinc-500 ml-1" />}
           </button>
           <audio ref={audioRef} src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop className="hidden" />
         </div>
       </div>
 
-      {/* Base da Tela (O Cofre de Captura) */}
-      <div className="w-full max-w-lg px-6 pb-12 relative flex flex-col items-center">
+      {/* Base da Tela - Textarea Imersivo e Translúcido */}
+      <div className="w-full px-8 pb-12 relative flex flex-col">
         <AnimatePresence>
           {showFeedback && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: 0.5 } }}
-              className="absolute -top-8 text-zinc-400 text-sm font-medium"
+              exit={{ opacity: 0 }}
+              className="text-zinc-500 text-sm mb-3 font-medium"
             >
               Captura guardada.
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="bg-zinc-900 rounded-3xl p-2 flex items-end shadow-lg w-full">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Esvazie a mente..."
-            className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-100 placeholder:text-zinc-500 px-3 py-2 max-h-32 min-h-[44px] overflow-y-auto"
-            rows={2}
-            autoFocus
-          />
-          
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!text.trim()}
-            className="bg-zinc-700 text-white rounded-full p-2 mb-1 mr-1 disabled:opacity-30 disabled:bg-zinc-800 transition-all cursor-pointer flex-shrink-0"
-          >
-            <ArrowUp size={20} strokeWidth={2.5} />
-          </button>
-        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Esvazie a mente... (Pressione Enter para guardar)"
+          className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-300 placeholder:text-zinc-700 text-lg p-0"
+          rows={3}
+          autoFocus
+        />
       </div>
     </div>
   );
