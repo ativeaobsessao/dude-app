@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Pause } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Play, Pause, ArrowUp } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 
@@ -35,25 +35,31 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     }
   };
 
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleSave = async () => {
+    if (!text.trim() || !user) return;
+    
+    const contentToSave = text.trim();
+    setText('');
+    
+    try {
+      await supabase.from('inbox_captures').insert({
+        user_id: user.id,
+        content: contentToSave
+      });
+      
+      setShowFeedback(true);
+      setTimeout(() => setShowFeedback(false), 2000);
+    } catch (err) {
+      console.error('Error saving capture:', err);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 13 is Enter. e.keyCode or e.which might be more reliable on older mobile browsers, but e.key is standard.
+    // However, the standard fix for mobile "Enter" issue is to have a physical button fallback.
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!text.trim() || !user) return;
-
-      const contentToSave = text;
-      setText('');
-
-      try {
-        await supabase.from('inbox_captures').insert({
-          user_id: user.id,
-          content: contentToSave
-        });
-        
-        setShowFeedback(true);
-        setTimeout(() => setShowFeedback(false), 2000);
-      } catch (err) {
-        console.error('Error saving capture:', err);
-      }
+      handleSave();
     }
   };
 
@@ -71,6 +77,20 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           <X size={24} />
         </button>
       </div>
+
+      {/* Center Feedback Overlay */}
+      <AnimatePresence>
+        {showFeedback && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10, transition: { duration: 0.5 } }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-zinc-900/80 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium border border-zinc-800 shadow-2xl z-50 pointer-events-none"
+          >
+            Captura guardada.
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Breathing Animation & Audio */}
       <div className="flex-1 flex flex-col items-center justify-center gap-12 w-full">
@@ -126,28 +146,27 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       </div>
 
       {/* The Vault (Esvaziamento) */}
-      <div className="w-full max-w-2xl px-6 pb-20 relative">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Esvazie a mente... (Pressione Enter para guardar)"
-          className="w-full h-32 bg-transparent focus:ring-0 focus:outline-none resize-none text-white/80 placeholder:text-[#333333] text-lg sm:text-xl font-light leading-relaxed scrollbar-hide"
-          autoFocus
-        />
-        
-        <AnimatePresence>
-          {showFeedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: 0.5 } }}
-              className="absolute bottom-10 left-6 text-[#444444] text-sm"
-            >
-              Guardado.
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div className="w-full max-w-2xl px-6 pb-8 sm:pb-20 relative">
+        <div className="relative">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Esvazie a mente... (Pressione Enter para guardar)"
+            className="w-full h-32 bg-transparent focus:ring-0 focus:outline-none resize-none text-white/80 placeholder:text-[#333333] text-lg sm:text-xl font-light leading-relaxed scrollbar-hide pr-12"
+            autoFocus
+          />
+          
+          {/* Mobile Send Button */}
+          <button
+            onClick={handleSave}
+            disabled={!text.trim()}
+            className="absolute bottom-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-indigo-500 text-white disabled:opacity-30 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all cursor-pointer"
+            aria-label="Guardar captura"
+          >
+            <ArrowUp size={16} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
     </div>
   );
