@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { Layers, Calendar, ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { formatHumanTime, getLocalDateString } from '../../lib/utils';
 import { Habit } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
-const HabitCard = ({ habit }: { habit: Habit }) => {
+const HabitCard = ({ habit }: { key?: string | number; habit: Habit }) => {
   const dataStore = useDataStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
