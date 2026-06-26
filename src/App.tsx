@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-// ... (mantenha todos os seus imports originais)
-// Adicionei apenas o QuickCaptureModal que já estava no seu projeto
+import React, { useState } from 'react';
+// Mantenha seus outros imports originais
 import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
+import { TaskListScreen } from './components/dashboard/TaskListScreen';
+import { Zap } from 'lucide-react';
 
-// ... (todo o resto do seu código original até o return)
+export const App: React.FC = () => {
+  // 1. Estado essencial para o Modal Global
+  const [showQuickCapture, setShowQuickCapture] = useState(false);
+  
+  // ... (seus outros estados, ex: activeTab, handleStartSessionFromAgenda)
 
   return (
     <ErrorBoundary>
@@ -11,13 +16,14 @@ import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
         <SubscriptionGuard>
           <PWAProvider>
             <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
-              {/* MODAIS E OVERLAYS GLOBAIS */}
-              <MoodRitualModal ... />
-              <DailyShutdownModal ... />
-              <ReagendarModal ... />
-              <ReconfigurarModal ... />
               
-              {/* O PORTAL DE CAPTURA SEGURA (Integrado ao botão Zap) */}
+              {/* MODAIS GLOBAIS - Agora isolados fora da árvore da TaskList */}
+              <MoodRitualModal />
+              <DailyShutdownModal />
+              <ReagendarModal />
+              <ReconfigurarModal />
+              
+              {/* O PORTAL DE CAPTURA SEGURA (Z-Index 600 garante prioridade máxima) */}
               <QuickCaptureModal
                 isOpen={showQuickCapture}
                 onClose={() => setShowQuickCapture(false)}
@@ -27,35 +33,30 @@ import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
               <PWAInstallPrompt />
               <ActiveSession />
               <ActionCenter />
-              
-              {/* ... resto do seu App.tsx (notificações, modais, etc) ... */}
 
               <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex items-center justify-between">
-                {/* O BOTÃO ZAP ABRE O MODAL SEM TOCAR NA TELA DE TAREFAS */}
+                {/* Gatilho disparado de forma independente */}
                 <button
                   id="quick-capture-trigger-btn"
                   onClick={() => setShowQuickCapture(true)}
-                  className="..."
+                  className="p-2 hover:bg-white/5 rounded-full transition-all cursor-pointer"
                 >
                   <Zap size={18} className="text-[#6ee7a8] fill-[#6ee7a8]/15" />
                 </button>
-                {/* ... resto do seu header ... */}
               </header>
 
-              {/* TELA DE TAREFAS (Restaurada, sem o InboxCaptures dentro) */}
+              {/* TELA DE TAREFAS - Limpa e otimizada */}
               {activeTab === 'listas' && (
                 <TaskListScreen 
-                  tasks={[]}
-                  onTasksChange={() => {}}
                   onStartSession={handleStartSessionFromAgenda}
                 />
               )}
-              
-              {/* ... resto do seu App.tsx ... */}
+
+              {/* ... resto do seu layout ... */}
             </div>
           </PWAProvider>
         </SubscriptionGuard>
       </ProtectedRoute>
     </ErrorBoundary>
   );
-}
+};
