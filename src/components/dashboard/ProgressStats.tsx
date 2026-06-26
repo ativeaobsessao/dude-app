@@ -1130,7 +1130,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           : (energyAverages.cansado > 0 ? (energyAverages.energizado / energyAverages.cansado).toFixed(1) : "2.0");
         
         // Find most common period for 'energizado'
-        const energizedPeriods = moodEntries.filter(m => m.energy === 'energizado');
+        const energizedPeriods = moodEntries.filter(m => m.energy === 'energizado' || m.energy === 'inquieto' || m.energy === 'pleno');
         const periodCounts: Record<string, number> = {};
         energizedPeriods.forEach(p => periodCounts[p.period] = (periodCounts[p.period] || 0) + 1);
         let favoredPeriod = "";
@@ -1155,7 +1155,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
     // RISK PATTERN (gentle, never shaming)
     const tiredFocusDates = moodEntries
-      .filter(m => m.energy === 'cansado')
+      .filter(m => m.energy === 'cansado' || m.energy === 'fadigado')
       .map(m => getLocalDateString(m.date))
       .filter(date => (dailyFocusDurationOnStats[date] || 0) > 0);
 
