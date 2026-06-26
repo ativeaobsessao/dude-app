@@ -6,7 +6,7 @@ import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
 import { InboxCapture } from '../../types';
 import { getLocalDateString } from '../../lib/utils';
 
-// Modal de Criação de Tarefas Interno (Refatorado para DNA Exato do Banco)
+// Modal de Criação de Tarefas Interno (Refatorado para DNA Exato do Banco + Blindagem de Memória)
 const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: string; captureId: string; onClose: () => void }) => {
   const { user } = useAuthStore();
   const dataStore = useDataStore();
@@ -21,9 +21,11 @@ const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: str
       // Limpa as tags para gerar um título limpo
       const cleanTitle = activityAvulsa.replace(/#\w+/g, '').trim() || 'Nova Tarefa';
 
-      // PAYLOAD CIRÚRGICO: Exatamente igual ao que o TaskListScreen gera. 
-      // Sem campos inventados para o Supabase não rejeitar.
+      // PAYLOAD CIRÚRGICO + BLINDAGEM:
+      // Injeção de ID e Data previne o Crash Fatal da tela de Tarefas ao renderizar
       const payload = {
+        id: crypto.randomUUID(), // Previne o Crash do componente não achar a chave (key)
+        created_at: new Date().toISOString(), // Previne o Crash do cálculo de atraso
         user_id: user.id,
         task_date: getLocalDateString(new Date()),
         title: cleanTitle,
