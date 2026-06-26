@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { habitService } from '../services/habitService';
+import { habitService, HabitType } from '../services/habitService';
 import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask, InboxCapture } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { useAuthStore } from './useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString } from '../lib/utils';
 
-function getLocalMondayStr(): string {
+export function getLocalMondayStr(): string {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
   const monday = new Date(today);
