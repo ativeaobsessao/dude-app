@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
@@ -17,24 +17,39 @@ const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: str
     if (!user) return;
     setIsSaving(true);
     try {
+      // Limpa as tags do texto para gerar um título amigável e seguro para a listagem
+      const cleanTitle = activityAvulsa.replace(/#\w+/g, '').trim() || 'Nova Tarefa';
+
       await dataStore.addDailyTask({
         user_id: user.id,
         task_date: getLocalDateString(new Date()),
-        title: 'Processar Captura',
+        title: cleanTitle, // Título limpo e real da captura
+        activity_avulsa: activityAvulsa, // Mantém a string completa com as tags para o processador do app
         project_id: null,
         habit_id: null,
         activity_id: null,
-        activity_avulsa: activityAvulsa,
-        checklist: null,
+        checklist: [], // Array vazio defensivo em vez de null para evitar quebra de .length ou .map
         is_completed: false,
         completed_at: null,
-        rolled_from_date: null
+        rolled_from_date: null,
+        // Propriedades defensivas extras caso sua listagem exija fallbacks:
+        description: '',
+        notes: '',
+        priority: 'normal',
+        order: 0
       });
+
       await dataStore.deleteInboxCapture(captureId);
+      
+      // Força a atualização dos dados locais do Zustand se as funções de sincronização existirem
+      if (typeof (dataStore as any).fetchDailyTasks === 'function') await (dataStore as any).fetchDailyTasks();
+      if (typeof (dataStore as any).loadData === 'function') await (dataStore as any).loadData();
+
       dataStore.showNotification('Tarefa inserida na sua Lista de Hoje! 🎯', 'success');
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao converter captura em tarefa:', err);
+      dataStore.showNotification('Erro ao salvar a tarefa.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -65,12 +80,14 @@ const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: str
 
         <div className="flex gap-3 justify-end pt-2">
           <button
+            type="button"
             onClick={onClose}
             className="px-5 py-3.5 bg-transparent text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
             className="px-6 py-3.5 bg-[#6ee7a8] text-black font-bold text-xs uppercase tracking-wider rounded-2xl transition-all hover:brightness-110 cursor-pointer disabled:opacity-50"
@@ -89,7 +106,6 @@ export const InboxCaptures = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
-  // Custom Modal states
   const [captureToDelete, setCaptureToDelete] = useState<InboxCapture | null>(null);
   const [selectedCapture, setSelectedCapture] = useState<InboxCapture | null>(null);
 
@@ -159,6 +175,7 @@ export const InboxCaptures = () => {
                   <h3 className="text-lg font-semibold text-zinc-100">Capturas do Limbo</h3>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
                   className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer rounded-full hover:bg-zinc-900"
                 >
@@ -182,6 +199,7 @@ export const InboxCaptures = () => {
                       {/* Botoes de Acao - Layout Alinhado Horizontalmente */}
                       <div className="flex flex-row flex-wrap items-center gap-4 mt-4 pt-4 border-t border-zinc-800/50">
                         <button
+                          type="button"
                           onClick={() => setSelectedCapture(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 rounded-xl text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
@@ -191,6 +209,7 @@ export const InboxCaptures = () => {
                         </button>
                         
                         <button
+                          type="button"
                           onClick={() => handleSaveNote(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 rounded-xl text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors cursor-pointer"
@@ -199,9 +218,10 @@ export const InboxCaptures = () => {
                           Anotação
                         </button>
 
-                        <div className="flex-1" /> {/* Spacer */}
+                        <div className="flex-1" />
                         
                         <button
+                          type="button"
                           onClick={() => setCaptureToDelete(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
@@ -246,12 +266,14 @@ export const InboxCaptures = () => {
               
               <div className="flex gap-3 w-full">
                 <button
+                  type="button"
                   onClick={() => setCaptureToDelete(null)}
                   className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmDelete}
                   className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                 >
@@ -265,4 +287,3 @@ export const InboxCaptures = () => {
     </>
   );
 };
-
