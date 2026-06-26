@@ -1,6 +1,6 @@
-import { useState, type FormEvent, useMemo, useEffect, useRef } from 'react';
+import React, { useState, type FormEvent, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
-import { useDataStore } from '../../store/useDataStore';
+import { useDataStore, getLocalMondayStr } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 import { habitService } from '../../services/habitService';
@@ -139,6 +139,7 @@ export const ActionCenter = () => {
       }
 
       if (e.detail?.screen === 'anti-vicio' && e.detail?.editHabit) {
+        const h = e.detail.editHabit;
         setEditingAvoidanceId(h.id);
         setAvoidanceName(h.name);
         
