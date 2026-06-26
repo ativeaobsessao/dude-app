@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Pause } from 'lucide-react';
+import { X, Play, Pause, ArrowUp } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 
@@ -11,133 +10,136 @@ interface DecompressionSessionProps {
 
 export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionProps) => {
   const { user } = useAuthStore();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
-  
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const noiseNodeRef = useRef<ScriptProcessorNode | null>(null);
-
-  // Gerador Nativo de Ruído Marrom (Sem depender de links externos)
-  const startBrownNoise = () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') ctx.resume();
-
-    const bufferSize = 4096;
-    let lastOut = 0;
-    const node = ctx.createScriptProcessor(bufferSize, 1, 1);
-    
-    node.onaudioprocess = (e) => {
-      const output = e.outputBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        output[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = output[i];
-        output[i] *= 3.5; // Compensação de volume
-      }
-    };
-    
-    node.connect(ctx.destination);
-    noiseNodeRef.current = node;
-    setIsPlaying(true);
-  };
-
-  const stopBrownNoise = () => {
-    if (noiseNodeRef.current) {
-      noiseNodeRef.current.disconnect();
-      noiseNodeRef.current = null;
-    }
-    setIsPlaying(false);
-  };
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      try { startBrownNoise(); } catch (e) { console.warn("Autoplay bloqueado pelo iOS", e); }
+      setIsPlaying(true);
     } else {
-      stopBrownNoise();
+      setIsPlaying(false);
     }
-    return () => stopBrownNoise();
   }, [isOpen]);
 
-  const toggleAudio = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isPlaying) {
-      stopBrownNoise();
-    } else {
-      startBrownNoise();
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
     }
   };
 
-  const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
+  const handleSave = async () => {
     if (!text.trim() || !user) return;
-
+    
     const contentToSave = text.trim();
     setText('');
-
+    
     try {
       await supabase.from('inbox_captures').insert({
         user_id: user.id,
         content: contentToSave
       });
+      
       setShowFeedback(true);
       setTimeout(() => setShowFeedback(false), 2500);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error('Error saving capture:', err);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); e.stopPropagation(); handleSave(e);
+      e.preventDefault();
+      handleSave();
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div onClick={(e) => e.stopPropagation()} className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans">
-      <div className="flex justify-end p-6">
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="text-zinc-500 hover:text-zinc-300 transition-colors p-2 cursor-pointer">
-          <X size={28} strokeWidth={1.5} />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-between text-white">
+      <style>{`
+        @keyframes breathe-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.25); }
+        }
+        .animate-breathe {
+          animation: breathe-pulse 10s ease-in-out infinite;
+        }
+        @keyframes fade-out {
+          0% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-feedback {
+          animation: fade-out 2.5s ease-out forwards;
+        }
+      `}</style>
 
-      <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Anel de Respiração - Agora visível em OLED (border-zinc-500) */}
-        <motion.div
-          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 8, ease: "easeInOut", repeat: Infinity }}
-          className="w-56 h-56 rounded-full border-2 border-zinc-500 bg-zinc-600/10 absolute"
-          style={{ filter: 'blur(3px)' }}
-        />
+      {/* Cabeçalho */}
+      <button 
+        onClick={onClose}
+        className="absolute top-6 right-6 opacity-50 hover:opacity-100 transition-opacity p-2 cursor-pointer z-50"
+      >
+        <X size={24} />
+      </button>
+
+      {/* Centro da Tela */}
+      <div className="flex-1 flex flex-col items-center justify-center relative w-full">
+        {/* Respiração (CSS nativo) */}
+        <div className="w-64 h-64 rounded-full bg-gradient-to-tr from-zinc-800 to-zinc-900 blur-3xl absolute animate-breathe" />
         
-        <div className="relative z-10 mt-64">
-          <button onClick={toggleAudio} className="rounded-full p-4 hover:bg-zinc-800 transition-colors flex items-center justify-center border border-zinc-600 bg-black/60 cursor-pointer">
+        {/* Áudio Player */}
+        <div className="relative z-10">
+          <button 
+            onClick={toggleAudio}
+            className="border border-zinc-700 rounded-full p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          >
             {isPlaying ? <Pause size={24} className="text-zinc-300" /> : <Play size={24} className="text-zinc-300 ml-1" />}
           </button>
+          <audio 
+            ref={audioRef} 
+            src="https://actions.google.com/sounds/v1/noise/brown_noise.ogg" 
+            loop 
+            autoPlay
+            className="hidden" 
+          />
         </div>
       </div>
 
-      <div className="w-full px-8 pb-12 relative flex flex-col">
-        <AnimatePresence>
-          {showFeedback && (
-            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-zinc-500 text-sm mb-3 font-medium">
-              Captura guardada.
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Esvazie a mente... (Pressione Enter para guardar)"
-          className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-300 placeholder:text-zinc-700 text-lg p-0"
-          rows={3}
-          autoFocus
-        />
+      {/* Base da Tela (O Cofre de Captura) */}
+      <div className="w-full max-w-lg px-6 pb-12 relative flex flex-col items-center z-50">
+        {showFeedback && (
+          <div className="absolute -top-8 text-zinc-400 text-sm font-medium animate-feedback">
+            Captura guardada.
+          </div>
+        )}
+
+        <div className="bg-zinc-900 rounded-3xl p-2 flex items-end shadow-lg w-full">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Esvazie a mente..."
+            className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-100 placeholder:text-zinc-500 px-3 py-2 max-h-32 min-h-[44px] overflow-y-auto"
+            rows={2}
+            autoFocus
+          />
+          
+          <button
+            onClick={handleSave}
+            disabled={!text.trim()}
+            className="bg-zinc-700 text-white rounded-full p-2 mb-1 mr-1 disabled:opacity-30 disabled:bg-zinc-800 transition-all cursor-pointer flex-shrink-0"
+          >
+            <ArrowUp size={20} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
     </div>
   );
