@@ -17,7 +17,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   
   // Audio Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const gainNodeRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     }
     
     return () => {
-      // Cleanup on unmount
+      stopAudio();
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         audioCtxRef.current.close().catch(console.error);
       }
@@ -37,23 +37,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const initAudio = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContext();
-      audioCtxRef.current = ctx;
-
-      // Create 10 seconds of Brown Noise buffer
-      const bufferSize = ctx.sampleRate * 10;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      let lastOut = 0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        data[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = data[i];
-        data[i] *= 3.5; // compensate gain
-      }
-
-      (ctx as any).brownNoiseBuffer = buffer;
+      audioCtxRef.current = new AudioContext();
     }
   };
 
@@ -66,51 +50,69 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       ctx.resume();
     }
 
-    if (sourceRef.current) return; // already playing
+    if (oscillatorsRef.current.length > 0) return; // already playing
 
-    const source = ctx.createBufferSource();
-    source.buffer = (ctx as any).brownNoiseBuffer;
-    source.loop = true;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3); // 3 second smooth fade in
+    
+    // Create a deep, soothing drone using multiple oscillators
+    const freqs = [108, 111, 216]; // Solfeggio / Om frequencies
+    const oscs: OscillatorNode[] = [];
+    
+    freqs.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      
+      osc.type = i === 2 ? 'triangle' : 'sine';
+      osc.frequency.value = freq;
+      
+      // Slight detune for fullness
+      osc.detune.value = i * 4 - 2; 
+      
+      oscGain.gain.value = 1 / freqs.length;
+      
+      osc.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start();
+      oscs.push(osc);
+    });
 
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 2); // 2 second smooth fade in
-
-    // Lowpass filter for a soothing, deep rumble (like the ocean/Calm app)
+    // Gentle lowpass filter
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 350; 
+    filter.frequency.value = 400; 
     
-    source.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    masterGain.connect(filter);
+    filter.connect(ctx.destination);
 
-    source.start();
-
-    sourceRef.current = source;
-    gainNodeRef.current = gainNode;
+    oscillatorsRef.current = oscs;
+    gainNodeRef.current = masterGain;
   };
 
   const stopAudio = () => {
     const ctx = audioCtxRef.current;
-    const source = sourceRef.current;
-    const gainNode = gainNodeRef.current;
+    const oscs = oscillatorsRef.current;
+    const masterGain = gainNodeRef.current;
     
-    if (ctx && source && gainNode) {
-      // 1.5 second smooth fade out to prevent clicks
-      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5); 
+    if (ctx && oscs.length > 0 && masterGain) {
+      // Smooth fade out
+      masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2); 
       
       setTimeout(() => {
         try {
-          source.stop();
-          source.disconnect();
+          oscs.forEach(osc => {
+            osc.stop();
+            osc.disconnect();
+          });
         } catch (e) {
-          // ignore if already stopped
+          // ignore
         }
-      }, 1600);
+      }, 2100);
       
-      sourceRef.current = null;
+      oscillatorsRef.current = [];
+      gainNodeRef.current = null;
     }
   };
 
@@ -187,21 +189,24 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
         {/* Círculos com respiração sutil e visível simulando lótus/pulsação */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {[0, 1, 2].map((i) => (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          {[0, 1, 2, 3, 4].map((i) => (
             <motion.div
               key={i}
               animate={{ 
-                scale: [1 + (i * 0.15), 1.4 + (i * 0.25), 1 + (i * 0.15)], 
-                opacity: [0.3 - (i * 0.1), 0.6 - (i * 0.15), 0.3 - (i * 0.1)] 
+                scale: [1 + (i * 0.8), 3.5 + (i * 1.2), 1 + (i * 0.8)], 
+                opacity: [0.3 - (i * 0.05), 0.6 - (i * 0.1), 0.3 - (i * 0.05)]
               }}
               transition={{ 
-                duration: 7, 
+                duration: 8, 
                 ease: "easeInOut", 
                 repeat: Infinity,
                 delay: i * 0.6 
               }}
-              className="absolute w-56 h-56 rounded-full bg-zinc-800/20 border border-zinc-600/30 shadow-[0_0_30px_rgba(39,39,42,0.1)]"
+              className="absolute w-40 h-40 rounded-full border border-zinc-500/20 shadow-[0_0_50px_rgba(255,255,255,0.03)] mix-blend-screen"
+              style={{
+                backgroundColor: `rgba(63, 63, 70, ${0.05 + (i * 0.01)})`
+              }}
             />
           ))}
         </div>
