@@ -14,26 +14,116 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // Audio Refs
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
-    if (!isOpen && audioRef.current) {
-      audioRef.current.pause();
+    if (!isOpen) {
+      stopAudio();
       setIsPlaying(false);
     }
+    
+    return () => {
+      // Cleanup on unmount
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(console.error);
+      }
+    };
   }, [isOpen]);
+
+  const initAudio = () => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+
+      // Create 10 seconds of Brown Noise buffer
+      const bufferSize = ctx.sampleRate * 10;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        data[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = data[i];
+        data[i] *= 3.5; // compensate gain
+      }
+
+      (ctx as any).brownNoiseBuffer = buffer;
+    }
+  };
+
+  const playAudio = () => {
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    if (sourceRef.current) return; // already playing
+
+    const source = ctx.createBufferSource();
+    source.buffer = (ctx as any).brownNoiseBuffer;
+    source.loop = true;
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 2); // 2 second smooth fade in
+
+    // Lowpass filter for a soothing, deep rumble (like the ocean/Calm app)
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 350; 
+    
+    source.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    source.start();
+
+    sourceRef.current = source;
+    gainNodeRef.current = gainNode;
+  };
+
+  const stopAudio = () => {
+    const ctx = audioCtxRef.current;
+    const source = sourceRef.current;
+    const gainNode = gainNodeRef.current;
+    
+    if (ctx && source && gainNode) {
+      // 1.5 second smooth fade out to prevent clicks
+      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5); 
+      
+      setTimeout(() => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (e) {
+          // ignore if already stopped
+        }
+      }, 1600);
+      
+      sourceRef.current = null;
+    }
+  };
 
   const toggleAudio = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+    
+    if (isPlaying) {
+      stopAudio();
+    } else {
+      playAudio();
     }
+    setIsPlaying(!isPlaying);
   };
 
   const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
@@ -96,12 +186,25 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculo com respiração sutil e visível */}
-        <motion.div
-          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
-          className="w-56 h-56 rounded-full bg-zinc-800/30 border border-zinc-600/50 absolute shadow-[0_0_40px_rgba(39,39,42,0.2)]"
-        />
+        {/* Círculos com respiração sutil e visível simulando lótus/pulsação */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              animate={{ 
+                scale: [1 + (i * 0.15), 1.4 + (i * 0.25), 1 + (i * 0.15)], 
+                opacity: [0.3 - (i * 0.1), 0.6 - (i * 0.15), 0.3 - (i * 0.1)] 
+              }}
+              transition={{ 
+                duration: 7, 
+                ease: "easeInOut", 
+                repeat: Infinity,
+                delay: i * 0.6 
+              }}
+              className="absolute w-56 h-56 rounded-full bg-zinc-800/20 border border-zinc-600/30 shadow-[0_0_30px_rgba(39,39,42,0.1)]"
+            />
+          ))}
+        </div>
         
         {/* Áudio Player Minimalista */}
         <div className="relative z-10 mt-64">
@@ -112,7 +215,6 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           >
             {isPlaying ? <Pause size={24} className="text-zinc-400" /> : <Play size={24} className="text-zinc-400 ml-1" />}
           </button>
-          <audio ref={audioRef} src="https://actions.google.com/sounds/v1/noise/brown_noise.ogg" loop className="hidden" />
         </div>
       </div>
 
