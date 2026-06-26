@@ -1430,17 +1430,17 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </div>
 
-        {/* Seu tom de hoje: [label] chip */}
-        {activeMoodEntry && (
+        {/* Seu estado energético atual chip */}
+        {activeMoodEntry && activeMoodEntry.energy && (
           <div className="flex justify-center w-full my-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/[0.03] border border-white/5 rounded-full text-[10px] uppercase font-bold tracking-wider text-text-secondary hover:bg-white/[0.05] transition-colors cursor-default select-none relative z-10"
+              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/[0.03] border border-white/5 rounded-full text-[10px] uppercase font-bold tracking-wider text-text-secondary hover:bg-white/[0.05] transition-colors cursor-default select-none relative z-10 shadow-sm shadow-black/20"
             >
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10" style={{ backgroundColor: MOODS[activeMoodEntry.mood]?.color || 'var(--mood)' }} />
-              <span className="text-white/60">Seu tom de hoje: <span className="text-text-primary font-bold capitalize">{activeMoodEntry.mood} {MOODS[activeMoodEntry.mood]?.emoji}</span></span>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10 bg-[#6ee7a8] shadow-[0_0_8px_rgba(110,231,168,0.5)]" />
+              <span className="text-white/60 tracking-wider">Seu estado energético atual é: <span className="text-text-primary font-bold capitalize">{activeMoodEntry.energy}</span></span>
             </motion.div>
           </div>
         )}
