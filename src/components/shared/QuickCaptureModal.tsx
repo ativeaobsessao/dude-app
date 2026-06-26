@@ -148,53 +148,42 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
 
           {/* Views */}
           {view === 'menu' && (
-            <div className="space-y-6 py-2">
+            <div className="space-y-4 py-1">
               {/* Top Grid - Capture Actions */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3">
                 <button
                   id="menu-btn-note"
                   onClick={() => setView('note')}
-                  className="p-5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-start gap-4 transition-all group cursor-pointer active:scale-95"
+                  className="py-4 px-4 bg-zinc-800/60 hover:bg-zinc-800 rounded-2xl flex flex-row items-center gap-4 transition-all group cursor-pointer active:scale-95"
                 >
-                  <div className="p-2.5 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
-                    <FileText size={20} strokeWidth={2.5} />
+                  <div className="p-2 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <FileText size={18} strokeWidth={2.5} />
                   </div>
-                  <div className="text-left">
-                    <span className="text-sm font-semibold text-text-primary block">Anotações</span>
-                    <span className="text-[10px] text-text-secondary/50 font-medium">Salvar insights rápidos</span>
-                  </div>
+                  <span className="text-sm font-semibold text-zinc-200">Anotações</span>
                 </button>
 
                 <button
                   id="menu-btn-link"
                   onClick={() => setView('link')}
-                  className="p-5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col items-start gap-4 transition-all group cursor-pointer active:scale-95"
+                  className="py-4 px-4 bg-zinc-800/60 hover:bg-zinc-800 rounded-2xl flex flex-row items-center gap-4 transition-all group cursor-pointer active:scale-95"
                 >
-                  <div className="p-2.5 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
-                    <LinkIcon size={20} strokeWidth={2.5} />
+                  <div className="p-2 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <LinkIcon size={18} strokeWidth={2.5} />
                   </div>
-                  <div className="text-left">
-                    <span className="text-sm font-semibold text-text-primary block">Links Úteis</span>
-                    <span className="text-[10px] text-text-secondary/50 font-medium">Guardar referências</span>
-                  </div>
+                  <span className="text-sm font-semibold text-zinc-200">Links Úteis</span>
                 </button>
               </div>
 
               {/* Divider */}
-              <hr className="border-t border-white/5" />
+              <hr className="border-t border-zinc-800/50 my-2" />
 
               {/* Base - Decompression Session */}
               <button
                 onClick={() => setIsDecompressionOpen(true)}
-                className="w-full p-5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-[24px] flex items-center gap-4 transition-all group cursor-pointer active:scale-95 shadow-inner"
+                className="w-full py-4 px-4 bg-zinc-950 hover:bg-black rounded-2xl flex items-center justify-center gap-3 transition-all group cursor-pointer active:scale-95"
               >
-                <div className="p-3 bg-zinc-800 text-zinc-300 rounded-2xl group-hover:bg-zinc-700 group-hover:text-white transition-colors">
-                  <Moon size={22} strokeWidth={2} />
-                </div>
-                <div className="text-left flex-1">
-                  <span className="text-[15px] font-semibold text-zinc-200 block">Sessão de Descompressão</span>
-                  <span className="text-[11px] text-zinc-500 font-medium">Reduza a carga cognitiva</span>
-                </div>
+                <Moon size={18} strokeWidth={2} className="text-zinc-400 group-hover:text-white transition-colors" />
+                <span className="text-[15px] font-semibold text-zinc-200 group-hover:text-white transition-colors">Sessão de Descompressão</span>
               </button>
             </div>
           )}
