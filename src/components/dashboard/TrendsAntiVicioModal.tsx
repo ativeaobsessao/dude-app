@@ -205,26 +205,26 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
 
     const energyMap = {
       cansado: 'Esgotamento Mental (Fadiga) 🥱',
+      fadigado: 'Esgotamento Mental (Fadiga) 🥱',
       normal: 'Homeostase Estável ⚡',
-      energizado: 'Alta Voltagem (Tensão) 🔥'
+      equilibrado: 'Homeostase Estável ⚡',
+      energizado: 'Alta Voltagem (Tensão) 🔥',
+      pleno: 'Alta Voltagem (Tensão) 🔥',
+      inquieto: 'Dispersão (Agitação) 🌪️'
     };
-    const topEnergy = topEnergyKey ? (energyMap[topEnergyKey as keyof typeof energyMap] || 'Estável') : 'Fadiga Mental / Cansaço Ativo 🔋';
+    const topEnergy = topEnergyKey ? (energyMap[topEnergyKey as keyof typeof energyMap] || 'Estável') : 'Dados insuficientes';
 
-    // Hardcoded Neuroscience Pills dynamically mapped from topTrigger
-    const triggerClean = topTrigger.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim().toLowerCase();
+    const firstName = profile?.full_name?.split(' ')[0] || 'DUDE';
     let neuroPill = '';
-    if (triggerClean.includes('impulso') || triggerClean.includes('subito')) {
-      neuroPill = 'Seu córtex pré-frontal leva até 10 minutos para frear a liberação impulsiva de dopamina no estriado. Use a regra dos 10 minutos: coloque barreiras físicas imediatas (afaste o celular, apague abas de distração) e ative o cronômetro SOS. A onda passa quando o pico de liberação decai.';
-    } else if (triggerClean.includes('ansiedade') || triggerClean.includes('estresse')) {
-      neuroPill = 'A amígdala sequestra sua modulação racional sob estresse crônico. Execute a Respiração Quadrada por 2 minutos (inspire por 4s, retenha por 4s, expire por 4s, prenda livre por 4s) para estimular imediatamente o nervo vago e desarmar a tensão nervosa e a busca de fuga digital.';
-    } else if (triggerClean.includes('tedio') || triggerClean.includes('inatividade')) {
-      neuroPill = 'A carência súbita de estímulos perturba a rede cerebral padrão (DMN). Interrompa a inércia injetando fricção benigna de 2 minutos (organize uma gaveta física, alongue seus ombros, respire fundo ao sol). Isso redireciona a intenção executiva antes que o hábito automático ganhe tração.';
-    } else if (triggerClean.includes('fadiga') || triggerClean.includes('exaustao') || triggerClean.includes('sono')) {
-      neuroPill = 'O esvaziamento das reservas glicogênicas reduz a integridade da sua tomada de decisões executivas em até 80%. Não negocie com sua bioquímica cansada. Mude de ambiente imediato, priorize 15 minutos de descanso sem telas ou tome água fria para redefinir o acúmulo de adenosina cortical.';
-    } else if (triggerClean.includes('ambiental') || triggerClean.includes('contexto')) {
-      neuroPill = 'Sua rede cerebral de atenção involuntária reage mais rápido do que sua disciplina racional. O design ambiental previne o esforço. Mantenha os estimulantes fora do campo de resposta mecânica natural. Fora de visão física significa fora do foco cerebral compulsivo.';
+
+    if (topEnergyKey === 'inquieto') {
+      neuroPill = `${firstName}, quando você se sente Inquieto você fica muito mais vulnerável a ceder a um impulso. Para que isso não aconteça, realize uma Sessão de Descompressão ou faça uma Sessão Profunda guiada. Lembre-se, a vontade de cometer um impulso dura no máximo 15 minutos.`;
+    } else if (topEnergyKey === 'fadigado' || topEnergyKey === 'cansado') {
+      neuroPill = `${firstName}, o esgotamento drena seu córtex pré-frontal, facilitando recaídas quando você está Fadigado. Respeite seu limite cognitivo, faça pausas longas e mude de ambiente para quebrar o ciclo de impulsos automáticos.`;
+    } else if (topEnergyKey === 'pleno' || topEnergyKey === 'energizado') {
+      neuroPill = `${firstName}, picos altos de energia podem gerar autoconfiança excessiva e impulsividade. Direcione essa carga energética excedente para um Brain Dump ou tarefas operacionais ativas antes de ser pego pelo tédio.`;
     } else {
-      neuroPill = 'O autocontrole é uma barreira metabolicamente cara para o organismo. Prevenir requer fricção prévia e rotas claras de desvio de urgências. Lembre-se, o vício celular nunca é apagado completamente da memória neuronal — ele é substituído ativamente por comportamentos substitutos.';
+      neuroPill = `${firstName}, o autocontrole é uma barreira metabolicamente cara para o organismo. Prevenir requer fricção prévia e rotas claras de desvio de urgências. Lembre-se, o vício celular nunca é apagado completamente da memória neuronal — ele é substituído ativamente por comportamentos substitutos.`;
     }
 
     return {
