@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-// Mantenha seus outros imports originais
+// Mantenha aqui todos os seus imports originais que você já tinha (ErrorBoundary, PWAProvider, etc.)
 import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
 import { TaskListScreen } from './components/dashboard/TaskListScreen';
 import { Zap } from 'lucide-react';
 
-export const App: React.FC = () => {
-  // 1. Estado essencial para o Modal Global
+// Certifique-se de que todos os outros componentes (MoodRitualModal, etc) estão importados acima
+
+function App() {
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   
-  // ... (seus outros estados, ex: activeTab, handleStartSessionFromAgenda)
+  // Mantenha aqui seus estados originais (activeTab, handleStartSessionFromAgenda, etc)
+  // Certifique-se de que 'activeTab' e 'handleStartSessionFromAgenda' existam neste escopo
 
   return (
     <ErrorBoundary>
@@ -17,13 +19,13 @@ export const App: React.FC = () => {
           <PWAProvider>
             <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
               
-              {/* MODAIS GLOBAIS - Agora isolados fora da árvore da TaskList */}
+              {/* MODAIS GLOBAIS */}
               <MoodRitualModal />
               <DailyShutdownModal />
               <ReagendarModal />
               <ReconfigurarModal />
               
-              {/* O PORTAL DE CAPTURA SEGURA (Z-Index 600 garante prioridade máxima) */}
+              {/* PORTAL DE CAPTURA */}
               <QuickCaptureModal
                 isOpen={showQuickCapture}
                 onClose={() => setShowQuickCapture(false)}
@@ -35,7 +37,6 @@ export const App: React.FC = () => {
               <ActionCenter />
 
               <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex items-center justify-between">
-                {/* Gatilho disparado de forma independente */}
                 <button
                   id="quick-capture-trigger-btn"
                   onClick={() => setShowQuickCapture(true)}
@@ -45,18 +46,19 @@ export const App: React.FC = () => {
                 </button>
               </header>
 
-              {/* TELA DE TAREFAS - Limpa e otimizada */}
+              {/* TELA DE TAREFAS */}
               {activeTab === 'listas' && (
                 <TaskListScreen 
                   onStartSession={handleStartSessionFromAgenda}
                 />
               )}
-
-              {/* ... resto do seu layout ... */}
             </div>
           </PWAProvider>
         </SubscriptionGuard>
       </ProtectedRoute>
     </ErrorBoundary>
   );
-};
+}
+
+// ESTA É A LINHA QUE CORRIGE O ERRO DE BUILD
+export default App;
