@@ -1,101 +1,9 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
 import { InboxCapture } from '../../types';
-import { getLocalDateString } from '../../lib/utils';
-
-// Modal de Criação de Tarefas Interno (Refatorado para DNA Exato do Banco + Blindagem de Memória)
-const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: string; captureId: string; onClose: () => void }) => {
-  const { user } = useAuthStore();
-  const dataStore = useDataStore();
-  const [activityAvulsa, setActivityAvulsa] = useState(`${initialData} #CAPTURAS #TAREFADODIA`);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!user) return;
-    setIsSaving(true);
-    
-    try {
-      // Limpa as tags para gerar um título limpo
-      const cleanTitle = activityAvulsa.replace(/#\w+/g, '').trim() || 'Nova Tarefa';
-
-      // PAYLOAD CIRÚRGICO + BLINDAGEM:
-      // Injeção de ID e Data previne o Crash Fatal da tela de Tarefas ao renderizar
-      const payload = {
-        id: crypto.randomUUID(), // Previne o Crash do componente não achar a chave (key)
-        created_at: new Date().toISOString(), // Previne o Crash do cálculo de atraso
-        user_id: user.id,
-        task_date: getLocalDateString(new Date()),
-        title: cleanTitle,
-        project_id: null,
-        habit_id: null,
-        activity_id: null,
-        activity_avulsa: activityAvulsa,
-        checklist: null,
-        is_completed: false,
-        completed_at: null,
-        rolled_from_date: null
-      };
-
-      await dataStore.addDailyTask(payload);
-      await dataStore.deleteInboxCapture(captureId);
-      
-      dataStore.showNotification('Tarefa inserida na sua Lista de Hoje! 🎯', 'success');
-      onClose();
-    } catch (err) {
-      console.error('Erro ao converter captura:', err);
-      dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="w-full max-w-lg bg-[#0f1110] border border-white/10 rounded-3xl p-6 shadow-2xl text-left flex flex-col gap-6"
-      >
-        <div>
-          <h3 className="text-xl font-bold uppercase tracking-tight text-white">Converter em Tarefa</h3>
-          <p className="text-xs text-zinc-400 mt-1">A captura será salva como uma atividade avulsa na sua lista de hoje.</p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">Atividade Avulsa</label>
-          <input
-            type="text"
-            value={activityAvulsa}
-            onChange={(e) => setActivityAvulsa(e.target.value)}
-            className="w-full bg-[#161817] border border-white/5 rounded-2xl px-4 py-3.5 text-sm text-white outline-none focus:border-[#6ee7a8]/50"
-          />
-        </div>
-
-        <div className="flex gap-3 justify-end pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-3.5 bg-transparent text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-6 py-3.5 bg-[#6ee7a8] text-black font-bold text-xs uppercase tracking-wider rounded-2xl transition-all hover:brightness-110 cursor-pointer disabled:opacity-50"
-          >
-            {isSaving ? 'Salvando...' : 'Confirmar Ok'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 export const InboxCaptures = () => {
   const { inboxCaptures, deleteInboxCapture } = useDataStore();
@@ -103,8 +11,8 @@ export const InboxCaptures = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
+  // Custom Modal states
   const [captureToDelete, setCaptureToDelete] = useState<InboxCapture | null>(null);
-  const [selectedCapture, setSelectedCapture] = useState<InboxCapture | null>(null);
 
   if (!user || inboxCaptures.length === 0) return null;
 
@@ -116,6 +24,17 @@ export const InboxCaptures = () => {
       }));
     } catch (err) {
       console.error('Error saving capture to note:', err);
+    }
+  };
+
+  const handleConvertTask = (capture: InboxCapture) => {
+    try {
+      setIsOpen(false);
+      window.dispatchEvent(new CustomEvent('open-task-from-capture', {
+        detail: { text: capture.content, captureId: capture.id }
+      }));
+    } catch (err) {
+      console.error('Error opening task from capture:', err);
     }
   };
 
@@ -172,7 +91,6 @@ export const InboxCaptures = () => {
                   <h3 className="text-lg font-semibold text-zinc-100">Capturas do Limbo</h3>
                 </div>
                 <button
-                  type="button"
                   onClick={() => setIsOpen(false)}
                   className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer rounded-full hover:bg-zinc-900"
                 >
@@ -193,10 +111,10 @@ export const InboxCaptures = () => {
                     >
                       <p className="text-sm text-zinc-300 mb-4 whitespace-pre-wrap">{capture.content}</p>
                       
+                      {/* Botoes de Acao - Layout Alinhado Horizontalmente */}
                       <div className="flex flex-row flex-wrap items-center gap-4 mt-4 pt-4 border-t border-zinc-800/50">
                         <button
-                          type="button"
-                          onClick={() => setSelectedCapture(capture)}
+                          onClick={() => handleConvertTask(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 rounded-xl text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
                         >
@@ -205,7 +123,6 @@ export const InboxCaptures = () => {
                         </button>
                         
                         <button
-                          type="button"
                           onClick={() => handleSaveNote(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 rounded-xl text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors cursor-pointer"
@@ -214,10 +131,9 @@ export const InboxCaptures = () => {
                           Anotação
                         </button>
 
-                        <div className="flex-1" />
+                        <div className="flex-1" /> {/* Spacer */}
                         
                         <button
-                          type="button"
                           onClick={() => setCaptureToDelete(capture)}
                           disabled={deletingId === capture.id}
                           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
@@ -235,16 +151,7 @@ export const InboxCaptures = () => {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {selectedCapture && (
-          <CreateTaskModal
-            initialData={selectedCapture.content}
-            captureId={selectedCapture.id}
-            onClose={() => setSelectedCapture(null)}
-          />
-        )}
-      </AnimatePresence>
-
+      {/* Custom Delete Modal (Apple Style) */}
       <AnimatePresence>
         {captureToDelete && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -260,14 +167,12 @@ export const InboxCaptures = () => {
               
               <div className="flex gap-3 w-full">
                 <button
-                  type="button"
                   onClick={() => setCaptureToDelete(null)}
                   className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="button"
                   onClick={handleConfirmDelete}
                   className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                 >
@@ -281,3 +186,4 @@ export const InboxCaptures = () => {
     </>
   );
 };
+
