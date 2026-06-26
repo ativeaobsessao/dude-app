@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Pause, ArrowUp } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
@@ -23,7 +23,9 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     }
   }, [isOpen]);
 
-  const toggleAudio = () => {
+  const toggleAudio = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -34,18 +36,23 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (!text.trim() || !user) return;
-    
+
     const contentToSave = text.trim();
     setText('');
-    
+
     try {
       await supabase.from('inbox_captures').insert({
         user_id: user.id,
         content: contentToSave
       });
-      
+
       setShowFeedback(true);
       setTimeout(() => setShowFeedback(false), 2500);
     } catch (err) {
@@ -56,17 +63,31 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSave();
+      e.stopPropagation();
+      handleSave(e);
     }
+  };
+
+  // Impede que cliques dentro da sessão fechem modais pai acidentalmente
+  const handleContainerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-between text-white">
+    <div 
+      onClick={handleContainerClick}
+      className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-between text-white"
+    >
       {/* Cabeçalho */}
       <button 
-        onClick={onClose}
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
         className="absolute top-6 right-6 opacity-50 hover:opacity-100 transition-opacity p-2 cursor-pointer"
       >
         <X size={24} />
@@ -84,6 +105,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
         {/* Áudio Player */}
         <div className="relative z-10">
           <button 
+            type="button"
             onClick={toggleAudio}
             className="border border-zinc-700 rounded-full p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer flex items-center justify-center bg-black/50 backdrop-blur-sm"
           >
@@ -120,6 +142,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           />
           
           <button
+            type="button"
             onClick={handleSave}
             disabled={!text.trim()}
             className="bg-zinc-700 text-white rounded-full p-2 mb-1 mr-1 disabled:opacity-30 disabled:bg-zinc-800 transition-all cursor-pointer flex-shrink-0"
