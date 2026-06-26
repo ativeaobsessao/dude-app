@@ -1,9 +1,11 @@
+import React from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { ScheduledActivity } from '../../types';
 import { Play, CheckCircle, Ban, Hourglass } from 'lucide-react';
 import { cleanActivityName } from '../../lib/utils';
 
 interface AgendamentoCardProps {
+  key?: string | number;
   activity: ScheduledActivity;
   onStartSession?: (activity: ScheduledActivity) => void;
   isHeroAgenda?: boolean;
