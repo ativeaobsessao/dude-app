@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
-// Mantenha aqui todos os seus imports originais que você já tinha (ErrorBoundary, PWAProvider, etc.)
-import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
-import { TaskListScreen } from './components/dashboard/TaskListScreen';
+import { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
 
-// Certifique-se de que todos os outros componentes (MoodRitualModal, etc) estão importados acima
+// Imports dos componentes (mantenha os caminhos como estavam no seu original)
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { SubscriptionGuard } from './components/layout/SubscriptionGuard';
+import { PWAProvider } from './context/PWAContext';
+import { QuickCaptureModal } from './components/shared/QuickCaptureModal';
+import { TaskListScreen } from './components/dashboard/TaskListScreen';
+import { CinematicBackground } from './components/layout/CinematicBackground';
+import { PWAInstallPrompt } from './components/layout/PWAInstallPrompt';
+import { ActiveSession } from './components/dashboard/ActiveSession';
+import { ActionCenter } from './components/layout/ActionCenter';
+import { MoodRitualModal } from './components/mood/MoodRitualModal';
+import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
+import { ReagendarModal, ReconfigurarModal } from './components/agenda/SchedulePopups';
 
-function App() {
+export default function App() {
   const [showQuickCapture, setShowQuickCapture] = useState(false);
-  
-  // Mantenha aqui seus estados originais (activeTab, handleStartSessionFromAgenda, etc)
-  // Certifique-se de que 'activeTab' e 'handleStartSessionFromAgenda' existam neste escopo
+  const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
+
+  const handleStartSessionFromAgenda = () => {
+    setActiveTab('session');
+  };
 
   return (
     <ErrorBoundary>
@@ -25,7 +37,7 @@ function App() {
               <ReagendarModal />
               <ReconfigurarModal />
               
-              {/* PORTAL DE CAPTURA */}
+              {/* MODAL DE CAPTURA SEGURA */}
               <QuickCaptureModal
                 isOpen={showQuickCapture}
                 onClose={() => setShowQuickCapture(false)}
@@ -59,6 +71,3 @@ function App() {
     </ErrorBoundary>
   );
 }
-
-// ESTA É A LINHA QUE CORRIGE O ERRO DE BUILD
-export default App;
