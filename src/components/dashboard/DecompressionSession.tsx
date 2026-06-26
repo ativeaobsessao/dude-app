@@ -20,8 +20,6 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     if (!isOpen && audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
-    } else if (isOpen) {
-      setIsPlaying(true);
     }
   }, [isOpen]);
 
@@ -81,27 +79,6 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       onClick={handleContainerClick}
       className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans"
     >
-      <style>{`
-        @keyframes pulse-ring {
-          0% {
-            transform: scale(1);
-            opacity: 0.8;
-          }
-          50% {
-            transform: scale(1.15);
-            opacity: 0.2;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 0.8;
-          }
-        }
-        .animate-pulse-ring {
-          animation: pulse-ring 8s ease-in-out infinite;
-          transition: all 4s ease-in-out;
-        }
-      `}</style>
-
       {/* Cabeçalho */}
       <div className="flex justify-end p-6">
         <button 
@@ -119,26 +96,23 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculo com respiração sutil (usando CSS puro para evitar travamentos) */}
-        <div className="w-48 h-48 rounded-full border-2 border-zinc-700/50 absolute animate-pulse-ring" style={{ animationDelay: '0s' }} />
-        <div className="w-48 h-48 rounded-full border-2 border-zinc-700/50 absolute animate-pulse-ring" style={{ animationDelay: '2s' }} />
+        {/* Círculo com respiração sutil e visível */}
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
+          className="w-56 h-56 rounded-full bg-zinc-800/30 border border-zinc-600/50 absolute shadow-[0_0_40px_rgba(39,39,42,0.2)]"
+        />
         
         {/* Áudio Player Minimalista */}
         <div className="relative z-10 mt-64">
           <button 
             type="button"
             onClick={toggleAudio}
-            className="rounded-full p-4 hover:bg-zinc-900 transition-colors flex items-center justify-center border border-zinc-800/60"
+            className="rounded-full p-4 bg-zinc-900/80 hover:bg-zinc-800 transition-colors flex items-center justify-center border border-zinc-700/60 shadow-lg"
           >
-            {isPlaying ? <Pause size={20} className="text-zinc-500" /> : <Play size={20} className="text-zinc-500 ml-1" />}
+            {isPlaying ? <Pause size={24} className="text-zinc-400" /> : <Play size={24} className="text-zinc-400 ml-1" />}
           </button>
-          <audio 
-            ref={audioRef} 
-            src="https://actions.google.com/sounds/v1/noise/brown_noise.ogg" 
-            loop 
-            autoPlay
-            className="hidden" 
-          />
+          <audio ref={audioRef} src="https://actions.google.com/sounds/v1/noise/brown_noise.ogg" loop className="hidden" />
         </div>
       </div>
 
