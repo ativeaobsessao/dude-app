@@ -6,7 +6,7 @@ import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
 import { InboxCapture } from '../../types';
 import { getLocalDateString } from '../../lib/utils';
 
-// Local CreateTaskModal to handle safe task conversion
+// Modal de Criação de Tarefas Interno (Refatorado para DNA Exato do Banco)
 const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: string; captureId: string; onClose: () => void }) => {
   const { user } = useAuthStore();
   const dataStore = useDataStore();
@@ -16,40 +16,35 @@ const CreateTaskModal = ({ initialData, captureId, onClose }: { initialData: str
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
+    
     try {
-      // Limpa as tags do texto para gerar um título amigável e seguro para a listagem
+      // Limpa as tags para gerar um título limpo
       const cleanTitle = activityAvulsa.replace(/#\w+/g, '').trim() || 'Nova Tarefa';
 
-      await dataStore.addDailyTask({
+      // PAYLOAD CIRÚRGICO: Exatamente igual ao que o TaskListScreen gera. 
+      // Sem campos inventados para o Supabase não rejeitar.
+      const payload = {
         user_id: user.id,
         task_date: getLocalDateString(new Date()),
-        title: cleanTitle, // Título limpo e real da captura
-        activity_avulsa: activityAvulsa, // Mantém a string completa com as tags para o processador do app
+        title: cleanTitle,
         project_id: null,
         habit_id: null,
         activity_id: null,
-        checklist: [], // Array vazio defensivo em vez de null para evitar quebra de .length ou .map
+        activity_avulsa: activityAvulsa,
+        checklist: null,
         is_completed: false,
         completed_at: null,
-        rolled_from_date: null,
-        // Propriedades defensivas extras caso sua listagem exija fallbacks:
-        description: '',
-        notes: '',
-        priority: 'normal',
-        order: 0
-      });
+        rolled_from_date: null
+      };
 
+      await dataStore.addDailyTask(payload);
       await dataStore.deleteInboxCapture(captureId);
       
-      // Força a atualização dos dados locais do Zustand se as funções de sincronização existirem
-      if (typeof (dataStore as any).fetchDailyTasks === 'function') await (dataStore as any).fetchDailyTasks();
-      if (typeof (dataStore as any).loadData === 'function') await (dataStore as any).loadData();
-
       dataStore.showNotification('Tarefa inserida na sua Lista de Hoje! 🎯', 'success');
       onClose();
     } catch (err) {
-      console.error('Erro ao converter captura em tarefa:', err);
-      dataStore.showNotification('Erro ao salvar a tarefa.', 'error');
+      console.error('Erro ao converter captura:', err);
+      dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -196,7 +191,6 @@ export const InboxCaptures = () => {
                     >
                       <p className="text-sm text-zinc-300 mb-4 whitespace-pre-wrap">{capture.content}</p>
                       
-                      {/* Botoes de Acao - Layout Alinhado Horizontalmente */}
                       <div className="flex flex-row flex-wrap items-center gap-4 mt-4 pt-4 border-t border-zinc-800/50">
                         <button
                           type="button"
@@ -239,7 +233,6 @@ export const InboxCaptures = () => {
         )}
       </AnimatePresence>
 
-      {/* Renderizar Modal de Criar Tarefa apenas UMA VEZ fora do loop */}
       <AnimatePresence>
         {selectedCapture && (
           <CreateTaskModal
@@ -250,7 +243,6 @@ export const InboxCaptures = () => {
         )}
       </AnimatePresence>
 
-      {/* Custom Delete Modal (Apple Style) */}
       <AnimatePresence>
         {captureToDelete && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
