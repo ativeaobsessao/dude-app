@@ -16,8 +16,19 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [showFeedback, setShowFeedback] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // O "Motor" do Autoplay
   useEffect(() => {
-    if (!isOpen && audioRef.current) {
+    if (isOpen && audioRef.current) {
+      // Assim que abre a tela, força o play na frequência marrom
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((err) => {
+        // Fallback caso o navegador do celular bloqueie o autoplay por economia de bateria
+        console.warn("Autoplay bloqueado pelo navegador.", err);
+        setIsPlaying(false);
+      });
+    } else if (!isOpen && audioRef.current) {
+      // Quando fecha a tela, pausa o áudio
       audioRef.current.pause();
       setIsPlaying(false);
     }
@@ -96,7 +107,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculo com respiração sutil (sem bordas grossas ou neons) */}
+        {/* Círculo com respiração sutil */}
         <motion.div
           animate={{ scale: [1, 1.15, 1] }}
           transition={{ duration: 8, ease: "easeInOut", repeat: Infinity }}
@@ -112,7 +123,14 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           >
             {isPlaying ? <Pause size={20} className="text-zinc-500" /> : <Play size={20} className="text-zinc-500 ml-1" />}
           </button>
-          <audio ref={audioRef} src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop className="hidden" />
+          
+          {/* Frequência Marrom Oficial (Brown Noise) */}
+          <audio 
+            ref={audioRef} 
+            src="https://upload.wikimedia.org/wikipedia/commons/d/d0/Brown_noise.ogg" 
+            loop 
+            className="hidden" 
+          />
         </div>
       </div>
 
