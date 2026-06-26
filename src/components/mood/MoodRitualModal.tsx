@@ -29,17 +29,39 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
     }
   }, [isOpen]);
 
-  const handleSelectMood = async (moodKey: MoodKey) => {
+  const handleSaveEnergy = async (energyKey: any) => {
     if (!user || !currentDate || !currentPeriod || isSaving) return;
 
-    setSelectedMood(moodKey);
+    setSelectedEnergy(energyKey);
     setIsSaving(true);
+    useDataStore.getState().setCurrentEnergyState(energyKey);
     
     // Immediate clear feedback to the user via notification toast
     const { showNotification } = useDataStore.getState();
 
     try {
-      // Persist the mood entry across the client store and database
+      // Persist the energy entry across the client store and database (passing null for mood)
+      await addMoodEntry(user.id, currentDate, currentPeriod, null, energyKey);
+      showNotification('Sintonização de energia concluída! ⚡', 'success');
+      onClose(true);
+    } catch (e) {
+      console.error("Erro ao salvar energia:", e);
+      showNotification('Erro ao salvar energia. Tente novamente.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSelectMood = async (moodKey: MoodKey) => {
+    // Keep this for backwards compatibility if needed elsewhere, but no longer used in UI
+    if (!user || !currentDate || !currentPeriod || isSaving) return;
+
+    setSelectedMood(moodKey);
+    setIsSaving(true);
+    
+    const { showNotification } = useDataStore.getState();
+
+    try {
       await addMoodEntry(user.id, currentDate, currentPeriod, moodKey, selectedEnergy);
       showNotification('Sintonização de período concluída! 🌟', 'success');
       onClose(true);
@@ -101,25 +123,15 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
 
             <div className="space-y-1.5 sm:space-y-2 w-full px-2">
               <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-green block">
-                {step === 1 ? 'RITUAL REVEAL: PASSO 1 DE 2' : 'RITUAL REVEAL: PASSO 2 DE 2'}
+                RITUAL REVEAL
               </span>
               <h3 className="text-lg sm:text-2xl font-bold text-text tracking-tight animate-fade-in">
-                {step === 1 
-                  ? `Qual o seu nível de energia mental?` 
-                  : `E como você está se sentindo neste período ${getPeriodLabel()}?`
-                }
+                Qual o seu nível de energia mental?
               </h3>
-              {step === 2 && (
-                <p className="text-[11px] sm:text-xs text-text-dim font-light max-w-sm mx-auto animate-fade-in leading-relaxed">
-                  Sintonize seu humor com o DUDE para calcular insights de produtividade.
-                </p>
-              )}
             </div>
 
-            {step === 1 ? (
-              // Step 1: Energy Axes
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mt-2 sm:mt-4 max-w-2xl mx-auto animate-fade-in">
-                {[
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mt-2 sm:mt-4 max-w-2xl mx-auto animate-fade-in">
+              {[
                   { key: 'pleno', label: 'Pleno', emoji: '⚡', color: '#34d399', glow: 'rgba(110, 231, 183, 0.4)' },
                   { key: 'inquieto', label: 'Inquieto', emoji: '🌪️', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.4)' },
                   { key: 'equilibrado', label: 'Equilibrado', emoji: '⚖️', color: '#60a5fa', glow: 'rgba(96, 165, 250, 0.4)' },
@@ -130,11 +142,8 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => {
-                        setSelectedEnergy(item.key as any);
-                        useDataStore.getState().setCurrentEnergyState(item.key as any);
-                        setStep(2);
-                      }}
+                      disabled={isSaving}
+                      onClick={() => handleSaveEnergy(item.key)}
                       className={`group relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300 transform cursor-pointer min-h-[96px] sm:min-h-[110px] ${
                         isEnergySelected
                           ? '-translate-y-1 shadow-[0_0_20px_var(--selected-glow)] bg-surface-1/95 scale-102 z-20'
@@ -195,92 +204,7 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
                   );
                 })}
               </div>
-            ) : (
-              // Step 2: Mood Axes
-              <div className="w-full mt-2 sm:mt-4 max-w-lg mx-auto animate-fade-in flex flex-col items-center gap-4">
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-3 w-full">
-                  {MOOD_LIST.map((m) => {
-                    const isCurrentSelected = selectedMood === m.key;
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        disabled={isSaving}
-                        onClick={() => handleSelectMood(m.key)}
-                        className={`group relative flex flex-col items-center gap-1.5 sm:gap-2.5 p-2 sm:p-4 rounded-xl sm:rounded-2xl border transition-all duration-300 transform cursor-pointer min-h-[72px] sm:min-h-0 ${
-                          isCurrentSelected
-                            ? '-translate-y-1 shadow-[0_0_20px_var(--selected-glow)] bg-surface-1/95 scale-102 font-medium z-20'
-                            : 'bg-surface-1/40 hover:bg-surface-1/90 border-border-custom/50 hover:border-border-custom hover:-translate-y-0.5 active:translate-y-0 active:scale-95'
-                        }`}
-                        style={{
-                          '--hover-glow': m.color,
-                          '--selected-glow': m.glow || 'rgba(110, 231, 168, 0.4)',
-                          borderColor: isCurrentSelected ? m.color : undefined,
-                          backgroundColor: isCurrentSelected ? `${m.color}25` : undefined,
-                          borderWidth: isCurrentSelected ? '2px' : '1px',
-                        } as React.CSSProperties}
-                      >
-                        <div
-                          className="absolute inset-0 rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none"
-                          style={{
-                            background: `radial-gradient(circle, ${m.color} 0%, transparent 70%)`
-                          }}
-                        />
-
-                        {isCurrentSelected && (
-                          <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-green text-black flex items-center justify-center shadow-[0_0_8px_rgba(110,231,168,0.5)] z-20 scale-100 animate-fade-in animate-duration-150">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3.5} stroke="currentColor" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-black">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9.75-9.75" />
-                            </svg>
-                          </div>
-                        )}
-
-                        <span 
-                          className={`text-xl sm:text-2xl transition-transform duration-300 ${
-                            isCurrentSelected ? 'scale-120 filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]' : 'group-hover:scale-110'
-                          }`}
-                          role="img"
-                          aria-label={m.label}
-                        >
-                          {m.emoji}
-                        </span>
-
-                        <div className="flex flex-col items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
-                          <span 
-                            className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full transition-shadow duration-300 ${
-                              isCurrentSelected 
-                                ? 'shadow-[0_0_12px_var(--selected-glow)] scale-125' 
-                                : 'group-hover:shadow-[0_0_8px_var(--hover-glow)]'
-                            }`}
-                            style={{ backgroundColor: m.color }}
-                          />
-                          <span 
-                            className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-wider text-center leading-tight transition-colors ${
-                              isCurrentSelected 
-                                ? 'text-text font-extrabold scale-101' 
-                                : 'text-text-dim group-hover:text-text'
-                            }`}
-                            style={{
-                              color: isCurrentSelected ? m.color : undefined
-                            }}
-                          >
-                            {m.label}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="text-[10px] font-mono font-bold text-green/60 hover:text-green tracking-wider uppercase transition-colors shrink-0 bg-white/[0.02] border border-white/5 py-1.5 px-3 rounded-lg cursor-pointer"
-                >
-                  ← Voltar para Energia
-                </button>
-              </div>
-            )}
+            
 
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold animate-fade-in text-center">
               <button
