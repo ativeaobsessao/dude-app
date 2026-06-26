@@ -300,12 +300,28 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         const { text, captureId } = e.detail;
         setEditingTask(null);
         setTaskTitle('Processar Captura');
-        setActivityManualText(`${text} #CAPTURAS #TAREFADODIA`);
         
+        // Smart parse logic
+        const trimmedText = text.trim();
+        const lines = trimmedText.split(/\r?\n/).filter((l: string) => l.trim() !== '');
+        
+        let avulsa = '';
+        let subtasks = [];
+        
+        if (lines.length === 1 && trimmedText.length < 80) {
+          // Explicitly simple activity
+          avulsa = trimmedText;
+        } else {
+          // Complex note/capture, put it in subtasks
+          avulsa = 'Processar Anotação / Captura';
+          subtasks = lines.map((l: string, idx: number) => ({ id: `sub-${Date.now()}-${idx}`, text: l.trim(), completed: false }));
+        }
+
+        setActivityManualText(avulsa);
         setSelectedProjectId('');
         setSelectedHabitId('');
         setSelectedActivityId('');
-        setSubtasksList([]);
+        setSubtasksList(subtasks);
         setShowCreateModal(true);
         
         // Store the captureId in a global or state to delete upon save
