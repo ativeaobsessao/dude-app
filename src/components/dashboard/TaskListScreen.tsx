@@ -296,24 +296,25 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   // Event listener for Inbox Captures
   useEffect(() => {
     const handleOpenTask = (e: any) => {
-      const { text, captureId } = e.detail;
-      setEditingTask(null);
-      setTaskTitle(text);
-      setActivityManualText('');
-      // The prompt asks to put the text in "Atividade Avulsa" OR we can put the text in the "Título", and add tag.
-      // Wait, the prompt says: "Passe o texto da captura como estado inicial preenchendo automaticamente o campo "Atividade Avulsa". Injeção de Tags: Aplique silenciosamente as tags CAPTURAS e TAREFA DO DIA."
-      // Since `TaskListScreen` has `taskTitle` as the main title and `activityManualText` as the Atividade Avulsa.
-      setTaskTitle('Processar Captura');
-      setActivityManualText(`${text} #CAPTURAS #TAREFADODIA`);
-      
-      setSelectedProjectId('');
-      setSelectedHabitId('');
-      setSelectedActivityId('');
-      setSubtasksList([]);
-      setShowCreateModal(true);
-      
-      // Store the captureId in a global or state to delete upon save
-      sessionStorage.setItem('pending_capture_conversion', captureId);
+      try {
+        const { text, captureId } = e.detail;
+        setEditingTask(null);
+        setTaskTitle('Processar Captura');
+        setActivityManualText(`${text} #CAPTURAS #TAREFADODIA`);
+        
+        setSelectedProjectId('');
+        setSelectedHabitId('');
+        setSelectedActivityId('');
+        setSubtasksList([]);
+        setShowCreateModal(true);
+        
+        // Store the captureId in a global or state to delete upon save
+        if (captureId) {
+          sessionStorage.setItem('pending_capture_conversion', captureId);
+        }
+      } catch (err) {
+        console.error('Error handling capture task conversion:', err);
+      }
     };
     
     window.addEventListener('open-task-from-capture', handleOpenTask);
