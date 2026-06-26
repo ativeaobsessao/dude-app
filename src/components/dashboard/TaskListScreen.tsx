@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString, getLocalYesterdayDateString, cleanActivityName } from '../../lib/utils';
@@ -57,8 +57,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
       .filter(habit => {
         if (!habit.is_scheduled) return false;
         if (!habit.sched_start) return false;
-        if (habit.sched_weekdays === 'all') return true;
-        const days = (habit.sched_weekdays || '').split(',');
+        if (habit.sched_weekdays === 'all' || (Array.isArray(habit.sched_weekdays) && habit.sched_weekdays.includes('all'))) return true;
+        const days = Array.isArray(habit.sched_weekdays) ? habit.sched_weekdays : (habit.sched_weekdays || '').split(',');
         return days.includes(dayOfWeekStr);
       })
       .filter(habit => {
@@ -143,7 +143,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
       if (a.time && b.time) return a.time.localeCompare(b.time);
       if (a.time) return -1;
       if (b.time) return 1;
-      return a.title.localeCompare(b.title);
+      return (a.title || '').localeCompare(b.title || '');
     });
   }, [dataStore.dailyTasks, dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions, todayStr]);
 
@@ -210,8 +210,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         .filter(habit => {
           if (!habit.is_scheduled) return false;
           if (!habit.sched_start) return false;
-          if (habit.sched_weekdays === 'all') return true;
-          const days = (habit.sched_weekdays || '').split(',');
+          if (habit.sched_weekdays === 'all' || (Array.isArray(habit.sched_weekdays) && habit.sched_weekdays.includes('all'))) return true;
+          const days = Array.isArray(habit.sched_weekdays) ? habit.sched_weekdays : (habit.sched_weekdays || '').split(',');
           return days.includes(dayOfWeekStr);
         })
         .filter(habit => {
@@ -263,7 +263,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         if (a.time && b.time) return a.time.localeCompare(b.time);
         if (a.time) return -1;
         if (b.time) return 1;
-        return a.title.localeCompare(b.title);
+        return (a.title || '').localeCompare(b.title || '');
       });
 
       return {
@@ -346,7 +346,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     setSelectedActivityId(task.activity_id || '');
     setActivityManualText(task.activity_avulsa || '');
     setNewSubtaskText('');
-    setSubtasksList(task.checklist || []);
+    setSubtasksList(Array.isArray(task.checklist) ? task.checklist : []);
     setEditingIndex(null);
     setEditingValue('');
     setShowCreateModal(true);
@@ -454,7 +454,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           activityName: task.title,
           projectId: task.project_id || null,
           activityId: task.id,
-          sessionTasks: task.checklist ? task.checklist.map(c => c.text) : [], // Injeta as tarefas existentes
+          sessionTasks: Array.isArray(task.checklist) ? task.checklist.map(c => c.text) : [], // Injeta as tarefas existentes
           prefilled: true 
         }
       }));
@@ -475,6 +475,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const handleToggleSubtaskActive = async (task: DailyTask, subtaskIdx: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!task.checklist) return;
+    if (!Array.isArray(task.checklist)) return;
     const nextChecklist = task.checklist.map((c, idx) => {
       if (idx === subtaskIdx) {
         return { ...c, completed: !c.completed };
@@ -495,7 +496,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   // Iniciar SP Pre-filled Click
   const handleStartSessaoProfunda = (task: DailyTask, e: React.MouseEvent) => {
     e.stopPropagation();
-    const subtaskList = task.checklist ? task.checklist.map(c => c.text) : [];
+    const subtaskList = Array.isArray(task.checklist) ? task.checklist.map(c => c.text) : [];
     
     const activityPayload = {
       id: task.id, // Sets scheduledActivityId to task.id
@@ -530,7 +531,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           activity_id: task.activity_id,
           atividade_avulsa: task.activity_avulsa,
           habit_id: task.habit_id,
-          tasks: task.checklist ? task.checklist.map(c => c.text) : [],
+          tasks: Array.isArray(task.checklist) ? task.checklist.map(c => c.text) : [],
           duration_minutes: 30,
           scheduled_date: todayStr,
           scheduled_time: `${curHH}:${curMM}`,
@@ -774,7 +775,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                           </div>
                         </div>
 
-                        {activity.tasks && activity.tasks.length > 0 && (
+                        {Array.isArray(activity.tasks) && activity.tasks.length > 0 && (
                           <div className="pl-12 pr-4 text-left pt-2">
                             <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
                               TAREFAS DA SESSÃO ({activity.tasks.length})
@@ -939,7 +940,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                         </div>
                       </div>
 
-                      {task.checklist && task.checklist.length > 0 && (
+                      {Array.isArray(task.checklist) && task.checklist.length > 0 && (
                         <div className="pl-12 pr-4 text-left pt-2">
                           <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
                             Sessão Profunda ({task.checklist.filter(c => c.completed).length}/{task.checklist.length})
