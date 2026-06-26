@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Shield, ShieldAlert, Sparkles, Flame, Plus, Brain, Calendar, Trash2, Pencil, BarChart2, ChevronDown, Check, X, AlertTriangle, UserCheck, Heart } from 'lucide-react';
@@ -227,6 +227,7 @@ export function calculateAvoidanceMetrics(ah: Habit, allCheckins: AvoidanceCheck
 }
 
 interface AvoidanceCardProps {
+  key?: string | number;
   habit: Habit;
   metrics: any;
   promptVisible: boolean;
