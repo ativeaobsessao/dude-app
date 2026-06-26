@@ -16,19 +16,19 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [showFeedback, setShowFeedback] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // O "Motor" do Autoplay
+  // Controle de Áudio Blindado para Mobile
   useEffect(() => {
     if (isOpen && audioRef.current) {
-      // Assim que abre a tela, força o play na frequência marrom
+      audioRef.current.volume = 0.6; // Volume agradável para ruído marrom
+      
+      // Tenta o autoplay, mas captura o erro se o celular bloquear
       audioRef.current.play().then(() => {
         setIsPlaying(true);
       }).catch((err) => {
-        // Fallback caso o navegador do celular bloqueie o autoplay por economia de bateria
-        console.warn("Autoplay bloqueado pelo navegador.", err);
+        console.warn("Autoplay bloqueado pelo celular. Aguardando clique do usuário.", err);
         setIsPlaying(false);
       });
     } else if (!isOpen && audioRef.current) {
-      // Quando fecha a tela, pausa o áudio
       audioRef.current.pause();
       setIsPlaying(false);
     }
@@ -37,13 +37,16 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const toggleAudio = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
-        audioRef.current.play();
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(err => console.error("Erro ao tocar áudio:", err));
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -107,11 +110,13 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculo com respiração sutil */}
+        
+        {/* Círculo com respiração sutil - AGORA VISÍVEL EM TELAS OLED */}
         <motion.div
-          animate={{ scale: [1, 1.15, 1] }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 8, ease: "easeInOut", repeat: Infinity }}
-          className="w-48 h-48 rounded-full border border-zinc-800/40 absolute"
+          className="w-56 h-56 rounded-full border border-zinc-700 bg-zinc-800/20 absolute"
+          style={{ filter: 'blur(4px)' }}
         />
         
         {/* Áudio Player Minimalista */}
@@ -119,15 +124,15 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           <button 
             type="button"
             onClick={toggleAudio}
-            className="rounded-full p-4 hover:bg-zinc-900 transition-colors flex items-center justify-center border border-zinc-800/60"
+            className="rounded-full p-4 hover:bg-zinc-900 transition-colors flex items-center justify-center border border-zinc-700/80 bg-black/50"
           >
-            {isPlaying ? <Pause size={20} className="text-zinc-500" /> : <Play size={20} className="text-zinc-500 ml-1" />}
+            {isPlaying ? <Pause size={24} className="text-zinc-400" /> : <Play size={24} className="text-zinc-400 ml-1" />}
           </button>
           
-          {/* Frequência Marrom Oficial (Brown Noise) */}
+          {/* Áudio em MP3 - Suportado por iOS e Android */}
           <audio 
             ref={audioRef} 
-            src="https://upload.wikimedia.org/wikipedia/commons/d/d0/Brown_noise.ogg" 
+            src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_19f3cb2b19.mp3" 
             loop 
             className="hidden" 
           />
