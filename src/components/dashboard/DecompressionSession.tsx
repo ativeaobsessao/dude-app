@@ -14,48 +14,66 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const noiseNodeRef = useRef<ScriptProcessorNode | null>(null);
 
-  // Controle de Áudio Blindado para Mobile
-  useEffect(() => {
-    if (isOpen && audioRef.current) {
-      audioRef.current.volume = 0.6; // Volume agradável para ruído marrom
-      
-      // Tenta o autoplay, mas captura o erro se o celular bloquear
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch((err) => {
-        console.warn("Autoplay bloqueado pelo celular. Aguardando clique do usuário.", err);
-        setIsPlaying(false);
-      });
-    } else if (!isOpen && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
+  // Gerador Nativo de Ruído Marrom (Sem depender de links externos)
+  const startBrownNoise = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const bufferSize = 4096;
+    let lastOut = 0;
+    const node = ctx.createScriptProcessor(bufferSize, 1, 1);
+    
+    node.onaudioprocess = (e) => {
+      const output = e.outputBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 3.5; // Compensação de volume
+      }
+    };
+    
+    node.connect(ctx.destination);
+    noiseNodeRef.current = node;
+    setIsPlaying(true);
+  };
+
+  const stopBrownNoise = () => {
+    if (noiseNodeRef.current) {
+      noiseNodeRef.current.disconnect();
+      noiseNodeRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      try { startBrownNoise(); } catch (e) { console.warn("Autoplay bloqueado pelo iOS", e); }
+    } else {
+      stopBrownNoise();
+    }
+    return () => stopBrownNoise();
   }, [isOpen]);
 
   const toggleAudio = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        audioRef.current.play().then(() => {
-          setIsPlaying(true);
-        }).catch(err => console.error("Erro ao tocar áudio:", err));
-      }
+    if (isPlaying) {
+      stopBrownNoise();
+    } else {
+      startBrownNoise();
     }
   };
 
   const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     if (!text.trim() || !user) return;
 
     const contentToSave = text.trim();
@@ -66,94 +84,51 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
         user_id: user.id,
         content: contentToSave
       });
-
       setShowFeedback(true);
       setTimeout(() => setShowFeedback(false), 2500);
-    } catch (err) {
-      console.error('Error saving capture:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleSave(e);
+      e.preventDefault(); e.stopPropagation(); handleSave(e);
     }
-  };
-
-  const handleContainerClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      onClick={handleContainerClick}
-      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans"
-    >
-      {/* Cabeçalho */}
+    <div onClick={(e) => e.stopPropagation()} className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans">
       <div className="flex justify-end p-6">
-        <button 
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onClose();
-          }}
-          className="text-zinc-600 hover:text-zinc-300 transition-colors p-2"
-        >
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="text-zinc-500 hover:text-zinc-300 transition-colors p-2 cursor-pointer">
           <X size={28} strokeWidth={1.5} />
         </button>
       </div>
 
-      {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        
-        {/* Círculo com respiração sutil - AGORA VISÍVEL EM TELAS OLED */}
+        {/* Anel de Respiração - Agora visível em OLED (border-zinc-500) */}
         <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+          animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 8, ease: "easeInOut", repeat: Infinity }}
-          className="w-56 h-56 rounded-full border border-zinc-700 bg-zinc-800/20 absolute"
-          style={{ filter: 'blur(4px)' }}
+          className="w-56 h-56 rounded-full border-2 border-zinc-500 bg-zinc-600/10 absolute"
+          style={{ filter: 'blur(3px)' }}
         />
         
-        {/* Áudio Player Minimalista */}
         <div className="relative z-10 mt-64">
-          <button 
-            type="button"
-            onClick={toggleAudio}
-            className="rounded-full p-4 hover:bg-zinc-900 transition-colors flex items-center justify-center border border-zinc-700/80 bg-black/50"
-          >
-            {isPlaying ? <Pause size={24} className="text-zinc-400" /> : <Play size={24} className="text-zinc-400 ml-1" />}
+          <button onClick={toggleAudio} className="rounded-full p-4 hover:bg-zinc-800 transition-colors flex items-center justify-center border border-zinc-600 bg-black/60 cursor-pointer">
+            {isPlaying ? <Pause size={24} className="text-zinc-300" /> : <Play size={24} className="text-zinc-300 ml-1" />}
           </button>
-          
-          {/* Áudio em MP3 - Suportado por iOS e Android */}
-          <audio 
-            ref={audioRef} 
-            src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_19f3cb2b19.mp3" 
-            loop 
-            className="hidden" 
-          />
         </div>
       </div>
 
-      {/* Base da Tela - Textarea Imersivo e Translúcido */}
       <div className="w-full px-8 pb-12 relative flex flex-col">
         <AnimatePresence>
           {showFeedback && (
-            <motion.div
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="text-zinc-500 text-sm mb-3 font-medium"
-            >
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-zinc-500 text-sm mb-3 font-medium">
               Captura guardada.
             </motion.div>
           )}
         </AnimatePresence>
-
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
