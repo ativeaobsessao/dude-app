@@ -10,34 +10,51 @@ export const InboxCaptures = () => {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Custom Modal states
+  const [captureToDelete, setCaptureToDelete] = useState<InboxCapture | null>(null);
 
   if (!user || inboxCaptures.length === 0) return null;
 
   const handleConvertTask = (capture: InboxCapture) => {
-    setIsOpen(false);
-    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'listas' } }));
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-task-from-capture', {
-        detail: { text: capture.content, captureId: capture.id }
-      }));
-    }, 150);
+    try {
+      setIsOpen(false);
+      window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'listas' } }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-task-from-capture', {
+          detail: { text: capture.content, captureId: capture.id }
+        }));
+      }, 150);
+    } catch (err) {
+      console.error('Error converting capture to task:', err);
+    }
   };
 
   const handleSaveNote = (capture: InboxCapture) => {
-    setIsOpen(false);
-    window.dispatchEvent(new CustomEvent('open-action-center', {
-      detail: { screen: 'notes', noteText: capture.content, captureId: capture.id }
-    }));
+    try {
+      setIsOpen(false);
+      window.dispatchEvent(new CustomEvent('open-action-center', {
+        detail: { screen: 'notes', noteText: capture.content, captureId: capture.id }
+      }));
+    } catch (err) {
+      console.error('Error saving capture to note:', err);
+    }
   };
 
-  const handleDiscard = async (capture: InboxCapture) => {
-    if (window.confirm('Deseja excluir permanentemente esta captura?')) {
-      setDeletingId(capture.id);
-      await deleteInboxCapture(capture.id);
+  const handleConfirmDelete = async () => {
+    if (!captureToDelete) return;
+    try {
+      setDeletingId(captureToDelete.id);
+      await deleteInboxCapture(captureToDelete.id);
       setDeletingId(null);
+      setCaptureToDelete(null);
       if (inboxCaptures.length <= 1) {
         setIsOpen(false);
       }
+    } catch (err) {
+      console.error('Error deleting capture:', err);
+      setDeletingId(null);
+      setCaptureToDelete(null);
     }
   };
 
@@ -60,6 +77,7 @@ export const InboxCaptures = () => {
         </div>
       </motion.button>
 
+      {/* Main Inbox Modal */}
       <AnimatePresence>
         {isOpen && (
           <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -95,35 +113,68 @@ export const InboxCaptures = () => {
                       className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 overflow-hidden"
                     >
                       <p className="text-sm text-zinc-300 mb-4 whitespace-pre-wrap">{capture.content}</p>
-                      <div className="flex gap-2 justify-end border-t border-zinc-800/50 pt-3">
+                      <div className="flex flex-wrap gap-2 justify-end border-t border-zinc-800/50 pt-3">
                         <button
                           onClick={() => handleConvertTask(capture)}
                           disabled={deletingId === capture.id}
-                          className="p-2 rounded-xl text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
-                          title="Converter em Tarefa"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
                         >
-                          <ArrowRightCircle size={18} />
+                          <ArrowRightCircle size={16} />
+                          Criar Tarefa
                         </button>
                         <button
                           onClick={() => handleSaveNote(capture)}
                           disabled={deletingId === capture.id}
-                          className="p-2 rounded-xl text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-colors"
-                          title="Salvar como Anotação"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-indigo-400 hover:bg-indigo-400/10 transition-colors"
                         >
-                          <FileText size={18} />
+                          <FileText size={16} />
+                          Anotação
                         </button>
                         <button
-                          onClick={() => handleDiscard(capture)}
+                          onClick={() => setCaptureToDelete(capture)}
                           disabled={deletingId === capture.id}
-                          className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-rose-400/10 transition-colors ml-1"
-                          title="Descartar"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-400/10 transition-colors ml-1"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} />
+                          Apagar
                         </button>
                       </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Custom Delete Modal (Apple Style) */}
+      <AnimatePresence>
+        {captureToDelete && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-center"
+            >
+              <h3 className="text-lg font-semibold text-zinc-100 mb-2">Apagar captura?</h3>
+              <p className="text-sm text-zinc-400 mb-6">Esta ação não pode ser desfeita.</p>
+              
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setCaptureToDelete(null)}
+                  className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-medium text-sm transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl font-medium text-sm transition-colors cursor-pointer"
+                >
+                  Apagar
+                </button>
               </div>
             </motion.div>
           </div>
