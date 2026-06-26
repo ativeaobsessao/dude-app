@@ -6,6 +6,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { getLocalDateString } from '../../lib/utils';
 
 interface UrgeSurfingProtocolProps {
+  key?: string | number;
   habitId?: string;
   onClose: () => void;
 }
