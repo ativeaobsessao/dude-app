@@ -52,10 +52,13 @@ export class ErrorBoundary extends Component<Props, State> {
               <RefreshCcw size={14} /> Recarregar Aplicativo
             </button>
 
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-8 p-4 bg-surface/50 border border-border-white/10 rounded-xl text-left overflow-auto max-h-40">
-                <p className="text-[10px] font-mono text-red-400 break-words">
-                  {this.state.error?.toString()}
+            {true && (
+              <div className="mt-8 p-4 bg-surface/50 border border-border-white/10 rounded-xl text-left overflow-auto max-h-64">
+                <p className="text-[10px] font-mono text-red-400 break-words font-bold">
+                  {this.state.error?.message}
+                </p>
+                <p className="text-[10px] font-mono text-red-400 break-words mt-2">
+                  {this.state.error?.stack}
                 </p>
               </div>
             )}
