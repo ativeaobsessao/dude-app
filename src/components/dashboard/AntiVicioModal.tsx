@@ -50,12 +50,12 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
   }
 
   const triggers = [
-    { value: 'stress', label: '🤯 Estresse / Ansiedade' },
-    { value: 'boredom', label: '🥱 Tédio / Inatividade' },
-    { value: 'exhaustion', label: '🪫 Cansaço / Exaustão' },
-    { value: 'sadness', label: '😔 Tristeza / Frustração' },
-    { value: 'environment', label: '📍 Ambiente / Pessoas' },
-    { value: 'random', label: '⚡ Impulso do Nada' },
+    { value: 'Hungry (Fome/Sede)', label: '🍎 Hungry (Fome/Sede)' },
+    { value: 'Angry (Raiva/Estresse)', label: '🔥 Angry (Raiva/Estresse)' },
+    { value: 'Lonely (Solidão/Tédio)', label: '🌌 Lonely (Solidão/Tédio)' },
+    { value: 'Tired (Cansaço/Exaustão)', label: '🔋 Tired (Cansaço/Exaustão)' },
+    { value: 'Ambiente/Gatilho', label: '📍 Ambiente / Gatilho Visual' },
+    { value: 'Impulso do Nada', label: '⚡ Impulso Espontâneo' },
   ];
 
   const handleTriggerClick = async (triggerValue: string) => {
@@ -108,21 +108,36 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
         className="relative w-full bg-black/90 backdrop-blur-xl rounded-t-3xl border-t border-white/10 p-6 md:p-8 flex flex-col z-10"
       >
         {/* Header */}
-        <div className="flex flex-col space-y-2 mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-            Vitória Registrada! 🏆
+        <div className="flex flex-col space-y-4 mb-6 items-center text-center">
+          <div className="relative w-24 h-24 mb-2">
+            <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 144 144">
+              <circle cx="72" cy="72" r="64" className="text-emerald-500/10" strokeWidth="8" stroke="currentColor" fill="transparent" />
+              <motion.circle 
+                initial={{ strokeDashoffset: 402 }}
+                animate={{ strokeDashoffset: 0 }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                cx="72" cy="72" r="64" className="text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]" 
+                strokeWidth="8" strokeDasharray="402" strokeLinecap="round" stroke="currentColor" fill="transparent" 
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.span 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 1, type: "spring" }}
+                className="text-4xl"
+              >
+                🏆
+              </motion.span>
+            </div>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-300 tracking-tight">
+            VONTADE SURFADA!
           </h2>
           <div className="flex items-center gap-2">
-            <p className="text-sm text-gray-400 font-light">
-              A vontade apareceu durante a jornada? Identifique a causa:
+            <p className="text-sm text-gray-400 font-light max-w-xs mx-auto">
+              Você não cedeu ao impulso. Para calibrarmos sua defesa, o que causou essa fissura?
             </p>
-            <button 
-              onClick={() => setShowNote(!showNote)}
-              className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer opacity-80 hover:opacity-100"
-              title="Adicionar anotação"
-            >
-              ✏️
-            </button>
           </div>
         </div>
 
@@ -146,6 +161,15 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
         </AnimatePresence>
 
         {/* Triggers Grid */}
+        <div className="flex justify-between items-center mb-3 px-1">
+          <span className="text-xs font-mono text-gray-500 uppercase">Mapeamento Biológico (HALT)</span>
+          <button 
+            onClick={() => setShowNote(!showNote)}
+            className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+          >
+            {showNote ? 'Esconder Nota' : '+ Adicionar Nota'}
+          </button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           {triggers.map((trigger) => (
             <button
