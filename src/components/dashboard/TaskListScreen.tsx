@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { DailyTask, ScheduledActivity } from '../../types';
 import { AgendamentoCard } from '../agenda/AgendamentoCard';
+import { DeleteTaskModal } from './DeleteTaskModal';
 
 const isDelayed = (dateString: string) => {
   const today = new Date();
@@ -42,6 +43,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [isProximosDiasOpen, setIsProximosDiasOpen] = useState(false);
   const [isHojeOpen, setIsHojeOpen] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   // 1. GATHER ALL ITEMS OF TODAY
   const todayItems = useMemo(() => {
@@ -928,10 +930,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   setOpenMenuId(null);
-                                  if (confirm('Deseja realmente cancelar esta tarefa?')) {
-                                    await dataStore.deleteDailyTask(task.id);
-                                    dataStore.showNotification('Tarefa cancelada.', 'success');
-                                  }
+                                  setTaskToDelete(task.id);
                                 }}
                                 className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/5 transition-all font-sans"
                               >
@@ -942,10 +941,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   setOpenMenuId(null);
-                                  if (confirm('Deseja realmente excluir esta tarefa permanentemente?')) {
-                                    await dataStore.deleteDailyTask(task.id);
-                                    dataStore.showNotification('Tarefa excluída permanentemente.', 'success');
-                                  }
+                                  setTaskToDelete(task.id);
                                 }}
                                 className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 transition-all font-sans"
                               >
@@ -1278,6 +1274,16 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         )}
       </AnimatePresence>
 
+      <DeleteTaskModal
+        isOpen={!!taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={async () => {
+          if (taskToDelete) {
+            await dataStore.deleteDailyTask(taskToDelete);
+            dataStore.showNotification('Tarefa excluída permanentemente.', 'success');
+          }
+        }}
+      />
     </div>
   );
 };
