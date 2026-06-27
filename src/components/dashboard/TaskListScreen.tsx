@@ -962,12 +962,12 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                               <div 
                                 key={sIdx}
                                 onClick={(e) => handleToggleSubtaskActive(task, sIdx, e)}
-                                className="flex items-center gap-2 cursor-pointer text-xs select-none relative -left-[4.5px]"
+                                className="flex items-start gap-2 cursor-pointer text-xs select-none relative -left-[4.5px]"
                               >
-                                <span className={`${sub.completed ? 'text-green' : 'text-text-secondary/40'} flex-shrink-0 bg-surface z-10`}>
-                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 ml-[2.5px]" />}
+                                <span className={`${sub.completed ? 'text-green' : 'text-text-secondary/40'} flex-shrink-0 bg-surface z-10 mt-[1.5px]`}>
+                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 ml-[2.5px] mt-[2px]" />}
                                 </span>
-                                <span className={`font-semibold font-sans ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
+                                <span className={`font-semibold font-sans break-words whitespace-pre-wrap leading-relaxed flex-1 ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
                                   {sub.text}
                                 </span>
                               </div>
@@ -1175,35 +1175,41 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                   {subtasksList.length > 0 && (
                     <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                       {subtasksList.map((st, sIdx) => (
-                        <div key={sIdx} className="flex justify-between items-center text-xs gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+                        <div key={sIdx} className="flex justify-between items-start text-xs gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
                           {editingIndex === sIdx ? (
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <span className="text-text-secondary/40 select-none shrink-0 font-sans">☐</span>
-                              <input
-                                type="text"
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <span className="text-text-secondary/40 select-none shrink-0 font-sans mt-[1.5px]">☐</span>
+                              <textarea
                                 autoFocus
                                 value={editingValue}
                                 onChange={(e) => setEditingValue(e.target.value)}
                                 onBlur={() => handleSaveSubtaskEdit(sIdx)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
                                     handleSaveSubtaskEdit(sIdx);
                                   }
                                 }}
-                                className="font-semibold text-text-primary font-sans bg-[#161817] border border-white/10 rounded-lg px-2 py-1 outline-none focus:border-green/50 flex-1 min-w-0 w-full"
+                                className="font-semibold text-text-primary font-sans bg-[#161817] border border-white/10 rounded-lg px-2 py-1 outline-none focus:border-green/50 flex-1 min-w-0 w-full resize-none overflow-hidden"
+                                rows={1}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                  }
+                                }}
                               />
                             </div>
                           ) : (
                             <div 
-                              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer select-none py-1 group"
+                              className="flex items-start gap-2 flex-1 min-w-0 cursor-pointer select-none py-1 group"
                               onClick={() => {
                                 setEditingIndex(sIdx);
                                 setEditingValue(st.text);
                               }}
                             >
-                              <span className="text-text-secondary/40 select-none shrink-0 font-sans">☐</span>
-                              <span className="font-semibold text-text-primary font-sans truncate group-hover:text-[#6ee7a8] transition-colors flex-1">
+                              <span className="text-text-secondary/40 select-none shrink-0 font-sans mt-[1.5px]">☐</span>
+                              <span className="font-semibold text-text-primary font-sans break-words whitespace-pre-wrap leading-relaxed group-hover:text-[#6ee7a8] transition-colors flex-1">
                                 {st.text}
                               </span>
                             </div>
@@ -1211,7 +1217,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                           <button 
                             type="button" 
                             onClick={() => handleFormRemoveSubtask(sIdx)}
-                            className="text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded transition-all cursor-pointer font-bold"
+                            className="text-text-secondary/30 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded transition-all cursor-pointer font-bold mt-[-2px]"
                           >
                             <X size={12} />
                           </button>
