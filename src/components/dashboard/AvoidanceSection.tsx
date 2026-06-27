@@ -703,22 +703,28 @@ export const AvoidanceSection = () => {
 
               {relapseModal.step === 'trigger' ? (
                 <div className="space-y-5">
-                  <h3 className="text-xl font-bold text-text-primary tracking-tight">O que disparou isso agora?</h3>
-                  <p className="text-xs text-text-secondary/60">Selecione o gatilho dominante em apenas um clique.</p>
-                  <div className="grid grid-cols-1 gap-2 text-left">
+                  <h3 className="text-xl font-bold text-text-primary tracking-tight">Mapeamento Biológico (HALT)</h3>
+                  <p className="text-xs text-text-secondary/60">Identifique seu estado biológico ou emocional atual. A fissura costuma mascarar uma dessas necessidades básicas.</p>
+                  <div className="grid grid-cols-1 gap-2 text-left mt-4">
                     {[
-                      { tag: 'Tédio / Procrastinação', emoji: '🥱' },
-                      { tag: 'Estresse / Ansiedade', emoji: '⚡' },
-                      { tag: 'Cansaço Mental / Fadiga', emoji: '😩' },
-                      { tag: 'Recompensa (Eu mereço)', emoji: '🏆' },
-                      { tag: 'Gatilho Social / Ambiente', emoji: '🍻' }
+                      { tag: 'Hungry (Fome/Sede)', emoji: '🍎', desc: 'Queda de glicose ou desidratação' },
+                      { tag: 'Angry (Raiva/Estresse)', emoji: '🔥', desc: 'Frustração, sobrecarga ou tensão' },
+                      { tag: 'Lonely (Solidão/Tédio)', emoji: '🌌', desc: 'Necessidade de conexão ou estímulo' },
+                      { tag: 'Tired (Cansaço/Exaustão)', emoji: '🔋', desc: 'Privação de sono ou fadiga mental' },
+                      { tag: 'Outro Gatilho (Ambiente)', emoji: '📍', desc: 'Lugar ou situação específica' }
                     ].map((t) => (
                       <button
                         key={t.tag}
                         onClick={() => handleCheckinSubmit(relapseModal.habitId, 'window', 'relapse', t.tag, customTriggerNote)}
-                        className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-sm font-medium text-text-primary transition-all flex items-center gap-3 cursor-pointer"
+                        className="w-full p-3.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] hover:border-white/20 rounded-2xl text-sm font-medium text-text-primary transition-all flex items-center gap-3 cursor-pointer backdrop-blur-md"
                       >
-                        <span className="text-xl">{t.emoji}</span> {t.tag}
+                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl shrink-0">
+                          {t.emoji}
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-white/90">{t.tag}</span>
+                          <span className="text-[10px] text-white/40 font-light mt-0.5">{t.desc}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
