@@ -713,7 +713,6 @@ export default function App() {
             } else {
               setPopupState(prev => ({ ...prev, showMoodModal: false }));
             }
-            runServerPopupCheck();
           }} 
           currentPeriod={popupState.currentPeriod || 'manha'} 
           currentDate={popupState.todayStr || ''}
