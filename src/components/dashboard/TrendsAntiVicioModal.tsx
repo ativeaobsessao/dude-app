@@ -237,6 +237,41 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
     };
   }, [relapses, moodEntries]);
 
+  const strengths = useMemo(() => {
+    const successes = avoidanceCheckins.filter(c => c.status === 'success' || c.status === 'resisti');
+    if (successes.length === 0) return { topMood: 'Estável' };
+
+    const successMoods: string[] = [];
+    successes.forEach(c => {
+      const successDay = c.checkin_date ? c.checkin_date.split('T')[0] : '';
+      const dayMoodEntries = moodEntries.filter(m => m.date === successDay);
+      dayMoodEntries.forEach(m => {
+        if (m.mood) successMoods.push(m.mood);
+      });
+    });
+
+    const moodCounts: { [key: string]: number } = {};
+    successMoods.forEach(m => moodCounts[m] = (moodCounts[m] || 0) + 1);
+    
+    let topMoodKey = '';
+    let maxCount = 0;
+    Object.entries(moodCounts).forEach(([m, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        topMoodKey = m;
+      }
+    });
+
+    const moodMap: Record<string, string> = {
+      animado: 'Animado',
+      tranquilo: 'Tranquilo',
+      neutro: 'Equilibrado',
+      ansioso: 'Alerta',
+      prabaixo: 'Reflexivo'
+    };
+    return { topMood: topMoodKey ? (moodMap[topMoodKey] || 'Equilibrado') : 'Equilibrado' };
+  }, [avoidanceCheckins, moodEntries]);
+
   // Extract Avoidance check-ins that have notes for Section 3 (Ghost Quotes)
   const battlesWithNotes = useMemo(() => {
     return avoidanceCheckins
@@ -266,16 +301,12 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
           {/* Header */}
           <div className="flex items-start justify-between pb-6 border-b border-white/[0.06] shrink-0">
             <div className="flex items-center gap-3.5 text-left animate-fade-in">
-              <div className="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-                <Flame size={22} className="animate-pulse" />
+              <div className="w-11 h-11 rounded-2xl bg-[#6ee7a8]/10 border border-[#6ee7a8]/20 flex items-center justify-center text-[#6ee7a8]">
+                <ShieldCheck size={22} className="animate-pulse" />
               </div>
               <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-red-500 block">SALA DE GUERRA COCKPIT</span>
-                </div>
                 <h3 className="text-xl font-black text-text-primary tracking-tight font-sans">
-                  Trends Anti-Vício
+                  Controle de Impulsos
                 </h3>
               </div>
             </div>
@@ -300,14 +331,14 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
               </div>
             )}
 
-            {/* SECTION: BLINDAGENS ATIVAS (CARDS DOS VÍCIOS) */}
+            {/* SECTION: SEU PROGRESSO ATUAL */}
             <div className="space-y-4 text-left">
               <div className="flex justify-between items-center flex-wrap gap-2">
-                <h4 className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.22em] font-sans">
-                  BLINDAGENS ATIVAS E MONITORAMENTO
+                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
+                  Seu Progresso Atual
                 </h4>
-                <span className="text-[9px] font-mono bg-white/5 border border-white/5 px-2 py-0.5 rounded-md text-text-secondary/50 font-bold uppercase tracking-wider">
-                  {avoidanceHabitsList.length} ativas
+                <span className="text-[9px] font-mono bg-white/5 border border-white/5 px-2 py-0.5 rounded-md text-zinc-400 font-bold uppercase tracking-wider">
+                  {avoidanceHabitsList.length} Hábitos
                 </span>
               </div>
 
@@ -315,7 +346,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                 <div className="py-12 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-3xl select-none">
                   <Shield className="text-text-secondary/20 mx-auto mb-3" size={28} />
                   <p className="text-xs text-text-secondary/40 italic">
-                    Nenhum comportamento cadastrado para blindagem no momento.
+                    Nenhum comportamento cadastrado para acompanhamento no momento.
                   </p>
                 </div>
               ) : (
@@ -323,207 +354,34 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-sans">
                     {visibleVices.map((vice) => {
                       const mStreak = avoidanceStreaks[vice.id] || 0;
-                      const mFalls = avoidanceCheckins.filter(
-                        c => c.habit_id === vice.id && (c.status === 'relapse' || c.status === 'recai')
-                      );
-
-                      // Streak status dynamically generated based on Neuroscience rule
-                      const statusString = mStreak < 3 
-                        ? "Zona de Perigo: Risco de abstinência aguda." 
-                        : mStreak < 21 
-                        ? "Força de vontade em construção. Não abaixe a guarda." 
-                        : "Caminhos neurais reescritos. Hábito enfraquecendo.";
-
-                      // Calculate cofre values
-                      const totalLimpo = avoidanceCheckins.filter(
-                        c => c.habit_id === vice.id && (c.status === 'success' || c.status === 'resisti')
-                      ).length;
                       
-                      // Chronological streaks calculation for recorde vitalício
-                      const checkinsChrono = avoidanceCheckins
-                        .filter(c => c.habit_id === vice.id && (c.status === 'success' || c.status === 'resisti' || c.status === 'relapse' || c.status === 'recai'))
-                        .sort((a, b) => new Date(a.checkin_date || 0).getTime() - new Date(b.checkin_date || 0).getTime());
-
-                      let currentAcc = 0;
-                      let maxStk = 0;
-                      checkinsChrono.forEach(chk => {
-                        if (chk.status === 'success' || chk.status === 'resisti') {
-                          currentAcc++;
-                          if (currentAcc > maxStk) maxStk = currentAcc;
-                        } else {
-                          currentAcc = 0;
-                        }
-                      });
-                      const bestStkVal = Math.max(maxStk, mStreak);
-
-                      // Analyze peak trigger & hours
-                      let peakTriggerStr = '';
-                      let peakHourStr = '';
-                      if (mFalls.length > 0) {
-                        const fallbackCounts: { [k: string]: number } = {};
-                        mFalls.forEach(f => {
-                          const tg = f.trigger_tag || f.trigger_note || 'Gatilho Geral';
-                          fallbackCounts[tg] = (fallbackCounts[tg] || 0) + 1;
-                        });
-                        let maxFallsCount = 0;
-                        Object.entries(fallbackCounts).forEach(([k, count]) => {
-                          if (count > maxFallsCount) {
-                            maxFallsCount = count;
-                            peakTriggerStr = k;
-                          }
-                        });
-
-                        // Hours analyze
-                        const hourCounts: { [h: number]: number } = {};
-                        mFalls.forEach(f => {
-                          const dtStr = f.created_at || f.checkin_date;
-                          if (dtStr) {
-                            try {
-                              const dtObj = new Date(dtStr);
-                              const hour = dtObj.getHours();
-                              hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-                            } catch {}
-                          }
-                        });
-                        let maxHoursLogged = -1;
-                        let maxHourCount = 0;
-                        Object.entries(hourCounts).forEach(([h, count]) => {
-                          if (count > maxHourCount) {
-                            maxHourCount = count;
-                            maxHoursLogged = parseInt(h);
-                          }
-                        });
-                        if (maxHoursLogged !== -1) {
-                          peakHourStr = `${String(maxHoursLogged).padStart(2, '0')}:00`;
-                        }
-                      }
-
-                      // Dots generation helpers (last 7 calendar days)
-                      const last7Days = Array.from({ length: 7 }, (_, i) => {
-                        const d = new Date();
-                        d.setDate(d.getDate() - (6 - i));
-                        return d;
-                      });
-
                       return (
                         <div 
                           key={vice.id}
-                          className="bg-white/[0.015] hover:bg-white/[0.025] border border-white/5 hover:border-red-500/15 p-5 rounded-3xl flex flex-col justify-between space-y-4 text-left transition-all duration-300 relative overflow-hidden group"
+                          className="bg-white/[0.02] border border-white/5 hover:border-white/10 p-5 rounded-3xl flex flex-col justify-between space-y-4 text-left transition-all duration-300 relative overflow-hidden group"
                         >
-                          {/* Name of vice / header */}
                           <div className="flex justify-between items-start select-none">
-                            <span className="text-base font-extrabold text-text-primary tracking-tight truncate max-w-[70%]">
+                            <span className="text-base font-bold text-text-primary tracking-tight truncate max-w-[70%]">
                               {vice.name}
                             </span>
-                            <span className="text-[9px] font-mono font-bold bg-[#6ee7a8]/10 text-[#6ee7a8] border border-[#6ee7a8]/15 px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
-                              ATIVO
-                            </span>
                           </div>
 
-                          {/* Streak de Fogo com layout higienizado */}
                           <div className="space-y-1 select-none">
-                            <div className="flex items-center gap-1.5 leading-none">
-                              <Flame className="text-orange-500 fill-orange-500/20 animate-pulse shrink-0" size={24} />
-                              <span className="text-4xl md:text-5xl font-black font-sans leading-none text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 leading-none uppercase tracking-tighter">
-                                {mStreak} {mStreak === 1 ? 'Dia' : 'Dias'}
+                            <div className="flex items-center gap-2 leading-none">
+                              <span className="text-4xl md:text-5xl font-bold font-sans text-white tracking-tighter">
+                                {mStreak}
+                              </span>
+                              <span className="text-sm font-medium text-zinc-400 mt-2">
+                                {mStreak === 1 ? 'dia limpo' : 'dias limpos'}
                               </span>
                             </div>
-                            <p className="text-[10.5px] leading-snug font-medium text-text-secondary/70 min-h-[32px]">
-                              {statusString}
-                            </p>
                           </div>
-
-                          {/* Grid de Batalha: bolinhas para os últimos 7 dias */}
-                          <div className="space-y-2 pt-1.5 border-t border-white/5 select-none">
-                            <span className="text-[9px] font-mono font-bold text-text-secondary/40 uppercase tracking-widest block">
-                              Últimos 7 dias
-                            </span>
-                            <div className="flex gap-2.5 items-center justify-start overflow-x-auto py-1 no-scrollbar">
-                              {last7Days.map((day, dIdx) => {
-                                const dStr = getLocalDateString(day);
-                                const checkinsOnDay = avoidanceCheckins.filter(c => {
-                                  if (c.habit_id !== vice.id) return false;
-                                  const formattedValue = c.checkin_date ? getLocalDateString(new Date(c.checkin_date)) : '';
-                                  return formattedValue === dStr;
-                                });
-
-                                const isRelapse = checkinsOnDay.some(c => c.status === 'relapse' || c.status === 'recai');
-                                const isSuccess = checkinsOnDay.some(c => c.status === 'success' || c.status === 'resisti');
-                                const dayInit = day.toLocaleDateString('pt-BR', { weekday: 'narrow' }).toUpperCase();
-                                const isTd = dStr === getLocalDateString(new Date());
-
-                                let dotColor = 'bg-white/[0.04] border border-white/10 text-text-secondary/35';
-                                let dotLabel = 'Sem registros';
-                                if (isRelapse) {
-                                  dotColor = 'bg-red-500/90 shadow-[0_0_8px_rgba(239,68,68,0.5)]';
-                                  dotLabel = 'Queda registrada';
-                                } else if (isSuccess) {
-                                  dotColor = 'bg-[#6ee7a8] shadow-[0_0_8px_rgba(110,231,168,0.4)]';
-                                  dotLabel = 'Dia Limpo';
-                                }
-
-                                return (
-                                  <div key={dIdx} className="flex flex-col items-center gap-1 shrink-0 font-mono">
-                                    <span className={`text-[8.5px] font-extrabold ${isTd ? 'text-[#6ee7a8]' : 'text-text-secondary/40'}`}>
-                                      {dayInit}
-                                    </span>
-                                    <div 
-                                      className={`w-3.5 h-3.5 rounded-full transition-all duration-300 ${dotColor}`}
-                                      title={`${day.toLocaleDateString('pt-BR')}: ${dotLabel}`}
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Bloco de Inteligência - Totalmente Frameless e Clean (Sem caixas prisões) */}
-                          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5 select-none text-left">
-                            {/* O Cofre */}
-                            <div className="flex flex-col justify-between space-y-1 hover:opacity-90 transition-opacity">
-                              <div>
-                                <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-none">O COFRE</span>
-                                <div className="flex items-baseline gap-1 mt-1">
-                                  <span className="text-lg font-bold text-[#6ee7a8] font-mono leading-none">{totalLimpo}</span>
-                                  <span className="text-[9px] text-text-secondary/50 font-medium">limpos</span>
-                                </div>
-                                <div className="text-[9.5px] text-text-secondary/40 mt-1">
-                                  Recorde: <span className="font-mono font-bold text-text-primary">{bestStkVal}d</span>
-                                </div>
-                              </div>
-                              <p className="text-[9px] font-bold text-[#6ee7a8]/75 tracking-tight pt-1.5 border-t border-white/5 mt-1 block w-full text-left">
-                                ⏳ ~{Math.round(totalLimpo * 1.5)}h salvas
-                              </p>
-                            </div>
-
-                            {/* Ponto Cego */}
-                            <div className="flex flex-col justify-between space-y-1">
-                              {mFalls.length > 0 ? (
-                                <div className="space-y-1 text-left h-full flex flex-col justify-between">
-                                  <div>
-                                    <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-none">PONTO CEGO</span>
-                                    <div className="text-[11px] font-bold text-text-primary mt-1.5 leading-snug flex items-start gap-1 font-sans">
-                                      <span className="text-red-400 shrink-0 select-none">⚠️</span>
-                                      <span className="truncate max-w-[95px]">{peakTriggerStr}</span>
-                                    </div>
-                                  </div>
-                                  {peakHourStr && (
-                                    <div className="text-[9px] font-semibold text-text-secondary/70 flex items-center gap-1 mt-0.5 pt-1.5 border-t border-white/5">
-                                      <span className="text-[#6ee7a8] shrink-0 select-none">⏰</span>
-                                      <span className="truncate">Risco: <span className="font-mono font-bold text-text-primary">{peakHourStr}</span></span>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex flex-col h-full justify-between text-left">
-                                  <div>
-                                    <span className="text-[8.5px] font-extrabold font-mono text-white/30 uppercase tracking-widest block leading-none">PONTO CEGO</span>
-                                  </div>
-                                  <p className="text-[9.5px] text-[#6ee7a8]/80 italic leading-snug pt-1 whitespace-normal">
-                                    🛡️ Analisando dados...
-                                  </p>
-                                </div>
-                              )}
+                          
+                          {/* Destaque visual: Ação resistir */}
+                          <div className="pt-2 border-t border-white/5">
+                            <div className="flex justify-between items-center bg-[#6ee7a8]/5 border border-[#6ee7a8]/10 rounded-xl p-3">
+                              <span className="text-xs font-medium text-[#6ee7a8]/80">Controle Mantido</span>
+                              <ShieldCheck size={16} className="text-[#6ee7a8]/60" />
                             </div>
                           </div>
 
@@ -536,9 +394,9 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                     <div className="pt-2 flex justify-start">
                       <button
                         onClick={() => setShowAllVices(!showAllVices)}
-                        className="text-xs font-mono font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 cursor-pointer py-1"
+                        className="text-xs font-mono font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer py-1"
                       >
-                        <span>{showAllVices ? '↑ Mostrar menos' : `↓ Ver todas as ${sortedVices.length} blindagens`}</span>
+                        <span>{showAllVices ? '↑ Mostrar menos' : `↓ Ver todos os ${sortedVices.length} hábitos`}</span>
                       </button>
                     </div>
                   )}
@@ -546,95 +404,54 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
               )}
             </div>
 
-            {/* SECTION: PREDICTIVE INSIGHTS */}
-            <div className="space-y-4 text-left pt-2 border-t border-white/[0.04]">
-              <div className="flex items-center gap-2">
-                <Activity size={15} className="text-red-400 shrink-0" />
-                <h4 className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.22em] font-sans">
-                  CORRELAÇÃO E PARÂMETROS DE RISCO
-                </h4>
-              </div>
-              <p className="text-xs text-text-secondary/60 font-light leading-relaxed max-w-2xl select-text">
-                O cruzamento analítico correlaciona seus momentos de vulnerabilidade às métricas de humor e níveis de energia correspondentes no sistema.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 pt-2 select-text">
-                {/* Metric Item 1 */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary/40 flex items-center gap-1.5 select-none">
-                    <Target size={11} className="text-red-400" /> Gatilho Crítico
-                  </span>
-                  <div className="text-xs sm:text-sm font-semibold text-text-primary tracking-tight">
-                    {trends.topTrigger}
-                  </div>
+            {/* SECTION: O QUE OS SEUS DADOS DIZEM */}
+            <div className="space-y-4 text-left pt-2">
+              <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
+                O que os seus dados dizem
+              </h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 select-text">
+                {/* Card A (Zonas de Alerta) */}
+                <div className="bg-orange-500/[0.03] border border-orange-500/10 rounded-3xl p-6 flex flex-col justify-center">
+                   <h5 className="text-[10px] uppercase tracking-widest text-orange-400/80 font-bold mb-3 flex items-center gap-1.5"><ShieldAlert size={14}/> Zonas de Alerta</h5>
+                   <p className="text-sm text-zinc-300 leading-relaxed font-light">
+                     Seus impulsos são mais frequentes no período da <span className="font-medium text-white">{trends.topPeriod.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim().toLowerCase()}</span>, especialmente quando sua energia está <span className="font-medium text-white">{trends.topEnergy.split(' ')[0].toLowerCase()}</span>.
+                   </p>
                 </div>
 
-                {/* Metric Item 2 */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary/40 flex items-center gap-1.5 select-none">
-                    <Clock size={11} className="text-red-400" /> Janela Vulnerável
-                  </span>
-                  <div className="text-xs sm:text-sm font-semibold text-text-primary tracking-tight">
-                    {trends.topPeriod}
-                  </div>
-                </div>
-
-                {/* Metric Item 3 */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary/40 flex items-center gap-1.5 select-none">
-                    <Smile size={11} className="text-red-400" /> Humor Correlato
-                  </span>
-                  <div className="text-xs sm:text-sm font-semibold text-text-primary tracking-tight">
-                    {trends.topMood}
-                  </div>
-                </div>
-
-                {/* Metric Item 4 */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-text-secondary/40 flex items-center gap-1.5 select-none">
-                    <Activity size={11} className="text-red-400" /> Nível Biológico
-                  </span>
-                  <div className="text-xs sm:text-sm font-semibold text-text-primary tracking-tight">
-                    {trends.topEnergy}
-                  </div>
+                {/* Card B (Suas Fortalezas) */}
+                <div className="bg-[#6ee7a8]/[0.03] border border-[#6ee7a8]/10 rounded-3xl p-6 flex flex-col justify-center">
+                   <h5 className="text-[10px] uppercase tracking-widest text-[#6ee7a8]/80 font-bold mb-3 flex items-center gap-1.5"><ShieldCheck size={14}/> Suas Fortalezas</h5>
+                   <p className="text-sm text-zinc-300 leading-relaxed font-light">
+                     Quando seu humor está <span className="font-medium text-white">{strengths.topMood.toLowerCase()}</span>, você demonstra controle total sobre as suas escolhas.
+                   </p>
                 </div>
               </div>
             </div>
 
-            {/* SECTION: NEUROSCIENCE PILL */}
-            <div className="space-y-4 text-left pt-2 border-t border-white/[0.04]">
-              <div className="flex items-center gap-2">
-                <Brain size={15} className="text-[#6ee7a8]" />
-                <h4 className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.22em] font-sans">
-                  PÍLULA DE DIRECIONAMENTO NEURAL
+            {/* SECTION: SEU DIÁRIO */}
+            <div className="space-y-4 text-left pt-6 border-t border-white/[0.04]">
+              <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
+                <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
+                  Seus Relatos
                 </h4>
-              </div>
-              <div className="rounded-2xl bg-gradient-to-br from-[#6ee7a8]/[0.03] to-transparent border border-[#6ee7a8]/10 p-5 space-y-2 select-text">
-                <div className="text-[10px] font-mono font-bold tracking-widest text-[#6ee7a8] uppercase">
-                  Anatomia Do Hábito: {trends.topTrigger.replace(/[^a-zA-ZÀ-ÿ\s]/g, '')}
-                </div>
-                <p className="text-xs md:text-sm text-text-primary/90 font-light leading-relaxed">
-                  {trends.neuroPill}
-                </p>
-              </div>
-            </div>
-
-            {/* SECTION: HISTORY OF BATTLES (GHOST QUOTES) */}
-            <div className="space-y-4 text-left pt-2 border-t border-white/[0.04]">
-              <div className="flex justify-between items-center flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Compass size={15} className="text-purple-400 shrink-0" />
-                  <h4 className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.22em] font-sans">
-                    REGISTROS DE CAMPO (GHOST QUOTES)
-                  </h4>
-                </div>
-                <span className="text-[10px] font-mono text-text-secondary/40">
+                <span className="text-[10px] font-mono text-zinc-500">
                   {battlesWithNotes.length} anotações
                 </span>
               </div>
-              
+
+              {/* Dica do Dia */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 mb-6">
+                <div className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-[#6ee7a8]" /> Dica do Dia
+                </div>
+                <p className="text-sm text-zinc-300 font-light leading-relaxed">
+                  {trends.neuroPill}
+                </p>
+              </div>
+
               {battlesWithNotes.length > 0 ? (
-                <div className="max-h-[300px] overflow-y-auto space-y-6 pt-1 select-text scrollbar-thin scrollbar-thumb-white/5 pr-1">
+                <div className="space-y-6 pt-1 select-text">
                   {battlesWithNotes.map((battle) => {
                     const dateStr = new Date(battle.created_at || battle.checkin_date).toLocaleDateString('pt-BR', {
                       day: '2-digit',
@@ -645,100 +462,97 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                     const habitName = associatedHabit ? associatedHabit.name : 'Vício Geral';
 
                     return (
-                      <div key={battle.id} className="group flex items-start gap-4 transition-all pb-3 select-text last:pb-0">
-                        {/* Status Minimal indicator */}
-                        <div className="pt-1.5 shrink-0 select-none">
-                          {isSuccess ? (
-                            <div className="w-5 h-5 rounded-full bg-emerald-500/[0.05] border border-emerald-500/20 flex items-center justify-center text-[#6ee7a8]">
-                              <ShieldCheck size={12} />
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full bg-red-500/[0.05] border border-red-500/20 flex items-center justify-center text-red-400">
-                              <ShieldAlert size={12} />
-                            </div>
+                      <div key={battle.id} className="group flex flex-col gap-3 transition-all pb-4 border-b border-white/[0.04] last:border-0 last:pb-0 select-text relative">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">
+                              {dateStr}
+                            </span>
+                            <span className="text-[10px] font-mono text-white/10 select-none">•</span>
+                            <span className="text-[10px] text-zinc-400 font-medium">
+                              {habitName}
+                            </span>
+                            {battle.trigger_tag && (
+                              <>
+                                <span className="text-[10px] font-mono text-white/10 select-none">•</span>
+                                <span className="text-[10px] text-zinc-500">
+                                  {battle.trigger_tag}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          
+                          {/* Highlight Tag */}
+                          {isSuccess && (
+                            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#6ee7a8] bg-[#6ee7a8]/10 px-2 py-1 rounded-full">
+                              Resistiu
+                            </span>
                           )}
-                        </div>
+                          {!isSuccess && (
+                            <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-red-400 bg-red-500/10 px-2 py-1 rounded-full">
+                              Recaiu
+                            </span>
+                          )}
 
-                        {/* Ghost quote text frame */}
-                        <div className="space-y-1.5 flex-1 border-b border-white/[0.02] pb-4 last:border-0 last:pb-0 select-text relative">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap flex-1">
-                              <span className="text-[9px] font-mono uppercase tracking-wider text-text-secondary/40 font-bold block">
-                                {dateStr}
-                              </span>
-                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/60 font-semibold tracking-wide uppercase">
-                                ⚔️ {habitName}
-                              </span>
-                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-text-secondary/50 font-semibold">
-                                {battle.trigger_tag || 'Gatilho Geral'}
-                              </span>
-                              <span className="text-[10px] font-mono text-white/20 select-none">•</span>
-                              <span className={`text-[9px] font-bold uppercase tracking-[0.1em] ${isSuccess ? 'text-[#6ee7a8]/80' : 'text-red-400/80'}`}>
-                                {isSuccess ? 'Resistiu' : 'Recaiu'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 relative z-10">
-                              {editingNoteId === battle.id ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditSave(battle.id)}
-                                  className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors cursor-pointer"
-                                >
-                                  <Check size={12} />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setEditingNoteId(battle.id);
-                                    setEditingNoteText(battle.trigger_note || '');
-                                  }}
-                                  className="p-1.5 rounded text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                              )}
+                          <div className="flex items-center gap-2 ml-2">
+                            {editingNoteId === battle.id ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEditSave(battle.id)}
+                                className="p-1.5 rounded text-[#6ee7a8] hover:bg-white/10 transition-colors cursor-pointer"
+                              >
+                                <Check size={14} />
+                              </button>
+                            ) : (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setDeleteTarget(battle.id);
+                                  setEditingNoteId(battle.id);
+                                  setEditingNoteText(battle.trigger_note || '');
                                 }}
-                                disabled={isDeleting === battle.id}
-                                className="p-1.5 rounded text-red-500/80 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                className="p-1.5 rounded text-zinc-600 hover:text-white transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
                               >
-                                <Trash2 size={12} />
+                                <Pencil size={14} />
                               </button>
-                            </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteTarget(battle.id);
+                              }}
+                              disabled={isDeleting === battle.id}
+                              className="p-1.5 rounded text-red-500/50 hover:text-red-400 transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                          
-                          {editingNoteId === battle.id ? (
-                            <div className="mt-2 pr-8">
-                              <textarea
-                                value={editingNoteText}
-                                onChange={(e) => setEditingNoteText(e.target.value)}
-                                className="w-full min-h-[60px] bg-white/5 border border-white/10 rounded p-2 text-sm text-white/90 placeholder:text-white/20 focus:outline-none focus:border-white/20 resize-none font-light italic"
-                                autoFocus
-                              />
-                            </div>
-                          ) : (
-                            <p className="text-xs md:text-sm text-text-secondary/80 font-light italic leading-relaxed pl-2 border-l-2 border-white/5 select-text mt-1.5">
-                              "{battle.trigger_note}"
-                            </p>
-                          )}
                         </div>
+                        
+                        {editingNoteId === battle.id ? (
+                          <div className="w-full">
+                            <textarea
+                              value={editingNoteText}
+                              onChange={(e) => setEditingNoteText(e.target.value)}
+                              className="w-full min-h-[80px] bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/20 resize-none font-light italic"
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-sm md:text-base text-zinc-300 font-light italic leading-relaxed">
+                            "{battle.trigger_note}"
+                          </p>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="py-8 text-center text-xs text-text-secondary/40 italic select-none">
-                  Nenhuma reflexão de autoconsciência registrada ultimamente. Da próxima vez, anote suas reflexões no final do SOS.
+                <div className="py-8 text-center text-xs text-zinc-500 italic select-none">
+                  Nenhum relato registrado ultimamente.
                 </div>
               )}
             </div>
