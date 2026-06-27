@@ -962,12 +962,12 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                               <div 
                                 key={sIdx}
                                 onClick={(e) => handleToggleSubtaskActive(task, sIdx, e)}
-                                className="flex items-start gap-2 cursor-pointer text-xs select-none relative -left-[4.5px]"
+                                className="flex items-start gap-2 cursor-pointer text-xs select-none relative -left-[4.5px] group"
                               >
-                                <span className={`${sub.completed ? 'text-green' : 'text-text-secondary/40'} flex-shrink-0 bg-surface z-10 mt-[1.5px]`}>
-                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 ml-[2.5px] mt-[2px]" />}
+                                <span className={`${sub.completed ? 'text-green' : 'text-text-secondary/40'} flex-shrink-0 bg-surface z-10 mt-[2px] transition-colors`}>
+                                  {sub.completed ? <CheckSquare size={13} strokeWidth={2.5} /> : <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 ml-[2.5px] mt-[2px] group-hover:bg-white/20 transition-colors" />}
                                 </span>
-                                <span className={`font-semibold font-sans break-words whitespace-pre-wrap leading-relaxed flex-1 ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
+                                <span className={`font-semibold font-sans line-clamp-2 flex-1 ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80 group-hover:text-text-secondary transition-colors'}`}>
                                   {sub.text}
                                 </span>
                               </div>
