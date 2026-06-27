@@ -387,6 +387,15 @@ export const ActiveSession = () => {
             resolved_at: new Date().toISOString()
           });
         }
+
+        // Se houver uma daily_task atrelada, marcá-la como concluída (Auto-check / Optimistic UI)
+        if (timer.activityId) {
+          await dataStore.updateDailyTask(timer.activityId, {
+            is_completed: true,
+            completed_at: new Date().toISOString()
+          });
+        }
+
         if (sessionTasksLocal.length > 0) {
           for (const task of sessionTasksLocal) {
             await dataStore.addSessionTask(
