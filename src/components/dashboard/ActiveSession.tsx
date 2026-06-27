@@ -79,7 +79,7 @@ export const ActiveSession = () => {
     prevProgressRef.current = progress;
   }, [progress]);
 
-  const sessionIndex = (timer.startTime || 0) % 3;
+  const sessionIndex = (timer.initialStartTime || 0) % 3;
   const baseColor = getDolphinColor(progress / 100, sessionIndex);
   const baseColorAlpha = getDolphinColor(progress / 100, sessionIndex, 0.55);
   const displayColor = timer.isPaused ? desaturateRGB(baseColor) : baseColor;
@@ -220,9 +220,9 @@ export const ActiveSession = () => {
 
   // SW Timer Logic
   useEffect(() => {
-    if (timer.isActive && timer.startTime && !timerStartedRef.current) {
+    if (timer.isActive && timer.initialStartTime && !timerStartedRef.current) {
       timerStartedRef.current = true;
-      const endTime = timer.startTime + (timer.totalDurationMs || 0);
+      const endTime = timer.initialStartTime + (timer.totalDurationMs || 0);
       sendToServiceWorker('START_TIMER', {
         totalMs: timer.totalDurationMs,
         endTime: endTime,
@@ -233,13 +233,13 @@ export const ActiveSession = () => {
     if (!timer.isActive) {
       timerStartedRef.current = false;
     }
-  }, [timer.isActive, timer.startTime]);
+  }, [timer.isActive, timer.initialStartTime]);
 
   // Sincroniza o endTime com SW a cada 30 segundos (resiliência)
   useEffect(() => {
     if (!timer.isActive) return;
     const syncInterval = setInterval(() => {
-      const endTime = (timer.startTime || 0) + (timer.totalDurationMs || 0);
+      const endTime = (timer.initialStartTime || 0) + (timer.totalDurationMs || 0);
       sendToServiceWorker('SYNC_TIMER', {
         endTime,
         activity: timer.activityName,
@@ -267,11 +267,11 @@ export const ActiveSession = () => {
       hasObservedFinish.current = false;
       hasObservedWarning.current = false;
     } else {
-      console.log('[SP Audio] Active session initialized. StartTime:', timer.startTime, 'DurationMs:', timer.totalDurationMs);
+      console.log('[SP Audio] Active session initialized. StartTime:', timer.initialStartTime, 'DurationMs:', timer.totalDurationMs);
       hasObservedFinish.current = false;
       hasObservedWarning.current = false;
     }
-  }, [timer.isActive, timer.startTime]);
+  }, [timer.isActive, timer.initialStartTime]);
 
   useEffect(() => {
     if (!timer.isActive) {
@@ -319,11 +319,11 @@ export const ActiveSession = () => {
       }
     }, 100);
     return () => clearInterval(interval);
-  }, [timer.isActive, timer.startTime, timer.totalDurationMs, timer.getRemainingMs, timer.isPaused]);
+  }, [timer.isActive, timer.initialStartTime, timer.totalDurationMs, timer.getRemainingMs, timer.isPaused]);
 
   useEffect(() => {
-    if (timer.isActive && timer.startTime && timer.startTime !== lastStartTimeRef.current) {
-      lastStartTimeRef.current = timer.startTime;
+    if (timer.isActive && timer.initialStartTime && timer.initialStartTime !== lastStartTimeRef.current) {
+      lastStartTimeRef.current = timer.initialStartTime;
       // Starting a brand new session! Clean up any stale task states or popup states.
       setShowAllTasksDonePopup(false);
       setAllTasksCompletedTime(null);
@@ -331,7 +331,7 @@ export const ActiveSession = () => {
       setSessionTasksLocal(timer.pendingTasks || []);
       timer.clearPendingTasks();
     }
-  }, [timer.isActive, timer.startTime, timer.pendingTasks]);
+  }, [timer.isActive, timer.initialStartTime, timer.pendingTasks]);
 
   const handleCompletedTasksChange = (nextCompleted: string[]) => {
     // Only trigger if a task was checked (nextCompleted length is greater than completedTasksLocal)
@@ -363,7 +363,7 @@ export const ActiveSession = () => {
       activity_name: editedActivityName || timer.activityName || 'Sessão Sem Título',
       description: timer.description,
       duration_minutes: targetMinutes,
-      started_at: new Date(timer.startTime || Date.now()).toISOString(),
+      started_at: new Date(timer.initialStartTime || Date.now()).toISOString(),
       completed_at: new Date().toISOString(),
       completed: true,
       all_tasks_completed: allDone,
