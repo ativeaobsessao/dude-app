@@ -1844,7 +1844,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           {/* Redesigned Clickable Heatmap (30 days) with larger calendar-like cells */}
           <div className="space-y-3">
             <span className="text-[10px] uppercase tracking-wider text-text-secondary/50 font-bold block">
-              Mapa do Foco (Últimos 30 Dias)
+              Seu Histórico (Últimos 30 Dias)
             </span>
             
             <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-10 gap-2">
@@ -1881,14 +1881,14 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
 
             {/* Heatmap Legend */}
             <div className="flex items-center justify-between text-[10px] font-medium text-text-secondary/50 pt-1 border-t border-white/5">
-              <span>Menos foco</span>
+              <span>Menos Sessões</span>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 bg-white/[0.01] border border-white/5 rounded-sm" />
                 <span className="w-2.5 h-2.5 bg-primary-green/15 border border-primary-green/10 rounded-sm" />
                 <span className="w-2.5 h-2.5 bg-primary-green/35 border border-primary-green/30 rounded-sm" />
                 <span className="w-2.5 h-2.5 bg-primary-green/65 border border-primary-green/60 rounded-sm" />
                 <span className="w-2.5 h-2.5 bg-primary-green border border-primary-green rounded-sm" />
-                <span>Mais foco</span>
+                <span>Mais Sessões</span>
               </div>
             </div>
           </div>
@@ -1908,224 +1908,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             />
           </div>
 
-          {/* Expanding Details Block */}
-          <AnimatePresence mode="wait">
-            {selectedDate && (() => {
-              const formattedDateString = (() => {
-                try {
-                  const parts = selectedDate.split('-');
-                  const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                  return dObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-                } catch {
-                  return selectedDate;
-                }
-              })();
-
-              const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
-              const dayMins = daySessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
-
-              return (
-                <motion.div
-                  key={selectedDate}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="bg-white/[0.015] border border-primary-green/10 rounded-2.5xl p-5 space-y-4 text-left"
-                >
-                  <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-primary-green font-mono">
-                        Auditoria de Data
-                      </span>
-                      <h4 className="text-sm font-bold text-text-primary">
-                        {formattedDateString}
-                      </h4>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-lg font-black text-text-primary block font-mono">
-                        {dayMins} min
-                      </span>
-                      <span className="text-[10px] text-text-secondary/50 block font-light">
-                        Tempo total focado
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-5 font-sans">
-                    {/* Bloco 1: Foco e Produtividade */}
-                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
-                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
-                        🎯 Foco & Produtividade
-                      </span>
-                      <div className="space-y-3">
-                        {daySessions.length > 0 ? (
-                          daySessions.map(session => {
-                            const resolved = resolverNomeSessao(session, habits, projects);
-                            const isPartial = session.parcial === true || 
-                                             (session.actual_duration_minutes !== null && 
-                                              session.actual_duration_minutes !== undefined && 
-                                              session.actual_duration_minutes < session.duration_minutes);
-                            const durationToUse = session.actual_duration_minutes !== null ? session.actual_duration_minutes : session.duration_minutes;
-                            const formattedDuration = formatSessionDuration(durationToUse);
-                            const timeRange = formatTimeRange(session.started_at, session.completed_at, session.duration_minutes);
-
-                            const tasks = sessionTasks.filter(t => t.session_id === session.id);
-                            const completedTasks = tasks.filter(t => t.completed);
-
-                            return (
-                              <div key={session.id} className="p-3 bg-white/[0.015] border border-white/5 rounded-xl space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs font-bold text-text-primary">
-                                    {resolved.titulo}
-                                  </span>
-                                  <span className="text-text-secondary/40 text-[10px]">•</span>
-                                  <span className="text-[10px] text-text-secondary/70 uppercase tracking-wider font-semibold font-mono">
-                                    {resolved.projeto}
-                                  </span>
-                                  {isPartial && (
-                                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">
-                                      Incompleta
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="text-[10px] text-text-secondary/50 font-mono flex items-center gap-2">
-                                  <span>Horário: {timeRange}</span>
-                                  <span>•</span>
-                                  <span>Duração: {formattedDuration}</span>
-                                </div>
-
-                                {completedTasks.length > 0 && (
-                                  <div className="space-y-1 pl-1 border-t border-white/5 pt-2 mt-1">
-                                    <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
-                                      Tarefas Completas na Sessão:
-                                    </span>
-                                    {completedTasks.map(task => (
-                                      <div key={task.id} className="flex items-center gap-1.5 text-[11px] text-text-secondary/80">
-                                        <span className="text-primary-green select-none text-xs">☑</span>
-                                        <span className="line-through decoration-white/10 text-text-secondary/50">{task.description}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
-                            Nenhuma sessão realizada neste dia. O descanso também faz parte do processo consciente!
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bloco 2: Biométrico & Disposição */}
-                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
-                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
-                        🧠 Estado Biométrico
-                      </span>
-                      {selectedDateSnapshot?.dayMoodEntry ? (
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div className="bg-white/[0.015] border border-white/[0.03] p-3 rounded-xl">
-                            <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-wider block">DISPOSIÇÃO / ENERGIA</span>
-                            <span className="text-text-primary font-bold mt-0.5 block">
-                              {formatEnergy(selectedDateSnapshot.dayMoodEntry.energy)}
-                            </span>
-                          </div>
-                          <div className="bg-white/[0.015] border border-white/[0.03] p-3 rounded-xl">
-                            <span className="text-[9px] font-bold text-text-secondary/50 uppercase tracking-wider block">SINTONIA MENTAL</span>
-                            <span className="text-text-primary font-bold mt-0.5 flex items-center gap-1">
-                              {selectedDateSnapshot.dayMoodObj?.emoji || '😐'} 
-                              <span>{selectedDateSnapshot.dayMoodObj?.label || 'Neutro'}</span>
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
-                          Nenhum registro biométrico registrado neste dia.
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Bloco 3: Autocontrole / Anti-Vício */}
-                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
-                      <span className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block">
-                        🛡️ Batalhas de Autocontrole
-                      </span>
-                      {selectedDateSnapshot && selectedDateSnapshot.dayAvoidanceCheckins.length > 0 ? (
-                        <div className="space-y-2">
-                          {selectedDateSnapshot.dayAvoidanceCheckins.map((ac) => {
-                            const habit = habits.find(h => h.id === ac.habit_id);
-                            const hName = habit ? habit.name : 'Vício Cadastrado';
-                            const status = ac.status?.toLowerCase();
-                            const isResisti = status === 'resisti' || status === 'success';
-                            const isRecai = status === 'recai' || status === 'relapse';
-                            
-                            let statusLabel = 'Registro';
-                            let statusColor = 'text-text-secondary/60 bg-white/5 border-white/10';
-                            if (isResisti) {
-                              statusLabel = '✓ Resistido';
-                              statusColor = 'text-green bg-green/10 border-green/20';
-                            } else if (isRecai) {
-                              statusLabel = '✗ Recaída';
-                              statusColor = 'text-red-400 bg-red-400/10 border-red-400/20';
-                            } else if (status === 'depois') {
-                              statusLabel = '⏰ Postergado';
-                              statusColor = 'text-amber-500 bg-[#df8a13]/10 border-amber-500/20';
-                            }
-
-                            return (
-                              <div key={ac.id} className="flex justify-between items-start gap-3 p-3 rounded-xl bg-white/[0.015] border border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                                <div className="flex flex-col flex-1 min-w-0 space-y-1.5">
-                                  <span className="text-xs font-bold text-text-primary">{hName}</span>
-                                  {ac.window_label && <span className="text-[9px] font-mono text-text-secondary/50 mt-0.5">{ac.window_label}</span>}
-                                  {ac.trigger_note && (
-                                    <div className="mt-1.5 p-2 bg-black/15 rounded-lg border-l-2 border-red-400/30">
-                                      <p className="text-[10px] text-text-secondary/80 italic leading-relaxed break-words">
-                                        🧬 <span className="font-mono text-[8px] not-italic text-red-400/70 uppercase tracking-widest font-bold">Gatilho:</span> {ac.trigger_note}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${statusColor} shrink-0`}>
-                                  {statusLabel}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-text-secondary/40 italic font-light py-2 pl-1">
-                          Nenhum check-in de autocontrole registrado neste dia.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-2 border-t border-white/5">
-                    <button
-                      onClick={() => setSelectedDate(null)}
-                      className="px-4 py-2 bg-white/[0.03] border border-white/5 hover:bg-white/5 hover:border-primary-green/20 rounded-xl text-[10px] uppercase font-bold tracking-wider transition-all cursor-pointer text-text-primary"
-                    >
-                      Voltar para Visão Geral
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
-
-          {/* Bottom section controls with a general list clear / reset button */}
-          {selectedDate && (
-            <div className="flex justify-center pt-2">
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary-green/10 border border-primary-green/20 hover:bg-primary-green/15 rounded-2xl text-[11px] uppercase font-bold tracking-wider transition-all cursor-pointer text-primary-green"
-              >
-                Voltar
-              </button>
-            </div>
-          )}
         </section>
 
         {/* PROGRESSIVE DISCLOSURE INNER TRIGGER BANNER ("Mapa do Tempo") */}
@@ -2215,6 +1997,184 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
             </p>
           </div>
         </section>
+
+        {/* PROGRESSIVE DISCLOSURE - BOTTOM SHEET MODAL - SELECTED DATE DETAILS */}
+        <AnimatePresence>
+          {selectedDate && (() => {
+            const formattedDateString = (() => {
+              try {
+                const parts = selectedDate.split('-');
+                const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                return dObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+              } catch {
+                return selectedDate;
+              }
+            })();
+
+            const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
+            const dayMins = daySessions.reduce((acc, s) => acc + (s.actual_duration_minutes || s.duration_minutes || 0), 0);
+            const formattedTotalTime = (() => {
+              const h = Math.floor(dayMins / 60);
+              const m = Math.floor(dayMins % 60);
+              if (h > 0) return `${h}h ${m > 0 ? `${m}m` : ''}`.trim();
+              return `${m}m`;
+            })();
+
+            // Calculate project breakdown
+            const breakdown: Record<string, { mins: number, name: string }> = {};
+            daySessions.forEach(session => {
+              const resolved = resolverNomeSessao(session, habits, projects);
+              const pName = resolved.projeto;
+              const m = session.actual_duration_minutes || session.duration_minutes || 0;
+              if (!breakdown[pName]) breakdown[pName] = { mins: 0, name: pName };
+              breakdown[pName].mins += m;
+            });
+            const projectBreakdown = Object.values(breakdown).sort((a, b) => b.mins - a.mins);
+
+            return (
+              <div className="fixed inset-0 z-[500] flex flex-col justify-end">
+                {/* Overlay */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setSelectedDate(null)}
+                  className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                />
+
+                {/* Bottom Sheet */}
+                <motion.div
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                  className="relative w-full h-[85vh] bg-[#1a1f1c] rounded-t-[2rem] flex flex-col shadow-2xl overflow-hidden font-sans"
+                >
+                  {/* Top drag pill */}
+                  <div className="w-full flex justify-center pt-4 pb-2 shrink-0">
+                    <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+                  </div>
+
+                  {/* Close button */}
+                  <button 
+                    onClick={() => setSelectedDate(null)}
+                    className="absolute top-4 right-5 p-2 bg-white/5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors z-10"
+                  >
+                    <X size={20} />
+                  </button>
+
+                  <div className="flex-1 overflow-y-auto px-6 pb-12 custom-scrollbar">
+                    
+                    {/* BLOCO 1 (Hero) */}
+                    <div className="flex flex-col items-center justify-center text-center mt-6 mb-10">
+                      <span className="text-zinc-500 font-medium text-xs tracking-widest uppercase mb-4">
+                        {formattedDateString}
+                      </span>
+                      <h2 className="text-6xl font-bold text-white tracking-tighter mb-2">
+                        {formattedTotalTime}
+                      </h2>
+                      <p className="text-zinc-400 text-sm font-medium mb-4">Tempo Presente</p>
+                      
+                      <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 inline-flex items-center">
+                        <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">
+                          {daySessions.length} Sessões Profundas
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* BLOCO 2 (Raio-X de Projetos) */}
+                    {projectBreakdown.length > 0 && (
+                      <div className="mb-10 space-y-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">
+                            Projetos do Dia
+                          </h4>
+                        </div>
+                        
+                        {/* Stacked Bar */}
+                        <div className="w-full h-3 rounded-full flex overflow-hidden bg-white/5">
+                          {projectBreakdown.map((p, i) => {
+                            const pct = dayMins > 0 ? (p.mins / dayMins) * 100 : 0;
+                            const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                            const color = colors[i % colors.length];
+                            return (
+                              <div key={p.name} style={{ width: `${pct}%` }} className={`h-full ${color}`} />
+                            )
+                          })}
+                        </div>
+                        
+                        {/* Legend */}
+                        <div className="flex flex-col gap-2.5">
+                          {projectBreakdown.map((p, i) => {
+                            const pct = dayMins > 0 ? Math.round((p.mins / dayMins) * 100) : 0;
+                            const colorsText = ['text-emerald-500', 'text-blue-500', 'text-purple-500', 'text-amber-500', 'text-rose-500'];
+                            const colorsBg = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                            const cText = colorsText[i % colorsText.length];
+                            const cBg = colorsBg[i % colorsBg.length];
+                            
+                            return (
+                              <div key={p.name} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${cBg}`} />
+                                  <span className="text-zinc-300 font-medium uppercase tracking-wide text-[10px]">{p.name}</span>
+                                </div>
+                                <span className="text-zinc-500 font-bold">{pct}% <span className="font-normal text-zinc-600">({p.mins}m)</span></span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* BLOCO 3 (Timeline Minimalista) */}
+                    {daySessions.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-6">
+                          Linha do Tempo
+                        </h4>
+                        <div className="relative border-l border-white/10 ml-2 pl-6 space-y-8">
+                          {daySessions.sort((a,b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()).map(session => {
+                            const resolved = resolverNomeSessao(session, habits, projects);
+                            const tStart = new Date(session.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            const tEnd = session.completed_at 
+                              ? new Date(session.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                              : '';
+                            const m = session.actual_duration_minutes || session.duration_minutes || 0;
+                            
+                            return (
+                              <div key={session.id} className="relative">
+                                {/* Timeline Dot */}
+                                <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-4 ring-[#1a1f1c]" />
+                                
+                                <div className="flex justify-between items-start gap-4">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] text-zinc-500 font-medium mb-0.5">
+                                      {tStart} {tEnd && `- ${tEnd}`}
+                                    </span>
+                                    <span className="text-sm font-bold text-white mb-0.5">
+                                      {resolved.titulo}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                                      {resolved.projeto}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-bold text-zinc-400 shrink-0">
+                                    {m} min
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>
 
       </motion.div>
 
