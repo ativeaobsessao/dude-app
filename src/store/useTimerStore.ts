@@ -6,10 +6,10 @@ import { secureLocalStorage } from '../lib/security';
 interface TimerState {
   isActive: boolean;
   isPaused: boolean;
-  startTime: number | null; // Timestamp
+  initialStartTime: number | null; // Timestamp representing absolute session start
+  startTime: number | null; // Timestamp representing start of the current active run
   totalDurationMs: number | null; // Total planned duration
-  totalPausedMs: number;
-  lastPausedAt: number | null;
+  accumulatedTimeMs: number; // Replaces totalPausedMs and lastPausedAt
   activityName: string;
   projectId: string | null;
   habitId: string | null;
@@ -38,10 +38,10 @@ export const useTimerStore = create<TimerState>()(
     (set, get) => ({
       isActive: false,
       isPaused: false,
+      initialStartTime: null,
       startTime: null,
       totalDurationMs: null,
-      totalPausedMs: 0,
-      lastPausedAt: null,
+      accumulatedTimeMs: 0,
       activityName: '',
       projectId: null,
       habitId: null,
@@ -56,13 +56,14 @@ export const useTimerStore = create<TimerState>()(
       clearPendingTasks: () => set({ pendingTasks: [] }),
 
       start: (durationMinutes, activity, projId, habId, desc, date, actId, scheduledActId) => {
+        const now = Date.now();
         set({
           isActive: true,
           isPaused: false,
-          startTime: Date.now(),
+          initialStartTime: now,
+          startTime: now,
           totalDurationMs: durationMinutes * 60 * 1000,
-          totalPausedMs: 0,
-          lastPausedAt: null,
+          accumulatedTimeMs: 0,
           activityName: activity || '',
           projectId: projId || null,
           habitId: habId || null,
@@ -74,23 +75,23 @@ export const useTimerStore = create<TimerState>()(
       },
 
       pause: () => {
-        const { isActive, isPaused } = get();
-        if (isActive && !isPaused) {
+        const { isActive, isPaused, startTime, accumulatedTimeMs } = get();
+        if (isActive && !isPaused && startTime) {
+          const elapsedRound = Date.now() - startTime;
           set({
             isPaused: true,
-            lastPausedAt: Date.now()
+            accumulatedTimeMs: accumulatedTimeMs + elapsedRound,
+            startTime: null
           });
         }
       },
 
       resume: () => {
-        const { isActive, isPaused, lastPausedAt, totalPausedMs } = get();
-        if (isActive && isPaused && lastPausedAt) {
-          const newlyPaused = Date.now() - lastPausedAt;
+        const { isActive, isPaused } = get();
+        if (isActive && isPaused) {
           set({
             isPaused: false,
-            lastPausedAt: null,
-            totalPausedMs: totalPausedMs + newlyPaused
+            startTime: Date.now()
           });
         }
       },
@@ -103,10 +104,10 @@ export const useTimerStore = create<TimerState>()(
         set({
           isActive: false,
           isPaused: false,
+          initialStartTime: null,
           startTime: null,
           totalDurationMs: null,
-          totalPausedMs: 0,
-          lastPausedAt: null,
+          accumulatedTimeMs: 0,
           activityName: '',
           projectId: null,
           habitId: null,
@@ -129,16 +130,14 @@ export const useTimerStore = create<TimerState>()(
       },
 
       getRemainingMs: () => {
-        const { startTime, totalDurationMs, isActive, totalPausedMs, isPaused, lastPausedAt } = get();
-        if (!isActive || !startTime || !totalDurationMs) return 0;
+        const { startTime, totalDurationMs, isActive, isPaused, accumulatedTimeMs } = get();
+        if (!isActive || !totalDurationMs) return 0;
         
-        let currentTotalPaused = totalPausedMs;
-        if (isPaused && lastPausedAt) {
-          currentTotalPaused += (Date.now() - lastPausedAt);
+        let actualElapsed = accumulatedTimeMs;
+        if (!isPaused && startTime) {
+          actualElapsed += (Date.now() - startTime);
         }
 
-        const elapsedSinceStart = Date.now() - startTime;
-        const actualElapsed = elapsedSinceStart - currentTotalPaused;
         const remaining = totalDurationMs - actualElapsed;
         return Math.max(0, remaining);
       },
