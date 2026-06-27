@@ -320,7 +320,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       set({ loading: true });
       const [p, h, s, n, a, hc, pt, sa, ac, me, sl, ds, dt, ic] = await Promise.all([
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        habitService.getHabitsByType('atomic', userId),
+        Promise.all([
+          habitService.getHabitsByType('atomic', userId),
+          habitService.getHabitsByType('avoidance', userId)
+        ]).then(([h1, h2]) => ({ data: [...(h1.data || []), ...(h2.data || [])], error: h1.error || h2.error })),
         supabase.from('focus_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
