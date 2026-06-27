@@ -40,8 +40,8 @@ export const MoodRitualModal = ({ isOpen, onClose, currentPeriod, currentDate }:
     const { showNotification } = useDataStore.getState();
 
     try {
-      // Persist the energy entry across the client store and database (passing null for mood)
-      await addMoodEntry(user.id, currentDate, currentPeriod, null, energyKey);
+      // Persist the energy entry across the client store and database
+      await addMoodEntry(user.id, currentDate, currentPeriod, 'neutro', energyKey);
       showNotification('Sintonização de energia concluída! ⚡', 'success');
       onClose(true);
     } catch (e) {
