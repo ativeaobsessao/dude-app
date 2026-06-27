@@ -105,6 +105,7 @@ export default function App() {
     yesterdayStr: string;
     todayStr: string;
     currentPeriod: 'manha' | 'tarde' | 'noite' | null;
+    showMoodModal: boolean;
   }>({
     serverChecked: false,
     yesterdayClosed: false,
@@ -112,6 +113,7 @@ export default function App() {
     yesterdayStr: '',
     todayStr: '',
     currentPeriod: null,
+    showMoodModal: false,
   });
 
   const [manualShutdownOpen, setManualShutdownOpen] = useState(false);
@@ -147,6 +149,27 @@ export default function App() {
         localStorage.setItem(`dude-shutdown-completed-${yesterdayStr}`, 'true');
       }
 
+      let showMood = false;
+      if (!todayMoodDone) {
+        const isSkipped = localStorage.getItem(`dude-mood-skipped-${todayStr}-${period}`) === 'true';
+        const isTrackingDisabled = localStorage.getItem('energy_tracking_disabled') === 'true';
+        
+        const snoozeUntil = localStorage.getItem('energy_snooze_until');
+        let isSnoozed = false;
+        if (snoozeUntil) {
+          if (Date.now() < parseInt(snoozeUntil, 10)) {
+            isSnoozed = true;
+          }
+        }
+        
+        const profileSnoozed = profile?.mood_status === 'paused' && profile?.mood_snoozed_until && Date.now() < new Date(profile.mood_snoozed_until).getTime();
+        const profileDisabled = profile?.mood_status === 'disabled';
+
+        if (!isSkipped && !isTrackingDisabled && !isSnoozed && !profileSnoozed && !profileDisabled) {
+          showMood = true;
+        }
+      }
+
       setPopupState({
         serverChecked: true,
         yesterdayClosed,
@@ -154,6 +177,7 @@ export default function App() {
         yesterdayStr,
         todayStr,
         currentPeriod: period,
+        showMoodModal: showMood,
       });
     } catch (err) {
       console.error('Error running authoritative server popup checks:', err);
@@ -320,58 +344,8 @@ export default function App() {
     };
   }, []);
 
-  const isMoodActive = (() => {
-    if (isRevalidating) {
-      return false;
-    }
-    if (!user || !profile || !initialFetchDone || !popupState.serverChecked || !popupState.currentPeriod || !popupState.todayStr) {
-      return false;
-    }
-    if (popupState.todayMoodDone) {
-      return false;
-    }
-    const hasInStoreToday = moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
-    if (hasInStoreToday) {
-      return false;
-    }
-
-    try {
-      const isSkipped = localStorage.getItem(`dude-mood-skipped-${popupState.todayStr}-${popupState.currentPeriod}`) === 'true';
-      if (isSkipped) {
-        return false;
-      }
-      
-      const isTrackingDisabled = localStorage.getItem('energy_tracking_disabled') === 'true';
-      if (isTrackingDisabled) {
-        return false;
-      }
-      
-      const snoozeUntil = localStorage.getItem('energy_snooze_until');
-      if (snoozeUntil) {
-        const snoozeDate = parseInt(snoozeUntil, 10);
-        if (Date.now() < snoozeDate) {
-          return false;
-        }
-      }
-    } catch (e) {
-      console.error("Error reading mood storage:", e);
-    }
-    
-    // Check Supabase privacy settings (GDPR) legacy fallback
-    if (profile?.mood_status === 'disabled') {
-      return false;
-    }
-    if (profile?.mood_status === 'paused' && profile?.mood_snoozed_until) {
-      const snoozedUntilDate = new Date(profile.mood_snoozed_until).getTime();
-      if (Date.now() < snoozedUntilDate) {
-        return false;
-      }
-    }
-    return true;
-  })();
-
   const isCatchUpActive = (() => {
-    if (isMoodActive) return false;
+    if (popupState.showMoodModal) return false;
 
     if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.yesterdayStr) {
       return false;
@@ -728,13 +702,16 @@ export default function App() {
           <PWAProvider>
           <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
         <MoodRitualModal 
-          isOpen={isMoodActive} 
+          isOpen={popupState.showMoodModal} 
           onClose={(wasAnswered?: boolean) => {
             if (wasAnswered) {
               setPopupState(prev => ({
                 ...prev,
-                todayMoodDone: true
+                todayMoodDone: true,
+                showMoodModal: false
               }));
+            } else {
+              setPopupState(prev => ({ ...prev, showMoodModal: false }));
             }
             runServerPopupCheck();
           }} 
