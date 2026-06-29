@@ -216,26 +216,25 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
         {/* Círculos concêntricos - Apple-style pendulum */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <motion.div
               key={i}
+              initial={{ scale: 0.1, opacity: 0 }}
               animate={{ 
-                scale: [0.3, 1.2, 0.3], 
-                opacity: [0.1, 0.3 - (i * 0.04), 0.1]
+                scale: [0.1, 1.5], 
+                opacity: [0, 0.25 - (i * 0.04), 0]
               }}
               transition={{ 
-                duration: 12, 
-                ease: "easeInOut", 
+                duration: 10, 
+                ease: "linear", 
                 repeat: Infinity,
-                delay: i * 2
+                delay: i * 2 // 5 items * 2s = 10s loop perfeitamente sincronizado
               }}
-              className="absolute rounded-full border border-white/10 blur-md"
+              className="absolute rounded-full border border-white/20"
               style={{
-                width: '100vw',
-                height: '100vw',
-                maxWidth: '800px',
-                maxHeight: '800px',
-                backgroundColor: `rgba(255, 255, 255, 0.03)`
+                width: '600px',
+                height: '600px',
+                backgroundColor: `rgba(255, 255, 255, 0.02)`
               }}
             />
           ))}
