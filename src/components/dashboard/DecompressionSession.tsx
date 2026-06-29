@@ -14,6 +14,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [sleepTimer, setSleepTimer] = useState<number>(30); // Sleep timer in minutes
   
   // Audio Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -33,6 +34,17 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       }
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (isPlaying && sleepTimer > 0) {
+      timeout = setTimeout(() => {
+        stopAudio();
+        setIsPlaying(false);
+      }, sleepTimer * 60 * 1000);
+    }
+    return () => clearTimeout(timeout);
+  }, [isPlaying, sleepTimer]);
 
   const initAudio = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -171,7 +183,21 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans"
     >
       {/* Cabeçalho */}
-      <div className="flex justify-end p-6">
+      <div className="flex justify-between p-6 relative z-10">
+        <div className="flex items-center gap-2">
+          {[15, 30, 60].map((t) => (
+            <button
+              key={t}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSleepTimer(t);
+              }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${sleepTimer === t ? 'bg-zinc-800 text-zinc-200 border-zinc-700' : 'bg-transparent text-zinc-600 border-zinc-800 hover:text-zinc-400'}`}
+            >
+              {t}m
+            </button>
+          ))}
+        </div>
         <button 
           type="button"
           onClick={(e) => {
@@ -187,24 +213,26 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculos com respiração sutil e visível simulando lótus/pulsação */}
+        {/* Círculos concêntricos - Apple-style pendulum */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <motion.div
               key={i}
               animate={{ 
-                scale: [1, 1.8 + i * 0.5, 1], 
-                opacity: [0.05, 0.3 - i * 0.04, 0.05]
+                scale: [0.01, 1, 0.01], 
+                opacity: [0.0, 0.25 - i * 0.04, 0.0]
               }}
               transition={{ 
-                duration: 8, 
+                duration: 16, 
                 ease: "easeInOut", 
                 repeat: Infinity,
-                delay: i * 0.8 
+                delay: i * 3.2
               }}
-              className="absolute w-32 h-32 md:w-48 md:h-48 rounded-full border border-zinc-500/30"
+              className="absolute rounded-full border border-zinc-400/20"
               style={{
-                backgroundColor: `rgba(63, 63, 70, ${0.05})`
+                width: '150vmax',
+                height: '150vmax',
+                backgroundColor: `rgba(63, 63, 70, 0.02)`
               }}
             />
           ))}
