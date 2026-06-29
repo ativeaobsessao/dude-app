@@ -259,18 +259,11 @@ const AvoidanceCard = ({
   const mins = metrics.currentCleanMins || 0;
   const secs = metrics.currentCleanSecs || 0;
 
-  let immortalText = "";
   const totalLimpo = metrics.diasLimposTotal || 0;
-  if (totalLimpo >= 1) {
-    immortalText = `🔥 ${totalLimpo} ${totalLimpo === 1 ? 'DIA LIVRE' : 'DIAS LIVRES'}`;
-  } else {
-    // If less than a day total, maybe just show hours since start or 0 dias livres
-    immortalText = `🔥 0 DIAS LIVRES`;
-  }
 
   let streakText = "";
   if (habit.monitor_type === 'janela' && metrics.currentCleanMs <= 0) {
-    streakText = "⏳ AGUARDANDO JANELA";
+    streakText = "Aguardando janela";
   } else if (days >= 1) {
     streakText = `${days} ${days === 1 ? 'dia invicto' : 'dias invictos'}`;
   } else if (hours >= 1) {
@@ -284,67 +277,49 @@ const AvoidanceCard = ({
   return (
     <div
       id={`avoidance-card-${habit.id}`}
-      className="p-6 rounded-3xl bg-surface/10 border border-border-white hover:border-primary-green/20 transition-all flex flex-col justify-between gap-5 select-none"
+      className="p-8 rounded-[28px] bg-zinc-950/40 backdrop-blur-xl border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between gap-6 select-none"
     >
-      <div className="space-y-5">
-        {/* Header Title Block with always-on Edit/Delete buttons */}
-        <div className="flex justify-between items-center pb-2 border-b border-white/5">
-          <div className="space-y-0.5 text-left">
-            <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
-              {habit.name}
-            </h4>
-            <p className="text-[9px] text-text-secondary/50 font-mono uppercase tracking-widest flex items-center gap-1">
-              <Calendar size={9} className="text-[#6ee7a8]/70" />
-              {!(habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window')
-                ? 'Dia todo'
-                : `Janela · ${habit.monitor_start || habit.avoidance_window_start || '18:00'}–${habit.monitor_end || habit.avoidance_window_end || '22:00'}`
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(habit); }}
-              className="p-1.5 text-text-secondary/50 hover:text-[#6ee7a8] hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-              title="Editar"
-            >
-              <Pencil size={13} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(habit.id, habit.name); }}
-              className="p-1.5 text-text-secondary/50 hover:text-red-400 hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-              title="Remover"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        </div>
-
-        {/* MAIN: THE GIGANTIC IMMORTAL METRIC WITH FIRE GLOW */}
-        <div className="py-4 text-center relative overflow-hidden flex flex-col items-center justify-center">
-          <h3 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#6ee7a8] to-[#10b981] font-mono tracking-tight drop-shadow-[0_0_15px_rgba(110,231,168,0.3)] select-all leading-none py-1 uppercase">
-            {immortalText}
+      <div className="flex justify-between items-start">
+        <div className="space-y-1 text-left">
+          <h3 className="text-4xl sm:text-5xl font-light text-white tracking-tight leading-none">
+            {totalLimpo} {totalLimpo === 1 ? 'Dia Livre' : 'Dias Livres'}
           </h3>
-          
-          {/* THE VAULT: TEMPO DE FOCO RECUPERADO */}
-          <p className="text-xs text-text-secondary/70 font-light mt-3 block font-sans">
-            ⏳ Ofensiva Atual: {streakText}.
-          </p>
+          <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-2">
+            {habit.name}
+          </h4>
         </div>
-
-        {/* ON-DEMAND Crisis Help Button */}
-        <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => onSetUrgeTimer(600)}
-            className="py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-background rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer text-center w-full shadow-md font-sans"
+            onClick={(e) => { e.stopPropagation(); onEdit(habit); }}
+            className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+            title="Editar"
           >
-            🚨 ESTOU NO LIMITE (AJUDA)
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(habit.id, habit.name); }}
+            className="p-2 text-white/40 hover:text-red-400 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+            title="Remover"
+          >
+            <Trash2 size={16} />
           </button>
         </div>
       </div>
 
-      {/* Footer Identity text */}
-      <div className="text-[10px] text-text-secondary/50 font-light leading-relaxed font-sans text-center px-2 py-1.5 border-t border-white/5 pt-3">
-        <span className="text-[#6ee7a8] font-semibold">Identidade Ativa:</span> Você está há <span className="text-[#6ee7a8] font-bold">{metrics.diasLimpoSeguidos} {metrics.diasLimpoSeguidos === 1 ? 'dia' : 'dias'}</span> no controle. "Toda vez que você resiste, você vota na pessoa que quer ser."
+      <div className="space-y-6">
+        <p className="text-xs text-zinc-500 font-light block font-sans text-left">
+          Ofensiva atual: {streakText}
+        </p>
+
+        <div className="pt-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSetUrgeTimer(600); }}
+            className="py-4 bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 text-white rounded-[20px] text-xs font-semibold uppercase tracking-[0.15em] transition-all duration-200 cursor-pointer w-full flex items-center justify-center gap-2 shadow-lg"
+          >
+            <Shield size={16} className="text-emerald-400" />
+            BLINDAGEM
+          </button>
+        </div>
       </div>
     </div>
   );
