@@ -581,6 +581,11 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const handleCancel = () => {
     const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
     localStorage.removeItem(key);
+    setTimeLeft(null);
+    if (synthRef.current) {
+      synthRef.current.stop();
+      synthRef.current = null;
+    }
     onClose();
   };
 
