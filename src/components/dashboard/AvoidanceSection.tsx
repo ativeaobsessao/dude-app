@@ -259,21 +259,27 @@ const AvoidanceCard = ({
   const mins = metrics.currentCleanMins || 0;
   const secs = metrics.currentCleanSecs || 0;
 
+  let immortalText = "";
+  const totalLimpo = metrics.diasLimposTotal || 0;
+  if (totalLimpo >= 1) {
+    immortalText = `🔥 ${totalLimpo} ${totalLimpo === 1 ? 'DIA LIVRE' : 'DIAS LIVRES'}`;
+  } else {
+    // If less than a day total, maybe just show hours since start or 0 dias livres
+    immortalText = `🔥 0 DIAS LIVRES`;
+  }
+
   let streakText = "";
   if (habit.monitor_type === 'janela' && metrics.currentCleanMs <= 0) {
     streakText = "⏳ AGUARDANDO JANELA";
   } else if (days >= 1) {
-    streakText = `🔥 ${days} ${days === 1 ? 'DIA INVICTO' : 'DIAS INVICTOS'}`;
+    streakText = `${days} ${days === 1 ? 'dia invicto' : 'dias invictos'}`;
   } else if (hours >= 1) {
-    streakText = `🔥 ${hours} ${hours === 1 ? 'HORA INVICTA' : 'HORAS INVICTAS'}`;
+    streakText = `${hours} ${hours === 1 ? 'hora invicta' : 'horas invictas'}`;
   } else if (mins >= 1) {
-    streakText = `🔥 ${mins} ${mins === 1 ? 'MINUTO INVICTO' : 'MINUTOS INVICTOS'}`;
+    streakText = `${mins} ${mins === 1 ? 'minuto invicto' : 'minutos invictos'}`;
   } else {
-    streakText = `🔥 ${secs} ${secs === 1 ? 'SEGUNDO INVICTO' : 'SEGUNDOS INVICTOS'}`;
+    streakText = `${secs} ${secs === 1 ? 'segundo invicto' : 'segundos invictos'}`;
   }
-
-  const totalLimpo = metrics.diasLimposTotal || 0;
-  const hoursSaved = totalLimpo;
 
   return (
     <div
@@ -313,15 +319,15 @@ const AvoidanceCard = ({
           </div>
         </div>
 
-        {/* MAIN: THE GIGANTIC STREAK METRIC WITH FIRE GLOW */}
+        {/* MAIN: THE GIGANTIC IMMORTAL METRIC WITH FIRE GLOW */}
         <div className="py-4 text-center relative overflow-hidden flex flex-col items-center justify-center">
           <h3 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#6ee7a8] to-[#10b981] font-mono tracking-tight drop-shadow-[0_0_15px_rgba(110,231,168,0.3)] select-all leading-none py-1 uppercase">
-            {streakText}
+            {immortalText}
           </h3>
           
           {/* THE VAULT: TEMPO DE FOCO RECUPERADO */}
           <p className="text-xs text-text-secondary/70 font-light mt-3 block font-sans">
-            ⏳ Histórico: ~{hoursSaved} {hoursSaved === 1 ? 'hora de foco recuperada' : 'horas de foco recuperadas'} na vida.
+            ⏳ Ofensiva Atual: {streakText}.
           </p>
         </div>
 
@@ -544,7 +550,7 @@ export const AvoidanceSection = () => {
 
   // Delete habit
   const handleDeleteHabit = async (id: string) => {
-    await dataStore.deleteHabit(id);
+    await dataStore.deleteAvoidanceHabit(id);
     dataStore.showNotification('Módulo Anti-Vício removido com sucesso.', 'success');
     setShowDeleteConfirm(null);
   };
