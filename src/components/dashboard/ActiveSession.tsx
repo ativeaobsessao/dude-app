@@ -714,7 +714,7 @@ export const ActiveSession = () => {
               // Mantém o layout atual para sessões sem hábito
               <div className="flex flex-col items-center gap-1 relative z-10 w-full">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary tracking-tight text-center break-words w-full px-4">
-                  {(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? timer.activityName : 'Sessão Profunda'}
+                  {(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? cleanActivityName(timer.activityName) : 'Sessão Profunda'}
                 </h2>
                 {(() => {
                   const proj = timer.projectId ? dataStore.projects.find(p => p.id === timer.projectId) : null;
