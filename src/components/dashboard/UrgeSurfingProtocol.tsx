@@ -334,10 +334,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
     if (timeLeft === null) return -1; 
-    if (timeLeft > 590) return 0;     // 600s a 590s: Fase 0 (Abertura Empática)
-    if (timeLeft > 341) return 1;     // 590s a 341s: Fase 1A (4-7-8) e 1B (Box Breathing)
-    if (timeLeft > 150) return 2;     // 341s a 150s: Fase 2 (EMDR)
-    if (timeLeft > 0) return 3;       // 150s a 1s: Fase 3 (Escrita)
+    if (timeLeft > 590) return 0;     // 600s a 590s (10 segundos): Fase 0 (Abertura)
+    if (timeLeft > 420) return 1;     // 590s a 420s (2m50s): Fase 1 (Freio Vagal)
+    if (timeLeft > 180) return 2;     // 420s a 180s (4 minutos): Fase 2 (EMDR)
+    if (timeLeft > 0) return 3;       // 180s a 1s (3 minutos): Fase 3 (Aterramento)
     return 4;                         // 0s: Encruzilhada
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
@@ -423,17 +423,17 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   // Inhalation/Exhalation breathing guidance sequence (Zero-aligned multi-technique clinical engine)
   const breathingState = useMemo(() => {
-    // Fase 1A: O Extintor 4-7-8 (De 590s a 476s)
-    if (currentPhase === 1 && timeLeft > 476) {
-      const elapsed = 590 - (timeLeft || 590);
+    // Fase 1A: O Extintor 4-7-8 (De 600s a 500s)
+    if (currentPhase === 1 && timeLeft > 500) {
+      const elapsed = 600 - (timeLeft || 600);
       const cycle = elapsed % 19;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 7.0 };
       return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(19 - cycle)}`, duration: 8.0 };
     }
-    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 469s, após os 7s de frase empática)
-    if (currentPhase === 1 && timeLeft <= 469 && timeLeft > 341) {
-      const elapsed = 469 - (timeLeft || 469);
+    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 490s, após os 10s de frase empática)
+    if (currentPhase === 1 && timeLeft <= 490 && timeLeft > 420) {
+      const elapsed = 490 - (timeLeft || 490);
       const cycle = elapsed % 16;
       if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
       if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
@@ -594,8 +594,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     setIsEncruzilhada(false);
 
     if (phase === 0) setTimeLeft(10 * 60);
-    else if (phase === 1) setTimeLeft(9 * 60 + 40); // 580s
-    else if (phase === 2) setTimeLeft(5 * 60 + 30); // 330s
+    else if (phase === 1) setTimeLeft(6 * 60 + 50); // 410s
+    else if (phase === 2) setTimeLeft(2 * 60 + 50); // 170s
     else if (phase === 3) setTimeLeft(2 * 60 + 20); // 140s
     else if (phase === 4) {
       setTimeLeft(0);
@@ -774,8 +774,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
                 <AnimatePresence mode="wait">
-                  {/* Fase 1A: De 590 a 476, renderize a Lótus 4-7-8 */}
-                  {timeLeft !== null && timeLeft > 476 && (
+                  {/* Fase 1A: De 600 a 500, renderize a Lótus 4-7-8 */}
+                  {timeLeft !== null && timeLeft > 500 && (
                     <motion.div
                       key="phase-1a-lotus"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -840,8 +840,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     </motion.div>
                   )}
 
-                  {/* Transição Limpa: De 476 a 469 */}
-                  {timeLeft !== null && timeLeft <= 476 && timeLeft > 469 && (
+                  {/* Transição Limpa: De 500 a 490 */}
+                  {timeLeft !== null && timeLeft <= 500 && timeLeft > 490 && (
                     <motion.div
                       key="phase-1-text"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -860,8 +860,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     </motion.div>
                   )}
 
-                  {/* Fase 1B: De 469 a 341, renderize a Lótus Box Breathing */}
-                  {timeLeft !== null && timeLeft <= 469 && (
+                  {/* Fase 1B: De 490 a 420, renderize a Lótus Box Breathing */}
+                  {timeLeft !== null && timeLeft <= 490 && (
                     <motion.div
                       key="phase-1b-lotus"
                       initial={{ opacity: 0, scale: 0.95 }}
