@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { Layers, Calendar, ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react';
-import { formatHumanTime, getLocalDateString } from '../../lib/utils';
+import { formatHumanTime, getLocalDateString, safeParseDate } from '../../lib/utils';
 import { Habit } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,7 +19,7 @@ const HabitCard = ({ habit }: { key?: string | number; habit: Habit }) => {
 
   // Calculate today's local date details
   const todayStr = getLocalDateString(new Date());
-  const startOfWeek = new Date(habit.week_start_date);
+  const startOfWeek = safeParseDate(habit.week_start_date);
   startOfWeek.setHours(0,0,0,0);
 
   // Group weekly deep focus sessions
@@ -48,15 +48,9 @@ const HabitCard = ({ habit }: { key?: string | number; habit: Habit }) => {
   });
 
   // Calculate final dynamic metrics
-  const completedDaysCount = habit.habit_mode === 'avoid'
-    ? Object.keys(minutesByDay).filter(dStr => minutesByDay[dStr] >= habit.minutes_per_session).length
-    : (
-        habitSessionsThisWeek.filter(s => {
-          const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
-          return duration >= habit.minutes_per_session;
-        }).length + 
-        manualCompletionsThisWeek.filter(hc => hc.duration_minutes >= habit.minutes_per_session).length
-      );
+  const completedDaysCount = Object.keys(minutesByDay).filter(dStr => 
+    minutesByDay[dStr] >= habit.minutes_per_session
+  ).length;
 
   const todayMinutes = minutesByDay[todayStr] || 0;
   const targetMinutes = habit.minutes_per_session;
