@@ -1723,9 +1723,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                           {progressCircles.map((state, i) => (
                             <div
                               key={i}
-                              className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full relative shrink-0 ${
+                              className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full relative shrink-0 transition-all ${
                                 state === 'completed'
-                                  ? 'bg-green shadow-[0_0_6px_rgba(110,231,183,0.4)]'
+                                  ? 'bg-primary-green shadow-[0_0_8px_rgba(110,231,168,0.5)]'
                                   : state === 'partial'
                                   ? 'border border-amber-400/40 bg-transparent overflow-hidden'
                                   : 'bg-white/10'
