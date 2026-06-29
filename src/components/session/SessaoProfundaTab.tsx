@@ -77,7 +77,7 @@ export const SessaoProfundaTab = () => {
       finalActivityName = activityManual;
     }
 
-    const activityName = finalActivityName.trim() || 'Sessão Sem Título';
+    const activityName = cleanActivityName(finalActivityName) || 'Sessão Sem Título';
     const totalMinutes = hours * 60 + minutes;
     if (totalMinutes < 1) {
       dataStore.showNotification('Por favor, defina um tempo válido de foco!', 'error');
