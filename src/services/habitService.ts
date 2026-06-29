@@ -7,33 +7,40 @@ export const habitService = {
    * Retorna os hábitos baseados no tipo.
    */
   async getHabitsByType(type: HabitType, userId: string) {
-    const table = type === 'avoidance' ? 'avoidance_habits' : 'habits';
-    return supabase
-      .from(table)
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    if (type === 'avoidance') {
+      return supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('habit_mode', 'avoid')
+        .order('created_at', { ascending: false });
+    } else {
+      return supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', userId)
+        .or('habit_mode.eq.build,habit_mode.is.null')
+        .order('created_at', { ascending: false });
+    }
   },
 
   /**
-   * Cria um novo hábito na tabela correta.
+   * Cria um novo hábito.
    */
   async createHabit(data: any, type: HabitType = 'atomic') {
-    const table = type === 'avoidance' ? 'avoidance_habits' : 'habits';
     return supabase
-      .from(table)
+      .from('habits')
       .insert(data)
       .select()
       .single();
   },
 
   /**
-   * Atualiza um hábito na tabela correta.
+   * Atualiza um hábito.
    */
   async updateHabit(id: string, updates: any, type: HabitType = 'atomic') {
-    const table = type === 'avoidance' ? 'avoidance_habits' : 'habits';
     return supabase
-      .from(table)
+      .from('habits')
       .update(updates)
       .eq('id', id)
       .select()
@@ -41,12 +48,11 @@ export const habitService = {
   },
 
   /**
-   * Deleta um hábito da tabela correta.
+   * Deleta um hábito.
    */
   async deleteHabit(id: string, type: HabitType = 'atomic') {
-    const table = type === 'avoidance' ? 'avoidance_habits' : 'habits';
     return supabase
-      .from(table)
+      .from('habits')
       .delete()
       .eq('id', id);
   }
