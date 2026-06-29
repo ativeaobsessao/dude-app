@@ -659,7 +659,7 @@ export const ActionCenter = () => {
     }
 
     // Activity name is NOT mandatory anymore, default to "Sessão Sem Título" if empty
-    const activityName = finalActivityName || 'Sessão Sem Título';
+    const activityName = cleanActivityName(finalActivityName) || 'Sessão Sem Título';
     
     const totalMinutes = (Number(sessionData.hours) * 60) + Number(sessionData.minutes);
     if (totalMinutes < 1) return; // Validation: 1 min minimum
