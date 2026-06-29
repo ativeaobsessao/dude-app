@@ -1679,15 +1679,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   minutesByDay[dStr] = (minutesByDay[dStr] || 0) + hc.duration_minutes;
                 });
 
-                const completedDaysCount = h.habit_mode === 'avoid'
-                  ? Object.keys(minutesByDay).filter(dStr => minutesByDay[dStr] >= h.minutes_per_session).length
-                  : (
-                      habitSessionsThisWeek.filter(s => {
-                        const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
-                        return duration >= h.minutes_per_session;
-                      }).length +
-                      manualCompletionsThisWeek.filter(hc => hc.duration_minutes >= h.minutes_per_session).length
-                    );
+                const completedDaysCount = Object.keys(minutesByDay).filter(dStr => 
+                  minutesByDay[dStr] >= h.minutes_per_session
+                ).length;
 
                 const todayMinutes = minutesByDay[todayStr] || 0;
                 const targetMinutes = h.minutes_per_session;
