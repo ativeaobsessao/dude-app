@@ -124,6 +124,7 @@ interface DataState {
     extraAvoidanceParams?: Partial<Habit>
   ) => Promise<Habit | null>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<boolean>;
+  deleteAvoidanceHabit: (id: string) => Promise<void>;
   addAvoidanceCheckin: (checkin: Omit<AvoidanceCheckin, 'id' | 'created_at'>) => Promise<AvoidanceCheckin | null>;
   updateAvoidanceCheckin: (id: string, updates: Partial<AvoidanceCheckin>) => Promise<boolean>;
   deleteAvoidanceCheckin: (id: string) => Promise<boolean>;
@@ -1926,6 +1927,25 @@ export const useDataStore = create<DataState>((set, get) => ({
       });
     } catch (err) {
       console.error('Error deleting habit:', err);
+    }
+  },
+
+  deleteAvoidanceHabit: async (id: string) => {
+    try {
+      const habitToDelete = get().habits.find(h => h.id === id && h.habit_mode === 'avoid');
+      if (!habitToDelete) {
+        console.warn('Avoidance habit not found in state:', id);
+        return;
+      }
+
+      const { error } = await supabase.from('avoidance_habits').delete().eq('id', id);
+      if (error) throw error;
+
+      set({
+        habits: get().habits.filter(h => h.id !== id)
+      });
+    } catch (err) {
+      console.error('Error deleting avoidance habit:', err);
     }
   },
 
