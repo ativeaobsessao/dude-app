@@ -185,6 +185,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       {/* Cabeçalho */}
       <div className="flex justify-between p-6 relative z-10">
         <div className="flex items-center gap-2">
+          <span className="text-zinc-500 text-xs mr-2">Desligar áudio em:</span>
           {[15, 30, 60].map((t) => (
             <button
               key={t}
@@ -215,24 +216,24 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
         {/* Círculos concêntricos - Apple-style pendulum */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <motion.div
               key={i}
               animate={{ 
-                scale: [0.01, 1, 0.01], 
-                opacity: [0.0, 0.25 - i * 0.04, 0.0]
+                scale: [0.2, 1, 0.2], 
+                opacity: [0.0, 0.15 - (i * 0.02), 0.0]
               }}
               transition={{ 
-                duration: 16, 
+                duration: 14, 
                 ease: "easeInOut", 
                 repeat: Infinity,
-                delay: i * 3.2
+                delay: i * 2.3
               }}
-              className="absolute rounded-full border border-zinc-400/20"
+              className="absolute rounded-full border border-white/5"
               style={{
-                width: '150vmax',
-                height: '150vmax',
-                backgroundColor: `rgba(63, 63, 70, 0.02)`
+                width: '120vmax',
+                height: '120vmax',
+                backgroundColor: `rgba(255, 255, 255, 0.01)`
               }}
             />
           ))}
