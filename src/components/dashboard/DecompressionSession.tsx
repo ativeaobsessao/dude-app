@@ -220,20 +220,22 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
             <motion.div
               key={i}
               animate={{ 
-                scale: [0.2, 1, 0.2], 
-                opacity: [0.0, 0.15 - (i * 0.02), 0.0]
+                scale: [0.3, 1.2, 0.3], 
+                opacity: [0.1, 0.3 - (i * 0.04), 0.1]
               }}
               transition={{ 
-                duration: 14, 
+                duration: 12, 
                 ease: "easeInOut", 
                 repeat: Infinity,
-                delay: i * 2.3
+                delay: i * 2
               }}
-              className="absolute rounded-full border border-white/5"
+              className="absolute rounded-full border border-white/10 blur-md"
               style={{
-                width: '120vmax',
-                height: '120vmax',
-                backgroundColor: `rgba(255, 255, 255, 0.01)`
+                width: '100vw',
+                height: '100vw',
+                maxWidth: '800px',
+                maxHeight: '800px',
+                backgroundColor: `rgba(255, 255, 255, 0.03)`
               }}
             />
           ))}
