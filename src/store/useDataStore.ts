@@ -1924,6 +1924,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         await supabase.from('scheduled_activities').delete().in('id', idsToDelete);
       }
 
+      // Delete habit_completions first to avoid FK constraint
+      await supabase.from('habit_completions').delete().eq('habit_id', id);
+
       // Delete the habit in Supabase (foreign keys on delete set null will handle history)
       const habitToDelete = get().habits.find(h => h.id === id);
       if (!habitToDelete) return;
@@ -1949,11 +1952,15 @@ export const useDataStore = create<DataState>((set, get) => ({
         return;
       }
 
+      // Deletar checkins primeiro para evitar erro de foreign key se não houver CASCADE
+      await supabase.from('avoidance_checkins').delete().eq('habit_id', id);
+
       const { error } = await supabase.from('habits').delete().eq('id', id);
       if (error) throw error;
 
       set({
-        habits: get().habits.filter(h => h.id !== id)
+        habits: get().habits.filter(h => h.id !== id),
+        avoidanceCheckins: get().avoidanceCheckins.filter(c => c.habit_id !== id)
       });
     } catch (err) {
       console.error('Error deleting avoidance habit:', err);
