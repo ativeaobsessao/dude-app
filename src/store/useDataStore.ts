@@ -948,17 +948,26 @@ export const useDataStore = create<DataState>((set, get) => ({
     extraAvoidanceParams = {}
   ) => {
     try {
-      if (!name || !sessionsPerWeek || !minutesPerSession || !preferredTime) {
-        console.error('addHabit: parâmetros inválidos', { name, sessionsPerWeek, minutesPerSession, preferredTime });
+      if (!name) {
+        console.error('addHabit: nome do hábito inválido');
+        return null;
+      }
+
+      const habitMode = extraAvoidanceParams?.habit_mode || 'build';
+      const type: 'atomic' | 'avoidance' = habitMode === 'avoid' ? 'avoidance' : 'atomic';
+
+      if (type === 'atomic' && (!sessionsPerWeek || !minutesPerSession || !preferredTime)) {
+        console.error('addHabit: parâmetros inválidos para hábito atomic', { sessionsPerWeek, minutesPerSession, preferredTime });
         return null;
       }
 
       const weekStart = getLocalMondayStr();
 
-      const habitMode = extraAvoidanceParams?.habit_mode || 'build';
-      const type: 'atomic' | 'avoidance' = habitMode === 'avoid' ? 'avoidance' : 'atomic';
-
-      const { data, error } = await habitService.createHabit({
+      const payloadToInsert: any = type === 'avoidance' ? {
+        user_id: userId,
+        name: name.trim(),
+        ...extraAvoidanceParams
+      } : {
         user_id: userId,
         name: name.trim(),
         sessions_per_week: sessionsPerWeek,
@@ -972,10 +981,12 @@ export const useDataStore = create<DataState>((set, get) => ({
         recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
         last_generated_week: null,
         ...extraAvoidanceParams
-      }, type);
+      };
+
+      const { data, error } = await habitService.createHabit(payloadToInsert, type);
 
       if (error) {
-        console.error('Supabase error ao salvar hábito:', error);
+        console.error('Supabase error ao salvar hábito (avoidance_habits / habits):', error.message, error.details, error.hint, error);
         return null;
       }
       if (data) {
@@ -983,15 +994,15 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.log('Hábito salvo com sucesso:', data);
         
         // Trigger generation instantly if it is clean and recurring
-        if (data.is_recurring) {
+        if (data.is_recurring && type === 'atomic') {
           await get().generateRecurringHabitInstances(userId);
         }
         
         return data;
       }
       return null;
-    } catch (err) {
-      console.error('Erro crítico ao salvar hábito:', err);
+    } catch (err: any) {
+      console.error('Erro crítico ao salvar hábito:', err.message, err);
       return null;
     }
   },
