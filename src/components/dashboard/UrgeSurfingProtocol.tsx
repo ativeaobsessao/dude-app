@@ -232,18 +232,18 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
     const savedEndTime = localStorage.getItem(key);
     const now = Date.now();
-    let initialSeconds = 600; // 600 seconds (10 minutos)
+    let initialSeconds = 213; // 213 segundos (3m33s)
 
     if (savedEndTime) {
       const remaining = Math.round((parseInt(savedEndTime, 10) - now) / 1000);
-      if (remaining > 0 && remaining <= 600) {
+      if (remaining > 0 && remaining <= 213) {
         initialSeconds = remaining;
       } else {
-        const newEndTime = now + 600 * 1000;
+        const newEndTime = now + 213 * 1000;
         localStorage.setItem(key, newEndTime.toString());
       }
     } else {
-      const newEndTime = now + 600 * 1000;
+      const newEndTime = now + 213 * 1000;
       localStorage.setItem(key, newEndTime.toString());
     }
 
@@ -334,10 +334,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (isInfiniteMode) return 5;
     if (isEncruzilhada) return 4;
     if (timeLeft === null) return -1; 
-    if (timeLeft > 590) return 0;     // 600s a 590s (10 segundos): Fase 0 (Abertura)
-    if (timeLeft > 420) return 1;     // 590s a 420s (2m50s): Fase 1 (Freio Vagal)
-    if (timeLeft > 180) return 2;     // 420s a 180s (4 minutos): Fase 2 (EMDR)
-    if (timeLeft > 0) return 3;       // 180s a 1s (3 minutos): Fase 3 (Aterramento)
+    if (timeLeft > 205) return 0;     // 213s a 205s (8 segundos): Fase 0 (Abertura)
+    if (timeLeft > 108) return 1;     // 205s a 108s (97 segundos): Fase 1 (Freio Vagal)
+    if (timeLeft > 78) return 2;      // 108s a 78s (30 segundos): Fase 2 (EMDR)
+    if (timeLeft > 0) return 3;       // 78s a 1s (78 segundos): Fase 3 (Aterramento)
     return 4;                         // 0s: Encruzilhada
   }, [timeLeft, isInfiniteMode, isEncruzilhada]);
 
@@ -371,13 +371,15 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const synth = synthRef.current;
 
     if (isAudioEnabled) {
-      if (currentPhase === 2) {
-        // Solfeggio 528Hz (Cellular cellular resonance & neural stress relief)
-        synth.start(528, 0, 1.0);
+      if (currentPhase === 1) {
+        // Fase 1: Solfeggio 432Hz imediatamente
+        synth.start(432, 0, 1.0);
+      } else if (currentPhase === 2) {
+        // Fase 2: 40 Hz (Foco)
+        synth.start(40, 0, 1.5);
       } else if (currentPhase === 3) {
-        // Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
-        // GainNode boosted with a highly robust 4.5x multiplier to keep infra-wave present
-        synth.start(150, 7.5, 4.5);
+        // Fase 3: Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
+        synth.start(7.5, 7.5, 4.5);
       } else if (currentPhase === 5) {
         // Loop Total: 840 Segundos (14 minutos)
         const cycleTime = infiniteSeconds % 840;
@@ -423,31 +425,31 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   // Inhalation/Exhalation breathing guidance sequence (Zero-aligned multi-technique clinical engine)
   const breathingState = useMemo(() => {
-    // Fase 1A: O Extintor 4-7-8 (De 600s a 500s)
-    if (currentPhase === 1 && timeLeft > 500) {
-      const elapsed = 600 - (timeLeft || 600);
+    // Fase 1A: O Extintor 4-7-8 (De 205s a 148s)
+    if (currentPhase === 1 && timeLeft > 148) {
+      const elapsed = 205 - (timeLeft || 205);
       const cycle = elapsed % 19;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
-      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 7.0 };
-      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(19 - cycle)}`, duration: 8.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
+      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(7 - (cycle - 4))}`, duration: 7.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(8 - (cycle - 11))}`, duration: 8.0 };
     }
-    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 490s, após os 10s de frase empática)
-    if (currentPhase === 1 && timeLeft <= 490 && timeLeft > 420) {
-      const elapsed = 490 - (timeLeft || 490);
+    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 140s, após os 8s de frase empática)
+    if (currentPhase === 1 && timeLeft <= 140 && timeLeft > 108) {
+      const elapsed = 140 - (timeLeft || 140);
       const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(12 - cycle)}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 4))}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 8))}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 12))}`, duration: 4.0 };
     }
     // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
     if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
       const elapsed = infiniteSeconds - 12;
       const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(cycle) + 1}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: 'Retenha', duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.ceil(12 - cycle)}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: 'Aguarde', duration: 4.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 4))}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 8))}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 12))}`, duration: 4.0 };
     }
     return { phase: 'idle', text: '', countText: '', duration: 4.0 };
   }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
@@ -457,7 +459,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     const radius = 64;
     const strokeWidth = 5;
     const circumference = 2 * Math.PI * radius; // Approx 402.12
-    const totalDuration = 600; // 600s
+    const totalDuration = 213; // 213s
     const elapsed = totalDuration - (timeLeft || 0);
     const progressRatio = elapsed / totalDuration;
     const strokeDashoffset = circumference * (1 - progressRatio);
@@ -480,7 +482,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     setSaveStatus('saving');
     try {
       const timestamp = new Date().toISOString();
-      const totalSecondsActive = isInfiniteMode ? (600 + infiniteSeconds) : (600 - (timeLeft || 0));
+      const totalSecondsActive = isInfiniteMode ? (213 + infiniteSeconds) : (213 - (timeLeft || 0));
       
       const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
       const defaultPlaceholder = 'Resisti com a Sessão Profunda Guiada.';
@@ -593,10 +595,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     setIsInfiniteMode(false);
     setIsEncruzilhada(false);
 
-    if (phase === 0) setTimeLeft(10 * 60);
-    else if (phase === 1) setTimeLeft(6 * 60 + 50); // 410s
-    else if (phase === 2) setTimeLeft(2 * 60 + 50); // 170s
-    else if (phase === 3) setTimeLeft(2 * 60 + 20); // 140s
+    if (phase === 0) setTimeLeft(213);
+    else if (phase === 1) setTimeLeft(204);
+    else if (phase === 2) setTimeLeft(107);
+    else if (phase === 3) setTimeLeft(77);
     else if (phase === 4) {
       setTimeLeft(0);
       setIsEncruzilhada(true);
@@ -774,8 +776,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
                 <AnimatePresence mode="wait">
-                  {/* Fase 1A: De 600 a 500, renderize a Lótus 4-7-8 */}
-                  {timeLeft !== null && timeLeft > 500 && (
+                  {/* Fase 1A: De 205 a 148, renderize a Lótus 4-7-8 */}
+                  {timeLeft !== null && timeLeft > 148 && (
                     <motion.div
                       key="phase-1a-lotus"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -840,8 +842,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     </motion.div>
                   )}
 
-                  {/* Transição Limpa: De 500 a 490 */}
-                  {timeLeft !== null && timeLeft <= 500 && timeLeft > 490 && (
+                  {/* Transição Limpa: De 148 a 140 */}
+                  {timeLeft !== null && timeLeft <= 148 && timeLeft > 140 && (
                     <motion.div
                       key="phase-1-text"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -860,8 +862,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     </motion.div>
                   )}
 
-                  {/* Fase 1B: De 490 a 420, renderize a Lótus Box Breathing */}
-                  {timeLeft !== null && timeLeft <= 490 && (
+                  {/* Fase 1B: De 140 a 108, renderize a Lótus Box Breathing */}
+                  {timeLeft !== null && timeLeft <= 140 && (
                     <motion.div
                       key="phase-1b-lotus"
                       initial={{ opacity: 0, scale: 0.95 }}
