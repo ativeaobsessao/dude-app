@@ -963,21 +963,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       const weekStart = getLocalMondayStr();
 
-      const payloadToInsert: any = type === 'avoidance' ? {
+      const payloadToInsert: any = {
         user_id: userId,
         name: name.trim(),
-        ...extraAvoidanceParams
-      } : {
-        user_id: userId,
-        name: name.trim(),
-        sessions_per_week: sessionsPerWeek,
-        minutes_per_session: minutesPerSession,
-        preferred_time: preferredTime,
+        sessions_per_week: sessionsPerWeek || 7,
+        minutes_per_session: minutesPerSession || 25,
+        preferred_time: preferredTime || 'afternoon',
         weekly_streak: 0,
         sessions_this_week: 0,
         week_start_date: weekStart,
         is_recurring: isRecurring,
-        recurrence_days: recurrenceDays,
+        recurrence_days: recurrenceDays || [],
         recurrence_time: isRecurring ? (recurrenceTime || '09:00') : null,
         last_generated_week: null,
         ...extraAvoidanceParams
@@ -987,6 +983,10 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) {
         console.error('Supabase error ao salvar hábito (avoidance_habits / habits):', error.message, error.details, error.hint, error);
+        if (typeof window !== 'undefined') {
+          // Temporarily show the exact error to diagnose
+          get().showNotification(`SUPABASE ERRO: ${error.message} | ${error.details}`, 'error');
+        }
         return null;
       }
       if (data) {
@@ -1949,7 +1949,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         return;
       }
 
-      const { error } = await supabase.from('avoidance_habits').delete().eq('id', id);
+      const { error } = await supabase.from('habits').delete().eq('id', id);
       if (error) throw error;
 
       set({
