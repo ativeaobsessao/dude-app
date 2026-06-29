@@ -648,7 +648,6 @@ export const AvoidanceSection = () => {
                           setIsAntiVicioOpen(true);
                         }}
                         onSetUrgeTimer={(seconds) => {
-                          dataStore.setUrgeTimerSeconds(seconds);
                           setAntiVicioHabitId(habit.id);
                           setIsAntiVicioVictory(false);
                           setIsAntiVicioOpen(true);
