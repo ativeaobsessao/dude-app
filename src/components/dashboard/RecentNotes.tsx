@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, CheckCircle2, Pencil, ChevronDown, Plus, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 import { getLocalDateString, safeParseDate, cleanActivityName } from '../../lib/utils';
 import JSZip from 'jszip';
 
@@ -20,6 +21,7 @@ export const RecentNotes = () => {
   const [noteContent, setNoteContent] = useState('');
   const [noteProjectId, setNoteProjectId] = useState('');
   const [noteActivityId, setNoteActivityId] = useState('');
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   // Note Editing State
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -213,9 +215,7 @@ export const RecentNotes = () => {
   };
 
   const handleDeleteConfirm = async (id: string, content: string) => {
-    if (window.confirm(`Deseja excluir esta anotação?\n"${content.substring(0, 30)}..."\nEsta ação não pode ser desfeita.`)) {
-      await dataStore.deleteNote(id);
-    }
+    setNoteToDelete(id);
   };
 
   const formatDate = (date: string | null) => {
@@ -496,6 +496,16 @@ export const RecentNotes = () => {
         )}
       </AnimatePresence>
 
+      <ConfirmDeleteModal
+        isOpen={!!noteToDelete}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={() => {
+          if (noteToDelete) {
+            dataStore.deleteNote(noteToDelete);
+            setNoteToDelete(null);
+          }
+        }}
+      />
     </section>
   );
 };
