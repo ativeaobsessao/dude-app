@@ -237,7 +237,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
             <button 
               onClick={onConfirm} 
               disabled={isSubmitting}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)] disabled:opacity-50 mt-4"
+              className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer border border-zinc-800 disabled:opacity-50 mt-4"
             >
               {isSubmitting ? 'Encerrando...' : 'Encerrar Dia'}
             </button>
@@ -245,15 +245,20 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
           </div>
 
           {/* Fixed Bottom Action */}
-          <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12">
-            <button
-              type="button"
-              onClick={handleStartDecompression}
-              className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer border border-zinc-800"
-            >
-              <Moon size={18} strokeWidth={2.5} />
-              Sessão de Descompressão
-            </button>
+          <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12 pointer-events-none">
+            <div className="pointer-events-auto">
+              <button
+                type="button"
+                onClick={handleStartDecompression}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
+              >
+                <Moon size={18} strokeWidth={2.5} />
+                Iniciar Descompressão
+              </button>
+              <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
+                Trancar dados e desligar a mente
+              </p>
+            </div>
           </div>
 
         </motion.div>
