@@ -1173,24 +1173,6 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
       </div>
 
       {/* ENCERRAR DIA BUTTON */}
-      <div className="pt-8 pb-4 px-4">
-        <button
-          onClick={handleEncerrarDia}
-          className="w-full max-w-sm mx-auto flex items-center justify-center gap-2 py-4 px-6 bg-white text-black font-semibold text-sm rounded-[20px] transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(255,255,255,0.1)] hover:bg-white/90 cursor-pointer"
-        >
-          <span>Encerrar Dia</span>
-        </button>
-      </div>
-
-      <DailyClosureOverlay 
-        isOpen={showClosureOverlay} 
-        onComplete={() => {
-          setShowClosureOverlay(false);
-          // Redirecionamento automático para a Hero (home)
-          window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
-        }} 
-      />
-
       {/* MODAL OVERLAY: CREATE OR EDIT TASK */}
       <AnimatePresence>
         {showCreateModal && (
