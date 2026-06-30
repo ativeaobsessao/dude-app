@@ -272,9 +272,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     return `${h}h ${m}m`;
   };
 
-  const isClosed = localStorage.getItem(`dude-shutdown-completed-${today}`) === 'true';
-  const todayMinutesToShow = isClosed ? 0 : totalMinutes;
-  const todaySessionsCount = isClosed ? 0 : todaySessions.length;
+  const todayMinutesToShow = isDayClosed ? 0 : totalMinutes;
+  const todaySessionsCount = isDayClosed ? 0 : todaySessions.length;
 
   const averageData = useMemo(() => {
     const map: { [key: string]: number } = {};
@@ -1611,7 +1610,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         </div>
 
         {/* Standalone Shutdown Button ("Fechar meu dia" / "Reabrir meu dia") */}
-        {todaySessionsCount > 0 && (
+        {(todaySessions.length > 0 || isDayClosed) && (
           <div className="w-full flex justify-center pt-2">
             {!isDayClosed ? (
               <button

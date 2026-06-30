@@ -36,7 +36,7 @@ interface TaskListScreenProps {
   onStartSession: (activity: any) => void;
 }
 
-const TaskItemCard = ({ task, isRolledOver, rolloverLabel, todayStr, handleToggleTaskCompletion, handleStartSessaoProfunda, openMenuId, setOpenMenuId, setTaskToDelete, handleOpenEditModal, dataStore, handleToggleSubtaskActive }: any) => {
+const TaskItemCard = ({ task, isRolledOver, rolloverLabel, todayStr, isDayClosed, handleToggleTaskCompletion, handleStartSessaoProfunda, openMenuId, setOpenMenuId, setTaskToDelete, handleOpenEditModal, dataStore, handleToggleSubtaskActive }: any) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChecklist = Array.isArray(task.checklist) && task.checklist.length > 0;
 
@@ -96,7 +96,6 @@ const TaskItemCard = ({ task, isRolledOver, rolloverLabel, todayStr, handleToggl
               )}
 
               {!task.is_completed && (() => {
-                const isDayClosed = localStorage.getItem(`dude-shutdown-completed-${todayStr}`) === 'true';
                 const showAtrasada = isRolledOver || isDayClosed || ((task as any).scheduled_date && (task as any).scheduled_date < todayStr);
                 
                 if (showAtrasada) {
