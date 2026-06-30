@@ -123,16 +123,17 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center p-0 sm:p-4">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={handleDismiss} />
-        
+      <div 
+        onClick={handleDismiss}
+        className="fixed inset-0 z-[600] flex items-end justify-center bg-black/60 backdrop-blur-md cursor-pointer"
+      >
         <motion.div
           onClick={(e) => e.stopPropagation()}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="w-full h-[90vh] sm:max-w-xl bg-zinc-950 sm:border border-zinc-800 rounded-t-[32px] sm:rounded-3xl p-6 sm:p-8 flex flex-col cursor-default overflow-hidden relative shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-10"
+          className="w-full h-[90vh] sm:max-w-xl bg-zinc-950 border-t border-zinc-800 rounded-t-[32px] p-6 sm:p-8 flex flex-col cursor-default overflow-hidden relative shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
         >
           {/* Header */}
           <div className="flex justify-between items-center mb-6 shrink-0">
@@ -145,7 +146,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-32">
+          <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-24">
             
             {/* Bloco 1: Métricas de Foco */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-1">
@@ -245,20 +246,18 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
           </div>
 
           {/* Fixed Bottom Action */}
-          <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12 pointer-events-none">
-            <div className="pointer-events-auto">
-              <button
-                type="button"
-                onClick={handleStartDecompression}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
-              >
-                <Moon size={18} strokeWidth={2.5} />
-                Iniciar Descompressão
-              </button>
-              <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
-                Trancar dados e desligar a mente
-              </p>
-            </div>
+          <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12">
+            <button
+              type="button"
+              onClick={handleStartDecompression}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
+            >
+              <Moon size={18} strokeWidth={2.5} />
+              Iniciar Descompressão
+            </button>
+            <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
+              Trancar dados e desligar a mente
+            </p>
           </div>
 
         </motion.div>
