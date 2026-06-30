@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut } from 'lucide-react';
+import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut, Moon } from 'lucide-react';
 import { DailyClosureOverlay } from './DailyClosureOverlay';
+import { DecompressionSession } from './DecompressionSession';
 
 interface DailyShutdownModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
 
   const todayHabitsCount = habits.filter(h => h.habit_mode !== 'avoid').length;
   const completedHabits = habitCompletions.filter(c => c.completed_at && c.completed_at.startsWith(targetDate)).length;
@@ -94,7 +96,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
         
         <motion.div 
@@ -168,18 +170,33 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
             </div>
           </div>
 
-          <button 
-            onClick={onConfirm} 
-            disabled={isSubmitting}
-            className="w-full bg-[#6ee7a8] text-background font-bold py-3 rounded-xl hover:bg-[#5cd698] transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? 'Encerrando...' : 'Confirmar e Encerrar o Dia'}
-          </button>
+          <div className="flex flex-col gap-3 mt-2">
+            <button
+              onClick={() => setIsDecompressionOpen(true)}
+              className="w-full py-4 px-4 bg-zinc-950 hover:bg-black rounded-2xl flex items-center justify-center gap-3 transition-all group cursor-pointer active:scale-95 border border-white/5"
+            >
+              <Moon size={18} strokeWidth={2} className="text-zinc-400 group-hover:text-white transition-colors" />
+              <span className="text-[15px] font-semibold text-zinc-200 group-hover:text-white transition-colors">Sessão de Descompressão</span>
+            </button>
+
+            <button 
+              onClick={onConfirm} 
+              disabled={isSubmitting}
+              className="w-full mx-auto flex items-center justify-center gap-2 py-4 px-6 bg-white text-black font-semibold text-sm rounded-[20px] transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(255,255,255,0.1)] hover:bg-white/90 cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? 'Encerrando...' : 'Encerrar Dia'}
+            </button>
+          </div>
         </motion.div>
         
         <DailyClosureOverlay 
           isOpen={showOverlay} 
           onComplete={handleShutdown} 
+        />
+
+        <DecompressionSession 
+          isOpen={isDecompressionOpen}
+          onClose={() => setIsDecompressionOpen(false)}
         />
       </div>
     </AnimatePresence>

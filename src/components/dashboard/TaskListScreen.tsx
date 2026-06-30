@@ -9,7 +9,6 @@ import { DailyTask, ScheduledActivity } from '../../types';
 import { AgendamentoCard } from '../agenda/AgendamentoCard';
 import { DeleteTaskModal } from './DeleteTaskModal';
 import { DailyClosureOverlay } from './DailyClosureOverlay';
-import { DecompressionSession } from './DecompressionSession';
 
 const isDelayed = (dateString: string) => {
   const today = new Date();
@@ -267,7 +266,6 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [isHojeOpen, setIsHojeOpen] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
-  const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
 
   const [forceRenderCount, setForceRenderCount] = useState(0);
   useEffect(() => {
@@ -1182,21 +1180,6 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           )}
         </AnimatePresence>
       </div>
-
-      {/* DESCOMPRESSÃO BUTTON */}
-      <div className="pt-8 pb-4 px-4">
-        <button
-          onClick={() => setIsDecompressionOpen(true)}
-          className="w-full max-w-sm mx-auto flex items-center justify-center gap-2 py-4 px-6 bg-white text-black font-semibold text-sm rounded-[20px] transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(255,255,255,0.1)] hover:bg-white/90 cursor-pointer"
-        >
-          <span>Sessão de Descompressão</span>
-        </button>
-      </div>
-
-      <DecompressionSession
-        isOpen={isDecompressionOpen}
-        onClose={() => setIsDecompressionOpen(false)}
-      />
 
       {/* MODAL OVERLAY: CREATE OR EDIT TASK */}
       <AnimatePresence>
