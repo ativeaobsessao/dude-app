@@ -95,17 +95,25 @@ const TaskItemCard = ({ task, isRolledOver, rolloverLabel, todayStr, handleToggl
                 </span>
               )}
 
-              {!task.is_completed && (task as any).scheduled_date && (task as any).scheduled_date < todayStr && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] uppercase tracking-wider font-medium text-red-400">
-                  ATRASADA
-                </span>
-              )}
-              
-              {isRolledOver && !task.is_completed && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/10 text-[10px] uppercase tracking-wider text-amber-500 font-sans">
-                  {rolloverLabel}
-                </span>
-              )}
+              {!task.is_completed && (() => {
+                const isDayClosed = localStorage.getItem(`dude-shutdown-completed-${todayStr}`) === 'true';
+                const showAtrasada = isRolledOver || isDayClosed || ((task as any).scheduled_date && (task as any).scheduled_date < todayStr);
+                
+                if (showAtrasada) {
+                  let dateStr = '';
+                  const refDate = (task as any).created_at || (task as any).task_date || (task as any).scheduled_date || todayStr;
+                  if (refDate) {
+                    dateStr = new Date(refDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                  }
+                  
+                  return (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[10px] uppercase tracking-wider font-medium text-[#f59e0b] font-sans">
+                      ATRASADA {dateStr && `• ${dateStr}`}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </div>
@@ -256,19 +264,16 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const todayStr = useMemo(() => getLocalDateString(new Date()), []);
 
   const [isProximosDiasOpen, setIsProximosDiasOpen] = useState(false);
-  const [showClosureOverlay, setShowClosureOverlay] = useState(false);
-
-  const handleEncerrarDia = () => {
-    // Show the overlay first
-    setShowClosureOverlay(true);
-    
-    // We also mark the day as completed in local storage as requested by the continuity
-    const todayStr = getLocalDateString(new Date());
-    localStorage.setItem(`dude-shutdown-completed-${todayStr}`, 'true');
-  };
   const [isHojeOpen, setIsHojeOpen] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+
+  const [forceRenderCount, setForceRenderCount] = useState(0);
+  useEffect(() => {
+    const handleReload = () => setForceRenderCount(c => c + 1);
+    window.addEventListener('reload-tasks', handleReload);
+    return () => window.removeEventListener('reload-tasks', handleReload);
+  }, []);
 
   // 1. GATHER ALL ITEMS OF TODAY
   const todayItems = useMemo(() => {
