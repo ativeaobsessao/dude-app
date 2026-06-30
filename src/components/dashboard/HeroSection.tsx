@@ -3,10 +3,11 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
-import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame, CheckCircle2, Settings } from 'lucide-react';
+import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame, CheckCircle2, Settings, RotateCcw } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
+import { DailyReopenModal } from './DailyReopenModal';
 import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
 import { useAgendaAlertEngine } from '../../hooks/useAgendaAlertEngine';
@@ -90,12 +91,35 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const today = getLocalDateString(new Date());
 
   const [forceRenderCount, setForceRenderCount] = useState(0);
+  const [showReopenModal, setShowReopenModal] = useState(false);
 
   useEffect(() => {
     const handleReset = () => setForceRenderCount(c => c + 1);
     window.addEventListener('reset-daily-circle', handleReset);
     return () => window.removeEventListener('reset-daily-circle', handleReset);
   }, []);
+
+  const isDayClosed = useMemo(() => {
+    return localStorage.getItem(`dude-shutdown-completed-${today}`) === 'true';
+  }, [today, forceRenderCount]);
+
+  const handleReopenDay = async () => {
+    localStorage.removeItem(`dude-shutdown-completed-${today}`);
+    
+    // Attempt to remove from Supabase
+    const { supabase } = await import('../../lib/supabase');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('daily_shutdowns')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('shutdown_date', today);
+    }
+    
+    setShowReopenModal(false);
+    setForceRenderCount(c => c + 1);
+    window.dispatchEvent(new CustomEvent('reload-tasks'));
+  };
 
   // DUDE BUG 3 FIX: Compute a unified, deduplicated list of today's planned tasks
   // (combining daily tasks, database scheduled activities, and virtual scheduled habits).
@@ -1586,16 +1610,26 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           </div>
         </div>
 
-        {/* Standalone Shutdown Button ("Fechar meu dia") */}
+        {/* Standalone Shutdown Button ("Fechar meu dia" / "Reabrir meu dia") */}
         {todaySessionsCount > 0 && (
           <div className="w-full flex justify-center pt-2">
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
-              className="w-full max-w-[340px] py-3 sm:py-3.5 border border-white/10 hover:border-white/25 bg-transparent hover:bg-white/5 text-gray-400 hover:text-gray-200 font-mono font-bold uppercase tracking-wider text-[11px] rounded-full flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <Moon size={13} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
-              <span>Fechar meu dia</span>
-            </button>
+            {!isDayClosed ? (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
+                className="w-full max-w-[340px] py-3 sm:py-3.5 border border-white/10 hover:border-white/25 bg-transparent hover:bg-white/5 text-gray-400 hover:text-gray-200 font-mono font-bold uppercase tracking-wider text-[11px] rounded-full flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Moon size={13} className="text-gray-500 group-hover:text-gray-300 transition-colors shrink-0" />
+                <span>Fechar meu dia</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowReopenModal(true)}
+                className="w-full max-w-[340px] py-3 sm:py-3.5 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 bg-transparent hover:bg-[#f59e0b]/10 text-[#f59e0b]/80 hover:text-[#f59e0b] font-mono font-bold uppercase tracking-wider text-[11px] rounded-full flex items-center justify-center gap-2 group transition-all duration-300 select-none cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <RotateCcw size={13} className="text-[#f59e0b]/60 group-hover:text-[#f59e0b] transition-colors shrink-0" />
+                <span>Reabrir meu dia</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1863,6 +1897,12 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         initialHabitId={antiVicioHabitId}
         associatedCheckinId={antiVicioCheckinId}
         isVictoryMode={isAntiVicioVictory}
+      />
+
+      <DailyReopenModal
+        isOpen={showReopenModal}
+        onClose={() => setShowReopenModal(false)}
+        onConfirm={handleReopenDay}
       />
 
       {/* Elemento Decorativo: Gradiente Sutil de Fundo */}
