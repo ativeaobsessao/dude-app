@@ -10,8 +10,7 @@ import {
 import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { useState, useMemo, useEffect } from 'react';
-import { MOODS, MOOD_LIST, MoodKey } from '../../lib/mood';
-import { MoodEntry } from '../../types';
+
 
 const formatCompactDuration = (minutes: number) => {
   const h = Math.floor(minutes / 60);
@@ -23,11 +22,11 @@ const formatCompactDuration = (minutes: number) => {
 };
 
 const formatEnergy = (energy?: string | null) => {
-  if (!energy) return 'Normal ⚡';
+  if (!energy) return 'Normal';
   switch (energy) {
-    case 'cansado': return 'Baixa 🥱';
-    case 'normal': return 'Normal ⚡';
-    case 'energizado': return 'Alta 🔥';
+    case 'cansado': return 'Baixa';
+    case 'normal': return 'Normal';
+    case 'energizado': return 'Alta';
     default: return `${energy.charAt(0).toUpperCase() + energy.slice(1)}`;
   }
 };
@@ -43,9 +42,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     avoidanceCheckins, 
     habitCompletions,
     scheduledActivities,
-    moodEntries,
     sessionTasks,
-    dailyTasks
+    dailyTasks,
+    currentEnergyState
   } = useDataStore();
 
   // Selected period state
@@ -61,11 +60,9 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   const [isTrendsModalOpen, setIsTrendsModalOpen] = useState(false);
 
   // Multi-pillar expander state
-  const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | 'mood' | null>(null);
+  const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | null>(null);
 
-  // Selected cell in Humor heat map
-  const [tappedMoodDayStr, setTappedMoodDayStr] = useState<string | null>(null);
-
+    
   // Modal expander state for completed tasks
   const [showCompletedTasksModal, setShowCompletedTasksModal] = useState(false);
 
@@ -88,19 +85,15 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === getLocalDateString(selectedDate));
     const dayMins = daySessions.reduce((acc, s) => acc + (s.actual_duration_minutes || s.duration_minutes || 0), 0);
     
-    const dayMoodEntry = moodEntries.find(m => getLocalDateString(m.date) === getLocalDateString(selectedDate));
-    const dayMoodObj = dayMoodEntry ? MOOD_LIST.find(m => m.key === dayMoodEntry.mood) : null;
-    
+        
     const dayAvoidanceCheckins = avoidanceCheckins.filter(ac => getLocalDateString(ac.checkin_date) === getLocalDateString(selectedDate));
     
     return {
       daySessions,
       dayMins,
-      dayMoodEntry,
-      dayMoodObj,
-      dayAvoidanceCheckins,
+                  dayAvoidanceCheckins,
     };
-  }, [selectedDate, sessions, moodEntries, avoidanceCheckins]);
+  }, [selectedDate, sessions, avoidanceCheckins]);
 
   // ----------------------------------------------------
   // TRENDS ANTI-VÍCIO DATA calculations for inline display
@@ -130,19 +123,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     const totalCount = todayTasks.length;
     
     let coachingMsg = "Seu planejamento de hoje está equilibrado. Lembre-se: menos tarefas bem executadas valem mais que listas infinitas.";
-    let coachingTitle = "Planejamento sob Controle 🎯";
+    let coachingTitle = "Planejamento sob Controle";
     let coachingStyle = "text-green bg-green/5 border-green/10";
     
     if (totalCount > 7) {
-      coachingTitle = "Gargalo por Hiper-Planejamento! ⚠️";
+      coachingTitle = "Gargalo por Hiper-Planejamento!";
       coachingMsg = `Você programou ${totalCount} tarefas para hoje. Estresses de sobrecarga geram adiamento. Considere reavaliar e focar estritamente nas 3 principais metas cruciais de hoje, arquivando ou reprogramando o restante.`;
       coachingStyle = "text-orange-400 bg-orange-400/5 border-orange-400/10";
     } else if (rolloverCount > 2) {
-      coachingTitle = "Alerta de Efeito Rollover ↩";
+      coachingTitle = "Alerta de Efeito Rollover";
       coachingMsg = `Você possui ${rolloverCount} tarefas acumuladas que vieram de dias anteriores sem conclusão. Elas consomem energia mental passiva. Priorize eliminá-las hoje antes de acumular mais tarefas!`;
       coachingStyle = "text-amber-500 bg-[#df8a13]/5 border-amber-500/10";
     } else if (totalCount > 0 && completedCount === totalCount) {
-      coachingTitle = "Metas Gabaritadas! 🎉";
+      coachingTitle = "Metas Gabaritadas!";
       coachingMsg = "Sensacional! Você concluiu 100% de tudo que se propôs a fazer hoje. Sua dosagem de planejamento e execução estão impecáveis.";
       coachingStyle = "text-green bg-green/5 border-green/10";
     }
@@ -603,10 +596,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
     
     const byPeriod = { morning: 0, afternoon: 0, evening: 0, window: 0 };
-    const byEnergy = { cansado: 0, normal: 0, energizado: 0 };
-    const byMood = { animado: 0, tranquilo: 0, neutro: 0, ansioso: 0, prabaixo: 0 };
-    let semRegistroCount = 0;
-    
+                
     const periodMap: Record<string, string> = {
       morning: 'manha',
       afternoon: 'tarde',
@@ -631,51 +621,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
       }
       
       const checkinDateNorm = getLocalDateString(c.checkin_date || c.created_at);
-
-      // Passo A: Tente encontrar o humor no mesmo dia (Data Normalizada) e mesmo período.
-      let match = moodEntries.find(m => getLocalDateString(m.date) === checkinDateNorm && m.period === targetPeriod);
-      
-      // Passo B (Fallback 1): Se falhar, encontre qualquer registro de humor naquele mesmo dia.
-      if (!match) {
-        match = moodEntries.find(m => getLocalDateString(m.date) === checkinDateNorm);
-      }
-      
-      // Passo C (Fallback 2 - Smart Fallback): Se o usuário não registrou humor no dia exato da recaída,
-      // ordene o moodEntries por data decrescente e capture o registro de humor MAIS RECENTE anterior à data da recaída.
-      if (!match) {
-        const priorMoodEntries = [...moodEntries]
-          .filter(m => {
-            const mDate = getLocalDateString(m.date);
-            return mDate < checkinDateNorm;
-          })
-          .sort((a, b) => {
-            const aDate = getLocalDateString(a.date);
-            const bDate = getLocalDateString(b.date);
-            if (aDate !== bDate) {
-              return bDate.localeCompare(aDate);
-            }
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          });
-        
-        if (priorMoodEntries.length > 0) {
-          match = priorMoodEntries[0];
-        }
-      }
-                 
-      if (match) {
-        if (match.energy && match.energy in byEnergy) {
-          byEnergy[match.energy as keyof typeof byEnergy]++;
-        } else {
-          semRegistroCount++;
-        }
-        
-        if (match.mood && match.mood in byMood) {
-          byMood[match.mood as keyof typeof byMood]++;
-        }
-      } else {
-        semRegistroCount++;
-      }
-    });
+});
     
     const totalRelapses = relapses.length;
     
@@ -692,9 +638,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     };
     
     const maxPeriodKey = findMaxKey(byPeriod);
-    const maxEnergyKey = findMaxKey(byEnergy);
-    const maxMoodKey = findMaxKey(byMood);
-    
+            
     let leadInsight = "";
     let suggestion = "";
     
@@ -706,43 +650,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         window: "durante a janela de foco"
       }[maxPeriodKey || 'evening'];
       
-      const energyLabel = {
-        cansado: "cansado mentalmente",
-        normal: "com energia normal",
-        energizado: "energizado"
-      }[maxEnergyKey || 'cansado'];
+            
+            
+      leadInsight = `Você recai mais frequentemente no período da ${periodLabel}.`;
       
-      const moodLabel = {
-        animado: "animado / ansioso por recompensa",
-        tranquilo: "tranquilo",
-        neutro: "neutro",
-        ansioso: "ansioso",
-        prabaixo: "pra baixo ou desmotivado"
-      }[maxMoodKey || 'ansioso'];
-      
-      leadInsight = `Você recai mais nos momentos em que está ${energyLabel}, geralmente ${periodLabel} e sentindo-se ${moodLabel}.`;
-      
-      if (maxEnergyKey === 'cansado') {
-        suggestion = "Nesses momentos de cansaço mental, uma sessão curta de foco assistido ou um descanso absoluto ajuda muito mais do que tentar resistir apenas na pura força de vontade.";
-      } else if (maxMoodKey === 'ansioso') {
-        suggestion = "Quando os níveis de ansiedade sobem, técnicas de respiração quadrada ou uma pausa rápida de descompressão consciente no DUDE são seus maiores escudos.";
-      } else if (maxMoodKey === 'prabaixo') {
-        suggestion = "Em dias mais difíceis, lembre-se de que a autocompaixão é vital. Não busque compensar ou anestesiar a frustração cedendo ao vício; faça uma atividade física leve ou registre uma anotação.";
-      } else {
-        suggestion = "Identifique os primeiros sinais físicos de perda de controle e utilize rituais rápidos de desvio de foco para desarmar o loop do hábito voluntário.";
-      }
-    }
+          }
     
     return {
       totalRelapses,
       byPeriod,
-      byEnergy,
-      byMood,
-      semRegistro: semRegistroCount,
       leadInsight,
       suggestion
     };
-  }, [avoidanceCheckins, moodEntries, habits]);
+  }, [avoidanceCheckins, habits]);
 
   // ----------------------------------------------------
   // PILLAR C — AGENDAMENTOS (Schedules Rate)
@@ -809,407 +729,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
     });
   }, [sessions]);
 
-  // ----------------------------------------------------
-  // PILLAR D — HUMOR / MOOD GATHERING & CROSS-INSIGHTS
-  // ----------------------------------------------------
-  const moodAnalytics = useMemo(() => {
-    // 1. Get filtered mood logs based on selected period with safe local date normalization
-    // To prevent single-day lock when period is 'today', we auto-expand the visualization to 'month' (last 30 days) to display past entries and patterns.
-    const analyticPeriod = period === 'today' ? 'month' : period;
-    const targetSet = analyticPeriod === 'all' 
-      ? null 
-      : getDatesRangeSet(0, analyticPeriod === 'week' ? 7 : 30);
-    const filtered = targetSet 
-      ? moodEntries.filter(m => targetSet.has(getLocalDateString(m.date)))
-      : moodEntries;
-
-    // 2. Compute dominant mood of the period
-    let dominantMoodOfPeriod: MoodKey | null = null;
-    if (filtered.length > 0) {
-      const counts: Record<string, number> = {};
-      filtered.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
-      const maxCount = Math.max(...Object.values(counts));
-      const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
-
-      if (candidates.length === 1) {
-        dominantMoodOfPeriod = candidates[0] as MoodKey;
-      } else {
-        const periodWeights = { noite: 3, tarde: 2, manha: 1 };
-        const sortedByPeriod = [...filtered].sort((a, b) => {
-          return (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0);
-        });
-        dominantMoodOfPeriod = sortedByPeriod[0].mood as MoodKey;
-      }
-    }
-
-    // 3. Mood distribution frequency percentages
-    const totalFilteredCount = filtered.length;
-    const distribution = MOOD_LIST.map(m => {
-      const count = filtered.filter(item => item.mood === m.key).length;
-      const percent = totalFilteredCount > 0 ? Math.round((count / totalFilteredCount) * 100) : 0;
-      return {
-        ...m,
-        count,
-        percent
-      };
-    });
-
-    // 4. Mood over time strip (Option A: a per-day strip/heatmap)
-    let totalDays = analyticPeriod === 'week' ? 7 : 30;
-    if (analyticPeriod === 'all' && moodEntries.length > 0) {
-      const dates = moodEntries.map(m => getLocalDateString(m.date)).filter(Boolean);
-      if (dates.length > 0) {
-        dates.sort();
-        const oldestStr = dates[0];
-        const oldestDate = new Date(oldestStr + 'T12:00:00');
-        const todayDate = new Date();
-        const diffTime = todayDate.getTime() - oldestDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        totalDays = Math.max(30, diffDays + 1);
-      }
-    }
-
-    const stripDays = Array.from({ length: totalDays }, (_, idx) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (totalDays - 1 - idx)); // oldest to newest (left to right)
-      const dStr = getLocalDateString(d);
-      
-      const dayMoods = moodEntries.filter(m => getLocalDateString(m.date) === dStr);
-      let dayDominant: MoodKey | null = null;
-      if (dayMoods.length > 0) {
-        const counts: Record<string, number> = {};
-        dayMoods.forEach(m => counts[m.mood] = (counts[m.mood] || 0) + 1);
-        const maxCount = Math.max(...Object.values(counts));
-        const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
-        if (candidates.length === 1) {
-          dayDominant = candidates[0] as MoodKey;
-        } else {
-          const periodWeights = { noite: 3, tarde: 2, manha: 1 };
-          const sortedByPeriod = [...dayMoods].sort((a, b) => {
-            return (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0);
-          });
-          dayDominant = sortedByPeriod[0].mood as MoodKey;
-        }
-      }
-
-      const formatLabel = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-      const dayName = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-      return {
-        dateStr: dStr,
-        dayLabel: formatLabel,
-        dayName: dayName,
-        dominantMood: dayDominant,
-        allMoods: dayMoods
-      };
-    });
-
-    // 5. Cross insights (Mood x Focus)
-    const insights: string[] = [];
-    
-    // Group focus minutes by local Date string
-    const dailyFocus: Record<string, number> = {};
-    sessions.forEach(s => {
-      const day = getLocalDateString(new Date(s.started_at));
-      if (day) {
-        dailyFocus[day] = (dailyFocus[day] || 0) + (s.duration_minutes || 0);
-      }
-    });
-
-    // Group mood entries by local Date string and compute dominant mood per day
-    const dailyDominantMood: Record<string, MoodKey> = {};
-    const dailyMoodsMap: Record<string, MoodEntry[]> = {};
-    moodEntries.forEach(m => {
-      const normalizedDate = getLocalDateString(m.date);
-      if (normalizedDate) {
-        if (!dailyMoodsMap[normalizedDate]) dailyMoodsMap[normalizedDate] = [];
-        dailyMoodsMap[normalizedDate].push(m);
-      }
-    });
-
-    Object.entries(dailyMoodsMap).forEach(([dateStr, list]) => {
-      const validList = list.filter(m => m.mood !== null);
-      if (validList.length === 0) return;
-
-      const counts: Record<string, number> = {};
-      validList.forEach(m => counts[m.mood as string] = (counts[m.mood as string] || 0) + 1);
-      const maxCount = Math.max(...Object.values(counts));
-      const candidates = Object.keys(counts).filter(k => counts[k] === maxCount);
-      let dom: MoodKey;
-      if (candidates.length === 1) {
-        dom = candidates[0] as MoodKey;
-      } else {
-        const periodWeights: Record<string, number> = { noite: 3, tarde: 2, manha: 1 };
-        const sortedByPeriod = [...validList].sort((a, b) => (periodWeights[b.period] || 0) - (periodWeights[a.period] || 0));
-        dom = sortedByPeriod[0].mood as MoodKey;
-      }
-      dailyDominantMood[dateStr] = dom;
-    });
-
-    // We only compute cross-insights if there exists enough mood entries (e.g., min 3 logs)
-    if (moodEntries.length >= 3) {
-      // Metric 1: Productivity average by mood
-      const focusByMood: Record<MoodKey, number[]> = {
-        animado: [],
-        tranquilo: [],
-        neutro: [],
-        ansioso: [],
-        prabaixo: []
-      };
-
-      Object.entries(dailyDominantMood).forEach(([dateStr, moodKey]) => {
-        const mins = dailyFocus[dateStr] || 0;
-        focusByMood[moodKey].push(mins);
-      });
-
-      const moodAverages = Object.entries(focusByMood).reduce((acc, [mKey, minsList]) => {
-        acc[mKey as MoodKey] = minsList.length > 0 
-          ? minsList.reduce((s, val) => s + val, 0) / minsList.length 
-          : null;
-        return acc;
-      }, {} as Record<MoodKey, number | null>);
-
-      // Standard active days average for base reference
-      const loggedDates = Object.keys(dailyDominantMood);
-      const overallAvg = loggedDates.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / loggedDates.length;
-
-      // Positive boost checks
-      if (moodAverages['tranquilo'] !== null && moodAverages['tranquilo'] > overallAvg && overallAvg > 10) {
-        const ratio = moodAverages['tranquilo'] / overallAvg;
-        if (ratio >= 1.05) {
-          insights.push(`Você foca em média ${Math.round((ratio - 1) * 100)}% mais nos dias em que o seu humor está predominantemente Tranquilo.`);
-        }
-      }
-      if (moodAverages['animado'] !== null && moodAverages['animado'] > overallAvg && overallAvg > 10) {
-        const ratio = moodAverages['animado'] / overallAvg;
-        if (ratio >= 1.05 && insights.length < 2) {
-          insights.push(`O humor Animado registra o maior boost de dedicação no seu histórico, gerando ${Math.round((ratio - 1) * 100)}% mais tempo focado.`);
-        }
-      }
-
-      // Neutral state efficiency check
-      if (moodAverages['neutro'] !== null && moodAverages['neutro'] > overallAvg && insights.length < 2) {
-        insights.push(`Seus dias de tom Neutro mantêm uma consistência estável, garantindo boas sessões mesmo sem oscilações emocionais.`);
-      }
-
-      // Morning down day check
-      const morningDownDays = moodEntries.filter(m => m.period === 'manha' && m.mood === 'prabaixo').map(m => getLocalDateString(m.date));
-      const morningClearDays = moodEntries.filter(m => m.period === 'manha' && m.mood !== 'prabaixo' && m.mood !== 'ansioso').map(m => getLocalDateString(m.date));
-      if (morningDownDays.length >= 1 && morningClearDays.length >= 2) {
-        const avgDown = morningDownDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningDownDays.length;
-        const avgClear = morningClearDays.reduce((sum, d) => sum + (dailyFocus[d] || 0), 0) / morningClearDays.length;
-        if (avgClear > avgDown && avgClear > 15) {
-          const drop = Math.round(((avgClear - avgDown) / avgClear) * 100);
-          if (drop > 10 && drop < 100 && insights.length < 3) {
-            insights.push(`Quando você acorda se sentindo Pra Baixo, o foco do dia costuma recuar ${drop}%. Sintonize tarefas menos desgastantes e respeite seu próprio tempo.`);
-          }
-        }
-      }
-
-      // Ansioso weekend/weekday recurrence checks
-      const weekdayNamesShort = ['Domingos', 'Segundas-feiras', 'Terças-feiras', 'Quartas-feiras', 'Quintas-feiras', 'Sextas-feiras', 'Sábados'];
-      const weekdayCounts: Record<number, Record<MoodKey, number>> = {};
-      
-      moodEntries.forEach(m => {
-        if (!m.mood) return;
-        const dateObj = new Date(getLocalDateString(m.date) + 'T12:00:00'); // avoid timezone offsets
-        const wday = dateObj.getDay();
-        if (!weekdayCounts[wday]) {
-          weekdayCounts[wday] = { animado: 0, tranquilo: 0, neutro: 0, ansioso: 0, prabaixo: 0 };
-        }
-        weekdayCounts[wday][m.mood] = (weekdayCounts[wday][m.mood] || 0) + 1;
-      });
-
-      let weekdayInsightFound = false;
-      Object.entries(weekdayCounts).forEach(([wdayStr, counts]) => {
-        if (weekdayInsightFound || insights.length >= 3) return;
-        const wday = parseInt(wdayStr);
-        const totalWday = Object.values(counts).reduce((s, v) => s + v, 0);
-        if (totalWday >= 2) {
-          const sortedMoods = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-          const dominantDayMood = sortedMoods[0][0] as MoodKey;
-          const dominantCount = sortedMoods[0][1];
-          const pct = Math.round((dominantCount / totalWday) * 100);
-          
-          if (pct >= 50 && (dominantDayMood === 'ansioso' || dominantDayMood === 'prabaixo' || dominantDayMood === 'tranquilo')) {
-            weekdayInsightFound = true;
-            if (dominantDayMood === 'ansioso') {
-              insights.push(`Suas ${weekdayNamesShort[wday]} costumam carregar um tom mais Ansioso. Experimente fracionar suas metas de foco em fatias curtas.`);
-            } else if (dominantDayMood === 'prabaixo') {
-              insights.push(`Você tende a se sentir mais Pra Baixo nas ${weekdayNamesShort[wday]}. Considere inserir pausas gentis de descompressão nesses dias.`);
-            } else if (dominantDayMood === 'tranquilo') {
-              insights.push(`Suas ${weekdayNamesShort[wday]} são predominantemente Tranquilas, oferecendo um espaço natural perfeito para sessões focadas intensas.`);
-            }
-          }
-        }
-      });
-    }
-
-    if (insights.length === 0) {
-      insights.push('Continue registrando seu humor diário para a DUDE revelar seus padrões de rendimento de foco.');
-    }
-
-    // --- START OF ENERGY CALCULATIONS ---
-    const periodFocusDuration: Record<string, number> = {};
-    sessions.forEach(s => {
-      if (!s.completed) return;
-      const dateObj = new Date(s.started_at);
-      const hours = dateObj.getHours();
-      const dStr = getLocalDateString(dateObj);
-      let p: 'manha' | 'tarde' | 'noite';
-      if (hours >= 5 && hours < 12) {
-        p = 'manha';
-      } else if (hours >= 12 && hours < 18) {
-        p = 'tarde';
-      } else {
-        p = 'noite';
-      }
-      const key = `${dStr}_${p}`;
-      const actualDuration = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
-        ? s.actual_duration_minutes
-        : s.duration_minutes;
-      periodFocusDuration[key] = (periodFocusDuration[key] || 0) + (actualDuration || 0);
-    });
-
-    const dailyFocusDurationOnStats: Record<string, number> = {};
-    sessions.forEach(s => {
-      if (!s.completed) return;
-      const dStr = getLocalDateString(new Date(s.started_at));
-      const actualDuration = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
-        ? s.actual_duration_minutes
-        : s.duration_minutes;
-      dailyFocusDurationOnStats[dStr] = (dailyFocusDurationOnStats[dStr] || 0) + (actualDuration || 0);
-    });
-
-    const focusDurationByEnergy: Record<'cansado' | 'normal' | 'energizado', number[]> = {
-      cansado: [],
-      normal: [],
-      energizado: []
-    };
-
-    moodEntries.forEach(m => {
-      if (!m.energy) return;
-      
-      let mappedEnergy: 'cansado' | 'normal' | 'energizado' | null = null;
-      if (m.energy === 'cansado' || m.energy === 'fadigado') mappedEnergy = 'cansado';
-      else if (m.energy === 'energizado' || m.energy === 'inquieto') mappedEnergy = 'energizado';
-      else if (m.energy === 'normal' || m.energy === 'equilibrado' || m.energy === 'pleno') mappedEnergy = 'normal';
-      
-      if (!mappedEnergy) return;
-
-      const key = `${getLocalDateString(m.date)}_${m.period}`;
-      const minsObj = periodFocusDuration[key] || 0;
-      focusDurationByEnergy[mappedEnergy].push(minsObj);
-    });
-
-    const energyCounts = {
-      cansado: focusDurationByEnergy.cansado.length,
-      normal: focusDurationByEnergy.normal.length,
-      energizado: focusDurationByEnergy.energizado.length
-    };
-
-    const energySums = {
-      cansado: focusDurationByEnergy.cansado.reduce((s, x) => s + x, 0),
-      normal: focusDurationByEnergy.normal.reduce((s, x) => s + x, 0),
-      energizado: focusDurationByEnergy.energizado.reduce((s, x) => s + x, 0)
-    };
-
-    const energyAverages = {
-      cansado: energyCounts.cansado > 0 ? (energySums.cansado / energyCounts.cansado) : 0,
-      normal: energyCounts.normal > 0 ? (energySums.normal / energyCounts.normal) : 0,
-      energizado: energyCounts.energizado > 0 ? (energySums.energizado / energyCounts.energizado) : 0
-    };
-
-    const totalEnergyLogs = energyCounts.cansado + energyCounts.normal + energyCounts.energizado;
-    const hasEnoughEnergyData = totalEnergyLogs >= 3;
-
-    let energyCorrelationInsight = "";
-    if (hasEnoughEnergyData) {
-      if (energyAverages.energizado > energyAverages.normal && energyAverages.energizado > 0) {
-        const factor = energyAverages.normal > 0 
-          ? (energyAverages.energizado / energyAverages.normal).toFixed(1)
-          : (energyAverages.cansado > 0 ? (energyAverages.energizado / energyAverages.cansado).toFixed(1) : "2.0");
-        
-        // Find most common period for 'energizado'
-        const energizedPeriods = moodEntries.filter(m => m.energy === 'energizado' || m.energy === 'inquieto' || m.energy === 'pleno');
-        const periodCounts: Record<string, number> = {};
-        energizedPeriods.forEach(p => periodCounts[p.period] = (periodCounts[p.period] || 0) + 1);
-        let favoredPeriod = "";
-        const maxPeriodVal = Math.max(...Object.values(periodCounts), 0);
-        const bestPeriod = Object.keys(periodCounts).find(k => periodCounts[k] === maxPeriodVal);
-        if (bestPeriod) {
-          if (bestPeriod === 'manha') favoredPeriod = " e quase sempre no período da manhã";
-          else if (bestPeriod === 'tarde') favoredPeriod = " e quase sempre no período da tarde";
-          else if (bestPeriod === 'noite') favoredPeriod = " e quase sempre no período da noite";
-        }
-        
-        energyCorrelationInsight = `Você foca cerca de ${factor}x mais nos momentos em que registra nível de energia Energizado${favoredPeriod}.`;
-      } else if (energyAverages.normal > energyAverages.cansado && energyAverages.normal > 0) {
-        const factor = energyAverages.cansado > 0 
-          ? (energyAverages.normal / energyAverages.cansado).toFixed(1)
-          : "1.5";
-        energyCorrelationInsight = `Seu rendimento se mantém sob controle nos períodos com energia Normal, sendo ${factor}x superior aos momentos marcados por fadiga mental.`;
-      } else {
-        energyCorrelationInsight = `Seus níveis de foco estão equilibrados entre seus momentos de alta e média energia. Excelente adaptação das suas sessões profundas!`;
-      }
-    }
-
-    // RISK PATTERN (gentle, never shaming)
-    const tiredFocusDates = moodEntries
-      .filter(m => m.energy === 'cansado' || m.energy === 'fadigado')
-      .map(m => getLocalDateString(m.date))
-      .filter(date => (dailyFocusDurationOnStats[date] || 0) > 0);
-
-    let nextDayFocusAfterTiredSum = 0;
-    let nextDayFocusAfterTiredCount = 0;
-    
-    tiredFocusDates.forEach(dStr => {
-      const dObj = new Date(dStr + 'T12:00:00');
-      dObj.setDate(dObj.getDate() + 1);
-      const nextDayStr = getLocalDateString(dObj);
-      if (dailyFocusDurationOnStats[nextDayStr] !== undefined) {
-        nextDayFocusAfterTiredSum += dailyFocusDurationOnStats[nextDayStr];
-        nextDayFocusAfterTiredCount++;
-      }
-    });
-
-    const averageFocusNextDayAfterTired = nextDayFocusAfterTiredCount > 0 
-      ? (nextDayFocusAfterTiredSum / nextDayFocusAfterTiredCount) 
-      : null;
-
-    const overallDailyAvg = Object.values(dailyFocusDurationOnStats).length > 0
-      ? Object.values(dailyFocusDurationOnStats).reduce((a, b) => a + b, 0) / Object.values(dailyFocusDurationOnStats).length
-      : 0;
-
-    let hasRiskPattern = false;
-    if (averageFocusNextDayAfterTired !== null && overallDailyAvg > 0) {
-      if (averageFocusNextDayAfterTired < overallDailyAvg * 0.9) {
-        hasRiskPattern = true;
-      }
-    }
-
-    let energyRiskInsight = "";
-    if (hasEnoughEnergyData) {
-      if (hasRiskPattern) {
-        energyRiskInsight = "Quando você foca cansado mentalmente, sua consistência tende a cair no dia seguinte. Nesses dias, sessões curtas rendem mais — e descansar é estratégia.";
-      } else {
-        energyRiskInsight = "Sua resiliência mental pós-esforço é elogiável: mesmo ao focar sob fadiga mental, seu ritmo no dia subsequente não recua drasticamente. Lembre-se, porém, de cultivar pausas saudáveis.";
-      }
-    }
-
-    return {
-      dominantMoodOfPeriod,
-      distribution,
-      stripDays,
-      insights,
-      hasEnoughData: filtered.length >= 1,
-      energyAverages,
-      energyCounts,
-      hasEnoughEnergyData,
-      energyCorrelationInsight,
-      energyRiskInsight
-    };
-  }, [moodEntries, sessions, period]);
-
+  
   // ----------------------------------------------------
   // IDENTITY LAYER CALCULATIONS (WAVE 2C)
   // ----------------------------------------------------
@@ -1411,8 +931,6 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
   const firstName = profile?.full_name?.split(' ')[0] || 'Campeão';
 
   const todayStr = getLocalDateString(new Date());
-  const todayMoods = moodEntries ? moodEntries.filter(m => m.date === todayStr) : [];
-  const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
@@ -1420,7 +938,7 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
         initial={{ opacity: 0, scale: 0.97, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 15 }}
-        className="w-full bg-surface border border-primary-green/10 rounded-[2rem] p-6 md:p-10 relative shadow-[0_0_100px_rgba(110,231,168,0.06)] space-y-8"
+        className="w-full bg-surface border border-primary-green/10 rounded-[2rem] p-6 md:p-10 relative shadow-[0_0_100px_rgba(110,231,168,0.06)] space-y-6"
       >
         {/* HEADER SECTION */}
         <header className="space-y-3">
@@ -1457,38 +975,19 @@ export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
           </div>
         </div>
 
-        {/* Seu tom de hoje: [label] chip e Card de Energia */}
-        {activeMoodEntry && (
-          <div className="flex flex-col items-center w-full my-4 gap-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/[0.03] border border-white/5 rounded-full text-[10px] uppercase font-bold tracking-wider text-text-secondary hover:bg-white/[0.05] transition-colors cursor-default select-none relative z-10"
-            >
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse z-10" style={{ backgroundColor: MOODS[activeMoodEntry.mood]?.color || 'var(--mood)' }} />
-              <span className="text-white/60">Seu tom de hoje: <span className="text-text-primary font-bold capitalize">{activeMoodEntry.mood} {MOODS[activeMoodEntry.mood]?.emoji}</span></span>
-            </motion.div>
-
-            {/* Energy State Card - Apple Style */}
-            {activeMoodEntry.energy && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="w-full bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-sm relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full pointer-events-none -mr-16 -mt-16" />
-                <div className="flex items-center gap-3 relative z-10">
-                  <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shrink-0">
-                    <Activity size={14} className="text-zinc-400" />
-                  </div>
-                  <p className="text-[13px] md:text-sm font-medium text-zinc-300 tracking-wide font-sans leading-relaxed">
-                    Seu estado energético atual é: <span className="font-semibold text-white capitalize">{activeMoodEntry.energy}</span>
-                  </p>
-                </div>
-              </motion.div>
-            )}
+        {currentEnergyState && (
+          <div className="p-5 bg-white/[0.01] border border-white/5 rounded-3xl flex items-start gap-4 font-sans text-left">
+            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
+              <Activity size={18} className="text-text-secondary" />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <p className="text-sm text-text-primary/90">
+                Seu estado energético atual é:
+              </p>
+              <p className="text-base text-white font-medium capitalize mt-1">
+                {currentEnergyState}
+              </p>
+            </div>
           </div>
         )}
 
