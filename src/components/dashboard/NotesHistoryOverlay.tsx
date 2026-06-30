@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { StickyNote, X, Trash2, ArrowLeft, Pencil, Copy, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 import { getLocalDateString, safeParseDate, cleanActivityName } from '../../lib/utils';
 import JSZip from 'jszip';
 
@@ -23,6 +24,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
   // Note Editing State
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   // Selection and Download State
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
@@ -210,9 +212,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
   };
 
   const handleDeleteConfirm = async (id: string, content: string) => {
-    if (window.confirm(`Deseja excluir esta anotação?\n"${content.substring(0, 30)}..."\nEsta ação não pode ser desfeita.`)) {
-      await dataStore.deleteNote(id);
-    }
+    setNoteToDelete(id);
   };
 
   return (
@@ -496,6 +496,17 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDeleteModal
+        isOpen={!!noteToDelete}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={() => {
+          if (noteToDelete) {
+            dataStore.deleteNote(noteToDelete);
+            setNoteToDelete(null);
+          }
+        }}
+      />
     </>
   );
 };
