@@ -113,12 +113,30 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       await supabase.from('daily_shutdowns')
         .delete()
         .eq('user_id', user.id)
-        .eq('shutdown_date', today);
+        .eq('date', today);
+        
+      await supabase.from('day_closures')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('closure_date', today);
+    }
+    
+    // Also remove from local storage array managed by useDataStore
+    try {
+      const stored = localStorage.getItem('dude-daily-shutdowns');
+      if (stored) {
+        const arr = JSON.parse(stored);
+        const filtered = arr.filter((d: any) => d.date !== today);
+        localStorage.setItem('dude-daily-shutdowns', JSON.stringify(filtered));
+      }
+    } catch (e) {
+      console.error(e);
     }
     
     setShowReopenModal(false);
     setForceRenderCount(c => c + 1);
     window.dispatchEvent(new CustomEvent('reload-tasks'));
+    window.dispatchEvent(new CustomEvent('reset-daily-circle'));
   };
 
   // DUDE BUG 3 FIX: Compute a unified, deduplicated list of today's planned tasks

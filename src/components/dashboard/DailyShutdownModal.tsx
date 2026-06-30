@@ -171,9 +171,9 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
           <button 
             onClick={onConfirm} 
             disabled={isSubmitting}
-            className="w-full mx-auto flex items-center justify-center gap-2 py-4 px-6 bg-white text-black font-semibold text-sm rounded-[20px] transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(255,255,255,0.1)] hover:bg-white/90 cursor-pointer disabled:opacity-50"
+            className="w-full bg-[#6ee7a8] text-background font-bold py-3 rounded-xl hover:bg-[#5cd698] transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Encerrando...' : 'Encerrar Dia'}
+            {isSubmitting ? 'Encerrando...' : 'Confirmar e Encerrar o Dia'}
           </button>
         </motion.div>
         
