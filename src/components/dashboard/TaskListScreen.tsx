@@ -8,6 +8,7 @@ import { CustomSelect } from '../ui/CustomSelect';
 import { DailyTask, ScheduledActivity } from '../../types';
 import { AgendamentoCard } from '../agenda/AgendamentoCard';
 import { DeleteTaskModal } from './DeleteTaskModal';
+import { DailyClosureOverlay } from './DailyClosureOverlay';
 
 const isDelayed = (dateString: string) => {
   const today = new Date();
@@ -175,6 +176,40 @@ const TaskItemCard = ({ task, isRolledOver, rolloverLabel, todayStr, handleToggl
     </motion.div>
   );
 };
+const ChecklistItem = ({ sub, task, sIdx, onToggleSubtask }: any) => {
+  const [completed, setCompleted] = useState(sub.completed);
+
+  useEffect(() => {
+    setCompleted(sub.completed);
+  }, [sub.completed]);
+
+  const handleCheck = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const isChecked = e.target.checked;
+    setCompleted(isChecked); // Feedback visual imediato
+    
+    if (onToggleSubtask) {
+      onToggleSubtask(task, sIdx, e as any);
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-3 text-xs select-none relative z-50">
+      <input 
+        type="checkbox"
+        checked={completed}
+        onChange={handleCheck}
+        onClick={(e) => e.stopPropagation()}
+        className="w-4 h-4 rounded-sm border-white/20 bg-surface accent-[#6ee7a8] flex-shrink-0 mt-[1px] cursor-pointer"
+        style={{ pointerEvents: 'auto', zIndex: 50, transition: 'all 0.2s ease' }}
+      />
+      <span className={`font-semibold font-sans line-clamp-2 flex-1 transition-all cursor-default ${completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80'}`}>
+        {sub.text}
+      </span>
+    </div>
+  );
+};
+
 const CollapsibleChecklist = ({ task, onToggleSubtask, isExpanded, setIsExpanded }: { task: DailyTask, onToggleSubtask: (task: DailyTask, subtaskIdx: number, e: React.MouseEvent) => void, isExpanded: boolean, setIsExpanded: (v: boolean) => void }) => {
   if (!Array.isArray(task.checklist) || task.checklist.length === 0) {
     return null;
@@ -198,34 +233,19 @@ const CollapsibleChecklist = ({ task, onToggleSubtask, isExpanded, setIsExpanded
         </motion.div>
       </button>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            className="overflow-hidden"
-          >
-            <div className="mt-2 bg-white/5 rounded-2xl p-4 grid grid-cols-1 gap-3">
-              {task.checklist.map((sub, sIdx) => (
-                <div 
-                  key={sIdx}
-                  onClick={(e) => onToggleSubtask(task, sIdx, e)}
-                  className="flex items-start gap-3 cursor-pointer text-xs select-none group"
-                >
-                  <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center transition-all mt-[1px] ${sub.completed ? 'bg-primary-green border-primary-green' : 'border-white/20 bg-surface group-hover:border-white/40'}`}>
-                    {sub.completed && <Check size={10} strokeWidth={4} className="text-background" />}
-                  </span>
-                  <span className={`font-semibold font-sans line-clamp-2 flex-1 transition-all ${sub.completed ? 'line-through text-text-secondary/30 font-light' : 'text-text-secondary/80 group-hover:text-text-secondary'}`}>
-                    {sub.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isExpanded && (
+        <div className="mt-2 bg-white/5 rounded-2xl p-4 grid grid-cols-1 gap-3 relative z-40 pointer-events-auto">
+          {task.checklist.map((sub, sIdx) => (
+            <ChecklistItem 
+              key={sIdx}
+              sub={sub}
+              task={task}
+              sIdx={sIdx}
+              onToggleSubtask={onToggleSubtask}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -236,6 +256,16 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const todayStr = useMemo(() => getLocalDateString(new Date()), []);
 
   const [isProximosDiasOpen, setIsProximosDiasOpen] = useState(false);
+  const [showClosureOverlay, setShowClosureOverlay] = useState(false);
+
+  const handleEncerrarDia = () => {
+    // Show the overlay first
+    setShowClosureOverlay(true);
+    
+    // We also mark the day as completed in local storage as requested by the continuity
+    const todayStr = getLocalDateString(new Date());
+    localStorage.setItem(`dude-shutdown-completed-${todayStr}`, 'true');
+  };
   const [isHojeOpen, setIsHojeOpen] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
@@ -1141,6 +1171,25 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           )}
         </AnimatePresence>
       </div>
+
+      {/* ENCERRAR DIA BUTTON */}
+      <div className="pt-8 pb-4 px-4">
+        <button
+          onClick={handleEncerrarDia}
+          className="w-full max-w-sm mx-auto flex items-center justify-center gap-2 py-4 px-6 bg-white text-black font-semibold text-sm rounded-[20px] transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(255,255,255,0.1)] hover:bg-white/90 cursor-pointer"
+        >
+          <span>Encerrar Dia</span>
+        </button>
+      </div>
+
+      <DailyClosureOverlay 
+        isOpen={showClosureOverlay} 
+        onComplete={() => {
+          setShowClosureOverlay(false);
+          // Redirecionamento automático para a Hero (home)
+          window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+        }} 
+      />
 
       {/* MODAL OVERLAY: CREATE OR EDIT TASK */}
       <AnimatePresence>
