@@ -146,7 +146,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-24">
+          <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-32">
             
             {/* Bloco 1: Métricas de Foco */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-1">
@@ -234,14 +234,6 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                 <p className="text-sm text-zinc-500 font-medium py-2">Nenhum projeto registrado hoje.</p>
               )}
             </div>
-
-            <button 
-              onClick={onConfirm} 
-              disabled={isSubmitting}
-              className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer border border-zinc-800 disabled:opacity-50 mt-4"
-            >
-              {isSubmitting ? 'Encerrando...' : 'Encerrar Dia'}
-            </button>
 
           </div>
 
