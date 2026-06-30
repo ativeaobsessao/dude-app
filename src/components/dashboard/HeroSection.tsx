@@ -5,7 +5,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { usePWA } from '../../context/PWAContext';
 import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame, CheckCircle2, Settings } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
-import { MOODS } from '../../lib/mood';
+
 import { calculateAvoidanceMetrics } from './AvoidanceSection';
 import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
@@ -88,8 +88,14 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
   // Daily Metrics
   const today = getLocalDateString(new Date());
-  const todayMoods = dataStore.moodEntries ? dataStore.moodEntries.filter(m => m.date === today) : [];
-  const activeMoodEntry = todayMoods.length > 0 ? todayMoods[0] : null;
+
+  const [forceRenderCount, setForceRenderCount] = useState(0);
+
+  useEffect(() => {
+    const handleReset = () => setForceRenderCount(c => c + 1);
+    window.addEventListener('reset-daily-circle', handleReset);
+    return () => window.removeEventListener('reset-daily-circle', handleReset);
+  }, []);
 
   // DUDE BUG 3 FIX: Compute a unified, deduplicated list of today's planned tasks
   // (combining daily tasks, database scheduled activities, and virtual scheduled habits).
@@ -242,7 +248,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     return `${h}h ${m}m`;
   };
 
-  const todayMinutesToShow = totalMinutes;
+  const isClosed = localStorage.getItem(`dude-shutdown-completed-${today}`) === 'true';
+  const todayMinutesToShow = isClosed ? 0 : totalMinutes;
+  const todaySessionsCount = isClosed ? 0 : todaySessions.length;
 
   const averageData = useMemo(() => {
     const map: { [key: string]: number } = {};
@@ -922,58 +930,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             </div>
           )}
 
-          {/* Nudge Banner for Mood Rastreamento */}
-          {dataStore.profile?.mood_status === 'disabled' && !dataStore.profile?.hide_mood_nudge && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm mt-3 p-4 bg-[#6ee7a8]/5 border border-[#6ee7a8]/10 rounded-2xl flex items-start gap-3 text-left relative z-10"
-            >
-              <div className="flex-1 space-y-1">
-                <span className="text-[10px] sm:text-xs font-bold text-text flex items-center gap-1.5">
-                  ⚡ Insights de Produtividade Desativados
-                </span>
-                <p className="text-[10px] sm:text-[11px] text-text-dim leading-relaxed font-light">
-                  Descubra os horários em que você rende mais reativando o radar de energia.
-                </p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await dataStore.updateProfileData(dataStore.profile!.id, {
-                        mood_status: 'active'
-                      });
-                      dataStore.showNotification('Radar de humor reativado com sucesso!', 'success');
-                    } catch (e: any) {
-                      dataStore.showNotification('Não foi possível ativar: ' + e.message, 'error');
-                    }
-                  }}
-                  className="mt-2.5 px-3 py-1.5 bg-[#6ee7a8] hover:bg-[#6ee7a8]/90 text-black text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
-                >
-                  Reativar Radar
-                </button>
-              </div>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await dataStore.updateProfileData(dataStore.profile!.id, {
-                      hide_mood_nudge: true
-                    });
-                    dataStore.showNotification('Aviso dispensado permanentemente.', 'success');
-                  } catch (e: any) {
-                    dataStore.showNotification('Não foi possível dispensar: ' + e.message, 'error');
-                  }
-                }}
-                className="p-1 text-text-dim/30 hover:text-text rounded-full hover:bg-white/5 transition-colors cursor-pointer shrink-0"
-                title="Não lembrar novamente"
-              >
-                <X size={14} />
-              </button>
-            </motion.div>
-          )}
         </div>
 
         {/* THE AVERAGE RING COLUMNS (WAVE 2C / PART B) - REDUCED VERTICAL GAP FOR ABOVE-THE-FOLD EFFECT */}
@@ -1502,10 +1459,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             {/* Slot 2: Sessões Profundas */}
             <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-2">
               <span className="text-2xl sm:text-3xl font-mono font-bold text-text tracking-tighter leading-none">
-                {todaySessions.length}
+                {todaySessionsCount}
               </span>
               <span className="text-[10px] text-text-dim/60 text-center font-sans tracking-wide leading-tight mt-1.5 px-1 whitespace-nowrap">
-                {todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões'}
+                {todaySessionsCount === 1 ? 'Sessão Profunda' : 'Sessões'}
               </span>
             </div>
 
@@ -1538,10 +1495,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             {/* Slot 2: Sessões Profundas */}
             <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-4">
               <span className="text-3xl md:text-4xl font-mono font-bold text-text tracking-tighter leading-none">
-                {todaySessions.length}
+                {todaySessionsCount}
               </span>
               <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
-                {todaySessions.length === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}
+                {todaySessionsCount === 1 ? 'Sessão Profunda' : 'Sessões Profundas'}
               </span>
             </div>
 
@@ -1630,7 +1587,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         </div>
 
         {/* Standalone Shutdown Button ("Fechar meu dia") */}
-        {todaySessions.length > 0 && (
+        {todaySessionsCount > 0 && (
           <div className="w-full flex justify-center pt-2">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('trigger-daily-shutdown'))}
