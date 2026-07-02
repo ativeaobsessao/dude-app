@@ -50,12 +50,12 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
   }
 
   const triggers = [
-    { value: 'Hungry (Fome/Sede)', label: '🍎 Hungry (Fome/Sede)' },
-    { value: 'Angry (Raiva/Estresse)', label: '🔥 Angry (Raiva/Estresse)' },
-    { value: 'Lonely (Solidão/Tédio)', label: '🌌 Lonely (Solidão/Tédio)' },
-    { value: 'Tired (Cansaço/Exaustão)', label: '🔋 Tired (Cansaço/Exaustão)' },
-    { value: 'Ambiente/Gatilho', label: '📍 Ambiente / Gatilho Visual' },
-    { value: 'Impulso do Nada', label: '⚡ Impulso Espontâneo' },
+    { value: 'Fome/Sede', label: '🍎 FOME/SEDE' },
+    { value: 'Raiva/Estresse', label: '🔥 RAIVA/ESTRESSE' },
+    { value: 'Solidão/Tédio', label: '🌌 SOLIDÃO/TÉDIO' },
+    { value: 'Cansaço/Exaustão', label: '🔋 CANSAÇO/EXAUSTÃO' },
+    { value: 'Ambiente/Gatilho', label: '📍 AMBIENTE / GATILHO VISUAL' },
+    { value: 'Impulso do Nada', label: '⚡ IMPULSO ESPONTÂNEO' },
   ];
 
   const handleTriggerClick = async (triggerValue: string) => {
@@ -136,7 +136,7 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
           </h2>
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-400 font-light max-w-xs mx-auto">
-              Você não cedeu ao impulso. Para calibrarmos sua defesa, o que causou essa fissura?
+              Parabéns, você conseguiu com sucesso controlar sua mente e se manteve no controle. Você gostaria de registrar se teve alguma situação que você quase cedeu ao impulso?
             </p>
           </div>
         </div>
