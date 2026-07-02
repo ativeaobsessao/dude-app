@@ -11,6 +11,7 @@ import { resolverNomeSessao, cleanActivityName } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
 import { AntiVicioModal } from './AntiVicioModal';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 
 const getDolphinColor = (p: number, index: number, alpha?: number) => {
   const stops: { t: number, color: [number, number, number] }[] = [
@@ -158,6 +159,7 @@ export const ActiveSession = () => {
   const [noteProjectId, setNoteProjectId] = useState(timer.projectId || '');
   const [noteActivityId, setNoteActivityId] = useState('');
   const [linkProjectId, setLinkProjectId] = useState(timer.projectId || '');
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   const filteredNotes = useMemo(() => {
     let list = [...dataStore.notes];
@@ -1181,9 +1183,7 @@ export const ActiveSession = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (window.confirm('Tem certeza que deseja excluir esta nota?')) {
-                                    dataStore.deleteNote(note.id);
-                                  }
+                                  setNoteToDelete(note.id);
                                 }}
                                 className="p-1 text-red-500/40 hover:text-red-400 rounded transition-colors"
                                 title="Excluir nota"
@@ -1716,6 +1716,17 @@ export const ActiveSession = () => {
         isOpen={isAntiVicioOpen}
         onClose={() => setIsAntiVicioOpen(false)}
         isDeepSessionContext={true}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={!!noteToDelete}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={() => {
+          if (noteToDelete) {
+            dataStore.deleteNote(noteToDelete);
+            setNoteToDelete(null);
+          }
+        }}
       />
     </div>
   );
