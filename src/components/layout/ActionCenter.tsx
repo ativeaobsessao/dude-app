@@ -723,16 +723,6 @@ export const ActionCenter = () => {
             }
           }
 
-          // Auto-save note if description exists
-          if (sessionData.description.trim()) {
-            await dataStore.addNote(
-              user.id,
-              sessionData.description,
-              sessionData.project || undefined,
-              sessionData.activityId || undefined
-            );
-          }
-
           if (!dataStore.hasCompletedFirstSession) {
             dataStore.completeFirstSession();
           }
@@ -749,16 +739,6 @@ export const ActionCenter = () => {
       return;
     }
     
-    // Auto-save note if description exists (Form 2)
-    if (sessionData.description.trim() && user) {
-      await dataStore.addNote(
-        user.id,
-        sessionData.description,
-        sessionData.project || undefined,
-        sessionData.activityId || undefined
-      );
-    }
-
     // Unlock audio context on user click gesture before timer start
     unlockAudio();
 

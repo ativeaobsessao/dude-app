@@ -450,16 +450,6 @@ export const ActiveSession = () => {
           });
         }
       }
-
-      // Save auto-note if present
-      if (noteDescription) {
-        await dataStore.addNote(
-          user.id,
-          noteDescription,
-          noteProjectIdFix,
-          undefined
-        );
-      }
       
       if (!dataStore.hasCompletedFirstSession) {
         dataStore.completeFirstSession();

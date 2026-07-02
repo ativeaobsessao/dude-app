@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut, Moon, Shield, Sword, Zap, BatteryMedium, BatteryLow } from 'lucide-react';
+import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut, Moon, Shield, Sword, Zap, BatteryMedium, BatteryLow, Activity } from 'lucide-react';
 import { DailyClosureOverlay } from './DailyClosureOverlay';
 import { DecompressionSession } from './DecompressionSession';
 
@@ -25,12 +25,18 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     addSessionTask, 
     profile, 
     projects,
-    addDailyShutdown
+    addDailyShutdown,
+    moodEntries
   } = useDataStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
+  const [internalClosed, setInternalClosed] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setInternalClosed(false);
+  }, [isOpen]);
 
   const todaySessions = sessions.filter(s => s.started_at && s.started_at.startsWith(targetDate));
   const totalMinutes = todaySessions.reduce((acc, curr) => acc + (curr.duration_minutes || 0), 0);
@@ -39,6 +45,38 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     if (!c.checkin_date) return false;
     return c.checkin_date.startsWith(targetDate);
   });
+
+  const todayMoodEntries = useMemo(() => {
+    return moodEntries.filter(m => m.date === targetDate);
+  }, [moodEntries, targetDate]);
+
+  const energyByPeriod = useMemo(() => {
+    const manhaEntry = todayMoodEntries.find(m => m.period === 'manha');
+    const tardeEntry = todayMoodEntries.find(m => m.period === 'tarde');
+    const noiteEntry = todayMoodEntries.find(m => m.period === 'noite');
+
+    return {
+      manha: manhaEntry?.energy || null,
+      tarde: tardeEntry?.energy || null,
+      noite: noiteEntry?.energy || null
+    };
+  }, [todayMoodEntries]);
+
+  const getEnergyIcon = (level: string | null) => {
+    if (level === 'pleno') return <Zap size={18} className="text-yellow-400" />;
+    if (level === 'inquieto') return <Activity size={18} className="text-orange-400" />;
+    if (level === 'equilibrado') return <BatteryMedium size={18} className="text-blue-400" />;
+    if (level === 'fadigado') return <BatteryLow size={18} className="text-red-400" />;
+    return <BatteryLow size={18} className="text-zinc-500" />;
+  };
+
+  const formatEnergyLabel = (level: string | null) => {
+    if (level === 'pleno') return 'Pleno';
+    if (level === 'inquieto') return 'Inquieto';
+    if (level === 'equilibrado') return 'Equilibrado';
+    if (level === 'fadigado') return 'Fadigado';
+    return '-';
+  };
 
   const avoidanceStats = useMemo(() => {
     let wins = 0;
@@ -102,24 +140,20 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     setIsDecompressionOpen(true);
   };
 
-  // Fake energy for now since it's not stored
-  const energyByPeriod = {
-    manha: 'high',
-    tarde: 'medium',
-    noite: 'low'
-  };
-
-  const getEnergyIcon = (level: string) => {
-    if (level === 'high') return <Zap size={18} className="text-yellow-400" />;
-    if (level === 'medium') return <BatteryMedium size={18} className="text-blue-400" />;
-    return <BatteryLow size={18} className="text-zinc-500" />;
-  };
-
-  const handleDismiss = () => {
+  const handleDismiss = async () => {
+    setInternalClosed(true);
+    if (user && targetDate) {
+      try {
+        await addDailyShutdown(user.id, targetDate, 'dismissed');
+        localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
+      } catch (err) {
+        console.error('Failed to dismiss shutdown', err);
+      }
+    }
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || internalClosed) return null;
 
   return (
     <AnimatePresence>
@@ -137,7 +171,9 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
         >
           {/* Header */}
           <div className="flex justify-between items-center mb-6 shrink-0">
-            <h2 className="text-2xl sm:text-3xl font-semibold text-zinc-100 tracking-tight">Resumo de Hoje</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-zinc-100 tracking-tight">
+              {isCatchUp ? `Fechamento do Dia - ${targetDate.split('-').reverse().join('/')}` : 'Resumo de Hoje'}
+            </h2>
             <button
               onClick={handleDismiss}
               className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer rounded-full hover:bg-zinc-900"
@@ -168,21 +204,30 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
                       {getEnergyIcon(energyByPeriod.manha)}
                     </div>
-                    <span className="text-[10px] font-medium text-zinc-400">Manhã</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-medium text-zinc-400 leading-tight">Manhã</span>
+                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.manha)}</span>
+                    </div>
                   </div>
                   <div className="w-full h-px bg-zinc-800"></div>
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
                       {getEnergyIcon(energyByPeriod.tarde)}
                     </div>
-                    <span className="text-[10px] font-medium text-zinc-400">Tarde</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-medium text-zinc-400 leading-tight">Tarde</span>
+                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.tarde)}</span>
+                    </div>
                   </div>
                   <div className="w-full h-px bg-zinc-800"></div>
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700/50">
                       {getEnergyIcon(energyByPeriod.noite)}
                     </div>
-                    <span className="text-[10px] font-medium text-zinc-400">Noite</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-medium text-zinc-400 leading-tight">Noite</span>
+                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.noite)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
