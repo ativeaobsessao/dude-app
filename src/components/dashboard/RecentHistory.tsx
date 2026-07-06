@@ -5,6 +5,53 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 import { EditSessionModal } from '../shared/EditSessionModal';
 
+const SessionDeleteModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm: () => void }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-md flex items-center justify-center p-6"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.5)] border border-white/5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-3 mb-8 text-center">
+              <h3 className="text-xl font-semibold tracking-tight text-white">Excluir Sessão Profunda?</h3>
+              <p className="text-sm text-white/50 leading-relaxed font-light">
+                Esta ação é irreversível e os dados desta sessão serão perdidos permanentemente.
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={onConfirm}
+                className="w-full py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold rounded-2xl transition-all cursor-pointer outline-none"
+              >
+                Excluir
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white/80 font-semibold rounded-2xl transition-all cursor-pointer outline-none"
+              >
+                Cancelar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 interface RecentHistoryProps {
   variant?: 'button' | 'menuRow';
 }
@@ -15,6 +62,7 @@ export const RecentHistory = ({ variant = 'button' }: RecentHistoryProps) => {
   const [filterProject, setFilterProject] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [editingSession, setEditingSession] = useState<any>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   const latestHistory = dataStore.sessions.slice(0, 3);
 
@@ -25,12 +73,18 @@ export const RecentHistory = ({ variant = 'button' }: RecentHistoryProps) => {
     return matchesProject && matchesDate;
   });
 
-  const handleDeleteSession = async (id: string) => {
-    if (window.confirm('Deseja excluir este registro de sessão permanentemente?')) {
+  const handleDeleteSession = (id: string) => {
+    setSessionToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (sessionToDelete) {
       try {
-        await dataStore.deleteSession(id);
+        await dataStore.deleteSession(sessionToDelete);
       } catch (error) {
         console.error('Erro ao excluir sessão:', error);
+      } finally {
+        setSessionToDelete(null);
       }
     }
   };
@@ -142,6 +196,13 @@ export const RecentHistory = ({ variant = 'button' }: RecentHistoryProps) => {
             />
           )}
         </AnimatePresence>
+
+        {/* Delete Confirm Modal */}
+        <SessionDeleteModal
+          isOpen={!!sessionToDelete}
+          onClose={() => setSessionToDelete(null)}
+          onConfirm={confirmDelete}
+        />
       </div>
     );
   }
@@ -229,6 +290,13 @@ export const RecentHistory = ({ variant = 'button' }: RecentHistoryProps) => {
           />
         )}
       </AnimatePresence>
+
+      {/* Delete Confirm Modal */}
+      <SessionDeleteModal
+        isOpen={!!sessionToDelete}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };
@@ -392,7 +460,10 @@ const HistoryRow: React.FC<{ session: any; onDelete: (id: string) => void; onEdi
             <Edit2 size={16} />
           </button>
           <button
-            onClick={() => onDelete(session.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(session.id);
+            }}
             className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all lg:opacity-0 lg:group-hover:opacity-100 duration-150 cursor-pointer"
             title="Excluir Sessão"
           >
