@@ -9,6 +9,7 @@ import { DailyTask, ScheduledActivity } from '../../types';
 import { AgendamentoCard } from '../agenda/AgendamentoCard';
 import { DeleteTaskModal } from './DeleteTaskModal';
 import { DailyClosureOverlay } from './DailyClosureOverlay';
+import { ScheduledSuccessOverlay } from '../shared/ScheduledSuccessOverlay';
 
 const isDelayed = (dateString: string) => {
   const today = new Date();
@@ -626,14 +627,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     updateDurationMinutesVal(durationHours, padded);
   };
 
-  useEffect(() => {
-    if (successOverlay.visible) {
-      const timer = setTimeout(() => {
-        setSuccessOverlay({ visible: false, data: null });
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successOverlay.visible]);
+  
 
 
   // Event listener for Inbox Captures
@@ -747,6 +741,17 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const handleSaveTask = async () => {
     if (!user) return;
 
+    if (taskMode === 'agendar' && !editingTask) {
+      if (!scheduledDate) {
+        dataStore.showNotification('Por favor, selecione a data do agendamento.', 'error');
+        return;
+      }
+      if (durationMinutes < 1) {
+        dataStore.showNotification('A duração deve ser de pelo menos 1 minuto.', 'error');
+        return;
+      }
+    }
+
     let computedTitle = '';
     if (activityManualText.trim()) {
       computedTitle = activityManualText.trim();
@@ -767,6 +772,39 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
 
     if (editingTask && !activityManualText.trim() && !selectedActivityId && !selectedHabitId && !selectedProjectId && subtasksList.length === 0) {
       computedTitle = editingTask.title;
+    }
+
+    if (taskMode === 'agendar' && !editingTask) {
+      const schPayload = {
+        user_id: user.id,
+        title: computedTitle.trim(),
+        project_id: selectedProjectId || null,
+        habit_id: selectedHabitId || null,
+        activity_id: selectedActivityId || null,
+        atividade_avulsa: activityManualText.trim() || null,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
+        duration_minutes: durationMinutes,
+        tasks: subtasksList.map(s => s.text),
+        notes: null
+      };
+
+      const result = await dataStore.addScheduledActivity(schPayload);
+      if (result) {
+        setShowCreateModal(false);
+        setSuccessOverlay({ visible: true, data: result });
+        setTaskTitle('');
+        setSelectedProjectId('');
+        setSelectedHabitId('');
+        setSelectedActivityId('');
+        setActivityManualText('');
+        setNewSubtaskText('');
+        setSubtasksList([]);
+        setEditingTask(null);
+      } else {
+        dataStore.showNotification('Erro ao criar agendamento.', 'error');
+      }
+      return;
     }
 
     const payload = {
@@ -796,8 +834,15 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         sessionStorage.removeItem('pending_capture_conversion');
       }
     }
-
+    
     setShowCreateModal(false);
+    setTaskTitle('');
+    setSelectedProjectId('');
+    setSelectedHabitId('');
+    setSelectedActivityId('');
+    setActivityManualText('');
+    setNewSubtaskText('');
+    setSubtasksList([]);
     setEditingTask(null);
   };
 
@@ -1474,6 +1519,121 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                   </form>
                 </div>
 
+{taskMode === 'agendar' && !editingTask && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="space-y-4 pt-4 border-t border-white/10"
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-[#6ee7a8]/80 flex items-center gap-2">
+                      <Calendar size={14} /> CONFIGURAÇÕES DE AGENDA
+                    </div>
+                    
+                    {/* DATE BLOCK */}
+                    <div className="space-y-1.5 w-full">
+                      <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">DATA</label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 pl-11 text-text-primary text-sm outline-none focus:border-[#6ee7a8] transition-all min-h-[58px]"
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                        />
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/40 pointer-events-none" size={16} />
+                      </div>
+                    </div>
+
+                    {/* HORÁRIO DE INÍCIO */}
+                    <div className="space-y-1.5 w-full">
+                      <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">HORÁRIO DE INÍCIO</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                              maxLength={2}
+                              value={startHours}
+                              onChange={handleStartHoursChange}
+                              onBlur={handleStartHoursBlur}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                          <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                              maxLength={2}
+                              value={startMins}
+                              onChange={handleStartMinsChange}
+                              onBlur={handleStartMinsBlur}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DURAÇÃO */}
+                    <div className="space-y-1.5 w-full">
+                      <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">DURAÇÃO</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                              maxLength={2}
+                              value={durationHours}
+                              onChange={handleHoursChange}
+                              onBlur={handleHoursBlur}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                          <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-text-primary outline-none py-1"
+                              maxLength={2}
+                              value={durationMinsState}
+                              onChange={handleMinutesChange}
+                              onBlur={handleMinutesBlur}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ENCERRAMENTO */}
+                    <div className="space-y-1.5 w-full pb-4">
+                      <label className="text-[10px] font-bold tracking-wider text-text-secondary/70 uppercase">HORÁRIO DE ENCERRAMENTO</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1 flex items-center justify-center bg-white/[0.02] border border-white/10 rounded-2xl px-3 min-h-[58px] gap-1 opacity-70">
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Horas</span>
+                            <input type="text" readOnly className="w-full bg-transparent text-center font-bold text-sm text-text-primary/70 outline-none py-1 select-none pointer-events-none" value={endHours} />
+                          </div>
+                          <span className="text-text-secondary/40 font-bold text-sm select-none mb-1">:</span>
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-text-secondary/40 uppercase tracking-widest">Minutos</span>
+                            <input type="text" readOnly className="w-full bg-transparent text-center font-bold text-sm text-text-primary/70 outline-none py-1 select-none pointer-events-none" value={endMins} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -1489,15 +1649,50 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                 </button>
                 <button
                   onClick={handleSaveTask}
-                  className="px-6 py-3.5 bg-green text-background font-bold text-xs uppercase tracking-wider rounded-2xl transition-all hover:brightness-110 cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)]"
+                  disabled={taskMode === 'agendar' && (!scheduledDate || durationMinutes <= 0)}
+                  className="px-6 py-3.5 bg-green hover:brightness-110 text-background disabled:opacity-50 disabled:hover:brightness-100 disabled:cursor-not-allowed font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)]"
                 >
-                  Confirmar Ok
+                  {editingTask ? 'SALVAR ALTERAÇÕES' : taskMode === 'agendar' ? 'CONFIRMAR AGENDAMENTO' : 'CONFIRMAR OK'}
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      <ScheduledSuccessOverlay
+        visible={successOverlay.visible}
+        data={successOverlay.data}
+        onClose={() => setSuccessOverlay({ visible: false, data: null })}
+        onEdit={(data) => {
+          setSuccessOverlay({ visible: false, data: null });
+          if(data) {
+            setTaskMode('agendar');
+            setScheduledDate(data.scheduled_date || '');
+            setScheduledTime(data.scheduled_time || '09:00');
+            const h = data.scheduled_time.split(':')[0];
+            const m = data.scheduled_time.split(':')[1];
+            setStartHours(h || '09');
+            setStartMins(m || '00');
+            setDurationMinutes(data.duration_minutes || 30);
+            const dH = Math.floor((data.duration_minutes || 30) / 60);
+            const dM = (data.duration_minutes || 30) % 60;
+            setDurationHours(String(dH).padStart(2, '0'));
+            setDurationMinsState(String(dM).padStart(2, '0'));
+            setSelectedProjectId(data.project_id || '');
+            setSelectedActivityId(data.activity_id || '');
+            setSelectedHabitId(data.habit_id || '');
+            setActivityManualText(data.atividade_avulsa || '');
+            setTaskTitle(data.title || '');
+            if(data.tasks && data.tasks.length > 0) {
+              setSubtasksList(data.tasks.map((t) => ({ text: t, completed: false })));
+            } else {
+              setSubtasksList([]);
+            }
+            setTimeout(() => setShowCreateModal(true), 100);
+          }
+        }}
+      />
 
       <DeleteTaskModal
         isOpen={!!taskToDelete}
@@ -1510,76 +1705,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
         }}
       />
     
-      {/* SUCCESS OVERLAY */}
-      <AnimatePresence>
-        {successOverlay.visible && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xl flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col items-center text-center gap-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-primary-green/10 flex items-center justify-center text-primary-green">
-                <CheckCircle2 size={32} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-text-primary tracking-tight">Agendamento Criado</h3>
-                <p className="text-sm font-light text-text-secondary leading-relaxed">
-                  Agendamento salvo com sucesso.
-                </p>
-              </div>
-              <div className="w-full space-y-3 mt-2">
-                <button
-                  onClick={() => {
-                    const data = successOverlay.data;
-                    setSuccessOverlay({ visible: false, data: null });
-                    if(data) {
-                      setTaskMode('agendar');
-                      setScheduledDate(data.scheduled_date || '');
-                      setScheduledTime(data.scheduled_time || '09:00');
-                      const h = data.scheduled_time.split(':')[0];
-                      const m = data.scheduled_time.split(':')[1];
-                      setStartHours(h || '09');
-                      setStartMins(m || '00');
-                      setDurationMinutes(data.duration_minutes || 30);
-                      const dH = Math.floor((data.duration_minutes || 30) / 60);
-                      const dM = (data.duration_minutes || 30) % 60;
-                      setDurationHours(String(dH).padStart(2, '0'));
-                      setDurationMinsState(String(dM).padStart(2, '0'));
-                      setSelectedProjectId(data.project_id || '');
-                      setSelectedActivityId(data.activity_id || '');
-                      setSelectedHabitId(data.habit_id || '');
-                      setActivityManualText(data.atividade_avulsa || '');
-                      setTaskTitle(data.title || '');
-                      if(data.tasks && data.tasks.length > 0) {
-                        setSubtasksList(data.tasks.map((t: string) => ({ text: t, completed: false })));
-                      } else {
-                        setSubtasksList([]);
-                      }
-                      setTimeout(() => setShowCreateModal(true), 100);
-                    }
-                  }}
-                  className="w-full py-4 bg-primary-green/10 hover:bg-primary-green/20 text-primary-green rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
-                >
-                  Editar Agendamento
-                </button>
-                <button
-                  onClick={() => setSuccessOverlay({ visible: false, data: null })}
-                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
-                >
-                  Fechar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
 
 </div>
   );

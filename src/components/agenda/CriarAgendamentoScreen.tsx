@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomSelect } from '../ui/CustomSelect';
+import { ScheduledSuccessOverlay } from '../shared/ScheduledSuccessOverlay';
 import { Plus, Trash2, Calendar, Clock, AlertTriangle, X } from 'lucide-react';
 import { getLocalDateString, cleanActivityName } from '../../lib/utils';
 import { ScheduledActivity } from '../../types';
@@ -39,6 +40,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
 
   // Additional fields
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successOverlay, setSuccessOverlay] = useState<{ visible: boolean, data: any | null }>({ visible: false, data: null });
   const [conflictWarning, setConflictWarning] = useState<{ name: string; time: string; end: string; payload: any } | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -311,8 +313,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const success = await dataStore.updateScheduledActivity(editingActivity.id, payload);
       if (success) {
         setConflictWarning(null);
-        dataStore.showNotification('Agendamento salvo com sucesso ✓');
-        onBack();
+        setSuccessOverlay({ visible: true, data: { ...payload, id: editingActivity.id } });
       } else {
         setErrorMsg('Erro interno ao atualizar no banco de dados.');
       }
@@ -320,8 +321,7 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
       const saved = await dataStore.addScheduledActivity(payload);
       if (saved) {
         setConflictWarning(null);
-        dataStore.showNotification('Agendamento salvo com sucesso ✓');
-        onBack();
+        setSuccessOverlay({ visible: true, data: saved });
       } else {
         setErrorMsg('Erro interno ao salvar no banco de dados.');
       }
@@ -797,8 +797,24 @@ export const CriarAgendamentoScreen = ({ onBack, onClose, editingActivity }: Cri
               VER TODAS ATIVIDADES PROGRAMADAS
             </button>
           </div>
-        </div>
+        
+      {/* SUCCESS OVERLAY */}
+      <ScheduledSuccessOverlay 
+        visible={successOverlay.visible} 
+        data={successOverlay.data} 
+        onClose={() => {
+          setSuccessOverlay({ visible: false, data: null });
+          onBack();
+        }} 
+        onEdit={(data) => {
+          setSuccessOverlay({ visible: false, data: null });
+          // No need to fill states manually here, because this screen might just stay open and we already updated the state, but we can't easily jump back to editingActivity mode... Wait.
+          // Wait, CriarAgendamentoScreen is already displaying the form. If we click edit, we just close the overlay and the user is back in the form with the current data still loaded!
+          // So onEdit just closes the overlay!
+        }}
+      />
+
+</div>
       </div>
-    </div>
-  );
+    </div>);
 };
