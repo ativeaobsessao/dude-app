@@ -24,6 +24,8 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
   // Note Editing State
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+  const [editingNoteProjectId, setEditingNoteProjectId] = useState('');
+  const [editingNoteActivityId, setEditingNoteActivityId] = useState('');
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   // Selection and Download State
@@ -202,10 +204,17 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
 
   const handleUpdateNote = async (id: string) => {
     if (!editingNoteContent.trim()) return;
-    const success = await dataStore.updateNote(id, editingNoteContent.trim());
+    const success = await dataStore.updateNote(
+      id,
+      editingNoteContent.trim(),
+      editingNoteProjectId || undefined,
+      editingNoteActivityId || undefined
+    );
     if (success) {
       setEditingNoteId(null);
       setEditingNoteContent('');
+      setEditingNoteProjectId('');
+      setEditingNoteActivityId('');
     } else {
       alert('Erro ao atualizar anotação.');
     }
@@ -368,6 +377,8 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                             e.stopPropagation();
                             setEditingNoteId(note.id);
                             setEditingNoteContent(note.content);
+                            setEditingNoteProjectId(note.project_id || '');
+                            setEditingNoteActivityId(note.activity_id || '');
                           }}
                           title="Editar Anotação"
                           className="p-1.5 text-primary-green/50 hover:text-primary-green hover:bg-primary-green/10 rounded-lg transition-all cursor-pointer outline-none"
@@ -389,15 +400,43 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                   )}
                   
                   {editingNoteId === note.id ? (
-                    <div className="space-y-4 flex-1 mb-6">
+                    <div className="space-y-4 flex-1 mb-6" onClick={(e) => e.stopPropagation()}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Projeto (opcional)</label>
+                          <CustomSelect 
+                            value={editingNoteProjectId}
+                            onChange={(val) => {
+                              setEditingNoteProjectId(val);
+                              setEditingNoteActivityId('');
+                            }}
+                            placeholder="Nenhum Projeto"
+                            options={[
+                              { value: '', label: 'Nenhum Projeto' },
+                              ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                            ]}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Atividade (opcional)</label>
+                          <CustomSelect 
+                            value={editingNoteActivityId}
+                            onChange={(val) => setEditingNoteActivityId(val)}
+                            placeholder="Nenhuma Atividade"
+                            options={[
+                              { value: '', label: 'Nenhuma Atividade' },
+                              ...(editingNoteProjectId ? dataStore.activities.filter(a => a.project_id === editingNoteProjectId) : dataStore.activities).map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
+                            ]}
+                          />
+                        </div>
+                      </div>
                       <textarea
                         className="w-full bg-surface/60 border border-primary-green/40 p-4 rounded-[1.5rem] text-text-primary text-[1rem]/[1.5rem] font-light outline-none resize-none h-32 focus:border-primary-green"
                         value={editingNoteContent}
                         onChange={e => setEditingNoteContent(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
                         autoFocus
                       />
-                      <div className="flex justify-end gap-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-3">
                         <button
                           onClick={() => setEditingNoteId(null)}
                           className="px-4 py-2 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-text-secondary hover:text-white transition-colors min-h-[44px] cursor-pointer outline-none"

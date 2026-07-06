@@ -985,7 +985,7 @@ export const ActiveSession = () => {
                   className="flex items-center justify-center gap-3 p-6 bg-white/5 border border-white/5 hover:border-[#6ee7b7]/30 hover:bg-white/10 rounded-2xl text-text-primary group transition-all"
                 >
                   <span className="text-sm font-extrabold tracking-widest text-text-primary group-hover:text-[#6ee7b7]">
-                    📝 ANOTAÇÃO
+                    ANOTAÇÃO
                   </span>
                 </button>
 
@@ -1107,13 +1107,6 @@ export const ActiveSession = () => {
                       <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 font-sans">Nova Anotação</label>
                       <textarea
                         placeholder="O que precisa registrar agora para não esquecer?"
-                        autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddNote();
-                          }
-                        }}
                         className="w-full bg-surface/40 border border-border-white rounded-2xl p-5 text-base font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
                         value={noteContent}
                         onChange={e => setNoteContent(e.target.value)}

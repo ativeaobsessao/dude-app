@@ -1265,7 +1265,7 @@ export const ActionCenter = () => {
       setNoteText('');
       setNoteProject('');
       setNoteActivityId('');
-      showSuccess('✅ Anotação salva!');
+      showSuccess('Anotação salva!');
       
       const captureId = sessionStorage.getItem('pending_capture_conversion');
       if (captureId) {
@@ -2431,13 +2431,6 @@ export const ActionCenter = () => {
                       <div className="space-y-1 text-left">
                         <label className={labelClasses}>O que não pode esquecer?</label>
                         <textarea
-                          autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleAddNote();
-                            }
-                          }}
                           placeholder="Algo importante que não pode esquecer?"
                           className={`${inputClasses} h-40 resize-none`}
                           value={noteText}

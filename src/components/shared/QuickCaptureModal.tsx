@@ -54,7 +54,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
         selectedActivityId || undefined
       );
       if (result) {
-        showNotification('Anotação capturada com sucesso! ⚡', 'success');
+        showNotification('Anotação capturada com sucesso!', 'success');
         setNoteContent('');
         setSelectedProjectId('');
         setSelectedActivityId('');
@@ -199,14 +199,6 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                   placeholder="Escreva seu insight ou ideia genial..."
-                  enterKeyHint="done"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSaveNote();
-                      e.currentTarget.blur();
-                    }
-                  }}
                   className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30 resize-none min-h-[100px]"
                   autoFocus
                 />

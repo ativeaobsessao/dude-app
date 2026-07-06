@@ -201,7 +201,7 @@ export const RecentNotes = () => {
     );
 
     if (result) {
-      setSuccessMessage('✅ Anotação salva!');
+      setSuccessMessage('Anotação salva!');
       setTimeout(() => setSuccessMessage(''), 3000);
       setNoteContent('');
       setNoteProjectId('');
@@ -469,13 +469,6 @@ export const RecentNotes = () => {
                     <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">O que não pode esquecer?</label>
                     <textarea
                       placeholder="Algo importante que não pode esquecer?"
-                      autoComplete="off" autoCorrect="off" enterKeyHint="send" inputMode="text"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddNote();
-                        }
-                      }}
                       className="w-full bg-surface/40 border border-border-white rounded-2xl p-6 text-lg font-light text-text-primary outline-none focus:border-primary-green transition-all resize-none h-40 touch-manipulation min-h-[44px]"
                       value={noteContent}
                       onChange={e => setNoteContent(e.target.value)}

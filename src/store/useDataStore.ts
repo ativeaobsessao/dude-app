@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { habitService, HabitType } from '../services/habitService';
-import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, MoodEntry, MoodPeriod, SavedLink, DailyShutdown, DailyTask, InboxCapture } from '../types';
+import { Project, Habit, FocusSession, Note, Profile, Activity, HabitCompletion, SessionTask, PendingTask, ScheduledActivity, AvoidanceCheckin, SavedLink, DailyShutdown, DailyTask, InboxCapture, MoodEntry, MoodPeriod } from '../types';
 import { useTimerStore } from './useTimerStore';
 import { useAuthStore } from './useAuthStore';
 import { getLocalDateString, getLocalYesterdayDateString, safeParseDate } from '../lib/utils';
@@ -57,6 +57,8 @@ interface DataState {
   habits: Habit[];
   habitCompletions: HabitCompletion[];
   avoidanceCheckins: AvoidanceCheckin[];
+  moodEntries: MoodEntry[];
+  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: string, energy: string) => Promise<void>;
   sessions: FocusSession[];
   notes: Note[];
   activities: Activity[];
@@ -66,7 +68,7 @@ interface DataState {
   loading: boolean;
   initialFetchDone: boolean;
   hasCompletedFirstSession: boolean;
-  moodEntries: MoodEntry[];
+  
   savedLinks: SavedLink[];
   dailyShutdowns: DailyShutdown[];
   dailyTasks: DailyTask[];
@@ -83,7 +85,7 @@ interface DataState {
   
   currentEnergyState: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null;
   setCurrentEnergyState: (state: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null) => void;
-  addMoodEntry: (userId: string, date: string, period: MoodPeriod, mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null, energy?: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null) => Promise<MoodEntry | null>;
+  
   addDailyShutdown: (userId: string, date: string, status: 'completed' | 'dismissed') => Promise<DailyShutdown | null>;
   
   fetchLinks: (userId: string) => Promise<void>;
@@ -97,9 +99,9 @@ interface DataState {
   updateProfileData: (userId: string, updates: { 
     full_name?: string; 
     avatar_url?: string | null; 
-    mood_status?: 'active' | 'paused' | 'disabled' | null;
-    mood_snoozed_until?: string | null;
-    hide_mood_nudge?: boolean | null;
+    
+    
+    
   }) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
   syncHabitsRollover: (userId: string) => Promise<void>;
@@ -151,7 +153,7 @@ interface DataState {
   
   completeHabitSession: (habitId: string, userId: string, durationMinutes: number, focusSessionId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
-  updateNote: (id: string, content: string) => Promise<boolean>;
+  updateNote: (id: string, content: string, projectId?: string, activityId?: string) => Promise<boolean>;
   deleteSession: (id: string) => Promise<void>;
   updateSession: (id: string, updates: Partial<FocusSession>) => Promise<void>;
   updateSessionTaskDescription: (taskId: string, description: string) => Promise<void>;
@@ -178,6 +180,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   habits: [],
   habitCompletions: [],
   avoidanceCheckins: [],
+  moodEntries: [],
   sessions: [],
   notes: [],
   activities: [],
@@ -189,15 +192,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   hasCompletedFirstSession: localStorage.getItem('dude-first-session-completed') === 'true',
   currentEnergyState: null,
   setCurrentEnergyState: (state) => set({ currentEnergyState: state }),
-  moodEntries: (() => {
-    try {
-      const cached = localStorage.getItem('dude-mood-entries');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  })(),
-  savedLinks: [],
+    savedLinks: [],
   dailyTasks: [],
   inboxCaptures: [],
   dailyShutdowns: (() => {
@@ -235,6 +230,16 @@ export const useDataStore = create<DataState>((set, get) => ({
     }, 6000);
 
     set({ notificationTimeoutId: tid });
+  },
+
+  addMoodEntry: async (userId, date, period, mood, energy) => {
+    try {
+      const { data, error } = await supabase.from('mood_entries').insert({ user_id: userId, date, period, mood, energy }).select().single();
+      if (error) throw error;
+      if (data) set({ moodEntries: [data, ...get().moodEntries] });
+    } catch (err) {
+      console.error('Error adding mood entry:', err);
+    }
   },
 
   fetchProfile: async (userId) => {
@@ -326,10 +331,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         (async () => {
           try {
-            return await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+            const res = await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+            return res;
           } catch (err) {
-            console.warn('Silent fallback: mood_entries table lookup failed', err);
-            return { data: null };
+            return { data: [] };
           }
         })(),
         (async () => {
@@ -403,28 +408,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         })(),
       ]);
 
-      const fetchedMoods = (me && 'data' in me && me.data) ? (me.data as any[]).map(item => ({
-        ...item,
-        date: item.entry_date || item.date
-      })) : [];
-      let combinedMoods = [...fetchedMoods];
-      try {
-        const cachedStr = localStorage.getItem('dude-mood-entries');
-        const cachedMoods = cachedStr ? (JSON.parse(cachedStr) as MoodEntry[]) : [];
-        const fetchedIds = new Set(fetchedMoods.map(m => m.id));
-        const missingFromRemote = cachedMoods.filter(m => !fetchedIds.has(m.id));
-        combinedMoods = [...combinedMoods, ...missingFromRemote];
-      } catch (err) {
-        console.error('Error merging local mood cache:', err);
-      }
-      combinedMoods.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      try {
-        localStorage.setItem('dude-mood-entries', JSON.stringify(combinedMoods));
-      } catch (err) {
-        console.error('Error writing merged mood cache:', err);
-      }
-
-      const fetchedShutdowns = (ds && 'data' in ds && ds.data) ? (ds.data as DailyShutdown[]) : [];
+            const fetchedShutdowns = (ds && 'data' in ds && ds.data) ? (ds.data as DailyShutdown[]) : [];
       let combinedShutdowns = [...fetchedShutdowns];
       try {
         const cachedStr = localStorage.getItem('dude-daily-shutdowns');
@@ -470,8 +454,8 @@ export const useDataStore = create<DataState>((set, get) => ({
          pendingTasks: pt.data || [],
          scheduledActivities: sa.data || [],
          avoidanceCheckins: ac.data || [],
-         moodEntries: combinedMoods,
-         savedLinks: sl.data || [],
+         moodEntries: (me && 'data' in me && me.data) ? me.data : [],
+                  savedLinks: sl.data || [],
          dailyShutdowns: combinedShutdowns,
          dailyTasks: combinedDailyTasks,
          inboxCaptures: (ic && 'data' in ic && ic.data) ? ic.data as InboxCapture[] : [],
@@ -572,25 +556,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   revalidateSyncState: async (userId) => {
     try {
-      const [moodRes, avoidanceRes] = await Promise.all([
-        supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-      ]);
+      const avoidanceRes = await supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      const moodRes = await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      if (moodRes && moodRes.data) set({ moodEntries: moodRes.data });
 
-      if (moodRes && moodRes.data && !moodRes.error) {
-        const sortedMoods = (moodRes.data as any[]).map(item => ({
-          ...item,
-          date: item.entry_date || item.date
-        }));
-        sortedMoods.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        set({ moodEntries: sortedMoods });
-        try {
-          localStorage.setItem('dude-mood-entries', JSON.stringify(sortedMoods));
-        } catch (err) {
-          console.error('Error writing mood cache in revalidateSyncState:', err);
-        }
-      }
-
+      
       if (avoidanceRes && avoidanceRes.data && !avoidanceRes.error) {
         set({ avoidanceCheckins: avoidanceRes.data });
       }
@@ -1769,15 +1739,19 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  updateNote: async (id, content) => {
+  updateNote: async (id, content, projectId, activityId) => {
     try {
+      const updates: any = { content };
+      if (projectId !== undefined) updates.project_id = projectId || null;
+      if (activityId !== undefined) updates.activity_id = activityId || null;
+
       const { error } = await supabase
         .from('notes')
-        .update({ content })
+        .update(updates)
         .eq('id', id);
       if (error) throw error;
       set({
-        notes: get().notes.map(n => n.id === id ? { ...n, content } : n)
+        notes: get().notes.map(n => n.id === id ? { ...n, ...updates } : n)
       });
       return true;
     } catch (err) {
@@ -1954,8 +1928,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         'habits',
         'projects',
         'avoidance_checkins',
-        'mood_entries',
-        'daily_shutdowns',
+                'daily_shutdowns',
         'day_closures',
         'saved_links'
       ];
@@ -2003,8 +1976,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         sessionTasks: [],
         pendingTasks: [],
         scheduledActivities: [],
-        moodEntries: [],
-        savedLinks: [],
+                savedLinks: [],
         dailyShutdowns: [],
         dailyTasks: [],
         loading: false,
@@ -2022,57 +1994,6 @@ export const useDataStore = create<DataState>((set, get) => ({
   completeFirstSession: () => {
     localStorage.setItem('dude-first-session-completed', 'true');
     set({ hasCompletedFirstSession: true });
-  },
-
-  addMoodEntry: async (userId, date, period, mood, energy) => {
-    const tempId = crypto.randomUUID ? crypto.randomUUID() : 'mood-' + Math.random().toString(36).substring(2, 11);
-    const newEntry: MoodEntry = {
-      id: tempId,
-      user_id: userId,
-      date,
-      period,
-      mood,
-      energy: energy || null,
-      created_at: new Date().toISOString()
-    };
-
-    const updated = [newEntry, ...get().moodEntries];
-    set({ moodEntries: updated });
-    try {
-      localStorage.setItem('dude-mood-entries', JSON.stringify(updated));
-    } catch (err) {
-      console.error('Local Storage save mood error:', err);
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('mood_entries')
-        .insert({
-          user_id: userId,
-          entry_date: date,
-          period,
-          mood,
-          energy: energy || null
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      if (data) {
-        const mappedData = { ...data, date: data.entry_date || data.date };
-        const finalEntries = get().moodEntries.map(m => m.id === tempId ? mappedData : m);
-        set({ moodEntries: finalEntries });
-        try {
-          localStorage.setItem('dude-mood-entries', JSON.stringify(finalEntries));
-        } catch (err) {
-          console.error('Local Storage update mood error:', err);
-        }
-        return mappedData;
-      }
-    } catch (err) {
-      console.warn('Supabase sync warning for mood entry (cached locally only):', err);
-    }
-    return newEntry;
   },
 
   addDailyShutdown: async (userId, date, status) => {
