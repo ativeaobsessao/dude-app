@@ -528,6 +528,114 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
+  const [taskMode, setTaskMode] = useState<'hoje' | 'agendar'>('hoje');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  
+  const [startHours, setStartHours] = useState('09');
+  const [startMins, setStartMins] = useState('00');
+  const [scheduledTime, setScheduledTime] = useState('09:00');
+  
+  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [durationHours, setDurationHours] = useState('00');
+  const [durationMinsState, setDurationMinsState] = useState('30');
+  
+  const [endHours, setEndHours] = useState('09');
+  const [endMins, setEndMins] = useState('30');
+
+  const [successOverlay, setSuccessOverlay] = useState<{ visible: boolean, data: any | null }>({ visible: false, data: null });
+
+  // Time conversion helpers
+  function timeToMinutes(timeStr: string): number {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+  function minutesToTime(totalMinutes: number): string {
+    const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+    const h = Math.floor(normalized / 60);
+    const m = normalized % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
+  // Handlers for time and duration
+  const updateDurationMinutesVal = (hrsStr: string, minsStr: string) => {
+    const h = parseInt(hrsStr, 10) || 0;
+    const m = parseInt(minsStr, 10) || 0;
+    const total = h * 60 + m;
+    setDurationMinutes(total);
+    const calculatedEnd = minutesToTime(timeToMinutes(scheduledTime) + total);
+    const [eh, em] = calculatedEnd.split(':');
+    setEndHours(eh || '00');
+    setEndMins(em || '00');
+  };
+
+  const updateStartAndEndTime = (sh: string, sm: string, dur: number) => {
+    const sHNum = parseInt(sh, 10) || 0;
+    const sMNum = parseInt(sm, 10) || 0;
+    const formattedStart = `${String(sHNum).padStart(2, '0')}:${String(sMNum).padStart(2, '0')}`;
+    setScheduledTime(formattedStart);
+    const calculatedEnd = minutesToTime(timeToMinutes(formattedStart) + dur);
+    const [eh, em] = calculatedEnd.split(':');
+    setEndHours(eh || '00');
+    setEndMins(em || '00');
+  };
+
+  const handleStartHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (parseInt(val, 10) > 23) val = '23';
+    setStartHours(val);
+    if (val.length === 2) updateStartAndEndTime(val, startMins, durationMinutes);
+  };
+  const handleStartHoursBlur = () => {
+    const padded = String(parseInt(startHours || '0', 10)).padStart(2, '0');
+    setStartHours(padded);
+    updateStartAndEndTime(padded, startMins, durationMinutes);
+  };
+  const handleStartMinsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (parseInt(val, 10) > 59) val = '59';
+    setStartMins(val);
+    if (val.length === 2) updateStartAndEndTime(startHours, val, durationMinutes);
+  };
+  const handleStartMinsBlur = () => {
+    const padded = String(parseInt(startMins || '0', 10)).padStart(2, '0');
+    setStartMins(padded);
+    updateStartAndEndTime(startHours, padded, durationMinutes);
+  };
+
+  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '');
+    setDurationHours(val);
+    if (val.length === 2) updateDurationMinutesVal(val, durationMinsState);
+  };
+  const handleHoursBlur = () => {
+    const padded = String(parseInt(durationHours || '0', 10)).padStart(2, '0');
+    setDurationHours(padded);
+    updateDurationMinutesVal(padded, durationMinsState);
+  };
+  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (parseInt(val, 10) > 59) val = '59';
+    setDurationMinsState(val);
+    if (val.length === 2) updateDurationMinutesVal(durationHours, val);
+  };
+  const handleMinutesBlur = () => {
+    const padded = String(parseInt(durationMinsState || '0', 10)).padStart(2, '0');
+    setDurationMinsState(padded);
+    updateDurationMinutesVal(durationHours, padded);
+  };
+
+  useEffect(() => {
+    if (successOverlay.visible) {
+      const timer = setTimeout(() => {
+        setSuccessOverlay({ visible: false, data: null });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successOverlay.visible]);
+
+
   // Event listener for Inbox Captures
   useEffect(() => {
     const handleOpenTask = (e: any) => {
@@ -1202,14 +1310,29 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               className="relative w-full max-w-lg bg-[#0f1110] border border-white/10 rounded-3xl p-6 md:p-8 overflow-hidden flex flex-col gap-6 shadow-[0_24px_50px_rgba(0,0,0,0.8)]"
             >
-              <div>
-                <h3 className="text-xl font-bold uppercase tracking-tight text-text-primary">
-                  {editingTask ? 'Editar Tarefa Diária' : 'Nova Tarefa Diária'}
-                </h3>
-                <p className="text-xs text-text-secondary mt-1">
-                  Salve todas as tarefas que você precisa executar no dia de hoje
-                </p>
-              </div>
+              {!editingTask && (
+                <div className="flex bg-white/5 p-1 rounded-2xl w-full">
+                  <button
+                    onClick={() => setTaskMode('hoje')}
+                    className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${taskMode === 'hoje' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary/60 hover:text-text-primary'}`}
+                  >
+                    PARA HOJE
+                  </button>
+                  <button
+                    onClick={() => setTaskMode('agendar')}
+                    className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${taskMode === 'agendar' ? 'bg-primary-green text-background shadow-sm' : 'text-text-secondary/60 hover:text-text-primary'}`}
+                  >
+                    AGENDAR DATA
+                  </button>
+                </div>
+              )}
+              {editingTask && (
+                <div>
+                  <h3 className="text-xl font-bold uppercase tracking-tight text-text-primary">
+                    Editar Tarefa Diária
+                  </h3>
+                </div>
+              )}
 
               {/* Form Areas */}
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
@@ -1386,6 +1509,78 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
           }
         }}
       />
-    </div>
+    
+      {/* SUCCESS OVERLAY */}
+      <AnimatePresence>
+        {successOverlay.visible && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col items-center text-center gap-6"
+            >
+              <div className="w-16 h-16 rounded-full bg-primary-green/10 flex items-center justify-center text-primary-green">
+                <CheckCircle2 size={32} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-text-primary tracking-tight">Agendamento Criado</h3>
+                <p className="text-sm font-light text-text-secondary leading-relaxed">
+                  Agendamento salvo com sucesso.
+                </p>
+              </div>
+              <div className="w-full space-y-3 mt-2">
+                <button
+                  onClick={() => {
+                    const data = successOverlay.data;
+                    setSuccessOverlay({ visible: false, data: null });
+                    if(data) {
+                      setTaskMode('agendar');
+                      setScheduledDate(data.scheduled_date || '');
+                      setScheduledTime(data.scheduled_time || '09:00');
+                      const h = data.scheduled_time.split(':')[0];
+                      const m = data.scheduled_time.split(':')[1];
+                      setStartHours(h || '09');
+                      setStartMins(m || '00');
+                      setDurationMinutes(data.duration_minutes || 30);
+                      const dH = Math.floor((data.duration_minutes || 30) / 60);
+                      const dM = (data.duration_minutes || 30) % 60;
+                      setDurationHours(String(dH).padStart(2, '0'));
+                      setDurationMinsState(String(dM).padStart(2, '0'));
+                      setSelectedProjectId(data.project_id || '');
+                      setSelectedActivityId(data.activity_id || '');
+                      setSelectedHabitId(data.habit_id || '');
+                      setActivityManualText(data.atividade_avulsa || '');
+                      setTaskTitle(data.title || '');
+                      if(data.tasks && data.tasks.length > 0) {
+                        setSubtasksList(data.tasks.map((t: string) => ({ text: t, completed: false })));
+                      } else {
+                        setSubtasksList([]);
+                      }
+                      setTimeout(() => setShowCreateModal(true), 100);
+                    }
+                  }}
+                  className="w-full py-4 bg-primary-green/10 hover:bg-primary-green/20 text-primary-green rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
+                >
+                  Editar Agendamento
+                </button>
+                <button
+                  onClick={() => setSuccessOverlay({ visible: false, data: null })}
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+</div>
   );
 };
