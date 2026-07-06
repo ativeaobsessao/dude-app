@@ -371,7 +371,7 @@ export const RecentNotes = () => {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-text-primary font-light text-sm line-clamp-2 leading-relaxed mb-4 flex-1 text-left">
+                          <p className="text-text-primary font-light text-sm line-clamp-2 leading-relaxed mb-4 flex-1 text-left break-words whitespace-pre-wrap [word-break:break-word]">
                             {note.content}
                           </p>
                         )}

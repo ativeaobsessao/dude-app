@@ -325,7 +325,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                       handleToggleSelect(note.id);
                     }
                   }}
-                  className={`group p-8 pl-14 rounded-[2rem] bg-surface/10 border transition-all flex flex-col relative ${
+                  className={`group p-8 pl-14 rounded-[2rem] bg-surface/10 border transition-all flex flex-col relative overflow-hidden ${
                     editingNoteId !== note.id ? 'cursor-pointer select-none' : ''
                   } ${
                     isSelected 
@@ -452,7 +452,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
                       </div>
                     </div>
                   ) : (
-                    <p className="text-text-primary/90 font-light text-[1rem]/[1.5rem] leading-relaxed whitespace-pre-wrap flex-1 mb-8">
+                    <p className="text-text-primary/90 font-light text-[1rem]/[1.5rem] leading-relaxed whitespace-pre-wrap flex-1 mb-8 break-words [word-break:break-word]">
                       {note.content}
                     </p>
                   )}
