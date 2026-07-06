@@ -10,10 +10,11 @@ import {
   Plus, X, ArrowLeft, ArrowRight, Layers, Target, Clock, 
   StickyNote, History, FolderKanban, Search, Trash2,
   CircleX, AlertTriangle, CheckCircle2, CheckCircle, Pause, Info,
-  Pencil, Calendar
+  Pencil, Calendar, Link2, ChevronRight
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { unlockAudio } from '../../hooks/useSessionNotifications';
+import { calculateAvoidanceMetrics } from '../dashboard/AvoidanceSection';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString, cleanActivityName } from '../../lib/utils';
 
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
@@ -1361,80 +1362,181 @@ export const ActionCenter = () => {
   const selectClasses = "w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-text-primary outline-none focus:border-primary-green transition-all touch-manipulation min-h-[44px] cursor-pointer appearance-none px-4";
 
   const renderMenu = () => {
-    const menuItems: { id: Screen, label: string, subtitle: string }[] = [
-      {
-        id: 'session',
-        label: 'SESSÃO PROFUNDA',
-        subtitle: 'Vai usar seu tempo para qual finalidade? Controle seu tempo agora!'
-      },
-      {
-        id: 'agenda',
-        label: 'AGENDAMENTOS',
-        subtitle: 'Defina quando vai executar suas próximas atividades.'
-      },
-      {
-        id: 'projects',
-        label: 'PROJETOS',
-        subtitle: 'Liste todos os projetos que você precisa executar.'
-      },
-      {
-        id: 'activities',
-        label: 'ATIVIDADES',
-        subtitle: 'Defina as tarefas padrões que seus projetos demandam.'
-      },
-      {
-        id: 'habits',
-        label: 'HÁBITOS ATÔMICOS',
-        subtitle: 'Tudo aquilo que você pratica repetidamente, se torna um hábito.'
-      },
-      {
-        id: 'anti-vicio',
-        label: 'ANTI-VÍCIO',
-        subtitle: 'Centro para se livrar de vícios que impedem seu real desenvolvimento pessoal.'
-      },
-      {
-        id: 'notes',
-        label: 'ANOTAÇÕES',
-        subtitle: 'Seu espaço para registrar o que não pode ser esquecido.'
-      },
-      {
-        id: 'saved-links',
-        label: 'ORGANIZADOR DE LINKS',
-        subtitle: 'Centro organizacional dos links mais importantes para acessar sempre que precisar'
-      },
-      {
-        id: 'history',
-        label: 'HISTÓRICO',
-        subtitle: 'Seu passado operacional revela seus padrões de execução.'
-      }
-    ];
+    const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
+    const projectsCount = dataStore.projects.length;
+    const activitiesCount = dataStore.activities.length;
+    const habitsCount = dataStore.habits.filter(h => h.habit_mode === 'build').length;
 
     return (
-      <div className="w-full max-w-lg space-y-0">
-        {menuItems.map((item) => (
-          <div key={item.id}>
-            <button
-              onClick={() => setCurrentScreen(item.id)}
-              className="w-full py-5 px-6 bg-surface/40 border border-white/10 rounded-2xl text-left hover:border-primary-green/40 active:scale-95 transition-all duration-200"
-            >
-              <span className="text-lg font-bold text-text-primary tracking-tight block">
-                {item.label}
-              </span>
-            </button>
-            <p className="text-xs text-text-secondary/60 px-2 mt-2 mb-4">
-              {item.subtitle}
-            </p>
-          </div>
-        ))}
+      <div className="w-full max-w-lg space-y-8 pb-10">
         
-        <div className="pt-4">
-          <button
-            onClick={() => setIsOpen(false)}
-            className="w-full py-4 border border-primary-green/30 text-primary-green rounded-2xl font-bold uppercase tracking-widest text-sm hover:bg-primary-green/10 transition-all"
-          >
-            ← Voltar
-          </button>
+        {/* NÍVEL 1: O Acelerador (Topo) */}
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => setCurrentScreen('agenda')}
+          className="w-full py-4 bg-primary-green text-background rounded-full font-bold uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(110,231,168,0.2)]"
+        >
+          REALIZAR AGENDAMENTO
+        </motion.button>
+
+        {/* NÍVEL 2: Sinais Vitais (Anti-Vício) */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
+            Sinais Vitais
+          </h3>
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-6 px-6 md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {avoidHabits.map((habit) => {
+              const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
+              const diasLivres = metrics.diasLimposTotal || 0;
+              return (
+                <motion.div
+                  whileTap={{ scale: 0.96 }}
+                  key={habit.id}
+                  onClick={() => setCurrentScreen('anti-vicio')}
+                  className="w-[85%] sm:w-[280px] shrink-0 snap-center bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 flex flex-col justify-between cursor-pointer"
+                >
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-light text-white tracking-tight leading-none">
+                      {diasLivres} {diasLivres === 1 ? 'Dia Livre' : 'Dias Livres'}
+                    </h3>
+                    <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-1">
+                      {habit.name}
+                    </h4>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentScreen('anti-vicio');
+                    }}
+                    className="mt-6 w-full py-3 bg-red-500 text-white rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
+                  >
+                    TÔ NAS ÚLTIMAS
+                  </button>
+                </motion.div>
+              );
+            })}
+            
+            {/* Minimalist '+' Card for Anti-Vicio */}
+            <motion.div
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('anti-vicio')}
+              className="w-[85%] sm:w-[280px] shrink-0 snap-center bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/5 flex flex-col items-center justify-center cursor-pointer min-h-[160px] hover:bg-white/10 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/50 mb-3">
+                <Plus size={24} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">
+                Novo Controle
+              </span>
+            </motion.div>
+          </div>
         </div>
+
+        {/* NÍVEL 3: Grid de Operações (Bento Box) */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
+            Operações
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('projects')}
+              className="aspect-square bg-white/5 backdrop-blur-md rounded-3xl p-5 border border-white/10 flex flex-col items-start justify-between text-left hover:bg-white/10 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                <FolderKanban size={20} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-white">{projectsCount}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Projetos</p>
+              </div>
+            </motion.button>
+            
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('activities')}
+              className="aspect-square bg-white/5 backdrop-blur-md rounded-3xl p-5 border border-white/10 flex flex-col items-start justify-between text-left hover:bg-white/10 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                <Target size={20} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-white">{activitiesCount}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Atividades</p>
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('habits')}
+              className="col-span-2 bg-white/5 backdrop-blur-md rounded-3xl p-5 border border-white/10 flex items-center justify-between text-left hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-white">{habitsCount}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Hábitos</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-text-secondary/40" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* NÍVEL 4: Captura Secundária */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
+            Captura
+          </h3>
+          <div className="bg-white/5 backdrop-blur-md rounded-3xl overflow-hidden border border-white/5">
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('notes')}
+              className="w-full p-5 flex items-center justify-between text-left hover:bg-white/5 transition-colors border-b border-white/10"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                  <StickyNote size={16} />
+                </div>
+                <span className="text-sm font-semibold text-text-primary">Anotações</span>
+              </div>
+              <ChevronRight size={16} className="text-text-secondary/40" />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setCurrentScreen('saved-links')}
+              className="w-full p-5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                  <Link2 size={16} />
+                </div>
+                <span className="text-sm font-semibold text-text-primary">Links Úteis</span>
+              </div>
+              <ChevronRight size={16} className="text-text-secondary/40" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* NÍVEL 5: Arquivo Mestre (Base da Tela) */}
+        <div className="pt-6">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setCurrentScreen('history')}
+            className="w-full p-5 bg-transparent border border-white/5 rounded-3xl flex items-center justify-between text-left hover:border-white/10 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                <History size={16} />
+              </div>
+              <span className="text-sm font-semibold text-text-primary">Histórico de Sessões Profundas</span>
+            </div>
+            <ChevronRight size={16} className="text-text-secondary/40" />
+          </motion.button>
+        </div>
+
       </div>
     );
   };
