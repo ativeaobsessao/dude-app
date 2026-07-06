@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon, FolderKanban, Layers, Zap } from 'lucide-react';
 import { TaskListScreen } from './components/dashboard/TaskListScreen';
 import { CinematicBackground } from './components/layout/CinematicBackground';
+import { MenuTab } from './components/layout/MenuTab';
 import { HeroSection } from './components/dashboard/HeroSection';
 import { ActiveSession } from './components/dashboard/ActiveSession';
 import { HabitsSection } from './components/dashboard/HabitsSection';
@@ -39,9 +40,7 @@ import { ProximasAtividades } from './components/agenda/ProximasAtividades';
 import { AgendaCompletaPage } from './components/agenda/AgendaCompletaPage';
 import { ReagendarModal, ReconfigurarModal } from './components/agenda/SchedulePopups';
 
-// Mood Ritual Integration
-import { MoodRitualModal } from './components/mood/MoodRitualModal';
-import { MOODS } from './lib/mood';
+
 import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
 
 const ENABLE_QUICK_CAPTURE = true;
@@ -64,8 +63,7 @@ export default function App() {
     notification, 
     clearNotification,
     sessions, 
-    initialFetchDone, 
-    moodEntries,
+    initialFetchDone,
     habitCompletions,
     avoidanceCheckins,
     scheduledActivities
@@ -88,19 +86,17 @@ export default function App() {
   const [popupState, setPopupState] = useState<{
     serverChecked: boolean;
     yesterdayClosed: boolean;
-    todayMoodDone: boolean;
-    yesterdayStr: string;
+        yesterdayStr: string;
     todayStr: string;
     currentPeriod: 'manha' | 'tarde' | 'noite' | null;
-    showMoodModal: boolean;
-  }>({
+      }>({
     serverChecked: false,
     yesterdayClosed: false,
-    todayMoodDone: false,
+    
     yesterdayStr: '',
     todayStr: '',
     currentPeriod: null,
-    showMoodModal: false,
+    
   });
 
   const [manualShutdownOpen, setManualShutdownOpen] = useState(false);
@@ -114,57 +110,23 @@ export default function App() {
       const yesterdayStr = getLocalYesterdayDateString(new Date());
       const { period, dateStr: todayStr } = getCurrentPeriodAndDate(new Date());
 
-      const [closureRes, moodRes] = await Promise.all([
+      const [closureRes] = await Promise.all([
         supabase
           .from('day_closures')
           .select('id')
           .eq('user_id', user.id)
-          .eq('closure_date', yesterdayStr),
-        supabase
-          .from('mood_entries')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('entry_date', todayStr)
-          .eq('period', period)
+          .eq('closure_date', yesterdayStr)
       ]);
 
       const yesterdayClosed = !!(closureRes.data && closureRes.data.length > 0);
-      const todayMoodDone = !!(moodRes.data && moodRes.data.length > 0);
-
-      // Reconcile and write-through to local storage is okay, but serverChecked is the true key
-      if (yesterdayClosed) {
-        localStorage.setItem(`dude-shutdown-completed-${yesterdayStr}`, 'true');
-      }
-
-      let showMood = false;
-      if (!todayMoodDone) {
-        const isSkipped = localStorage.getItem(`dude-mood-skipped-${todayStr}-${period}`) === 'true';
-        const isTrackingDisabled = localStorage.getItem('energy_tracking_disabled') === 'true';
-        
-        const snoozeUntil = localStorage.getItem('energy_snooze_until');
-        let isSnoozed = false;
-        if (snoozeUntil) {
-          if (Date.now() < parseInt(snoozeUntil, 10)) {
-            isSnoozed = true;
-          }
-        }
-        
-        const profileSnoozed = profile?.mood_status === 'paused' && profile?.mood_snoozed_until && Date.now() < new Date(profile.mood_snoozed_until).getTime();
-        const profileDisabled = profile?.mood_status === 'disabled';
-
-        if (!isSkipped && !isTrackingDisabled && !isSnoozed && !profileSnoozed && !profileDisabled) {
-          showMood = true;
-        }
-      }
-
       setPopupState({
         serverChecked: true,
         yesterdayClosed,
-        todayMoodDone,
+        
         yesterdayStr,
         todayStr,
         currentPeriod: period,
-        showMoodModal: showMood,
+        
       });
     } catch (err) {
       console.error('Error running authoritative server popup checks:', err);
@@ -332,8 +294,7 @@ export default function App() {
   }, []);
 
   const isCatchUpActive = (() => {
-    if (popupState.showMoodModal) return false;
-
+    
     if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.yesterdayStr) {
       return false;
     }
@@ -360,24 +321,7 @@ export default function App() {
     return hasActivityYesterday;
   })();
 
-  // Dynamically set --mood CSS variable based on current today's mood
-  useEffect(() => {
-    if (!user) {
-      document.documentElement.style.setProperty('--mood', 'var(--text-dimmer)');
-      return;
-    }
-    
-    const todayStr = getLocalDateString(new Date());
-    const todayMoods = moodEntries.filter(m => m.date === todayStr);
-    
-    if (todayMoods.length > 0) {
-      const mostRecent = todayMoods[0];
-      const moodColor = MOODS[mostRecent.mood]?.color || 'var(--text-dimmer)';
-      document.documentElement.style.setProperty('--mood', moodColor);
-    } else {
-      document.documentElement.style.setProperty('--mood', 'var(--text-dimmer)');
-    }
-  }, [moodEntries, user]);
+  
 
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
 
@@ -688,22 +632,7 @@ export default function App() {
         <SubscriptionGuard>
           <PWAProvider>
           <div className="relative min-h-screen selection:bg-green/30 selection:text-green overflow-x-hidden text-text">
-        <MoodRitualModal 
-          isOpen={popupState.showMoodModal} 
-          onClose={(wasAnswered?: boolean) => {
-            if (wasAnswered) {
-              setPopupState(prev => ({
-                ...prev,
-                todayMoodDone: true,
-                showMoodModal: false
-              }));
-            } else {
-              setPopupState(prev => ({ ...prev, showMoodModal: false }));
-            }
-          }} 
-          currentPeriod={popupState.currentPeriod || 'manha'} 
-          currentDate={popupState.todayStr || ''}
-        />
+        
         <DailyShutdownModal 
           isOpen={manualShutdownOpen || isCatchUpActive} 
           onClose={() => {
@@ -958,50 +887,7 @@ export default function App() {
               <ProgressStats onClose={() => setActiveTab('home')} />
             )}
 
-            {activeTab === 'menu' && (() => {
-              const hasAtLeastOneProjectAndActivity = dataStore.projects.length > 0 && dataStore.activities.length > 0;
-
-              const renderAgendamento = () => (
-                <div key="agendamento-section" className="w-full max-w-4xl mx-auto p-6 rounded-3xl bg-surface/5 border border-white/5 space-y-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="space-y-1 text-left">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-green">AGENDAMENTO</span>
-                      <p className="text-xs text-text-secondary leading-relaxed font-sans">Faça o agendamento das suas tarefas aqui.</p>
-                    </div>
-                    <button
-                      onClick={() => setShowFullAgenda(true)}
-                      className="px-5 py-3 bg-green text-background hover:brightness-110 active:scale-95 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-[0_4px_20px_rgba(110,231,168,0.2)] shrink-0 self-start sm:self-center font-sans"
-                    >
-                      REALIZAR AGENDAMENTO
-                    </button>
-                  </div>
-                </div>
-              );
-
-              return (
-                <div className="w-full max-w-6xl mx-auto px-6 py-6 space-y-4 md:space-y-6 flex flex-col items-center">
-                  {!hasAtLeastOneProjectAndActivity ? (
-                    <>
-                      <ProjectsSection />
-                      <ActivitiesSection />
-                      {renderAgendamento()}
-                    </>
-                  ) : (
-                    <>
-                      {renderAgendamento()}
-                      <ProjectsSection />
-                      <ActivitiesSection />
-                    </>
-                  )}
-
-                  <HabitsSection />
-                  <AvoidanceSection />
-                  <RecentNotes />
-                  <LinksHeroBlock />
-                  <RecentHistory variant="menuRow" />
-                </div>
-              );
-            })()}
+            {activeTab === 'menu' && <MenuTab />}
           </main>
         )}
 
