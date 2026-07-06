@@ -728,7 +728,7 @@ export const ActionCenter = () => {
             dataStore.completeFirstSession();
           }
 
-          showSuccess('✅ Sessão registrada com sucesso!');
+          showSuccess(' Sessão registrada com sucesso!');
           timer.reset();
           resetSPState();
           setIsOpen(false);
@@ -939,7 +939,7 @@ export const ActionCenter = () => {
 
       // Notificação de sucesso simplificada
       if (linkActivityToHabit) {
-        showSuccess('✅ Atividade e Hábito salvos com sucesso!');
+        showSuccess(' Atividade e Hábito salvos com sucesso!');
       } else {
         showSuccess('Atividade salva com sucesso!');
       }
@@ -1097,7 +1097,7 @@ export const ActionCenter = () => {
           ...schedulingParams
         });
         if (success) {
-          showSuccess('✅ Hábito atualizado e agendado com sucesso!');
+          showSuccess(' Hábito atualizado e agendado com sucesso!');
           setEditingHabitId(null);
           setIsOpen(false);
           setCurrentScreen(null);
@@ -1116,7 +1116,7 @@ export const ActionCenter = () => {
         );
 
         if (createdHabit) {
-          showSuccess('✅ Hábito criado e agendado com sucesso!');
+          showSuccess(' Hábito criado e agendado com sucesso!');
 
           if (pendingActivityId) {
             const activity = dataStore.activities.find(a => a.id === pendingActivityId);
@@ -1368,7 +1368,7 @@ export const ActionCenter = () => {
     const habitsCount = dataStore.habits.filter(h => h.habit_mode === 'build').length;
 
     return (
-      <div className="w-full max-w-lg space-y-8 pb-10">
+      <div className="w-full max-w-lg space-y-12 pb-12">
         
         {/* NÍVEL 1: O Acelerador (Topo) */}
         <motion.button
@@ -1469,18 +1469,15 @@ export const ActionCenter = () => {
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={() => setCurrentScreen('habits')}
-              className="col-span-2 bg-white/5 backdrop-blur-md rounded-3xl p-5 border border-white/10 flex items-center justify-between text-left hover:bg-white/10 transition-colors"
+              className="aspect-square bg-white/5 backdrop-blur-md rounded-3xl p-5 border border-white/10 flex flex-col items-start justify-between text-left hover:bg-white/10 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
-                  <Layers size={20} />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-white">{habitsCount}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Hábitos</p>
-                </div>
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-secondary">
+                <Layers size={20} />
               </div>
-              <ChevronRight size={16} className="text-text-secondary/40" />
+              <div>
+                <p className="text-xl font-bold text-white">{habitsCount}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">Hábitos</p>
+              </div>
             </motion.button>
           </div>
         </div>
@@ -2726,7 +2723,7 @@ export const ActionCenter = () => {
                                             <div className="mt-2 space-y-1">
                                               {tasks.map(task => (
                                                 <div key={task.id} className="flex items-center gap-2 text-[10px] text-text-secondary/50">
-                                                  <span>{task.completed ? '✅' : '○'}</span>
+                                                  <span>{task.completed ? '' : '○'}</span>
                                                   <span className={task.completed ? '' : 'opacity-50'}>{task.description}</span>
                                                 </div>
                                               ))}
@@ -3594,7 +3591,7 @@ export const ActionCenter = () => {
                     if (total > 0) {
                       return (
                         <div className="text-amber-500 text-xs font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 text-left mt-3 space-y-1">
-                          <p className="font-bold">⚠️ Recursos Vinculados:</p>
+                          <p className="font-bold"> Recursos Vinculados:</p>
                           <ul className="list-disc pl-4 space-y-0.5">
                             {activitiesCount > 0 && <li>{activitiesCount} atividade(s) catalogada(s)</li>}
                             {tasksCount > 0 && <li>{tasksCount} tarefa(s) diária(s)</li>}
@@ -3611,7 +3608,7 @@ export const ActionCenter = () => {
                     if (total > 0) {
                       return (
                         <div className="text-amber-500 text-xs font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 text-left mt-3 space-y-1">
-                          <p className="font-bold">⚠️ Recursos Vinculados:</p>
+                          <p className="font-bold"> Recursos Vinculados:</p>
                           <ul className="list-disc pl-4 space-y-0.5">
                             {tasksCount > 0 && <li>{tasksCount} tarefa(s) diária(s)</li>}
                             {schedulesCount > 0 && <li>{schedulesCount} atividade(s) agendada(s)</li>}
@@ -3698,7 +3695,7 @@ export const ActionCenter = () => {
                       if (user && manualSessionDuration > 0) {
                         await dataStore.completeHabitSession(habit.id, user.id, manualSessionDuration);
                         setRegisteringHabit(null);
-                        showSuccess('✅ Sessão registrada com sucesso!');
+                        showSuccess(' Sessão registrada com sucesso!');
                       }
                     }} 
                     className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] shadow-[0_0_20px_rgba(110,231,168,0.2)] hover:scale-[1.02] active:scale-95 transition-all"
