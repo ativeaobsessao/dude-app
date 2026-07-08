@@ -1731,7 +1731,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                     </div>
                   </motion.div>
                   );
-                })}
+                })()}
               </div>
 
               {/* Action Buttons */}
