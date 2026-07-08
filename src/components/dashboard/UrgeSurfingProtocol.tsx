@@ -25,22 +25,24 @@ class AudioSynthesizer {
     const baseGain = 0.08;
     const targetVolume = baseGain * volumeMultiplier;
 
-    // BLINDAGEM 1: Impede o React de recriar a rampa a cada 1 segundo se a frequência for a mesma
     if (this.ctx && this.currentFreq === frequency && this.currentOffset === binauralOffset) {
       return; 
     }
 
     if (this.ctx && this.oscLeft && this.gainNode) {
-      // Transição suave (Anti-estalo)
-      this.currentFreq = frequency;
-      this.currentOffset = binauralOffset;
-      const currentTime = this.ctx.currentTime;
-      this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.05);
-      if (this.oscRight) {
-        this.oscRight.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.05);
+      if ((this.currentOffset === 0 && binauralOffset !== 0) || (this.currentOffset !== 0 && binauralOffset === 0)) {
+         // Force recreate nodes to ensure structural integrity of channels
+      } else {
+        this.currentFreq = frequency;
+        this.currentOffset = binauralOffset;
+        const currentTime = this.ctx.currentTime;
+        this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.05);
+        if (this.oscRight) {
+          this.oscRight.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.05);
+        }
+        this.gainNode.gain.setTargetAtTime(targetVolume, currentTime, 0.05);
+        return;
       }
-      this.gainNode.gain.setTargetAtTime(targetVolume, currentTime, 0.05);
-      return;
     }
 
     this.currentFreq = frequency;
@@ -52,54 +54,54 @@ class AudioSynthesizer {
       if (!AudioContextClass) return;
       
       this.ctx = new AudioContextClass();
+      
+      // Auto-resume if in suspended state (Safari/iOS requirement)
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+
       this.gainNode = this.ctx.createGain();
       this.compressorNode = this.ctx.createDynamicsCompressor();
       
-      // Limitador de estúdio
       this.compressorNode.threshold.setValueAtTime(-12, this.ctx.currentTime);
       this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
       this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
       this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
       this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
-
       this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
       
       this.gainNode.connect(this.compressorNode);
       this.compressorNode.connect(this.ctx.destination);
 
-      if (binauralOffset === 0) {
-        this.oscLeft = this.ctx.createOscillator();
-        this.oscLeft.type = 'sine';
-        this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
-        this.oscLeft.connect(this.gainNode);
+      const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+
+      this.oscLeft = this.ctx.createOscillator();
+      this.oscLeft.type = 'sine';
+      this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+
+      this.oscRight = this.ctx.createOscillator();
+      this.oscRight.type = 'sine';
+      this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
+
+      if (pannerLeft && pannerRight && binauralOffset !== 0) {
+        pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime);
+        pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);
+        
+        this.oscLeft.connect(pannerLeft).connect(this.gainNode);
+        this.oscRight.connect(pannerRight).connect(this.gainNode);
       } else {
-        const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-        const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-
-        this.oscLeft = this.ctx.createOscillator();
-        this.oscLeft.type = 'sine';
-        this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
-
-        this.oscRight = this.ctx.createOscillator();
-        this.oscRight.type = 'sine';
-        this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
-
-        if (pannerLeft && pannerRight) {
-          pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime);
-          pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);
-          
-          this.oscLeft.connect(pannerLeft).connect(this.gainNode);
-          this.oscRight.connect(pannerRight).connect(this.gainNode);
-        } else {
-          this.oscLeft.connect(this.gainNode);
-          this.oscRight.connect(this.gainNode);
-        }
+        this.oscLeft.connect(this.gainNode);
+        this.oscRight.connect(this.gainNode);
       }
 
       this.oscLeft.start();
-      if (this.oscRight) this.oscRight.start();
-
+      this.oscRight.start();
+      
+      // Ensure loop/lifecycle is continuous
+      // Oscillators loop naturally, but we ensure gain isn't zero
       this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.05);
+
     } catch (e) {
       console.warn("AudioContext blocked or failed initialization.", e);
     }
@@ -107,7 +109,6 @@ class AudioSynthesizer {
 
   stop() {
     if (this.ctx && this.gainNode) {
-      // BLINDAGEM 2: Fade-out suave de encerramento antes de matar os nós
       this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
       setTimeout(() => {
         this.killNodes();
@@ -379,7 +380,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         synth.start(40, 0, 1.5);
       } else if (currentPhase === 3) {
         // Fase 3: Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
-        synth.start(7.5, 7.5, 4.5);
+        synth.start(150, 7.5, 4.5); // Deep Theta 7.5Hz Binaural (150Hz carrier)
       } else if (currentPhase === 5) {
         // Loop Total: 840 Segundos (14 minutos)
         const cycleTime = infiniteSeconds % 840;
@@ -429,27 +430,27 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     if (currentPhase === 1 && timeLeft > 148) {
       const elapsed = 205 - (timeLeft || 205);
       const cycle = elapsed % 19;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
-      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(7 - (cycle - 4))}`, duration: 7.0 };
-      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(8 - (cycle - 11))}`, duration: 8.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
+      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(6 - (cycle - 4))}`, duration: 7.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(7 - (cycle - 11))}`, duration: 8.0 };
     }
     // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 140s, após os 8s de frase empática)
     if (currentPhase === 1 && timeLeft <= 140 && timeLeft > 108) {
       const elapsed = 140 - (timeLeft || 140);
       const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 4))}`, duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 8))}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 12))}`, duration: 4.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(3 - (cycle - 4))}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(3 - (cycle - 8))}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(3 - (cycle - 12))}`, duration: 4.0 };
     }
     // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
     if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
       const elapsed = infiniteSeconds - 12;
       const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 4))}`, duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 8))}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 12))}`, duration: 4.0 };
+      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
+      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(3 - (cycle - 4))}`, duration: 4.0 };
+      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(3 - (cycle - 8))}`, duration: 4.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(3 - (cycle - 12))}`, duration: 4.0 };
     }
     return { phase: 'idle', text: '', countText: '', duration: 4.0 };
   }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
