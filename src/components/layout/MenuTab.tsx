@@ -35,7 +35,11 @@ export const MenuTab = () => {
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
             Sinais Vitais
           </h3>
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-6 px-6 md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div 
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="overscroll-x-contain touch-pan-x flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-6 px-6 md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
             {avoidHabits.map((habit) => {
               const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
               const diasLivres = metrics.diasLimposTotal || 0;
