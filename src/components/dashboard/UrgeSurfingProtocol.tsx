@@ -429,28 +429,28 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     // Fase 1A: O Extintor 4-7-8 (De 205s a 148s)
     if (currentPhase === 1 && timeLeft > 148) {
       const elapsed = 205 - (timeLeft || 205);
-      const cycle = elapsed % 19;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
-      if (cycle < 11) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(6 - (cycle - 4))}`, duration: 7.0 };
-      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(7 - (cycle - 11))}`, duration: 8.0 };
+      const cycle = elapsed % 22;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 13) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(7 - (cycle - 5))}`, duration: 8.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(8 - (cycle - 13))}`, duration: 9.0 };
     }
     // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 140s, após os 8s de frase empática)
     if (currentPhase === 1 && timeLeft <= 140 && timeLeft > 108) {
       const elapsed = 140 - (timeLeft || 140);
-      const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(3 - (cycle - 4))}`, duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(3 - (cycle - 8))}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(3 - (cycle - 12))}`, duration: 4.0 };
+      const cycle = elapsed % 20;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
+      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
     }
     // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
     if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
       const elapsed = infiniteSeconds - 12;
-      const cycle = elapsed % 16;
-      if (cycle < 4) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(3 - cycle)}`, duration: 4.0 };
-      if (cycle < 8) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(3 - (cycle - 4))}`, duration: 4.0 };
-      if (cycle < 12) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(3 - (cycle - 8))}`, duration: 4.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(3 - (cycle - 12))}`, duration: 4.0 };
+      const cycle = elapsed % 20;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
+      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
     }
     return { phase: 'idle', text: '', countText: '', duration: 4.0 };
   }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
