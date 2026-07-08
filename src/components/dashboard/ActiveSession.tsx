@@ -381,18 +381,15 @@ export const ActiveSession = () => {
       const savedSession = await dataStore.addSession(sessionToSave);
 
       if (savedSession?.id) {
-        // Se houver uma atividade agendada vinculada, marcá-la como concluída
         if (timer.scheduledActivityId) {
           await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
             status: 'concluida',
             completed_session_id: savedSession.id,
             resolved_at: new Date().toISOString()
           });
-        }
-
-        // Se houver uma daily_task atrelada, marcá-la como concluída (Auto-check / Optimistic UI)
-        if (timer.activityId) {
-          await dataStore.updateDailyTask(timer.activityId, {
+          // Fix for daily tasks launched directly into deep session
+          // scheduledActivityId holds the daily task ID in this flow
+          await dataStore.updateDailyTask(timer.scheduledActivityId, {
             is_completed: true,
             completed_at: new Date().toISOString()
           });
