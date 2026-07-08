@@ -99,8 +99,7 @@ interface DataState {
   updateProfileData: (userId: string, updates: { 
     full_name?: string; 
     avatar_url?: string | null; 
-    
-    
+    mood_status?: 'disabled' | 'paused' | 'active';
     
   }) => Promise<void>;
   fetchData: (userId: string) => Promise<void>;
@@ -444,6 +443,16 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.error('Error writing merged daily_tasks cache:', err);
       }
 
+      const fetchedMoodEntries = (me && 'data' in me && me.data) ? me.data : [];
+      let initialEnergyState = get().currentEnergyState;
+      if (fetchedMoodEntries.length > 0) {
+        const todayStr = getLocalDateString(new Date());
+        const todayEntry = fetchedMoodEntries.find((m: any) => m.date === todayStr);
+        if (todayEntry && todayEntry.energy) {
+          initialEnergyState = todayEntry.energy;
+        }
+      }
+
       set({ 
          projects: p.data || [], 
          habits: h.data || [], 
@@ -454,8 +463,9 @@ export const useDataStore = create<DataState>((set, get) => ({
          pendingTasks: pt.data || [],
          scheduledActivities: sa.data || [],
          avoidanceCheckins: ac.data || [],
-         moodEntries: (me && 'data' in me && me.data) ? me.data : [],
-                  savedLinks: sl.data || [],
+         moodEntries: fetchedMoodEntries,
+         currentEnergyState: initialEnergyState,
+         savedLinks: sl.data || [],
          dailyShutdowns: combinedShutdowns,
          dailyTasks: combinedDailyTasks,
          inboxCaptures: (ic && 'data' in ic && ic.data) ? ic.data as InboxCapture[] : [],
@@ -558,9 +568,25 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const avoidanceRes = await supabase.from('avoidance_checkins').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       const moodRes = await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-      if (moodRes && moodRes.data) set({ moodEntries: moodRes.data });
-
       
+      if (moodRes && moodRes.data) {
+        const fetchedMoodEntries = moodRes.data;
+        let initialEnergyState = get().currentEnergyState;
+        
+        if (fetchedMoodEntries.length > 0) {
+          const todayStr = getLocalDateString(new Date());
+          const todayEntry = fetchedMoodEntries.find((m: any) => m.date === todayStr);
+          if (todayEntry && todayEntry.energy) {
+            initialEnergyState = todayEntry.energy;
+          }
+        }
+        
+        set({ 
+          moodEntries: fetchedMoodEntries,
+          currentEnergyState: initialEnergyState
+        });
+      }
+
       if (avoidanceRes && avoidanceRes.data && !avoidanceRes.error) {
         set({ avoidanceCheckins: avoidanceRes.data });
       }

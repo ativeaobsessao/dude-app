@@ -63,10 +63,10 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
   }, [todayMoodEntries]);
 
   const getEnergyIcon = (level: string | null) => {
-    if (level === 'pleno') return <Zap size={18} className="text-yellow-400" />;
+    if (level === 'pleno' || level === 'energizado') return <Zap size={18} className="text-yellow-400" />;
     if (level === 'inquieto') return <Activity size={18} className="text-orange-400" />;
-    if (level === 'equilibrado') return <BatteryMedium size={18} className="text-blue-400" />;
-    if (level === 'fadigado') return <BatteryLow size={18} className="text-red-400" />;
+    if (level === 'equilibrado' || level === 'normal') return <BatteryMedium size={18} className="text-blue-400" />;
+    if (level === 'fadigado' || level === 'cansado') return <BatteryLow size={18} className="text-red-400" />;
     return <BatteryLow size={18} className="text-zinc-500" />;
   };
 
@@ -75,6 +75,9 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     if (level === 'inquieto') return 'Inquieto';
     if (level === 'equilibrado') return 'Equilibrado';
     if (level === 'fadigado') return 'Fadigado';
+    if (level === 'cansado') return 'Cansado';
+    if (level === 'normal') return 'Normal';
+    if (level === 'energizado') return 'Energizado';
     return '-';
   };
 
