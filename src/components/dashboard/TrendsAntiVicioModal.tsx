@@ -12,7 +12,7 @@ interface TrendsAntiVicioModalProps {
 }
 
 export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOpen, onClose }) => {
-  const { avoidanceCheckins, moodEntries, habits, deleteAvoidanceCheckin, updateAvoidanceCheckin, fetchAvoidanceCheckins, profile } = useDataStore();
+  const { avoidanceCheckins, habits, deleteAvoidanceCheckin, updateAvoidanceCheckin, fetchAvoidanceCheckins, profile } = useDataStore();
   const [showAllVices, setShowAllVices] = useState(false);
   
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -22,7 +22,6 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    console.log('[TrendsAntiVicioModal] Deleting checkin:', deleteTarget);
     setIsDeleting(deleteTarget);
     await deleteAvoidanceCheckin(deleteTarget);
     if (profile) await fetchAvoidanceCheckins(profile.id);
@@ -31,18 +30,13 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
   };
 
   const handleEditSave = async (id: string) => {
-    console.log('[TrendsAntiVicioModal] Updating checkin:', id, 'New text:', editingNoteText);
     await updateAvoidanceCheckin(id, { trigger_note: editingNoteText.trim() });
     setEditingNoteId(null);
     if (profile) await fetchAvoidanceCheckins(profile.id);
   };
 
   // 1. Math Aggregation with Fallbacks & Safety Checks
-  const relapses = useMemo(() => {
-    return avoidanceCheckins.filter(c => c.status === 'relapse' || c.status === 'recai');
-  }, [avoidanceCheckins]);
-
-  // Pillar B — Blindagem Mental calculations
+  
   const avoidanceHabitsList = useMemo(() => {
     return habits.filter(h => h.habit_mode === 'avoid');
   }, [habits]);
@@ -53,7 +47,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
       const checkins = avoidanceCheckins
         .filter(c => c.habit_id === ah.id && (c.status === 'success' || c.status === 'resisti' || c.status === 'relapse' || c.status === 'recai'))
         .sort((a, b) => new Date(b.checkin_date).getTime() - new Date(a.checkin_date).getTime());
-
+      
       let currentStreak = 0;
       for (const c of checkins) {
         if (c.status === 'success' || c.status === 'resisti') {
@@ -71,7 +65,6 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
     if (avoidanceHabitsList.length === 0) return null;
     let maxS = -1;
     let maxHabit = avoidanceHabitsList[0];
-
     avoidanceHabitsList.forEach(ah => {
       const s = avoidanceStreaks[ah.id] || 0;
       if (s > maxS) {
@@ -79,7 +72,6 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
         maxHabit = ah;
       }
     });
-
     return maxS >= 0 ? { habit: maxHabit, streak: maxS } : null;
   }, [avoidanceHabitsList, avoidanceStreaks]);
 
@@ -91,6 +83,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
     });
   }, [avoidanceHabitsList, avoidanceStreaks]);
 
+  
   const vicesHeadline = useMemo(() => {
     if (!bestAvoidanceStreak || bestAvoidanceStreak.streak === 0) {
       if (sortedVices.length > 0) {
@@ -103,28 +96,21 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
 
   const visibleVices = showAllVices ? sortedVices : sortedVices.slice(0, 3);
 
-  const trends = useMemo(() => {
-    if (relapses.length === 0) {
-      return {
-        totalRelapses: 0,
-        topTrigger: 'Nenhuma recaída registrada ainda',
-        topPeriod: 'Sem dados suficientes',
-        topMood: 'Estável (Equilibrado)',
-        topEnergy: 'Energia Estável ⚡',
-        neuroPill: 'Excelente início. Continue mantendo o controle total dos seus focos e use o cronômetro SOS quando os impulsos surgirem para reescrever seus caminhos neurais sem fricção.'
-      };
-    }
+  // Mapeamento de Padrões
+  const crises = useMemo(() => {
+    return avoidanceCheckins.filter(c => c.trigger_tag && c.trigger_tag !== 'none');
+  }, [avoidanceCheckins]);
 
-    const totalRelapses = relapses.length;
+  const patternMapping = useMemo(() => {
+    if (crises.length === 0) return null;
 
-    // Top Trigger Tag calculation
     const triggerCounts: { [key: string]: number } = {};
-    relapses.forEach(c => {
-      const tag = c.trigger_tag || 'Gatilho Desconhecido';
+    crises.forEach(c => {
+      const tag = c.trigger_tag!;
       triggerCounts[tag] = (triggerCounts[tag] || 0) + 1;
     });
-    
-    let topTrigger = 'Gatilho Desconhecido';
+
+    let topTrigger = '';
     let maxTriggerCount = 0;
     Object.entries(triggerCounts).forEach(([tag, count]) => {
       if (count > maxTriggerCount) {
@@ -133,146 +119,21 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
       }
     });
 
-    // Top Period of Day
-    const periodCounts = { manha: 0, tarde: 0, noite: 0 };
-    relapses.forEach(c => {
-      let hr = 15; // default afternoon fallback
-      if (c.created_at) {
-        const d = new Date(c.created_at);
-        if (!isNaN(d.getTime())) {
-          hr = d.getHours();
-        }
-      }
-      if (hr >= 5 && hr < 12) periodCounts.manha++;
-      else if (hr >= 12 && hr < 18) periodCounts.tarde++;
-      else periodCounts.noite++;
-    });
+    if (!topTrigger) return null;
 
-    let topPeriod = 'Tarde ☀️';
-    const maxPeriodCount = Math.max(periodCounts.manha, periodCounts.tarde, periodCounts.noite);
-    if (maxPeriodCount === periodCounts.manha) topPeriod = 'Manhã 🌅';
-    else if (maxPeriodCount === periodCounts.noite) topPeriod = 'Noite 🌙';
-
-    // Correlate check-in dates with Mood Entries
-    const relapseMoods: string[] = [];
-    const relapseEnergies: string[] = [];
-
-    relapses.forEach(c => {
-      const relapseDay = c.checkin_date ? c.checkin_date.split('T')[0] : '';
-      const dayMoodEntries = moodEntries.filter(m => m.date === relapseDay);
-      dayMoodEntries.forEach(m => {
-        if (m.mood) relapseMoods.push(m.mood);
-        if (m.energy) relapseEnergies.push(m.energy);
-      });
-    });
-
-    // Top Mood State during relapses
-    const moodCounts: { [key: string]: number } = {};
-    relapseMoods.forEach(m => {
-      moodCounts[m] = (moodCounts[m] || 0) + 1;
-    });
-    let topMoodKey = '';
-    let maxMoodCount = 0;
-    Object.entries(moodCounts).forEach(([m, count]) => {
-      if (count > maxMoodCount) {
-        maxMoodCount = count;
-        topMoodKey = m;
-      }
-    });
-
-    const moodMap = {
-      animado: 'Euforia / Impulsividade ⚡',
-      tranquilo: 'Excesso de Conforto 🍃',
-      neutro: 'Tédio / Distração Passiva 🥱',
-      ansioso: 'Ansiedade / Estresse Extremo 🤯',
-      prabaixo: 'Melancolia / Desânimo 😴'
-    };
-    const topMood = topMoodKey ? (moodMap[topMoodKey as keyof typeof moodMap] || 'Instável') : 'Tédio ou Sensibilidade Emocional 🧠';
-
-    // Top Physical Energy during relapses
-    const energyCounts: { [key: string]: number } = {};
-    relapseEnergies.forEach(e => {
-      energyCounts[e] = (energyCounts[e] || 0) + 1;
-    });
-    let topEnergyKey = '';
-    let maxEnergyCount = 0;
-    Object.entries(energyCounts).forEach(([e, count]) => {
-      if (count > maxEnergyCount) {
-        maxEnergyCount = count;
-        topEnergyKey = e;
-      }
-    });
-
-    const energyMap = {
-      cansado: 'Esgotamento Mental (Fadiga) 🥱',
-      fadigado: 'Esgotamento Mental (Fadiga) 🥱',
-      normal: 'Homeostase Estável ⚡',
-      equilibrado: 'Homeostase Estável ⚡',
-      energizado: 'Alta Voltagem (Tensão) 🔥',
-      pleno: 'Alta Voltagem (Tensão) 🔥',
-      inquieto: 'Dispersão (Agitação) 🌪️'
-    };
-    const topEnergy = topEnergyKey ? (energyMap[topEnergyKey as keyof typeof energyMap] || 'Estável') : 'Dados insuficientes';
-
-    const firstName = profile?.full_name?.split(' ')[0] || 'DUDE';
-    let neuroPill = '';
-
-    if (topEnergyKey === 'inquieto') {
-      neuroPill = `${firstName}, quando você se sente Inquieto você fica muito mais vulnerável a ceder a um impulso. Para que isso não aconteça, realize uma Sessão de Descompressão ou faça uma Sessão Profunda guiada. Lembre-se, a vontade de cometer um impulso dura no máximo 15 minutos.`;
-    } else if (topEnergyKey === 'fadigado' || topEnergyKey === 'cansado') {
-      neuroPill = `${firstName}, o esgotamento drena seu córtex pré-frontal, facilitando recaídas quando você está Fadigado. Respeite seu limite cognitivo, faça pausas longas e mude de ambiente para quebrar o ciclo de impulsos automáticos.`;
-    } else if (topEnergyKey === 'pleno' || topEnergyKey === 'energizado') {
-      neuroPill = `${firstName}, picos altos de energia podem gerar autoconfiança excessiva e impulsividade. Direcione essa carga energética excedente para um Brain Dump ou tarefas operacionais ativas antes de ser pego pelo tédio.`;
-    } else {
-      neuroPill = `${firstName}, o autocontrole é uma barreira metabolicamente cara para o organismo. Prevenir requer fricção prévia e rotas claras de desvio de urgências. Lembre-se, o vício celular nunca é apagado completamente da memória neuronal — ele é substituído ativamente por comportamentos substitutos.`;
-    }
+    const relatedNotes = crises
+      .filter(c => c.trigger_tag === topTrigger && c.trigger_note && c.trigger_note.trim() !== '')
+      .sort((a, b) => new Date(b.created_at || b.checkin_date).getTime() - new Date(a.created_at || a.checkin_date).getTime())
+      .map(c => c.trigger_note!)
+      .slice(0, 3);
 
     return {
-      totalRelapses,
       topTrigger,
-      topPeriod,
-      topMood,
-      topEnergy,
-      neuroPill
+      relatedNotes
     };
-  }, [relapses, moodEntries]);
+  }, [crises]);
 
-  const strengths = useMemo(() => {
-    const successes = avoidanceCheckins.filter(c => c.status === 'success' || c.status === 'resisti');
-    if (successes.length === 0) return { topMood: 'Estável' };
-
-    const successMoods: string[] = [];
-    successes.forEach(c => {
-      const successDay = c.checkin_date ? c.checkin_date.split('T')[0] : '';
-      const dayMoodEntries = moodEntries.filter(m => m.date === successDay);
-      dayMoodEntries.forEach(m => {
-        if (m.mood) successMoods.push(m.mood);
-      });
-    });
-
-    const moodCounts: { [key: string]: number } = {};
-    successMoods.forEach(m => moodCounts[m] = (moodCounts[m] || 0) + 1);
-    
-    let topMoodKey = '';
-    let maxCount = 0;
-    Object.entries(moodCounts).forEach(([m, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        topMoodKey = m;
-      }
-    });
-
-    const moodMap: Record<string, string> = {
-      animado: 'Animado',
-      tranquilo: 'Tranquilo',
-      neutro: 'Equilibrado',
-      ansioso: 'Alerta',
-      prabaixo: 'Reflexivo'
-    };
-    return { topMood: topMoodKey ? (moodMap[topMoodKey] || 'Equilibrado') : 'Equilibrado' };
-  }, [avoidanceCheckins, moodEntries]);
-
-  // Extract Avoidance check-ins that have notes for Section 3 (Ghost Quotes)
+  // Extract Avoidance check-ins that have notes for Section 3
   const battlesWithNotes = useMemo(() => {
     return avoidanceCheckins
       .filter(c => c.trigger_note && c.trigger_note.trim() !== '')
@@ -321,15 +182,44 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
           {/* Scrollable Frame Content */}
           <div className="flex-1 overflow-y-auto py-6 pr-2 flex flex-col gap-9 max-h-[72vh] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             
-            {/* INLINE STATUS BAR / HEADLINE BANNER */}
+            
             {vicesHeadline && (
-              <div className="p-4 bg-gradient-to-r from-red-500/[0.04] to-transparent border border-red-500/15 rounded-2xl flex items-center gap-3 select-text shrink-0">
-                <span className="text-red-400 shrink-0 text-base">🛡️</span>
+              <div className="p-4 bg-gradient-to-r from-emerald-500/[0.04] to-transparent border border-emerald-500/15 rounded-2xl flex items-center gap-3 select-text shrink-0">
                 <p className="text-xs md:text-sm font-semibold tracking-wide text-text-primary leading-relaxed">
                   {vicesHeadline}
                 </p>
               </div>
             )}
+
+            {/* NOVO CARD: Mapeamento de Padrões */}
+            <div className="space-y-4 text-left">
+              <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
+                Mapeamento de Padrões
+              </h4>
+              {!patternMapping ? (
+                <div className="py-8 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-3xl select-none">
+                  <p className="text-xs text-text-secondary/40 italic">
+                    Dados insuficientes para mapeamento de padrão.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
+                  <p className="text-sm text-zinc-300 leading-relaxed font-light select-text">
+                    Notamos um padrão crítico: a maior taxa da sua impulsividade está atrelada a <span className="font-medium text-white">{patternMapping.topTrigger}</span>. Ajuste essa variável na sua rotina para blindar sua performance.
+                  </p>
+                  
+                  {patternMapping.relatedNotes.length > 0 && (
+                    <blockquote className="mt-4 space-y-2 border-l-2 border-white/20 pl-3">
+                      {patternMapping.relatedNotes.map((note, idx) => (
+                        <p key={idx} className="text-sm text-gray-400 italic select-text">
+                          "{note}"
+                        </p>
+                      ))}
+                    </blockquote>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* SECTION: SEU PROGRESSO ATUAL */}
             <div className="space-y-4 text-left">
@@ -365,7 +255,6 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                               {vice.name}
                             </span>
                           </div>
-
                           <div className="space-y-1 select-none">
                             <div className="flex items-center gap-2 leading-none">
                               <span className="text-4xl md:text-5xl font-bold font-sans text-white tracking-tighter">
@@ -384,12 +273,10 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                               <ShieldCheck size={16} className="text-[#6ee7a8]/60" />
                             </div>
                           </div>
-
                         </div>
                       );
                     })}
                   </div>
-
                   {sortedVices.length > 3 && (
                     <div className="pt-2 flex justify-start">
                       <button
@@ -404,32 +291,7 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
               )}
             </div>
 
-            {/* SECTION: O QUE OS SEUS DADOS DIZEM */}
-            <div className="space-y-4 text-left pt-2">
-              <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
-                O que os seus dados dizem
-              </h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 select-text">
-                {/* Card A (Zonas de Alerta) */}
-                <div className="bg-orange-500/[0.03] border border-orange-500/10 rounded-3xl p-6 flex flex-col justify-center">
-                   <h5 className="text-[10px] uppercase tracking-widest text-orange-400/80 font-bold mb-3 flex items-center gap-1.5"><ShieldAlert size={14}/> Zonas de Alerta</h5>
-                   <p className="text-sm text-zinc-300 leading-relaxed font-light">
-                     Seus impulsos são mais frequentes no período da <span className="font-medium text-white">{trends.topPeriod.replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim().toLowerCase()}</span>, especialmente quando sua energia está <span className="font-medium text-white">{trends.topEnergy.split(' ')[0].toLowerCase()}</span>.
-                   </p>
-                </div>
-
-                {/* Card B (Suas Fortalezas) */}
-                <div className="bg-[#6ee7a8]/[0.03] border border-[#6ee7a8]/10 rounded-3xl p-6 flex flex-col justify-center">
-                   <h5 className="text-[10px] uppercase tracking-widest text-[#6ee7a8]/80 font-bold mb-3 flex items-center gap-1.5"><ShieldCheck size={14}/> Suas Fortalezas</h5>
-                   <p className="text-sm text-zinc-300 leading-relaxed font-light">
-                     Quando seu humor está <span className="font-medium text-white">{strengths.topMood.toLowerCase()}</span>, você demonstra controle total sobre as suas escolhas.
-                   </p>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION: SEU DIÁRIO */}
+            {/* SECTION: SEUS RELATOS */}
             <div className="space-y-4 text-left pt-6 border-t border-white/[0.04]">
               <div className="flex justify-between items-center flex-wrap gap-2 mb-2">
                 <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] font-sans ml-1">
@@ -438,16 +300,6 @@ export const TrendsAntiVicioModal: React.FC<TrendsAntiVicioModalProps> = ({ isOp
                 <span className="text-[10px] font-mono text-zinc-500">
                   {battlesWithNotes.length} anotações
                 </span>
-              </div>
-
-              {/* Dica do Dia */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6 mb-6">
-                <div className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-[#6ee7a8]" /> Dica do Dia
-                </div>
-                <p className="text-sm text-zinc-300 font-light leading-relaxed">
-                  {trends.neuroPill}
-                </p>
               </div>
 
               {battlesWithNotes.length > 0 ? (
