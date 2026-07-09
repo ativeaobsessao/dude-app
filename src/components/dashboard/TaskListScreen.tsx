@@ -269,6 +269,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
 
   const [forceRenderCount, setForceRenderCount] = useState(0);
+  const [localCompletedTasks, setLocalCompletedTasks] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const handleReload = () => setForceRenderCount(c => c + 1);
     window.addEventListener('reload-tasks', handleReload);
@@ -1188,15 +1189,42 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
                             <p className="text-[10px] text-white/40 uppercase tracking-widest mb-2">
                               TAREFAS DA SESSÃO ({activity.tasks.length})
                             </p>
-                            <div className="pl-4 grid grid-cols-1 gap-1.5 border-l border-white/5">
-                              {activity.tasks.map((taskStr: string, tIdx: number) => (
-                                <div key={tIdx} className="flex items-center gap-2 text-xs relative -left-[4.5px]">
-                                  <div className="w-[8px] h-[8px] rounded-[2px] bg-white/10 flex-shrink-0" />
-                                  <span className="text-text-secondary/80 font-medium font-sans">
-                                    {taskStr}
-                                  </span>
-                                </div>
-                              ))}
+                            <div className="pl-2 grid grid-cols-1 gap-0 border-l border-white/5">
+                              {activity.tasks.map((taskStr: string, tIdx: number) => {
+                                const fallbackKey = `${activity.id}-task-${tIdx}`;
+                                let realTask = null;
+                                if (activity.completed_session_id) {
+                                  realTask = dataStore.sessionTasks.find(st => st.session_id === activity.completed_session_id && st.description === taskStr);
+                                }
+                                const isCompleted = realTask ? realTask.completed : (localCompletedTasks[fallbackKey] || false);
+                                
+                                return (
+                                  <button
+                                    key={tIdx} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (realTask) {
+                                        dataStore.toggleSessionTask(realTask.id);
+                                      } else {
+                                        setLocalCompletedTasks(prev => ({
+                                          ...prev,
+                                          [fallbackKey]: !prev[fallbackKey]
+                                        }));
+                                      }
+                                    }}
+                                    className="w-full flex items-center gap-3 text-left py-2 px-2 rounded-lg cursor-pointer transition-all hover:bg-white/5 active:scale-[0.98] active:opacity-70 group relative -left-[8px]"
+                                    type="button"
+                                    role="button"
+                                  >
+                                    <div className={`w-4 h-4 rounded-[4px] border flex-shrink-0 flex items-center justify-center transition-colors ${isCompleted ? 'bg-primary-green border-primary-green' : 'border-white/20'}`}>
+                                      {isCompleted && <Check size={10} className="text-[#0a0a0a] stroke-[4]" />}
+                                    </div>
+                                    <span className={`text-xs font-medium font-sans flex-1 transition-all ${isCompleted ? 'text-text-secondary/40 line-through' : 'text-text-secondary/80 group-hover:text-white'}`}>
+                                      {taskStr}
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
