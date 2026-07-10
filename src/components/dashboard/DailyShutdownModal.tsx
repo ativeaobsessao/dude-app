@@ -17,7 +17,8 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
   const { user } = useAuthStore();
   const { 
     habits,
-    sessions, 
+    sessions,
+    addSession, 
     habitCompletions, 
     avoidanceCheckins, 
     scheduledActivities, 
@@ -29,10 +30,21 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     moodEntries
   } = useDataStore();
 
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
   const [internalClosed, setInternalClosed] = useState(false);
+
+  // --- RETROACTIVE SESSIONS STATE ---
+  const [pendingRetroTasks, setPendingRetroTasks] = useState<any[]>([]);
+  const [isRetroModalOpen, setIsRetroModalOpen] = useState(false);
+  const [retroTitle, setRetroTitle] = useState('');
+  const [retroProjectId, setRetroProjectId] = useState('');
+  const [retroDurationHours, setRetroDurationHours] = useState('00');
+  const [retroDurationMins, setRetroDurationMins] = useState('30');
+  const [retroFocusedField, setRetroFocusedField] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (isOpen) setInternalClosed(false);
@@ -70,16 +82,19 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     return <BatteryLow size={18} className="text-zinc-500" />;
   };
 
+  
   const formatEnergyLabel = (level: string | null) => {
-    if (level === 'pleno') return 'Pleno';
-    if (level === 'inquieto') return 'Inquieto';
-    if (level === 'equilibrado') return 'Equilibrado';
-    if (level === 'fadigado') return 'Fadigado';
-    if (level === 'cansado') return 'Cansado';
-    if (level === 'normal') return 'Normal';
-    if (level === 'energizado') return 'Energizado';
+    if (!level || level === 'neutro') return '-';
+    if (level === 'pleno') return 'pleno';
+    if (level === 'inquieto') return 'inquieto';
+    if (level === 'equilibrado') return 'equilibrado';
+    if (level === 'fadigado') return 'fadigado';
+    if (level === 'cansado') return 'cansado';
+    if (level === 'normal') return 'normal';
+    if (level === 'energizado') return 'energizado';
     return '-';
   };
+
 
   const avoidanceStats = useMemo(() => {
     let wins = 0;
@@ -114,6 +129,41 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     const mins = totalMins % 60;
     if (hours > 0) return `${hours}h${mins > 0 ? ` ${mins}m` : ''}`;
     return `${mins}m`;
+  };
+
+
+  const handleConfirmRetroactiveShutdown = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      if (user) {
+        for (const task of pendingRetroTasks) {
+          const totalMins = (parseInt(task.hours) || 0) * 60 + (parseInt(task.mins) || 0);
+          if (totalMins > 0) {
+            const dateStr = `${targetDate}T12:00:00.000Z`;
+            await addSession({
+                user_id: user.id,
+                project_id: task.projectId || null,
+                duration_minutes: totalMins,
+                started_at: dateStr,
+                completed_at: dateStr,
+                status: 'completed',
+                activity_type: 'deep_work',
+                task_id: null,
+                energy_level: 'normal',
+                focus_score: 5,
+                success_feeling: 5
+            });
+          }
+        }
+      }
+      setPendingRetroTasks([]);
+      handleShutdown();
+    } catch (err) {
+      console.error("Error retro shutdown", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleShutdown = async () => {
@@ -209,7 +259,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[10px] font-medium text-zinc-400 leading-tight">Manhã</span>
-                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.manha)}</span>
+                      <span className="text-[10px] text-zinc-400 font-medium capitalize mt-0.5">{formatEnergyLabel(energyByPeriod.manha) || "-"}</span>
                     </div>
                   </div>
                   <div className="w-full h-px bg-zinc-800"></div>
@@ -219,7 +269,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[10px] font-medium text-zinc-400 leading-tight">Tarde</span>
-                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.tarde)}</span>
+                      <span className="text-[10px] text-zinc-400 font-medium capitalize mt-0.5">{formatEnergyLabel(energyByPeriod.tarde) || "-"}</span>
                     </div>
                   </div>
                   <div className="w-full h-px bg-zinc-800"></div>
@@ -229,7 +279,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[10px] font-medium text-zinc-400 leading-tight">Noite</span>
-                      <span className="text-[9px] font-medium text-zinc-500 mt-0.5">{formatEnergyLabel(energyByPeriod.noite)}</span>
+                      <span className="text-[10px] text-zinc-400 font-medium capitalize mt-0.5">{formatEnergyLabel(energyByPeriod.noite) || "-"}</span>
                     </div>
                   </div>
                 </div>
@@ -283,21 +333,68 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
               )}
             </div>
 
+            {/* Bloco 5: SESSÕES PROFUNDAS ESQUECIDAS */}
+            {isCatchUp && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col mt-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Sessões Profundas Esquecidas</span>
+                
+                {pendingRetroTasks.length > 0 && (
+                  <div className="flex flex-col mb-3">
+                    {pendingRetroTasks.map((item, idx) => {
+                      const proj = projects.find(p => p.id === item.projectId);
+                      const projName = proj ? proj.name : 'Sem Projeto';
+                      return (
+                        <div key={idx} className="flex justify-between items-end py-2 border-b border-zinc-800/50 last:border-0 group">
+                          <div className="flex flex-col truncate pr-4">
+                            <span className="text-sm text-zinc-300 font-medium truncate">{item.title}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium truncate">{projName}</span>
+                          </div>
+                          <div className="flex-1 border-b border-dotted border-zinc-700/50 mb-1.5 mx-2 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                          <span className="text-sm text-emerald-400 font-mono shrink-0">{item.hours}h {item.mins}m</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                <button 
+                  onClick={() => setIsRetroModalOpen(true)}
+                  className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white rounded-xl text-xs font-semibold transition-colors mt-2"
+                >
+                  + Adicionar sessão esquecida
+                </button>
+              </div>
+            )}
+
           </div>
 
+          
           {/* Fixed Bottom Action */}
           <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12">
-            <button
-              type="button"
-              onClick={handleStartDecompression}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
-            >
-              <Moon size={18} strokeWidth={2.5} />
-              Iniciar Descompressão
-            </button>
-            <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
-              Trancar dados e desligar a mente
-            </p>
+            {!isCatchUp ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartDecompression}
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
+                >
+                  <Moon size={18} strokeWidth={2.5} />
+                  Iniciar Descompressão
+                </button>
+                <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
+                  Trancar dados e desligar a mente
+                </p>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirmRetroactiveShutdown}
+                disabled={isSubmitting}
+                className="w-full py-4 bg-white hover:bg-zinc-200 text-black rounded-2xl font-bold text-[15px] uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50"
+              >
+                {isSubmitting ? 'CONFIRMANDO...' : 'CONFIRMAR FECHAMENTO'}
+              </button>
+            )}
           </div>
 
         </motion.div>
@@ -306,6 +403,148 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
           isOpen={showOverlay} 
           onComplete={handleShutdown} 
         />
+
+
+        <AnimatePresence>
+          {isRetroModalOpen && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                onClick={() => setIsRetroModalOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-[32px] p-6 shadow-2xl relative z-10 flex flex-col gap-6"
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-white">Sessão Esquecida</h3>
+                  <button onClick={() => setIsRetroModalOpen(false)} className="p-2 text-zinc-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">O QUE FOI FEITO?</label>
+                    <input
+                      type="text"
+                      className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-2xl px-4 py-3.5 text-sm text-white outline-none transition-all"
+                      placeholder="Ex: Refatorar modal..."
+                      value={retroTitle}
+                      onChange={(e) => setRetroTitle(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-1 text-left">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">PROJETO VINCULADO</label>
+                    <select
+                      className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-2xl px-4 py-3.5 text-sm text-white outline-none transition-all appearance-none cursor-pointer"
+                      value={retroProjectId}
+                      onChange={(e) => setRetroProjectId(e.target.value)}
+                    >
+                      <option value="" className="bg-zinc-900 text-zinc-500">Nenhum projeto</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id} className="bg-zinc-900 text-white">{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-1 text-left w-full min-w-0">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">DURAÇÃO</label>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                        <div className="flex-1 flex flex-col items-center">
+                          <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Horas</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
+                            maxLength={2}
+                            value={retroDurationHours}
+                            onChange={(e) => setRetroDurationHours(e.target.value.replace(/\D/g, ''))}
+                            onBlur={(e) => setRetroDurationHours(e.target.value.padStart(2, '0') || '00')}
+                            onFocus={(e) => {
+                              e.target.select();
+                              setRetroFocusedField('duracao');
+                            }}
+                          />
+                        </div>
+                        <span className="text-zinc-600 font-bold text-sm select-none mb-1">:</span>
+                        <div className="flex-1 flex flex-col items-center">
+                          <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Minutos</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
+                            maxLength={2}
+                            value={retroDurationMins}
+                            onChange={(e) => setRetroDurationMins(e.target.value.replace(/\D/g, ''))}
+                            onBlur={(e) => setRetroDurationMins(e.target.value.padStart(2, '0') || '00')}
+                            onFocus={(e) => {
+                              e.target.select();
+                              setRetroFocusedField('duracao');
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {retroFocusedField === 'duracao' && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setRetroDurationHours(retroDurationHours.padStart(2, '0') || '00');
+                            setRetroDurationMins(retroDurationMins.padStart(2, '0') || '00');
+                            setRetroFocusedField(null);
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                          }}
+                          className="px-4 py-4 bg-emerald-500 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] shrink-0 min-h-[58px]"
+                        >
+                          OK
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setIsRetroModalOpen(false)}
+                    className="px-5 py-3.5 bg-transparent text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!retroTitle) return;
+                      setPendingRetroTasks([...pendingRetroTasks, {
+                        title: retroTitle,
+                        projectId: retroProjectId,
+                        hours: retroDurationHours.padStart(2, '0') || '00',
+                        mins: retroDurationMins.padStart(2, '0') || '00'
+                      }]);
+                      setRetroTitle('');
+                      setRetroProjectId('');
+                      setRetroDurationHours('00');
+                      setRetroDurationMins('30');
+                      setIsRetroModalOpen(false);
+                    }}
+                    disabled={!retroTitle || (parseInt(retroDurationHours||'0') === 0 && parseInt(retroDurationMins||'0') === 0)}
+                    className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-50 disabled:hover:bg-emerald-500 disabled:cursor-not-allowed font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer shadow-[0_4px_20px_rgba(16,185,129,0.2)]"
+                  >
+                    CONFIRMAR OK
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <DecompressionSession 
           isOpen={isDecompressionOpen}
