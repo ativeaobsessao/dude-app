@@ -48,7 +48,7 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     );
   }
 
-  const currentHabitName = habits.find(h => h.id === selectedHabitId)?.title || 'este vício';
+  const currentHabitName = habits.find(h => h.id === selectedHabitId)?.name || 'este vício';
 
   const triggers = [
     { value: 'Fome/Sede', label: 'FOME/SEDE' },
