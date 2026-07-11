@@ -44,6 +44,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
   const [retroDurationHours, setRetroDurationHours] = useState('00');
   const [retroDurationMins, setRetroDurationMins] = useState('30');
   const [retroFocusedField, setRetroFocusedField] = useState<string | null>(null);
+  const [retroToast, setRetroToast] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -407,7 +408,25 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
         <AnimatePresence>
           {isRetroModalOpen && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <AnimatePresence>
+                {retroToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="absolute top-6 left-1/2 -translate-x-1/2 z-[10001] bg-white/10 backdrop-blur-xl border border-white/20 text-white text-xs font-semibold px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 pointer-events-none"
+                  >
+                    <CheckCircle size={14} className="text-emerald-400" />
+                    {retroToast}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -419,10 +438,15 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-[32px] p-6 shadow-2xl relative z-10 flex flex-col gap-6"
+                className="w-full max-w-lg bg-[#0b0e11] border border-white/10 rounded-[28px] p-6 relative overflow-hidden flex flex-col shadow-2xl z-10"
               >
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-white">Sessão Esquecida</h3>
+                <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                      <Target className="text-white" size={20} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Sessão Esquecida</h3>
+                  </div>
                   <button onClick={() => setIsRetroModalOpen(false)} className="p-2 text-zinc-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
                     <X size={20} />
                   </button>
@@ -430,10 +454,10 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                 
                 <div className="space-y-4">
                   <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">O QUE FOI FEITO?</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 ml-1">O QUE FOI FEITO?</label>
                     <input
                       type="text"
-                      className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-2xl px-4 py-3.5 text-sm text-white outline-none transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all"
                       placeholder="Ex: Refatorar modal..."
                       value={retroTitle}
                       onChange={(e) => setRetroTitle(e.target.value)}
@@ -441,9 +465,9 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                   </div>
                   
                   <div className="space-y-1 text-left">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">PROJETO VINCULADO</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 ml-1">PROJETO VINCULADO</label>
                     <select
-                      className="w-full bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-2xl px-4 py-3.5 text-sm text-white outline-none transition-all appearance-none cursor-pointer"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all appearance-none cursor-pointer"
                       value={retroProjectId}
                       onChange={(e) => setRetroProjectId(e.target.value)}
                     >
@@ -454,66 +478,68 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                     </select>
                   </div>
                   
-                  <div className="space-y-1 text-left w-full min-w-0">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">DURAÇÃO</label>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
-                        <div className="flex-1 flex flex-col items-center">
-                          <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Horas</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
-                            maxLength={2}
-                            value={retroDurationHours}
-                            onChange={(e) => setRetroDurationHours(e.target.value.replace(/\D/g, ''))}
-                            onBlur={(e) => setRetroDurationHours(e.target.value.padStart(2, '0') || '00')}
-                            onFocus={(e) => {
-                              e.target.select();
-                              setRetroFocusedField('duracao');
-                            }}
-                          />
+                  <div className="bg-[#111418] border border-white/5 rounded-2xl p-5 space-y-4 mt-2">
+                    <div className="space-y-1 text-left w-full min-w-0">
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 ml-1">DURAÇÃO</label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1 flex items-center justify-center bg-white/5 border border-white/20 rounded-2xl px-3 min-h-[58px] gap-1">
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Horas</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
+                              maxLength={2}
+                              value={retroDurationHours}
+                              onChange={(e) => setRetroDurationHours(e.target.value.replace(/\D/g, ''))}
+                              onBlur={(e) => setRetroDurationHours(e.target.value.padStart(2, '0') || '00')}
+                              onFocus={(e) => {
+                                e.target.select();
+                                setRetroFocusedField('duracao');
+                              }}
+                            />
+                          </div>
+                          <span className="text-zinc-600 font-bold text-sm select-none mb-1">:</span>
+                          <div className="flex-1 flex flex-col items-center">
+                            <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Minutos</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
+                              maxLength={2}
+                              value={retroDurationMins}
+                              onChange={(e) => setRetroDurationMins(e.target.value.replace(/\D/g, ''))}
+                              onBlur={(e) => setRetroDurationMins(e.target.value.padStart(2, '0') || '00')}
+                              onFocus={(e) => {
+                                e.target.select();
+                                setRetroFocusedField('duracao');
+                              }}
+                            />
+                          </div>
                         </div>
-                        <span className="text-zinc-600 font-bold text-sm select-none mb-1">:</span>
-                        <div className="flex-1 flex flex-col items-center">
-                          <span className="text-[7.5px] font-bold text-zinc-500 uppercase tracking-widest">Minutos</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="w-full bg-transparent text-center font-bold text-sm text-white outline-none py-1"
-                            maxLength={2}
-                            value={retroDurationMins}
-                            onChange={(e) => setRetroDurationMins(e.target.value.replace(/\D/g, ''))}
-                            onBlur={(e) => setRetroDurationMins(e.target.value.padStart(2, '0') || '00')}
-                            onFocus={(e) => {
-                              e.target.select();
-                              setRetroFocusedField('duracao');
+                        {retroFocusedField === 'duracao' && (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setRetroDurationHours(retroDurationHours.padStart(2, '0') || '00');
+                              setRetroDurationMins(retroDurationMins.padStart(2, '0') || '00');
+                              setRetroFocusedField(null);
+                              if (document.activeElement instanceof HTMLElement) {
+                                document.activeElement.blur();
+                              }
                             }}
-                          />
-                        </div>
+                            className="px-4 py-4 bg-emerald-500 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] shrink-0 min-h-[58px]"
+                          >
+                            OK
+                          </button>
+                        )}
                       </div>
-                      {retroFocusedField === 'duracao' && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setRetroDurationHours(retroDurationHours.padStart(2, '0') || '00');
-                            setRetroDurationMins(retroDurationMins.padStart(2, '0') || '00');
-                            setRetroFocusedField(null);
-                            if (document.activeElement instanceof HTMLElement) {
-                              document.activeElement.blur();
-                            }
-                          }}
-                          className="px-4 py-4 bg-emerald-500 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] shrink-0 min-h-[58px]"
-                        >
-                          OK
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex gap-3 justify-end pt-4 mt-2">
                   <button
                     onClick={() => setIsRetroModalOpen(false)}
                     className="px-5 py-3.5 bg-transparent text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer"
@@ -533,10 +559,12 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                       setRetroProjectId('');
                       setRetroDurationHours('00');
                       setRetroDurationMins('30');
-                      setIsRetroModalOpen(false);
+                      
+                      setRetroToast('Sessão contabilizada para ' + targetDate.split('-').reverse().join('/'));
+                      setTimeout(() => setRetroToast(null), 3500);
                     }}
                     disabled={!retroTitle || (parseInt(retroDurationHours||'0') === 0 && parseInt(retroDurationMins||'0') === 0)}
-                    className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-50 disabled:hover:bg-emerald-500 disabled:cursor-not-allowed font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer shadow-[0_4px_20px_rgba(16,185,129,0.2)]"
+                    className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer shadow-[0_4px_20px_rgba(16,185,129,0.2)]"
                   >
                     CONFIRMAR OK
                   </button>
