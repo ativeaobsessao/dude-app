@@ -42,6 +42,7 @@ import { ReagendarModal, ReconfigurarModal } from './components/agenda/ScheduleP
 
 
 import { DailyShutdownModal } from './components/dashboard/DailyShutdownModal';
+import { MoodRitualModal } from './components/mood/MoodRitualModal';
 
 const ENABLE_QUICK_CAPTURE = true;
 
@@ -102,6 +103,7 @@ export default function App() {
   const [manualShutdownOpen, setManualShutdownOpen] = useState(false);
   const [manualShutdownDate, setManualShutdownDate] = useState('');
   const [showQuickCapture, setShowQuickCapture] = useState(false);
+  const isTimerActive = useTimerStore((state) => state.isActive);
 
   const runServerPopupCheck = async () => {
     if (!user) return;
@@ -321,7 +323,18 @@ export default function App() {
     return hasActivityYesterday;
   })();
 
-  
+  const [showMoodRitual, setShowMoodRitual] = useState(false);
+  useEffect(() => {
+    if (user && dataStore.initialFetchDone && popupState.currentPeriod && popupState.todayStr) {
+      const hasEntryForCurrentPeriod = dataStore.moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
+      if (!hasEntryForCurrentPeriod) {
+        setShowMoodRitual(true);
+      } else {
+        setShowMoodRitual(false);
+      }
+    }
+  }, [user, dataStore.initialFetchDone, dataStore.moodEntries, popupState.currentPeriod, popupState.todayStr]);
+
 
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
 
@@ -642,6 +655,12 @@ export default function App() {
           targetDate={manualShutdownOpen ? manualShutdownDate : popupState.yesterdayStr}
           isCatchUp={manualShutdownOpen ? false : isCatchUpActive}
         />
+        <MoodRitualModal
+          isOpen={showMoodRitual}
+          onClose={() => setShowMoodRitual(false)}
+          currentPeriod={popupState.currentPeriod || 'manha'}
+          currentDate={popupState.todayStr}
+        />
         <ReagendarModal
           isOpen={isReagendarOpen}
           onClose={() => {
@@ -813,7 +832,9 @@ export default function App() {
 
 
 
-        <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 flex items-center justify-between">
+        {/* FIXED TOP HEADER */}
+        {!isTimerActive && !showQuickCapture && (
+          <header className="fixed top-0 left-0 right-0 z-[300] bg-[#0d0f0e]/85 backdrop-blur-xl border-b border-white/5 px-6 py-4 md:px-12 flex items-center justify-between">
           {/* Quick Capture Trigger or Left Spacer to perfectly balance the avatar on the right */}
           {ENABLE_QUICK_CAPTURE ? (
             <button
@@ -853,7 +874,8 @@ export default function App() {
               </div>
             )}
           </button>
-        </header>
+          </header>
+        )}
 
         {showFullAgenda ? (
           <div className="pt-24 min-h-screen">
@@ -906,7 +928,8 @@ export default function App() {
         </footer>
 
         {/* FIXED BOTTOM NAVIGATION BAR */}
-        <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#0d0f0e]/85 backdrop-blur-xl border-t border-white/5 pb-safe">
+        {!isTimerActive && !showQuickCapture && (
+          <div className="fixed bottom-0 left-0 right-0 z-[300] bg-[#0d0f0e]/85 backdrop-blur-xl border-t border-white/5 pb-safe">
           <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-between">
             {/* 1. Início */}
             <button 
@@ -991,6 +1014,7 @@ export default function App() {
             </button>
           </div>
         </div>
+        )}
       </div>
           </PWAProvider>
         </SubscriptionGuard>

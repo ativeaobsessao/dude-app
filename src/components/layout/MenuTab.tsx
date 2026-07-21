@@ -22,13 +22,18 @@ export const MenuTab = () => {
     <div className="w-full max-w-6xl mx-auto px-6 py-6 pb-32 space-y-12 flex flex-col items-center">
       <div className="w-full max-w-lg space-y-12">
         {/* NÍVEL 1: O Acelerador (Topo) */}
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => openScreen('agenda')}
-          className="w-full py-4 bg-primary-green text-background rounded-full font-bold uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(110,231,168,0.2)]"
-        >
-          REALIZAR AGENDAMENTO
-        </motion.button>
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
+            AGENDAMENTO DE TAREFAS
+          </h3>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => openScreen('agenda')}
+            className="w-full py-4 bg-primary-green text-background rounded-full font-bold uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(110,231,168,0.2)]"
+          >
+            REALIZAR AGENDAMENTO
+          </motion.button>
+        </div>
 
         {/* NÍVEL 2: Sinais Vitais (Anti-Vício) */}
         <div className="space-y-3">
