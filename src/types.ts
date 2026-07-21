@@ -168,6 +168,7 @@ export type MoodEntry = {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD local
+  entry_date?: string;
   period: MoodPeriod;
   mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null;
   energy?: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null;
@@ -178,6 +179,7 @@ export type DailyShutdown = {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD local
+  entry_date?: string;
   status: 'completed' | 'dismissed';
   created_at: string;
 };

@@ -326,14 +326,22 @@ export default function App() {
   const [showMoodRitual, setShowMoodRitual] = useState(false);
   useEffect(() => {
     if (user && dataStore.initialFetchDone && popupState.currentPeriod && popupState.todayStr) {
+      if (dataStore.profile?.mood_status === 'disabled') {
+        setShowMoodRitual(false);
+        return;
+      }
+      
       const hasEntryForCurrentPeriod = dataStore.moodEntries.some(m => m.date === popupState.todayStr && m.period === popupState.currentPeriod);
-      if (!hasEntryForCurrentPeriod) {
+      const localKey = `dude_mood_dismissed_${popupState.todayStr}_${popupState.currentPeriod}`;
+      const dismissedLocally = localStorage.getItem(localKey) === 'true';
+
+      if (!hasEntryForCurrentPeriod && !dismissedLocally) {
         setShowMoodRitual(true);
       } else {
         setShowMoodRitual(false);
       }
     }
-  }, [user, dataStore.initialFetchDone, dataStore.moodEntries, popupState.currentPeriod, popupState.todayStr]);
+  }, [user, dataStore.initialFetchDone, dataStore.moodEntries, popupState.currentPeriod, popupState.todayStr, dataStore.profile?.mood_status]);
 
 
   const notifiedActivityIdsRef = useRef<Set<string>>(new Set());
@@ -657,7 +665,12 @@ export default function App() {
         />
         <MoodRitualModal
           isOpen={showMoodRitual}
-          onClose={() => setShowMoodRitual(false)}
+          onClose={() => {
+            setShowMoodRitual(false);
+            if (popupState.todayStr && popupState.currentPeriod) {
+              localStorage.setItem(`dude_mood_dismissed_${popupState.todayStr}_${popupState.currentPeriod}`, 'true');
+            }
+          }}
           currentPeriod={popupState.currentPeriod || 'manha'}
           currentDate={popupState.todayStr}
         />

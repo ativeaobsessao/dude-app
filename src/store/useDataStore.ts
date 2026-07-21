@@ -233,11 +233,15 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   addMoodEntry: async (userId, date, period, mood, energy) => {
     try {
-      const { data, error } = await supabase.from('mood_entries').insert({ user_id: userId, date, period, mood, energy }).select().single();
+      const { data, error } = await supabase.from('mood_entries').insert({ user_id: userId, entry_date: date, period, mood, energy }).select().single();
       if (error) throw error;
-      if (data) set({ moodEntries: [data, ...get().moodEntries] });
+      if (data) {
+        const mappedData = { ...data, date: data.entry_date || data.date };
+        set({ moodEntries: [mappedData, ...get().moodEntries] });
+      }
     } catch (err) {
       console.error('Error adding mood entry:', err);
+      throw err;
     }
   },
 
@@ -443,7 +447,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         console.error('Error writing merged daily_tasks cache:', err);
       }
 
-      const fetchedMoodEntries = (me && 'data' in me && me.data) ? me.data : [];
+      const fetchedMoodEntries = ((me && 'data' in me && me.data) ? me.data : []).map((entry: any) => ({ ...entry, date: entry.entry_date || entry.date }));
       let initialEnergyState = get().currentEnergyState;
       if (fetchedMoodEntries.length > 0) {
         const todayStr = getLocalDateString(new Date());
@@ -570,7 +574,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const moodRes = await supabase.from('mood_entries').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       
       if (moodRes && moodRes.data) {
-        const fetchedMoodEntries = moodRes.data;
+        const fetchedMoodEntries = moodRes.data.map((entry: any) => ({ ...entry, date: entry.entry_date || entry.date }));
         let initialEnergyState = get().currentEnergyState;
         
         if (fetchedMoodEntries.length > 0) {
