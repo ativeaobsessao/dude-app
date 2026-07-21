@@ -834,10 +834,17 @@ export default function App() {
 
         {/* FIXED TOP HEADER */}
         {!isTimerActive && !showQuickCapture && (
-          <header className="fixed top-0 left-0 right-0 z-[300] bg-[#0d0f0e]/85 backdrop-blur-xl border-b border-white/5 px-6 py-4 md:px-12 flex items-center justify-between">
+          <header 
+            className="fixed top-0 left-0 right-0 z-[300] bg-[#0d0f0e]/90 backdrop-blur-2xl pt-3 pb-8 px-6 md:px-12 flex items-center justify-between pointer-events-none"
+            style={{
+              maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
+            }}
+          >
           {/* Quick Capture Trigger or Left Spacer to perfectly balance the avatar on the right */}
           {ENABLE_QUICK_CAPTURE ? (
             <button
+              style={{ pointerEvents: 'auto' }}
               id="quick-capture-trigger-btn"
               onClick={() => setShowQuickCapture(true)}
               className="w-10 h-10 rounded-full border border-border-custom hover:border-[#6ee7a8] active:scale-95 transition-all cursor-pointer focus:outline-none flex items-center justify-center text-text-secondary hover:text-[#6ee7a8] shrink-0 bg-surface/10"
@@ -859,7 +866,7 @@ export default function App() {
           {/* Right User Avatar (Opening the AccountPanel) */}
           <button 
             onClick={() => setShowAccountPanel(true)}
-            className="w-10 h-10 rounded-full border border-border-custom overflow-hidden hover:border-green active:scale-95 transition-all cursor-pointer focus:outline-none flex items-center justify-center ml-auto shrink-0"
+            className="w-10 h-10 rounded-full border border-border-custom overflow-hidden hover:border-green active:scale-95 transition-all cursor-pointer focus:outline-none flex items-center justify-center ml-auto shrink-0 pointer-events-auto"
           >
             {profile?.avatar_url ? (
               <img 

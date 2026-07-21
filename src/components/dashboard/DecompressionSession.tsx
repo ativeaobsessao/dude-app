@@ -252,7 +252,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   return (
     <div 
       onClick={handleContainerClick}
-      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between text-white font-sans"
+      className="fixed inset-0 z-[2000] bg-black flex flex-col justify-between text-white font-sans"
     >
       {/* Cabeçalho */}
       <div className="flex justify-between p-6 relative z-10">
@@ -435,7 +435,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       </div>
       <AnimatePresence>
         {showContinuePopup && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[2010] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
