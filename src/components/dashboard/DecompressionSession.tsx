@@ -15,10 +15,18 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [sleepTimer, setSleepTimer] = useState<number>(30); // Sleep timer in minutes
+  const [timeRemaining, setTimeRemaining] = useState<number>(30 * 60);
   const [showContinuePopup, setShowContinuePopup] = useState(false);
+  const [effectIndex, setEffectIndex] = useState(0);
 
   const wakeLockRef = useRef<any>(null);
   
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   // Audio Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -61,6 +69,14 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isPlaying]);
 
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setEffectIndex((prev) => (prev + 1) % 3);
+    }, 5 * 60 * 1000); // Muda o efeito visual a cada 5 minutos
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
 
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
@@ -80,16 +96,27 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   }, [isOpen]);
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    if (isPlaying && sleepTimer > 0) {
-      timeout = setTimeout(() => {
-        stopAudio();
-        setIsPlaying(false);
-        setShowContinuePopup(true);
-      }, sleepTimer * 60 * 1000);
+    let interval: NodeJS.Timeout;
+    if (isPlaying && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            stopAudio();
+            setIsPlaying(false);
+            setShowContinuePopup(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (timeRemaining === 0 && isPlaying) {
+      stopAudio();
+      setIsPlaying(false);
+      setShowContinuePopup(true);
     }
-    return () => clearTimeout(timeout);
-  }, [isPlaying, sleepTimer]);
+    return () => clearInterval(interval);
+  }, [isPlaying, timeRemaining]);
 
   const initAudio = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -237,10 +264,11 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
               onClick={(e) => {
                 e.stopPropagation();
                 setSleepTimer(t);
+                setTimeRemaining(t * 60);
               }}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${sleepTimer === t ? 'bg-zinc-800 text-zinc-200 border-zinc-700' : 'bg-transparent text-zinc-600 border-zinc-800 hover:text-zinc-400'}`}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${sleepTimer === t ? 'bg-zinc-800 text-zinc-200 border-zinc-700 w-[60px]' : 'bg-transparent text-zinc-600 border-zinc-800 hover:text-zinc-400'}`}
             >
-              {t}m
+              {sleepTimer === t ? formatTime(timeRemaining) : `${t}m`}
             </button>
           ))}
         </div>
@@ -259,41 +287,115 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
 
       {/* Centro da Tela - Ancoragem Minimalista */}
       <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
-        {/* Círculos concêntricos - Apple-style pendulum */}
-        <motion.div 
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          initial="initial"
-          animate="animate"
-          variants={{
-            animate: {
-              transition: {
-                staggerChildren: 0.5
-              }
-            }
-          }}
-        >
-          {[0, 1, 2, 3, 4].map((i) => (
-            <motion.div
-              key={i}
-              variants={{
-                initial: { scale: 0.8, opacity: 0 },
-                animate: { 
-                  scale: [0.8, 1.2, 0.8], 
-                  opacity: [0.2, 0.6, 0.2],
-                  transition: { 
-                    duration: 6, 
-                    ease: "easeInOut", 
+        {/* Efeitos Visuais Neurologicamente Comprovados (Ciclo de 5min) */}
+        <AnimatePresence mode="wait">
+          {effectIndex === 0 && (
+            <motion.div 
+              key="effect-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            >
+              {/* Respiração Guiada 4-7-8 (Bioluminescência Pulsante) */}
+              <motion.div
+                animate={{
+                  scale: [1, 1.4, 1.4, 1],
+                  opacity: [0.15, 0.5, 0.5, 0.15],
+                }}
+                transition={{
+                  duration: 19,
+                  times: [0, 4/19, 11/19, 1],
+                  ease: "easeInOut",
+                  repeat: Infinity
+                }}
+                className="w-[60vw] h-[60vw] max-w-[400px] max-h-[400px] rounded-full bg-emerald-500/20 blur-3xl absolute"
+              />
+              <motion.div
+                animate={{
+                  scale: [0.8, 1.1, 1.1, 0.8],
+                  opacity: [0.3, 0.8, 0.8, 0.3],
+                }}
+                transition={{
+                  duration: 19,
+                  times: [0, 4/19, 11/19, 1],
+                  ease: "easeInOut",
+                  repeat: Infinity
+                }}
+                className="w-[40vw] h-[40vw] max-w-[250px] max-h-[250px] rounded-full bg-emerald-400/20 blur-2xl absolute"
+              />
+            </motion.div>
+          )}
+
+          {effectIndex === 1 && (
+            <motion.div 
+              key="effect-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none overflow-hidden"
+            >
+              {/* Ondas Delta (Marés Lentas) */}
+              {[1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    y: [0, 40, -40, 0],
+                    rotate: [0, 3, -3, 0],
+                    opacity: [0.1, 0.3, 0.1]
+                  }}
+                  transition={{
+                    duration: 16 + i * 4,
+                    ease: "easeInOut",
                     repeat: Infinity
-                  }
-                }
-              }}
-              className="absolute rounded-full border border-white/30 w-[80vw] h-[80vw] max-w-[400px] max-h-[400px]"
-              style={{
-                backgroundColor: `rgba(255, 255, 255, 0.04)`
-              }}
-            />
-          ))}
-        </motion.div>
+                  }}
+                  className="absolute w-[150vw] h-[25vh] rounded-[100%] bg-blue-500/10 blur-3xl"
+                  style={{
+                    top: `${30 + i * 15}%`,
+                    left: '-25vw'
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+
+          {effectIndex === 2 && (
+            <motion.div 
+              key="effect-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 pointer-events-none overflow-hidden"
+            >
+              {/* Estrelas / Partículas em Deriva (Foco Desfocado) */}
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    x: `${(i * 5) % 100}vw`, 
+                    y: '100vh',
+                    opacity: 0
+                  }}
+                  animate={{ 
+                    y: '-10vh',
+                    opacity: [0, 0.6, 0],
+                    scale: [1, 2.5, 1]
+                  }}
+                  transition={{
+                    duration: 20 + (i % 10),
+                    ease: "linear",
+                    repeat: Infinity,
+                    delay: i * 0.5
+                  }}
+                  className="absolute w-3 h-3 rounded-full bg-indigo-200/30 blur-md"
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Áudio Player Minimalista */}
         <div className="relative z-10 mt-64">
@@ -329,7 +431,6 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           placeholder="Esvazie a mente... (Pressione Enter para guardar)"
           className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-300 placeholder:text-zinc-700 text-lg p-0"
           rows={3}
-          autoFocus
         />
       </div>
       <AnimatePresence>
@@ -368,6 +469,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
                   onClick={() => {
                     setShowContinuePopup(false);
                     setSleepTimer(15);
+                    setTimeRemaining(15 * 60);
                     setIsPlaying(true);
                     playAudio();
                   }}
