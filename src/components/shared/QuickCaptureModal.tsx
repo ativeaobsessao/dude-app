@@ -23,6 +23,9 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
   const [linkUrl, setLinkUrl] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedActivityId, setSelectedActivityId] = useState('');
+  const [isNoteProjectOpen, setIsNoteProjectOpen] = useState(false);
+  const [isNoteActivityOpen, setIsNoteActivityOpen] = useState(false);
+  const [isLinkProjectOpen, setIsLinkProjectOpen] = useState(false);
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,6 +39,9 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
       setLinkUrl('');
       setSelectedProjectId('');
       setSelectedActivityId('');
+      setIsNoteProjectOpen(false);
+      setIsNoteActivityOpen(false);
+      setIsLinkProjectOpen(false);
     }
   }, [isOpen]);
 
@@ -207,35 +213,91 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
               {/* 2. Seletor de Projetos */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Projeto Relacionado (Opcional)</label>
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-[#c5cdd0] outline-none focus:border-primary-green transition-all font-bold cursor-pointer"
-                >
-                  <option value="" className="bg-[#121212] text-text-secondary/50">Nenhum Projeto</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-[#121212] text-text-primary">
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <div 
+                    onClick={() => setIsNoteProjectOpen(!isNoteProjectOpen)}
+                    className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center font-bold"
+                  >
+                    <span className={selectedProjectId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedProjectId ? projects?.find(p => p.id === selectedProjectId)?.name : "Nenhum Projeto"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isNoteProjectOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isNoteProjectOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedProjectId(''); setIsNoteProjectOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Nenhum Projeto
+                        </div>
+                        {projects && projects.map((p) => (
+                          <div 
+                            key={p.id}
+                            onClick={() => { setSelectedProjectId(p.id); setIsNoteProjectOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               {/* 3. Seletor de Atividades */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Atividade Relacionada (Opcional)</label>
-                <select
-                  value={selectedActivityId}
-                  onChange={(e) => setSelectedActivityId(e.target.value)}
-                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-[#c5cdd0] outline-none focus:border-primary-green transition-all font-bold cursor-pointer"
-                >
-                  <option value="" className="bg-[#121212] text-text-secondary/50">Nenhuma Atividade</option>
-                  {activities.map((act) => (
-                    <option key={act.id} value={act.id} className="bg-[#121212] text-text-primary">
-                      {act.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <div 
+                    onClick={() => setIsNoteActivityOpen(!isNoteActivityOpen)}
+                    className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center font-bold"
+                  >
+                    <span className={selectedActivityId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedActivityId ? activities?.find(a => a.id === selectedActivityId)?.name : "Nenhuma Atividade"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isNoteActivityOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isNoteActivityOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedActivityId(''); setIsNoteActivityOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Nenhuma Atividade
+                        </div>
+                        {activities && activities.map((act) => (
+                          <div 
+                            key={act.id}
+                            onClick={() => { setSelectedActivityId(act.id); setIsNoteActivityOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {act.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               {/* 4. Botão de Salvar atual */}
@@ -313,24 +375,44 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Vincular a Projeto (Opcional)</label>
                 <div className="relative">
-                  <select
-                    id="quick-link-project-select"
-                    value={selectedProjectId}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-[#6ee7a8] transition-all appearance-none cursor-pointer pr-10"
+                  <div 
+                    onClick={() => setIsLinkProjectOpen(!isLinkProjectOpen)}
+                    className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center"
                   >
-                    <option value="" className="bg-[#1c2421]">Sem Projeto</option>
-                    {projects && projects.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-[#1c2421]">
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-text-secondary/40">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                    <span className={selectedProjectId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedProjectId ? projects?.find(p => p.id === selectedProjectId)?.name : "Sem Projeto"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isLinkProjectOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
                       <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
+                  
+                  <AnimatePresence>
+                    {isLinkProjectOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#1c2421]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedProjectId(''); setIsLinkProjectOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Sem Projeto
+                        </div>
+                        {projects && projects.map((p) => (
+                          <div 
+                            key={p.id}
+                            onClick={() => { setSelectedProjectId(p.id); setIsLinkProjectOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
 
