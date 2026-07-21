@@ -373,19 +373,24 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
           {/* Fixed Bottom Action */}
           <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12">
             {!isCatchUp ? (
-              <>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-white hover:bg-zinc-200 text-black rounded-2xl font-bold text-[15px] uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50"
+                >
+                  {isSubmitting ? 'CONFIRMANDO...' : 'ENCERRAR DIA'}
+                </button>
                 <button
                   type="button"
                   onClick={handleStartDecompression}
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-semibold text-[15px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(5,150,105,0.2)]"
+                  className="w-full py-3.5 bg-transparent hover:bg-white/5 border border-white/10 text-zinc-400 hover:text-white rounded-2xl font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Moon size={18} strokeWidth={2.5} />
-                  Iniciar Descompressão
+                  <Moon size={16} strokeWidth={2.5} />
+                  Sessão de Descompressão
                 </button>
-                <p className="text-center text-[10px] text-zinc-500 font-medium mt-3">
-                  Trancar dados e desligar a mente
-                </p>
-              </>
+              </div>
             ) : (
               <button
                 type="button"
