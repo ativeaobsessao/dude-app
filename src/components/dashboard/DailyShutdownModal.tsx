@@ -581,7 +581,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
         <DecompressionSession 
           isOpen={isDecompressionOpen}
-          onClose={() => setIsDecompressionOpen(false)}
+          onClose={() => { setIsDecompressionOpen(false); onClose(); }}
         />
       </div>
     </AnimatePresence>

@@ -124,7 +124,7 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, on
       >
         <DecompressionSession 
           isOpen={isDecompressionOpen}
-          onClose={() => setIsDecompressionOpen(false)}
+          onClose={() => { setIsDecompressionOpen(false); onClose(); }}
         />
         
         <motion.div

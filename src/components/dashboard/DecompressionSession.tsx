@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Play, Pause } from 'lucide-react';
+import { X, Play, Pause, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 
@@ -15,9 +15,53 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [sleepTimer, setSleepTimer] = useState<number>(30); // Sleep timer in minutes
+  const [showContinuePopup, setShowContinuePopup] = useState(false);
+
+  const wakeLockRef = useRef<any>(null);
   
   // Audio Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch (err) {
+      console.error('Wake Lock error:', err);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch (err) {
+      console.error('Wake Lock release error:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (wakeLockRef.current !== null && document.visibilityState === 'visible' && isPlaying) {
+        await requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying]);
+
+
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
 
@@ -41,6 +85,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       timeout = setTimeout(() => {
         stopAudio();
         setIsPlaying(false);
+        setShowContinuePopup(true);
       }, sleepTimer * 60 * 1000);
     }
     return () => clearTimeout(timeout);
@@ -287,6 +332,54 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           autoFocus
         />
       </div>
+      <AnimatePresence>
+        {showContinuePopup && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-[#1c1c1e] border border-white/10 rounded-3xl p-6 relative z-10 flex flex-col items-center text-center shadow-2xl"
+            >
+              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                <Moon size={24} className="text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">Sessão Concluída</h3>
+              <p className="text-zinc-400 text-sm mb-6">
+                O tempo programado chegou ao fim. Deseja continuar a descompressão?
+              </p>
+              <div className="flex w-full gap-3">
+                <button
+                  onClick={() => {
+                    setShowContinuePopup(false);
+                    onClose();
+                  }}
+                  className="flex-1 py-3.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-sm transition-colors"
+                >
+                  Encerrar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowContinuePopup(false);
+                    setSleepTimer(15);
+                    setIsPlaying(true);
+                    playAudio();
+                  }}
+                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                >
+                  Continuar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
