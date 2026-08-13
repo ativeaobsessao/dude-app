@@ -1,6 +1,7 @@
 -- ====================================================================
 -- ESQUEMA COMPLETO E CONSOLIDADO DO BANCO DE DADOS - DUDE SYSTEM
--- (Fonte da Verdade / Production Schema)
+-- Executar este script no SQL Editor do novo projeto Supabase
+-- (https://wckuqhzjzqcndlrvdlaz.supabase.co)
 -- ====================================================================
 
 -- Habilitar extensões necessárias
@@ -98,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.scheduled_activities (
   status TEXT NOT NULL DEFAULT 'pending',
   tasks TEXT[] DEFAULT '{}',
   notes TEXT,
-  completed_session_id UUID,
+  completed_session_id UUID, -- Chave estrangeira circular vinculada abaixo
   resolved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
