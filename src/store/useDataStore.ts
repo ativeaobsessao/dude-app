@@ -51,6 +51,20 @@ function sanitizeScheduledActivity(payload: any) {
   return sanitized;
 }
 
+// Helper: separa o vínculo de hábito embutido no nome da atividade (ex: "Nome #HABIT:<uuid>")
+// e retorna o objeto de atividade já limpo, com habit_id extraído corretamente.
+// Usado em qualquer lugar que busque 'activities' cru do Supabase, para nunca vazar
+// o marcador #HABIT: para a UI (títulos de tarefas, listagens, etc).
+function parseActivityHabitTag(act: any) {
+  if (!act || typeof act.name !== 'string') return act;
+  const parts = act.name.split(/#HABIT:/i);
+  return {
+    ...act,
+    name: parts[0].trim(),
+    habit_id: parts[1] ? parts[1].trim() : (act.habit_id ?? null)
+  };
+}
+
 interface DataState {
   profile: Profile | null;
   projects: Project[];
@@ -457,12 +471,19 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
       }
 
+      // FIX (Bug 1): 'activities' vinha direto do Supabase sem separar o marcador
+      // "#HABIT:<uuid>" embutido no campo 'name'. Isso fazia o marcador vazar para
+      // qualquer lugar que usasse activity.name (ex: título de tarefas diárias),
+      // além de deixar 'habit_id' undefined mesmo quando a atividade estava vinculada
+      // a um hábito. Agora aplicamos o mesmo parse usado em fetchActivities/addActivity.
+      const parsedActivities = (a.data || []).map(parseActivityHabitTag);
+
       set({ 
          projects: p.data || [], 
          habits: h.data || [], 
          sessions: s.data || [], 
          notes: n.data || [],
-         activities: a.data || [],
+         activities: parsedActivities,
          habitCompletions: hc.data || [],
          pendingTasks: pt.data || [],
          scheduledActivities: sa.data || [],
@@ -681,14 +702,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data, error } = await supabase.from('activities').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       if (error) throw error;
       if (data) {
-        const parsed = data.map(act => {
-          const parts = act.name.split(/#HABIT:/i);
-          return {
-            ...act,
-            name: parts[0].trim(),
-            habit_id: parts[1] ? parts[1].trim() : null
-          };
-        });
+        const parsed = data.map(parseActivityHabitTag);
         set({ activities: parsed });
       }
     } catch (err) {
@@ -1264,12 +1278,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data, error } = await supabase.from('activities').insert(payload).select().single();
       if (error) throw error;
       if (data) {
-        const parts = data.name.split(/#HABIT:/i);
-        const parsedData = {
-          ...data,
-          name: parts[0].trim(),
-          habit_id: parts[1] ? parts[1].trim() : null
-        };
+        const parsedData = parseActivityHabitTag(data);
         set({ activities: [parsedData, ...get().activities] });
         return parsedData;
       }
