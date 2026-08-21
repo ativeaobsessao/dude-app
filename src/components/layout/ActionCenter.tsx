@@ -20,6 +20,7 @@ import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeR
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
 
 import { CustomSelect } from '../ui/CustomSelect';
+import { PortalSelect } from '../ui/PortalSelect';
 import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
 import { SavedLinksConfigScreen } from '../links/SavedLinksConfigScreen';
 import { LinksListScreen } from '../links/LinksListScreen';
@@ -2160,7 +2161,7 @@ export const ActionCenter = () => {
                                   
                                   <div className="space-y-1">
                                     <label className={labelClasses}>MELHOR HORÁRIO</label>
-                                    <CustomSelect
+                                    <PortalSelect
                                       value={newHabitTime}
                                       onChange={(val) => setNewHabitTime(val)}
                                       placeholder="Melhor horário"
@@ -3726,4 +3727,3 @@ export const ActionCenter = () => {
     </>
   );
 };
-
