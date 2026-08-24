@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { calculateAvoidanceMetrics } from '../dashboard/AvoidanceSection';
+import { AntiVicioCardOptionsModal } from '../dashboard/AntiVicioCardOptionsModal';
+import { Habit } from '../../types';
 import { Plus, FolderKanban, Target, Layers, StickyNote, Link2, History, ChevronRight } from 'lucide-react';
 
 export const MenuTab = () => {
   const dataStore = useDataStore();
+
+  const [selectedAntiVicioHabit, setSelectedAntiVicioHabit] = useState<Habit | null>(null);
   
   const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
   const projectsCount = dataStore.projects.length;
@@ -52,7 +56,7 @@ export const MenuTab = () => {
                 <motion.div
                   whileTap={{ scale: 0.96 }}
                   key={habit.id}
-                  onClick={() => openScreen('anti-vicio')}
+                  onClick={() => setSelectedAntiVicioHabit(habit)}
                   className="w-[85%] sm:w-[280px] shrink-0 snap-center bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 flex flex-col justify-between cursor-pointer"
                 >
                   <div className="space-y-1">
@@ -194,6 +198,13 @@ export const MenuTab = () => {
           </motion.button>
         </div>
       </div>
+
+      {/* Modal de opções (Editar/Apagar) do Anti-Vício */}
+      <AntiVicioCardOptionsModal
+        isOpen={!!selectedAntiVicioHabit}
+        habit={selectedAntiVicioHabit}
+        onClose={() => setSelectedAntiVicioHabit(null)}
+      />
     </div>
   );
 };
