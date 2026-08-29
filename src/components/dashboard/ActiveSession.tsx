@@ -7,9 +7,10 @@ import { useSessionNotifications } from '../../hooks/useSessionNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from '../ui/CustomSelect';
 import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil, Paperclip, Link, ArrowLeft } from 'lucide-react';
-import { resolverNomeSessao, cleanActivityName } from '../../lib/utils';
+import { resolverNomeSessao, cleanActivityName, getLocalDateString } from '../../lib/utils';
 import { SessionTasksModal } from '../session/SessionTasksModal';
 import { SessionEditPanel } from '../session/SessionEditPanel';
+import { RepeatSessionModal } from '../session/RepeatSessionModal';
 import { AntiVicioModal } from './AntiVicioModal';
 import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
 
@@ -106,6 +107,17 @@ export const ActiveSession = () => {
   const [showAllTasksDonePopup, setShowAllTasksDonePopup] = useState(false);
   const [allTasksCompletedTime, setAllTasksCompletedTime] = useState<number | null>(null);
   const [actualDurationMinutes, setActualDurationMinutes] = useState<number | null>(null);
+
+  // Repeat Session flow state (Sessão Profunda concluída -> opção de repetir)
+  const [showRepeatModal, setShowRepeatModal] = useState(false);
+  const [repeatSnapshot, setRepeatSnapshot] = useState<{
+    projectId: string | null;
+    habitId: string | null;
+    activityId: string | null;
+    activityName: string;
+    durationMinutes: number;
+    incompleteTasks: string[];
+  } | null>(null);
 
   // Inline edit state in completion modal
   const [isEditingConclusao, setIsEditingConclusao] = useState(false);
@@ -358,11 +370,19 @@ export const ActiveSession = () => {
     const targetMinutes = Math.round((timer.totalDurationMs || 0) / 60000);
     const actualMinutes = actualDurationMinutes !== null ? actualDurationMinutes : targetMinutes;
 
+    // Snapshot dos dados finais desta sessão, usado tanto para salvar quanto,
+    // se o usuário optar, para repetir a sessão em seguida
+    const finalProjectId = editedProjectId !== null ? editedProjectId : (timer.projectId || null);
+    const finalHabitId = editedHabitId !== null ? editedHabitId : (timer.habitId || null);
+    const finalActivityName = editedActivityName || timer.activityName || 'Sessão Sem Título';
+    const finalActivityId = timer.activityId || null;
+    const incompleteTasksSnapshot = sessionTasksLocal.filter(t => !completedTasksLocal.includes(t));
+
     const sessionToSave = {
       user_id: user.id,
-      project_id: editedProjectId !== null ? editedProjectId : (timer.projectId || null),
-      habit_id: editedHabitId !== null ? editedHabitId : (timer.habitId || null),
-      activity_name: editedActivityName || timer.activityName || 'Sessão Sem Título',
+      project_id: finalProjectId,
+      habit_id: finalHabitId,
+      activity_name: finalActivityName,
       description: timer.description,
       duration_minutes: targetMinutes,
       started_at: new Date(timer.initialStartTime || Date.now()).toISOString(),
@@ -370,12 +390,14 @@ export const ActiveSession = () => {
       completed: true,
       all_tasks_completed: allDone,
       actual_duration_minutes: actualMinutes,
-      activity_id: timer.activityId || null,
+      activity_id: finalActivityId,
       scheduled_activity_id: timer.scheduledActivityId || null,
     };
 
     const noteDescription = timer.description.trim();
     const noteProjectIdFix = (editedProjectId !== null ? editedProjectId : timer.projectId) || undefined;
+
+    let saveSucceeded = false;
 
     try {
       const savedSession = await dataStore.addSession(sessionToSave);
@@ -453,6 +475,8 @@ export const ActiveSession = () => {
       if (!dataStore.hasCompletedFirstSession) {
         dataStore.completeFirstSession();
       }
+
+      saveSucceeded = true;
     } catch (err) {
       console.error("Erro ao salvar sessão:", err);
     } finally {
@@ -467,10 +491,58 @@ export const ActiveSession = () => {
       setShowCompleteModal(false);
       timer.reset();
       setIsSaving(false);
-      // Redirecionar usuário para a Hero/Início
-      window.dispatchEvent(new CustomEvent('close-action-center'));
-      window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+
+      if (saveSucceeded) {
+        // Em vez de navegar direto pra Home, oferece a opção de repetir a sessão
+        setRepeatSnapshot({
+          projectId: finalProjectId,
+          habitId: finalHabitId,
+          activityId: finalActivityId,
+          activityName: finalActivityName,
+          durationMinutes: targetMinutes,
+          incompleteTasks: incompleteTasksSnapshot,
+        });
+        setShowRepeatModal(true);
+      } else {
+        // Se der erro ao salvar, mantém o comportamento anterior de voltar pra Home
+        window.dispatchEvent(new CustomEvent('close-action-center'));
+        window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+      }
     }
+  };
+
+  const handleConcludeNow = () => {
+    setShowRepeatModal(false);
+    setRepeatSnapshot(null);
+    // Redirecionar usuário para a Hero/Início
+    window.dispatchEvent(new CustomEvent('close-action-center'));
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+  };
+
+  const handleRepeatSession = (config: {
+    projectId: string | null;
+    habitId: string | null;
+    activityId: string | null;
+    activityName: string;
+    durationMinutes: number;
+    tasks: string[];
+  }) => {
+    unlockAudio();
+    // Garante que a nova sessão não herda o vínculo de agendamento da anterior
+    timer.setScheduledActivityId(null);
+    timer.start(
+      config.durationMinutes,
+      config.activityName || 'Sessão Sem Título',
+      config.projectId || undefined,
+      config.habitId || undefined,
+      '',
+      getLocalDateString(new Date()),
+      config.activityId || undefined,
+      undefined
+    );
+    timer.setPendingTasks(config.tasks);
+    setShowRepeatModal(false);
+    setRepeatSnapshot(null);
   };
 
   const handleCancel = async () => {
@@ -575,7 +647,7 @@ export const ActiveSession = () => {
     }
   };
 
-  if (!timer.isActive && !showCompleteModal) return null;
+  if (!timer.isActive && !showCompleteModal && !showRepeatModal) return null;
 
   const currentHabitName = dataStore.habits.find(h => h.id === timer.habitId)?.name;
 
@@ -1718,7 +1790,17 @@ export const ActiveSession = () => {
           }
         }}
       />
+
+      {/* Repeat Session Modal - aparece após concluir a sessão com sucesso */}
+      <RepeatSessionModal
+        isOpen={showRepeatModal}
+        initialData={repeatSnapshot}
+        projects={dataStore.projects}
+        activities={dataStore.activities}
+        habits={dataStore.habits}
+        onRepeat={handleRepeatSession}
+        onConcludeNow={handleConcludeNow}
+      />
     </div>
   );
 };
-
