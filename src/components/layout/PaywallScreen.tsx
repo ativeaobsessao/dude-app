@@ -5,8 +5,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useDataStore } from '../../store/useDataStore';
 
 export function PaywallScreen() {
-  const { signOut, user } = useAuthStore();
-  const { profile, updateProfileData } = useDataStore();
+  const { signOut } = useAuthStore();
+  const { showNotification } = useDataStore();
   const [loading, setLoading] = useState(false);
 
   const keyBenefits = [
@@ -16,21 +16,23 @@ export function PaywallScreen() {
     { title: "Segurança de Criptografia Total", desc: "Seus dados sensíveis blindados no seu dispositivo." },
   ];
 
-  // Simulação funcional de ativação de assinatura para testes/homologação
-  const handleSimulateSubscription = async () => {
-    if (!user) return;
+  // SEGURANÇA (AUD-002): O botão anterior aqui ("handleSimulateSubscription") gravava
+  // is_subscribed = true diretamente no Supabase a partir do navegador, sem qualquer
+  // validação de pagamento — qualquer pessoa clicando liberava acesso vitalício de graça.
+  // Essa escrita foi removida. A liberação real de assinatura só pode acontecer no
+  // backend (Edge Function com a service_role key, acionada por um webhook de um
+  // gateway de pagamento de verdade), depois que o checkout for integrado.
+  const handleUpgradeClick = async () => {
     setLoading(true);
     try {
-      // Atualiza o estado no Supabase para inscrito com sucesso
-      await updateProfileData(user.id, { 
-        // @ts-ignore
-        is_subscribed: true 
-      } as any);
-      
-      // Força recarregamento parcial ou feedback
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
+      // TODO: substituir este bloco pelo redirecionamento real ao checkout, por exemplo:
+      //   const checkoutUrl = await createCheckoutSession(user.id); // Edge Function
+      //   window.location.href = checkoutUrl;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      showNotification(
+        'O checkout de pagamento ainda não foi integrado. Em breve você poderá assinar diretamente por aqui!',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -97,11 +99,11 @@ export function PaywallScreen() {
         {/* Ações */}
         <div className="space-y-3.5 pt-4">
           <button
-            onClick={handleSimulateSubscription}
+            onClick={handleUpgradeClick}
             disabled={loading}
             className="w-full py-4 bg-green hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:scale-100 text-background rounded-2xl font-extrabold uppercase tracking-widest text-[11px] transition-all cursor-pointer shadow-[0_8px_30px_rgba(110,231,168,0.25)] flex items-center justify-center gap-2"
           >
-            {loading ? 'Processando...' : 'Liberar Meu Acesso Permanente'}
+            {loading ? 'Processando...' : 'Quero Assinar'}
             <ArrowRight size={14} strokeWidth={2.5} />
           </button>
 
