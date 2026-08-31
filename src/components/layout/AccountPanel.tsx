@@ -110,10 +110,18 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     const activitiesCount = exportActivities ? (dataStore.activities?.length || 0) : 0;
     const notesCount = exportNotes ? (dataStore.notes?.length || 0) : 0;
     const sessionsCount = exportSessions ? (dataStore.sessions?.length || 0) : 0;
-    const habitsCount = exportHabits ? (dataStore.habits?.length || 0) : 0;
+    // AUD-003 FIX: "Hábitos Cultivados" deve contar apenas hábitos de construção
+    // (habit_mode !== 'avoid'). Antes, controles de Anti-Vício eram contabilizados
+    // aqui junto com hábitos reais, inflando essa métrica com dados que o usuário
+    // nunca configurou como um "hábito atômico" de fato.
+    const habitsCount = exportHabits ? (dataStore.habits?.filter(h => h.habit_mode !== 'avoid').length || 0) : 0;
     const savedLinksCount = exportSavedLinks ? (dataStore.savedLinks?.length || 0) : 0;
     const energyMoodCount = exportEnergyMood ? (dataStore.moodEntries?.length || 0) : 0;
-    const antiAddictionCount = exportAntiAddiction ? (dataStore.avoidanceCheckins?.length || 0) : 0;
+    // Os controles de Anti-Vício (registros de habits com habit_mode === 'avoid') agora
+    // são contados dentro da própria categoria de Prevenção e Autocontrole, junto com
+    // os check-ins, e não mais dentro de "Hábitos".
+    const avoidHabitsCount = exportAntiAddiction ? (dataStore.habits?.filter(h => h.habit_mode === 'avoid').length || 0) : 0;
+    const antiAddictionCount = exportAntiAddiction ? (dataStore.avoidanceCheckins?.length || 0) + avoidHabitsCount : 0;
     
     const insightsCompletions = exportInsights ? (dataStore.habitCompletions?.length || 0) : 0;
     const insightsShutdowns = exportInsights ? (dataStore.dailyShutdowns?.length || 0) : 0;
@@ -140,6 +148,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       habitsCount,
       savedLinksCount,
       energyMoodCount,
+      avoidHabitsCount,
       antiAddictionCount,
       insightsTotal,
       totalSelected
@@ -154,6 +163,16 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     const email = userEmail || 'desconhecido';
     const minutes = p?.total_focus_minutes || 0;
     const streak = p?.current_streak || 0;
+
+    // AUD-003 FIX: separa hábitos de construção (Hábitos Atômicos) dos controles de
+    // Anti-Vício antes de montar qualquer seção do relatório. As duas features
+    // compartilham a mesma tabela `habits`, discriminadas apenas por `habit_mode`,
+    // e essa separação precisa acontecer aqui — antes eram tratados como um único
+    // conjunto, o que fazia controles de Anti-Vício aparecerem como "hábitos" com
+    // frequência/duração/período fictícios (valores dummy nunca configurados pelo
+    // usuário, atribuídos automaticamente na criação do controle).
+    const buildHabitsForExport = (dataStore.habits || []).filter(h => h.habit_mode !== 'avoid');
+    const avoidHabitsForExport = (dataStore.habits || []).filter(h => h.habit_mode === 'avoid');
     
     let md = `# 💾 DUDE - IDENTITY VAULT & BACKUP\n`;
     md += `Gerado em: ${new Date().toLocaleString('pt-BR')}\n`;
@@ -175,10 +194,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
 
     if (exportHabits) {
-      md += `### ⚡ HÁBITOS CULTIVADOS (${dataStore.habits?.length || 0})\n`;
+      md += `### ⚡ HÁBITOS CULTIVADOS (${buildHabitsForExport.length})\n`;
       md += `| Nome do Hábito | Frequência Semanal | Duração por Sessão | Período |\n`;
       md += `| :--- | :--- | :--- | :--- |\n`;
-      (dataStore.habits || []).forEach(h => {
+      buildHabitsForExport.forEach(h => {
         md += `| ${h.name} | ${h.sessions_per_week}x | ${h.minutes_per_session} min | ${h.preferred_time === 'morning' ? '🌅 Manhã' : h.preferred_time === 'afternoon' ? '☀️ Tarde' : '🌙 Noite'} |\n`;
       });
       md += `\n`;
@@ -224,7 +243,23 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
 
     if (exportAntiAddiction) {
-      md += `### 🛡️ PREVENÇÃO E AUTOCONTROLE (${dataStore.avoidanceCheckins?.length || 0})\n`;
+      // AUD-003 FIX: os controles de Anti-Vício (definições, não os check-ins) agora
+      // aparecem aqui — na categoria correta — em vez de dentro de "HÁBITOS CULTIVADOS".
+      md += `### 🛡️ PREVENÇÃO E AUTOCONTROLE\n\n`;
+      md += `#### Controles Cadastrados (${avoidHabitsForExport.length})\n`;
+      md += `| Nome do Controle | Escopo | Janela de Monitoramento |\n`;
+      md += `| :--- | :--- | :--- |\n`;
+      avoidHabitsForExport.forEach(h => {
+        const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
+        const escopo = isJanela ? '⏱️ Janela de Horário' : '🛡️ Dia Todo';
+        const janela = isJanela
+          ? `${h.monitor_start || h.avoidance_window_start || '--:--'} às ${h.monitor_end || h.avoidance_window_end || '--:--'}`
+          : '—';
+        md += `| ${h.name} | ${escopo} | ${janela} |\n`;
+      });
+      md += `\n`;
+
+      md += `#### Check-ins Registrados (${dataStore.avoidanceCheckins?.length || 0})\n`;
       md += `| Data | Período | Status / Resultado | Gatilho / Observação |\n`;
       md += `| :--- | :--- | :--- | :--- |\n`;
       (dataStore.avoidanceCheckins || []).slice(0, 20).forEach(av => {
@@ -259,7 +294,15 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     };
 
     if (exportProjects) payload.projects = dataStore.projects;
-    if (exportHabits) payload.habits = dataStore.habits;
+    // AUD-003 FIX: o payload de backup agora reflete a mesma separação do relatório.
+    // Hábitos de construção seguem amarrados ao checkbox "Hábitos"; os controles de
+    // Anti-Vício (mesma tabela física, habit_mode='avoid') seguem amarrados ao
+    // checkbox "Prevenção e Anti-Vício". Antes, os dois viviam sob o mesmo checkbox
+    // ("Hábitos"), então desmarcar "Prevenção e Anti-Vício" não tinha efeito algum
+    // sobre eles, e desmarcar "Hábitos" apagava os controles de Anti-Vício do backup
+    // mesmo com "Prevenção e Anti-Vício" marcado — perdendo a definição do controle
+    // (nome, escopo, janela) e deixando os check-ins órfãos na restauração.
+    if (exportHabits) payload.habits = buildHabitsForExport;
     if (exportActivities) payload.activities = dataStore.activities;
     if (exportNotes) payload.notes = dataStore.notes;
     
@@ -271,7 +314,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     
     if (exportSavedLinks) payload.savedLinks = dataStore.savedLinks;
     if (exportEnergyMood) payload.moodEntries = dataStore.moodEntries;
-    if (exportAntiAddiction) payload.avoidanceCheckins = dataStore.avoidanceCheckins;
+    if (exportAntiAddiction) {
+      payload.avoidanceCheckins = dataStore.avoidanceCheckins;
+      payload.avoidHabits = avoidHabitsForExport;
+    }
     
     if (exportInsights) {
       payload.habitCompletions = dataStore.habitCompletions;
@@ -281,7 +327,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
     
     const container = {
-      version: '1.2.0',
+      version: '1.3.0',
       exported_at: new Date().toISOString(),
       payload
     };
@@ -359,7 +405,13 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       if ('scheduledActivities' in p || 'scheduled_activities' in p) tablesToWipe.push('scheduled_activities');
       if ('sessions' in p) tablesToWipe.push('focus_sessions');
       if ('activities' in p) tablesToWipe.push('activities');
-      if ('habits' in p) tablesToWipe.push('habits');
+      // AUD-003 FIX: 'habits' e 'avoidHabits' são dois payloads distintos que vivem na
+      // MESMA tabela física (`habits`, discriminada por habit_mode). Se qualquer um dos
+      // dois estiver presente no backup, a tabela precisa ser limpa uma única vez antes
+      // de reinserir — do contrário, restaurar um backup que só marcou "Prevenção e
+      // Anti-Vício" (sem "Hábitos") deixaria os hábitos de construção antigos intactos
+      // e fora de sincronia com o restante dos dados restaurados.
+      if ('habits' in p || 'avoidHabits' in p || 'avoid_habits' in p) tablesToWipe.push('habits');
       if ('projects' in p) tablesToWipe.push('projects');
       if ('avoidanceCheckins' in p || 'avoidance_checkins' in p) tablesToWipe.push('avoidance_checkins');
       if ('moodEntries' in p || 'mood_entries' in p) tablesToWipe.push('mood_entries');
@@ -410,6 +462,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       
       scanTableKeys(p.projects);
       scanTableKeys(p.habits);
+      // AUD-003 FIX: pré-escaneia também os controles de Anti-Vício (payload separado)
+      // para que seus IDs entrem no mesmo mapa relacional usado pelos avoidance_checkins.
+      scanTableKeys(p.avoidHabits || p.avoid_habits);
       scanTableKeys(p.activities);
       scanTableKeys(p.notes);
       scanTableKeys(p.dailyTasks || p.daily_tasks);
@@ -492,6 +547,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       // Level 1: Core Parent Records
       if (p.projects) await safeInsert('projects', p.projects);
       if (p.habits) await safeInsert('habits', p.habits);
+      // AUD-003 FIX: reinsere os controles de Anti-Vício de volta na tabela `habits`
+      // (mesma tabela física dos hábitos de construção, discriminada por habit_mode).
+      // Sem esta linha, um backup gerado após a correção — que separa os dois arrays —
+      // restauraria os hábitos de construção normalmente, mas perderia silenciosamente
+      // todos os controles de Anti-Vício, deixando os avoidance_checkins restaurados
+      // sem o registro de habits correspondente.
+      const avoidHabitsPayload = p.avoidHabits || p.avoid_habits;
+      if (avoidHabitsPayload) await safeInsert('habits', avoidHabitsPayload);
       
       // Level 2: Sub-Level Core Relational Elements
       if (p.activities) await safeInsert('activities', p.activities);
@@ -1158,8 +1221,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs py-1">
+                    {/* AUD-003 FIX: contador agora exclui controles de Anti-Vício (habit_mode
+                        === 'avoid'), que passaram a ser contados apenas na seção "Prevenção
+                        e Anti-Vício" abaixo. */}
                     <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-habits">
-                      ⚡ Hábitos <span className="text-[9px] text-text-dim/60">({dataStore.habits?.length || 0})</span>
+                      ⚡ Hábitos <span className="text-[9px] text-text-dim/60">({dataStore.habits?.filter(h => h.habit_mode !== 'avoid').length || 0})</span>
                     </label>
                     <input
                       id="chk-habits"
@@ -1202,8 +1268,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs py-1">
+                    {/* AUD-003 FIX: agora inclui tanto os check-ins quanto os controles
+                        cadastrados (registros de habits com habit_mode === 'avoid'), que
+                        antes eram contados (incorretamente) dentro de "⚡ Hábitos" acima. */}
                     <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-addiction">
-                      🛡️ Prevenção e Anti-Vício <span className="text-[9px] text-text-dim/60">({dataStore.avoidanceCheckins?.length || 0})</span>
+                      🛡️ Prevenção e Anti-Vício <span className="text-[9px] text-text-dim/60">({(dataStore.avoidanceCheckins?.length || 0) + (dataStore.habits?.filter(h => h.habit_mode === 'avoid').length || 0)})</span>
                     </label>
                     <input
                       id="chk-addiction"
@@ -1243,9 +1312,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 <div className="font-mono text-[9px] text-text-dim/80 space-y-1 text-left">
                   <div>• Projetos selecionados: {getAuditCounts().projectsCount}</div>
                   <div>• Atividades selecionadas: {getAuditCounts().activitiesCount}</div>
+                  <div>• Hábitos de construção selecionados: {getAuditCounts().habitsCount}</div>
                   <div>• Sessões de Foco selecionadas: {getAuditCounts().sessionsCount}</div>
                   <div>• Registro de Humor selecionados: {getAuditCounts().energyMoodCount}</div>
-                  <div>• Check-ins Anti-vício: {getAuditCounts().antiAddictionCount}</div>
+                  <div>• Prevenção e Autocontrole (controles + check-ins): {getAuditCounts().antiAddictionCount}</div>
                   <div>• Outros blocos no Snapshot: {getAuditCounts().insightsTotal + getAuditCounts().notesCount + getAuditCounts().savedLinksCount} itens</div>
                 </div>
 
