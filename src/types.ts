@@ -218,3 +218,40 @@ export type InboxCapture = {
   content: string;
   created_at: string;
 };
+
+// ============================================================
+// FEATURE: OBJETIVOS (Goals)
+// ============================================================
+
+export type GoalTaskItem = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
+
+export type Goal = {
+  id: string;
+  user_id: string;
+  title: string;
+  tasks: GoalTaskItem[];
+  start_date: string; // YYYY-MM-DD, imutável após criação
+  end_date: string;   // YYYY-MM-DD, editável
+  status: 'active' | 'completed' | 'archived';
+  created_at: string;
+};
+
+export type GoalMark = {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  mark_date: string; // YYYY-MM-DD
+  note: string | null;
+  created_at: string;
+};
+
+export type GoalMarkSession = {
+  id: string;
+  goal_mark_id: string;
+  focus_session_id: string | null;
+  created_at: string;
+};
