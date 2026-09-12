@@ -112,26 +112,33 @@ export default function App() {
       const yesterdayStr = getLocalYesterdayDateString(new Date());
       const { period, dateStr: todayStr } = getCurrentPeriodAndDate(new Date());
 
-      const [closureRes] = await Promise.all([
-        supabase
-          .from('day_closures')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('closure_date', yesterdayStr)
-      ]);
+      const { data: shutdownData, error } = await supabase
+        .from('daily_shutdowns')
+        .select('id, date, status')
+        .eq('user_id', user.id)
+        .eq('date', yesterdayStr);
 
-      const yesterdayClosed = !!(closureRes.data && closureRes.data.length > 0);
+      if (error) {
+        console.warn('Silent fallback: daily_shutdowns lookup in runServerPopupCheck returned error:', error);
+      }
+
+      const yesterdayClosed = !!(
+        shutdownData && shutdownData.some(d => d.status === 'completed' || d.status === 'dismissed')
+      );
+
       setPopupState({
         serverChecked: true,
         yesterdayClosed,
-        
         yesterdayStr,
         todayStr,
         currentPeriod: period,
-        
       });
     } catch (err) {
       console.error('Error running authoritative server popup checks:', err);
+      setPopupState(prev => ({
+        ...prev,
+        serverChecked: true,
+      }));
     }
   };
 
@@ -246,9 +253,28 @@ export default function App() {
     window.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
 
+    // Real-time synchronization across devices for daily shutdowns
+    const channel = supabase
+      .channel(`realtime-shutdowns-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_shutdowns',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async () => {
+          await dataStore.revalidateSyncState(user.id);
+          await runServerPopupCheck();
+        }
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleFocus);
+      supabase.removeChannel(channel);
     };
   }, [user, initialFetchDone, dataStore.scheduledActivities.length]);
 
@@ -296,7 +322,6 @@ export default function App() {
   }, []);
 
   const isCatchUpActive = (() => {
-    
     if (!user || !initialFetchDone || !popupState.serverChecked || !popupState.yesterdayStr) {
       return false;
     }
@@ -304,9 +329,11 @@ export default function App() {
       return false;
     }
 
-    const isCompletedLocal = localStorage.getItem(`dude-shutdown-completed-${popupState.yesterdayStr}`) === 'true';
-    const isDismissedLocal = localStorage.getItem(`dude-shutdown-dismissed-${popupState.yesterdayStr}`) === 'true';
-    if (isCompletedLocal || isDismissedLocal) {
+    // Single source of truth: check if daily_shutdowns in store already has yesterday recorded (completed or dismissed)
+    const isShutdownRecorded = dataStore.dailyShutdowns.some(
+      d => d.date === popupState.yesterdayStr && (d.status === 'completed' || d.status === 'dismissed')
+    );
+    if (isShutdownRecorded) {
       return false;
     }
 

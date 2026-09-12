@@ -277,8 +277,8 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
   }, []);
 
   const isDayClosed = useMemo(() => {
-    return localStorage.getItem(`dude-shutdown-completed-${todayStr}`) === 'true';
-  }, [todayStr, forceRenderCount]);
+    return dataStore.dailyShutdowns.some(d => d.date === todayStr && d.status === 'completed');
+  }, [todayStr, dataStore.dailyShutdowns, forceRenderCount]);
 
   // 1. GATHER ALL ITEMS OF TODAY
   const todayItems = useMemo(() => {

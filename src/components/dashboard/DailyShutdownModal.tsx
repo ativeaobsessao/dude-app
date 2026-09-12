@@ -145,15 +145,15 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
             await addSession({
                 user_id: user.id,
                 project_id: task.projectId || null,
+                habit_id: null,
+                activity_name: task.title || 'Sessão Retroativa',
+                description: null,
                 duration_minutes: totalMins,
                 started_at: dateStr,
                 completed_at: dateStr,
-                status: 'completed',
-                activity_type: 'deep_work',
-                task_id: null,
-                energy_level: 'normal',
-                focus_score: 5,
-                success_feeling: 5
+                completed: true,
+                all_tasks_completed: true,
+                actual_duration_minutes: totalMins
             });
           }
         }
@@ -172,7 +172,6 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     setIsSubmitting(true);
     try {
       await addDailyShutdown(user.id, targetDate, 'completed');
-      localStorage.setItem(`dude-shutdown-completed-${targetDate}`, 'true');
       
       window.dispatchEvent(new CustomEvent('reset-daily-circle'));
       window.dispatchEvent(new CustomEvent('reload-tasks')); // to force UI update on tasks
@@ -199,7 +198,6 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     if (user && targetDate) {
       try {
         await addDailyShutdown(user.id, targetDate, 'dismissed');
-        localStorage.setItem(`dude-shutdown-dismissed-${targetDate}`, 'true');
       } catch (err) {
         console.error('Failed to dismiss shutdown', err);
       }
@@ -392,14 +390,24 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleConfirmRetroactiveShutdown}
-                disabled={isSubmitting}
-                className="w-full py-4 bg-white hover:bg-zinc-200 text-black rounded-2xl font-bold text-[15px] uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50"
-              >
-                {isSubmitting ? 'CONFIRMANDO...' : 'CONFIRMAR FECHAMENTO'}
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmRetroactiveShutdown}
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-white hover:bg-zinc-200 text-black rounded-2xl font-bold text-[15px] uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50"
+                >
+                  {isSubmitting ? 'CONFIRMANDO...' : 'CONFIRMAR FECHAMENTO'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-transparent hover:bg-white/5 border border-white/10 text-zinc-400 hover:text-white rounded-2xl font-medium text-xs uppercase tracking-wider transition-all cursor-pointer text-center"
+                >
+                  Dispensar encerramento deste dia
+                </button>
+              </div>
             )}
           </div>
 

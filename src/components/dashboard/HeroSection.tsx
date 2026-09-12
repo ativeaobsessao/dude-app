@@ -100,37 +100,14 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   }, []);
 
   const isDayClosed = useMemo(() => {
-    return localStorage.getItem(`dude-shutdown-completed-${today}`) === 'true';
-  }, [today, forceRenderCount]);
+    return dataStore.dailyShutdowns.some(d => d.date === today && d.status === 'completed');
+  }, [today, dataStore.dailyShutdowns, forceRenderCount]);
 
   const handleReopenDay = async () => {
-    localStorage.removeItem(`dude-shutdown-completed-${today}`);
-    
-    // Attempt to remove from Supabase
     const { supabase } = await import('../../lib/supabase');
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('daily_shutdowns')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('date', today);
-        
-      await supabase.from('day_closures')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('closure_date', today);
-    }
-    
-    // Also remove from local storage array managed by useDataStore
-    try {
-      const stored = localStorage.getItem('dude-daily-shutdowns');
-      if (stored) {
-        const arr = JSON.parse(stored);
-        const filtered = arr.filter((d: any) => d.date !== today);
-        localStorage.setItem('dude-daily-shutdowns', JSON.stringify(filtered));
-      }
-    } catch (e) {
-      console.error(e);
+      await dataStore.deleteDailyShutdown(user.id, today);
     }
     
     setShowReopenModal(false);
