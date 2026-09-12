@@ -116,12 +116,30 @@ export const RepeatSessionModal: React.FC<RepeatSessionModalProps> = ({
             <div className="w-16 h-16 rounded-full bg-primary-green/10 flex items-center justify-center text-primary-green">
               <CheckCircle2 size={32} />
             </div>
-            <div className="space-y-1.5">
-              <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Sessão Registrada!</h2>
-              <p className="text-sm text-text-secondary font-light">
-                Quer repetir a mesma Sessão Profunda agora?
-              </p>
+            
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Sessão Registrada!</h2>
+
+            {/* Caminho 1: Concluir por agora (Padrão Apple - destaque tátil e ação natural) */}
+            <div className="w-full pt-1">
+              <button
+                type="button"
+                onClick={onConcludeNow}
+                className="w-full py-3.5 sm:py-4 px-6 bg-white hover:bg-zinc-100 active:scale-[0.98] text-black font-bold text-xs sm:text-[13px] tracking-wider uppercase rounded-2xl shadow-[0_4px_24px_rgba(255,255,255,0.12)] transition-all duration-200 cursor-pointer flex items-center justify-center"
+              >
+                Concluir por Agora
+              </button>
             </div>
+
+            {/* Divisor sutil sintonizando os dois caminhos */}
+            <div className="w-full flex items-center gap-3 pt-2">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[10px] uppercase font-bold tracking-widest text-text-secondary/50">ou</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            <p className="text-sm text-text-secondary font-light">
+              Quer repetir a mesma Sessão Profunda agora?
+            </p>
           </div>
 
           {/* Duration - Bloco Principal (sempre visível) */}
@@ -273,20 +291,13 @@ export const RepeatSessionModal: React.FC<RepeatSessionModalProps> = ({
           </div>
 
           {/* Ações */}
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="pt-2">
             <button
               type="button"
               onClick={handleConfirmRepeat}
               className="w-full py-4 bg-primary-green hover:brightness-110 active:scale-[0.98] text-background rounded-2xl font-bold uppercase tracking-widest text-[11px] transition-all cursor-pointer shadow-[0_0_30px_rgba(110,231,168,0.2)]"
             >
               Iniciar Sessão Novamente
-            </button>
-            <button
-              type="button"
-              onClick={onConcludeNow}
-              className="w-full py-3 text-text-secondary/60 hover:text-text-primary font-bold uppercase tracking-widest text-[10px] transition-colors cursor-pointer"
-            >
-              Concluir por Agora
             </button>
           </div>
         </motion.div>
