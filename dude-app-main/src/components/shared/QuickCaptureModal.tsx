@@ -1,0 +1,454 @@
+import React, { useState, useEffect } from 'react';
+import { useDataStore } from '../../store/useDataStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { X, ArrowLeft, Send, Link as LinkIcon, FileText, Zap, Moon } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { DecompressionSession } from '../dashboard/DecompressionSession';
+
+interface QuickCaptureModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuthStore();
+  const { addNote, addLink, showNotification, projects, activities } = useDataStore();
+
+  const [view, setView] = useState<'menu' | 'note' | 'link'>('menu');
+  const [isDecompressionOpen, setIsDecompressionOpen] = useState(false);
+
+  // Input states
+  const [noteContent, setNoteContent] = useState('');
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedActivityId, setSelectedActivityId] = useState('');
+  const [isNoteProjectOpen, setIsNoteProjectOpen] = useState(false);
+  const [isNoteActivityOpen, setIsNoteActivityOpen] = useState(false);
+  const [isLinkProjectOpen, setIsLinkProjectOpen] = useState(false);
+  
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Monitor visibility to reset the state when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setView('menu');
+      setIsDecompressionOpen(false);
+      setNoteContent('');
+      setLinkTitle('');
+      setLinkUrl('');
+      setSelectedProjectId('');
+      setSelectedActivityId('');
+      setIsNoteProjectOpen(false);
+      setIsNoteActivityOpen(false);
+      setIsLinkProjectOpen(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSaveNote = async (val?: string) => {
+    if (!user) return;
+    const content = (typeof val === 'string' ? val : noteContent).trim();
+    if (!content) return;
+    setIsSaving(true);
+    try {
+      const result = await addNote(
+        user.id, 
+        content, 
+        selectedProjectId || undefined, 
+        selectedActivityId || undefined
+      );
+      if (result) {
+        showNotification('Anotação capturada com sucesso!', 'success');
+        setNoteContent('');
+        setSelectedProjectId('');
+        setSelectedActivityId('');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar anotação:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveLink = async (titleVal?: string, urlVal?: string) => {
+    if (!user) return;
+    const finalTitle = (typeof titleVal === 'string' ? titleVal : linkTitle).trim();
+    const finalUrl = (typeof urlVal === 'string' ? urlVal : linkUrl).trim();
+    if (!finalTitle || !finalUrl) return;
+
+    setIsSaving(true);
+    try {
+      const result = await addLink(user.id, {
+        title: finalTitle,
+        url: finalUrl,
+        projectId: selectedProjectId || null,
+        habitId: null
+      });
+      if (result) {
+        showNotification('Link guardado com sucesso! ⚡', 'success');
+        setLinkTitle('');
+        setLinkUrl('');
+        setSelectedProjectId('');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar link:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNavigateToNotesHistory = () => {
+    // 1. Close quick capture modal
+    onClose();
+    // 2. Open the global Notes History Overlay
+    useDataStore.getState().setNotesHistoryOpen(true);
+  };
+
+  const handleNavigateToLinksHistory = () => {
+    // 1. Close quick capture modal
+    onClose();
+    // 2. Open the global Links History Overlay
+    useDataStore.getState().setLinksHistoryOpen(true);
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[600] bg-background/80 backdrop-blur-md flex items-end sm:items-center justify-center p-4 text-left"
+        onClick={onClose}
+      >
+        <DecompressionSession 
+          isOpen={isDecompressionOpen}
+          onClose={() => { setIsDecompressionOpen(false); onClose(); }}
+        />
+        
+        <motion.div
+          initial={{ scale: 0.95, y: 50 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.95, y: 50 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+          className={`bg-surface/95 border border-white/5 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 space-y-6 shadow-2xl overflow-y-auto max-h-[85vh] ${isDecompressionOpen ? 'hidden' : ''}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex justify-between items-center border-b border-white/5 pb-4">
+            <div className="flex items-center gap-2">
+              <Zap size={16} className="text-[#6ee7a8] fill-[#6ee7a8]/20 animate-pulse" />
+              <h3 className="text-sm font-bold uppercase tracking-widest text-[#6ee7a8]">
+                Captura Rápida
+              </h3>
+            </div>
+            <button
+              id="quick-capture-close-btn"
+              onClick={onClose}
+              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-lg transition-all cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Views */}
+          {view === 'menu' && (
+            <div className="space-y-4 py-1">
+              {/* Top Grid - Capture Actions */}
+              <div className="flex flex-col gap-3">
+                <button
+                  id="menu-btn-note"
+                  onClick={() => setView('note')}
+                  className="py-4 px-4 bg-zinc-800/60 hover:bg-zinc-800 rounded-2xl flex flex-row items-center gap-4 transition-all group cursor-pointer active:scale-95"
+                >
+                  <div className="p-2 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <FileText size={18} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-200">Anotações</span>
+                </button>
+
+                <button
+                  id="menu-btn-link"
+                  onClick={() => setView('link')}
+                  className="py-4 px-4 bg-zinc-800/60 hover:bg-zinc-800 rounded-2xl flex flex-row items-center gap-4 transition-all group cursor-pointer active:scale-95"
+                >
+                  <div className="p-2 bg-[#6ee7a8]/10 text-[#6ee7a8] rounded-xl group-hover:bg-[#6ee7a8]/20 transition-colors">
+                    <LinkIcon size={18} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-200">Links Úteis</span>
+                </button>
+              </div>
+
+              {/* Divider */}
+              <hr className="border-t border-zinc-800/50 my-2" />
+
+              {/* Base - Decompression Session */}
+              <button
+                onClick={() => setIsDecompressionOpen(true)}
+                className="w-full py-4 px-4 bg-zinc-950 hover:bg-black rounded-2xl flex items-center justify-center gap-3 transition-all group cursor-pointer active:scale-95"
+              >
+                <Moon size={18} strokeWidth={2} className="text-zinc-400 group-hover:text-white transition-colors" />
+                <span className="text-[15px] font-semibold text-zinc-200 group-hover:text-white transition-colors">Sessão de Descompressão</span>
+              </button>
+            </div>
+          )}
+
+          {view === 'note' && (
+            <div className="space-y-5 animate-fade-in text-left">
+              {/* 1. Textarea original */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Sua Anotação</label>
+                <textarea
+                  id="quick-note-textarea"
+                  rows={4}
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  placeholder="Escreva seu insight ou ideia genial..."
+                  className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30 resize-none min-h-[100px]"
+                  autoFocus
+                />
+              </div>
+
+              {/* 2. Seletor de Projetos */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Projeto Relacionado (Opcional)</label>
+                <div className="relative">
+                  <div 
+                    onClick={() => setIsNoteProjectOpen(!isNoteProjectOpen)}
+                    className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center font-bold"
+                  >
+                    <span className={selectedProjectId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedProjectId ? projects?.find(p => p.id === selectedProjectId)?.name : "Nenhum Projeto"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isNoteProjectOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isNoteProjectOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedProjectId(''); setIsNoteProjectOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Nenhum Projeto
+                        </div>
+                        {projects && projects.map((p) => (
+                          <div 
+                            key={p.id}
+                            onClick={() => { setSelectedProjectId(p.id); setIsNoteProjectOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* 3. Seletor de Atividades */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Atividade Relacionada (Opcional)</label>
+                <div className="relative">
+                  <div 
+                    onClick={() => setIsNoteActivityOpen(!isNoteActivityOpen)}
+                    className="w-full bg-[#121212] border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center font-bold"
+                  >
+                    <span className={selectedActivityId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedActivityId ? activities?.find(a => a.id === selectedActivityId)?.name : "Nenhuma Atividade"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isNoteActivityOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isNoteActivityOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedActivityId(''); setIsNoteActivityOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Nenhuma Atividade
+                        </div>
+                        {activities && activities.map((act) => (
+                          <div 
+                            key={act.id}
+                            onClick={() => { setSelectedActivityId(act.id); setIsNoteActivityOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {act.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* 4. Botão de Salvar atual */}
+              <div className="space-y-3">
+                <button
+                  id="quick-note-save-btn"
+                  onClick={() => handleSaveNote()}
+                  disabled={isSaving || !noteContent.trim()}
+                  className="w-full py-4 bg-[#6ee7a8] hover:bg-[#6ee7a8]/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+                >
+                  <Send size={12} /> {isSaving ? 'Salvando...' : 'Salvar Anotação'}
+                </button>
+
+                <button
+                  id="quick-note-history-btn"
+                  onClick={handleNavigateToNotesHistory}
+                  className="w-full py-3 bg-transparent hover:bg-white/5 text-[#6ee7a8] font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center"
+                >
+                  Ver Histórico de Notas
+                </button>
+              </div>
+
+              {/* Botão voltar no rodapé */}
+              <div className="border-t border-white/5 pt-4 flex justify-between items-center">
+                <button
+                  id="quick-note-back-btn"
+                  onClick={() => setView('menu')}
+                  className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={14} /> Voltar ao Menu
+                </button>
+              </div>
+            </div>
+          )}
+
+          {view === 'link' && (
+            <div className="space-y-4 animate-fade-in text-left">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Nome do Link</label>
+                <input
+                  id="quick-link-title"
+                  type="text"
+                  value={linkTitle}
+                  onChange={(e) => setLinkTitle(e.target.value)}
+                  placeholder="Ex: Documentação Tailwind"
+                  className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Endereço (URL)</label>
+                <input
+                  id="quick-link-url"
+                  type="text"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="Ex: tailwindcss.com"
+                  className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none focus:border-primary-green transition-all placeholder:text-text-secondary/30"
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570]">Vincular a Projeto (Opcional)</label>
+                <div className="relative">
+                  <div 
+                    onClick={() => setIsLinkProjectOpen(!isLinkProjectOpen)}
+                    className="w-full bg-surface/50 border border-white/5 rounded-xl py-3 px-4 text-sm text-text-primary outline-none hover:border-[#6ee7a8]/50 transition-all cursor-pointer flex justify-between items-center"
+                  >
+                    <span className={selectedProjectId ? "text-text-primary" : "text-text-secondary/50"}>
+                      {selectedProjectId ? projects?.find(p => p.id === selectedProjectId)?.name : "Sem Projeto"}
+                    </span>
+                    <svg className={`w-4 h-4 fill-current text-text-secondary/40 transition-transform ${isLinkProjectOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20">
+                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                    </svg>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isLinkProjectOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-[#1c2421]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden z-50 shadow-2xl max-h-48 overflow-y-auto"
+                      >
+                        <div 
+                          onClick={() => { setSelectedProjectId(''); setIsLinkProjectOpen(false); }}
+                          className="px-4 py-3 text-sm text-text-secondary/60 hover:bg-white/5 cursor-pointer transition-colors"
+                        >
+                          Sem Projeto
+                        </div>
+                        {projects && projects.map((p) => (
+                          <div 
+                            key={p.id}
+                            onClick={() => { setSelectedProjectId(p.id); setIsLinkProjectOpen(false); }}
+                            className="px-4 py-3 text-sm text-text-primary hover:bg-white/5 cursor-pointer transition-colors border-t border-white/5"
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  id="quick-link-save-btn"
+                  onClick={() => handleSaveLink()}
+                  disabled={isSaving || !linkTitle.trim() || !linkUrl.trim()}
+                  className="w-full py-4 bg-[#6ee7a8] hover:bg-[#6ee7a8]/90 text-background rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all min-h-[44px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+                >
+                  <Send size={12} /> {isSaving ? 'Salvando...' : 'Salvar Link'}
+                </button>
+
+                <button
+                  id="quick-link-history-btn"
+                  onClick={handleNavigateToLinksHistory}
+                  className="w-full py-3 bg-transparent hover:bg-white/5 text-[#6ee7a8] font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center"
+                >
+                  Ver Todos os Links
+                </button>
+              </div>
+
+              {/* Botão voltar no rodapé */}
+              <div className="border-t border-white/5 pt-4 flex justify-between items-center">
+                <button
+                  id="quick-link-back-btn"
+                  onClick={() => setView('menu')}
+                  className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={14} /> Voltar ao Menu
+                </button>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};

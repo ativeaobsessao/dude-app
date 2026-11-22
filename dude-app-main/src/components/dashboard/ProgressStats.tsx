@@ -1,0 +1,1533 @@
+import { useDataStore } from '../../store/useDataStore';
+import { motion, AnimatePresence } from 'motion/react';
+import { SuaEvolucaoModal } from './SuaEvolucaoModal';
+import { TrendsAntiVicioModal } from './TrendsAntiVicioModal';
+import { 
+  X, Trophy, Target, ChevronDown, ChevronUp, Flame, Sparkles, 
+  BarChart2, Calendar, Shield, Activity, HelpCircle, AlertCircle, Heart,
+  Sun, CheckSquare, Brain, CheckCircle2, FileText
+} from 'lucide-react';
+import { formatHumanTime, getLocalDateString, resolverNomeSessao, formatSessionDuration, formatTimeRange } from '../../lib/utils';
+import { normalizeAvoidanceStatus } from '../../lib/avoidanceMetrics';
+import type { FocusSession } from '../../types';
+import { useState, useMemo, useEffect } from 'react';
+
+
+const getTrackedSessionMinutes = (session: FocusSession) => {
+  if (session.actual_duration_minutes !== null && session.actual_duration_minutes !== undefined) {
+    return Math.max(0, session.actual_duration_minutes);
+  }
+  return session.completed ? Math.max(0, session.duration_minutes || 0) : 0;
+};
+
+const formatCompactDuration = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) {
+    return `${h}h ${m}m`;
+  }
+  return `${m}m`;
+};
+
+const formatEnergy = (energy?: string | null) => {
+  if (!energy) return 'Normal';
+  switch (energy) {
+    case 'cansado': return 'Baixa';
+    case 'normal': return 'Normal';
+    case 'energizado': return 'Alta';
+    default: return `${energy.charAt(0).toUpperCase() + energy.slice(1)}`;
+  }
+};
+
+type PeriodType = 'today' | 'week' | 'month' | 'all';
+
+export const ProgressStats = ({ onClose }: { onClose: () => void }) => {
+  const sessions = useDataStore(state => state.sessions);
+  const projects = useDataStore(state => state.projects);
+  const habits = useDataStore(state => state.habits);
+  const profile = useDataStore(state => state.profile);
+  const avoidanceCheckins = useDataStore(state => state.avoidanceCheckins);
+  const habitCompletions = useDataStore(state => state.habitCompletions);
+  const scheduledActivities = useDataStore(state => state.scheduledActivities);
+  const sessionTasks = useDataStore(state => state.sessionTasks);
+  const dailyTasks = useDataStore(state => state.dailyTasks);
+  const currentEnergyState = useDataStore(state => state.currentEnergyState);
+
+  // Selected period state
+  const [period, setPeriod] = useState<PeriodType>('today');
+
+  // Selected date in Sessions History explorer
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Progressive disclosure evolution modal state
+  const [isEvolucaoModalOpen, setIsEvolucaoModalOpen] = useState(false);
+
+  // Anotações de autocontrole modal state
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+
+  // Multi-pillar expander state
+  const [expandedPillar, setExpandedPillar] = useState<'habits' | 'avoidance' | 'schedule' | null>(null);
+
+    
+  // Modal expander state for completed tasks
+  const [showCompletedTasksModal, setShowCompletedTasksModal] = useState(false);
+
+  const emptyStatePhrase = 'Suas sessões concluídas aparecerão aqui. Comece com uma tarefa pequena e registre o tempo dedicado.';
+
+  // Selected date snapshot for correlation analysis (Máquina do Tempo)
+  const selectedDateSnapshot = useMemo(() => {
+    if (!selectedDate) return null;
+    
+    const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === getLocalDateString(selectedDate));
+    const dayMins = daySessions.reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+    
+        
+    const dayAvoidanceCheckins = avoidanceCheckins.filter(ac => getLocalDateString(ac.checkin_date) === getLocalDateString(selectedDate));
+    
+    return {
+      daySessions,
+      dayMins,
+                  dayAvoidanceCheckins,
+    };
+  }, [selectedDate, sessions, avoidanceCheckins]);
+
+  // ----------------------------------------------------
+  // AUTOCONTROLE DATA calculations for inline display
+  // ----------------------------------------------------
+
+  // Helper sets
+  const getDatesRangeSet = (offsetStart: number, length: number) => {
+    const s = new Set<string>();
+    for (let i = 0; i < length; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (offsetStart + i));
+      s.add(getLocalDateString(d));
+    }
+    return s;
+  };
+
+  // ----------------------------------------------------
+  // TOTAL RETRIEVED STATISTICS (All-time metrics)
+  // ----------------------------------------------------
+  const rolloverAnalysis = useMemo(() => {
+    const today = getLocalDateString(new Date());
+    const tasks = dailyTasks || [];
+    const todayTasks = tasks.filter(t => t.task_date === today);
+    const rolloverCount = todayTasks.filter(t => t.rolled_from_date !== null && !t.is_completed).length;
+    const completedCount = todayTasks.filter(t => t.is_completed).length;
+    const totalCount = todayTasks.length;
+    
+    let coachingMsg = "Seu planejamento de hoje está equilibrado. Lembre-se: menos tarefas bem executadas valem mais que listas infinitas.";
+    let coachingTitle = "Planejamento sob Controle";
+    let coachingStyle = "text-green bg-green/5 border-green/10";
+    
+    if (totalCount > 7) {
+      coachingTitle = "Gargalo por Hiper-Planejamento!";
+      coachingMsg = `Você programou ${totalCount} tarefas para hoje. Estresses de sobrecarga geram adiamento. Considere reavaliar e focar estritamente nas 3 principais metas cruciais de hoje, arquivando ou reprogramando o restante.`;
+      coachingStyle = "text-orange-400 bg-orange-400/5 border-orange-400/10";
+    } else if (rolloverCount > 2) {
+      coachingTitle = "Alerta de Efeito Rollover";
+      coachingMsg = `Você possui ${rolloverCount} tarefas acumuladas que vieram de dias anteriores sem conclusão. Elas consomem energia mental passiva. Priorize eliminá-las hoje antes de acumular mais tarefas!`;
+      coachingStyle = "text-amber-500 bg-[#df8a13]/5 border-amber-500/10";
+    } else if (totalCount > 0 && completedCount === totalCount) {
+      coachingTitle = "Metas Gabaritadas!";
+      coachingMsg = "Sensacional! Você concluiu 100% de tudo que se propôs a fazer hoje. Seu planejamento e seu ritmo de trabalho estão bem alinhados.";
+      coachingStyle = "text-green bg-green/5 border-green/10";
+    }
+    
+    return {
+      rolloverCount,
+      totalCount,
+      completedCount,
+      coachingTitle,
+      coachingMsg,
+      coachingStyle
+    };
+  }, [dailyTasks]);
+
+  const totalFocusAllTimeMins = useMemo(() => {
+    return sessions.reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+  }, [sessions]);
+
+  const completedSessionDates = useMemo(() => {
+    return new Set(
+      sessions
+        .filter(session => session.completed && session.started_at)
+        .map(session => getLocalDateString(new Date(session.started_at)))
+    );
+  }, [sessions]);
+
+  const currentStreak = useMemo(() => {
+    if (completedSessionDates.size === 0) return 0;
+    const todayKey = getLocalDateString(new Date());
+    const cursor = new Date(`${todayKey}T12:00:00`);
+    if (!completedSessionDates.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
+
+    let streak = 0;
+    while (completedSessionDates.has(getLocalDateString(cursor))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }, [completedSessionDates]);
+
+  const bestStreak = useMemo(() => {
+    const sortedDates = Array.from(completedSessionDates).sort();
+    if (sortedDates.length === 0) return 0;
+
+    let longest = 0;
+    let current = 0;
+    let previousDate: string | null = null;
+
+    for (const dateKey of sortedDates) {
+      if (!previousDate) {
+        current = 1;
+      } else {
+        const previous = new Date(`${previousDate}T12:00:00`);
+        const currentDate = new Date(`${dateKey}T12:00:00`);
+        const difference = Math.round((currentDate.getTime() - previous.getTime()) / 86_400_000);
+        current = difference === 1 ? current + 1 : 1;
+      }
+      longest = Math.max(longest, current);
+      previousDate = dateKey;
+    }
+
+    return longest;
+  }, [completedSessionDates]);
+
+  // ----------------------------------------------------
+  // DYNAMIC PERIOD DETERMINATION
+  // ----------------------------------------------------
+  const currentPeriodMins = useMemo(() => {
+    if (period === 'all') return totalFocusAllTimeMins;
+    const length = period === 'today' ? 1 : (period === 'week' ? 7 : 30);
+    const currentSet = getDatesRangeSet(0, length);
+    return sessions
+      .filter(s => s.started_at && getTrackedSessionMinutes(s) > 0 && currentSet.has(getLocalDateString(new Date(s.started_at))))
+      .reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+  }, [period, sessions, totalFocusAllTimeMins]);
+
+  const previousPeriodMins = useMemo(() => {
+    if (period === 'all') return 0;
+    const length = period === 'today' ? 1 : (period === 'week' ? 7 : 30);
+    const previousSet = getDatesRangeSet(length, length);
+    return sessions
+      .filter(s => s.started_at && getTrackedSessionMinutes(s) > 0 && previousSet.has(getLocalDateString(new Date(s.started_at))))
+      .reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+  }, [period, sessions]);
+
+  // Delta calculations
+  const deltaText = useMemo(() => {
+    if (period === 'all') {
+      const hrs = Math.floor(totalFocusAllTimeMins / 60);
+      const mins = totalFocusAllTimeMins % 60;
+      return `Todo o histórico: ${hrs}h ${mins}m · sem base de comparação anterior`;
+    }
+    const currentHrs = Math.floor(currentPeriodMins / 60);
+    const currentMins = currentPeriodMins % 60;
+    const periodLabel = period === 'today' ? 'dia' : (period === 'week' ? 'período' : 'mês');
+    const currentText = `Este ${periodLabel}: ${currentHrs}h ${currentMins}m`;
+
+    if (previousPeriodMins > 0) {
+      const pct = Math.round(((currentPeriodMins - previousPeriodMins) / previousPeriodMins) * 100);
+      if (pct > 0) return `${currentText}  (↑ ${pct}% vs. anterior)`;
+      if (pct < 0) return `${currentText}  (↓ ${Math.abs(pct)}% vs. anterior)`;
+      return `${currentText}  (· sem alteração vs. anterior)`;
+    }
+    return `${currentText}  (· sem dados comparativos ainda)`;
+  }, [period, currentPeriodMins, previousPeriodMins, totalFocusAllTimeMins]);
+
+  const deltaType = useMemo(() => {
+    if (period === 'all' || previousPeriodMins === 0) return 'neutral';
+    if (currentPeriodMins > previousPeriodMins) return 'positive';
+    if (currentPeriodMins < previousPeriodMins) return 'negative';
+    return 'neutral';
+  }, [period, currentPeriodMins, previousPeriodMins]);
+
+  // Sessions filtered by selected period
+  const periodSessions = useMemo(() => {
+    const targetSet = period === 'all' 
+      ? null 
+      : getDatesRangeSet(0, period === 'today' ? 1 : (period === 'week' ? 7 : 30));
+    return targetSet 
+      ? sessions.filter(s => targetSet.has(getLocalDateString(new Date(s.started_at))))
+      : sessions;
+  }, [period, sessions]);
+
+  // Supporting metrics count inside period
+  const supportingStats = useMemo(() => {
+    const sessionCount = periodSessions.length;
+    const activeProjectIds = new Set(periodSessions.map(s => s.project_id).filter(Boolean));
+    const projectsCount = activeProjectIds.size;
+
+    return { sessionCount, projectsCount };
+  }, [periodSessions]);
+
+  const overallDailyAverageMins = useMemo(() => {
+    const focusDays = new Set(sessions.map(s => getLocalDateString(new Date(s.started_at))));
+    if (focusDays.size === 0) return 0;
+    return totalFocusAllTimeMins / focusDays.size;
+  }, [sessions, totalFocusAllTimeMins]);
+
+  const comparisonLine = useMemo(() => {
+    const count = supportingStats.sessionCount;
+    const sessionsWord = count === 1 ? 'sessão' : 'sessões';
+    
+    if (period === 'all') {
+      return `Em ${count} ${sessionsWord} registradas no total`;
+    }
+    
+    const periodLabel = period === 'today' ? 'hoje' : period === 'week' ? 'esta semana' : 'este mês';
+    const multiplier = period === 'today' ? 1 : period === 'week' ? 7 : 30;
+    const targetAverage = overallDailyAverageMins * multiplier;
+    
+    if (targetAverage <= 0) {
+      return `Em ${count} ${sessionsWord} ${periodLabel} · seu primeiro registro`;
+    }
+    
+    const diffPercent = Math.round(((currentPeriodMins - targetAverage) / targetAverage) * 100);
+    
+    if (diffPercent > 0) {
+      return `Em ${count} ${sessionsWord} ${periodLabel} · ↑ ${diffPercent}% acima da sua média`;
+    } else if (diffPercent < 0) {
+      return `Em ${count} ${sessionsWord} ${periodLabel} · ↓ ${Math.abs(diffPercent)}% abaixo da sua média`;
+    } else {
+      return `Em ${count} ${sessionsWord} ${periodLabel} · na sua média de foco`;
+    }
+  }, [period, currentPeriodMins, overallDailyAverageMins, supportingStats.sessionCount]);
+
+  // ----------------------------------------------------
+  // INTERPRETIVE HEADLINE (Decision Engine Core)
+  // ----------------------------------------------------
+  const interpretiveHeadline = useMemo(() => {
+    const today = new Date();
+    
+    // 1. Check inactive days
+    if (sessions.length > 0) {
+      const datesTimes = sessions.map(s => new Date(s.started_at).getTime());
+      const maxTime = Math.max(...datesTimes);
+      const diffDays = Math.floor((today.getTime() - maxTime) / (1000 * 3600 * 24));
+      if (diffDays >= 3) {
+        return `Você está há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'} sem registrar uma Sessão Profunda.`;
+      }
+    } else {
+      return "Dê o primeiro passo focado para calibrar seu índice neural.";
+    }
+
+    // 2. Check weekly focus reduction
+    const thisWeekMins = sessions
+      .filter(s => getDatesRangeSet(0, 7).has(getLocalDateString(new Date(s.started_at))))
+      .reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+    const lastWeekMins = sessions
+      .filter(s => getDatesRangeSet(7, 7).has(getLocalDateString(new Date(s.started_at))))
+      .reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+
+    if (thisWeekMins < lastWeekMins && lastWeekMins > 0) {
+      const pct = Math.round(((lastWeekMins - thisWeekMins) / lastWeekMins) * 100);
+      if (pct >= 15) {
+        return `Você desacelerou — registrou ${pct}% menos foco que a semana anterior.`;
+      }
+    }
+
+    // 3. Highlight consistency
+    // Active days in last 7 days
+    let active7Count = 0;
+    const last7Set = getDatesRangeSet(0, 7);
+    for (const dStr of last7Set) {
+      const hasFocus = sessions.some(s => getLocalDateString(new Date(s.started_at)) === dStr);
+      const hasHabit = habitCompletions.some(hc => getLocalDateString(new Date(hc.completed_at)) === dStr);
+      const hasAvoid = avoidanceCheckins.some(ac => ac.checkin_date === dStr && normalizeAvoidanceStatus(ac.status) === 'success');
+      if (hasFocus || hasHabit || hasAvoid) active7Count++;
+    }
+
+    if (active7Count >= 5) {
+      return `Consistência sólida: você produziu ativamente em ${active7Count} dos últimos 7 dias.`;
+    }
+
+    // 4. Highlight increase
+    if (thisWeekMins > lastWeekMins && lastWeekMins > 0) {
+      const pctInc = Math.round(((thisWeekMins - lastWeekMins) / lastWeekMins) * 100);
+      if (pctInc >= 20) {
+        return `Sua dedicação acelerou! ↑ ${pctInc}% mais minutos focados que na semana passada.`;
+      }
+    }
+
+    return "Continue registrando para o DUDE mapear padrões profundos da sua evolução.";
+  }, [sessions, habitCompletions, avoidanceCheckins]);
+
+  const lifetimeMetric = useMemo(() => {
+    if (sessions.length === 0) return null;
+    const totalMinutes = sessions.reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+    const totalHours = totalMinutes / 60;
+    
+    // Find the earliest session
+    const firstSessionDate = new Date(Math.min(...sessions.map(s => new Date(s.started_at).getTime())));
+    const today = new Date();
+    
+    // Calculate days between first session and today
+    // Include the first day itself by adding 1
+    const diffTime = Math.abs(today.getTime() - firstSessionDate.getTime());
+    const lifetimeDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    
+    const averageHoursPerDay = totalHours / lifetimeDays;
+    return averageHoursPerDay.toFixed(1); // Keep 1 decimal
+  }, [sessions]);
+
+  // ----------------------------------------------------
+  // BLOCK 2 — FOR REAL TIMELINE ANALYSIS (Para Onde Seu Tempo Foi)
+  // ----------------------------------------------------
+  const projectDistribution = useMemo(() => {
+    const targetSet = period === 'all' 
+      ? null 
+      : getDatesRangeSet(0, period === 'today' ? 1 : (period === 'week' ? 7 : 30));
+    const filteredSessions = targetSet 
+      ? sessions.filter(s => targetSet.has(getLocalDateString(new Date(s.started_at))))
+      : sessions;
+
+    const periodTotalMins = filteredSessions.reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+    if (!periodTotalMins) return [];
+
+    // Map projects
+    const pMap: { [idStr: string]: { name: string; mins: number } } = {};
+    filteredSessions.forEach(s => {
+      const projId = s.project_id || 'unassigned';
+      const projName = s.project_id 
+        ? (projects.find(p => p.id === s.project_id)?.name || 'Projeto Desconhecido')
+        : 'Sessões Avulsas';
+
+      if (!pMap[projId]) pMap[projId] = { name: projName, mins: 0 };
+      pMap[projId].mins += getTrackedSessionMinutes(s);
+    });
+
+    const sortedList = Object.values(pMap).sort((a, b) => b.mins - a.mins);
+
+    if (sortedList.length <= 3) {
+      return sortedList.map(item => ({
+        name: item.name,
+        mins: item.mins,
+        percent: Math.round((item.mins / periodTotalMins) * 100)
+      }));
+    }
+
+    // Slice top 3 and combine rest as "Outros"
+    const top3 = sortedList.slice(0, 3);
+    const restMins = sortedList.slice(3).reduce((acc, item) => acc + item.mins, 0);
+
+    const result = top3.map(item => ({
+      name: item.name,
+      mins: item.mins,
+      percent: Math.round((item.mins / periodTotalMins) * 100)
+    }));
+
+    if (restMins > 0) {
+      result.push({
+        name: 'Outros Projetos',
+        mins: restMins,
+        percent: Math.round((restMins / periodTotalMins) * 100)
+      });
+    }
+
+    return result;
+  }, [period, sessions, projects]);
+
+  // ----------------------------------------------------
+  // BLOCK 3 — GRAPH EVOLUTION (Deterministic calculations)
+  // ----------------------------------------------------
+  const chartData = useMemo(() => {
+    const daysShort = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+    const last7DaysList = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    return last7DaysList.map(d => {
+      const dStr = getLocalDateString(d);
+      const mins = sessions
+        .filter(s => getLocalDateString(new Date(s.started_at)) === dStr)
+        .reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+      return {
+        label: daysShort[d.getDay()],
+        mins,
+        displayValue: mins > 0 ? formatCompactDuration(mins) : '0'
+      };
+    });
+  }, [sessions]);
+
+  const maxChartMins = useMemo(() => {
+    return Math.max(...chartData.map(c => c.mins), 0);
+  }, [chartData]);
+
+  // ----------------------------------------------------
+  // BLOCK 4 — REAL CONSISTENCY INDICATOR
+  // ----------------------------------------------------
+  const consistencyStats = useMemo(() => {
+    const totalDays = period === 'today' ? 1 : (period === 'week' ? 7 : (period === 'month' ? 30 : 90));
+    let activeDays = 0;
+
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dStr = getLocalDateString(d);
+
+      const hasFocus = sessions.some(s => getLocalDateString(new Date(s.started_at)) === dStr);
+      const hasHabit = habitCompletions.some(hc => getLocalDateString(new Date(hc.completed_at)) === dStr);
+      const hasAvoid = avoidanceCheckins.some(ac => ac.checkin_date === dStr && normalizeAvoidanceStatus(ac.status) === 'success');
+
+      if (hasFocus || hasHabit || hasAvoid) {
+        activeDays++;
+      }
+    }
+
+    const rate = Math.round((activeDays / totalDays) * 100);
+    return { activeDays, totalDays, rate };
+  }, [period, sessions, habitCompletions, avoidanceCheckins]);
+
+  // ----------------------------------------------------
+  // PILLAR A — HABITS ATOMICOS DATA GATHERING
+  // ----------------------------------------------------
+  const buildHabitsList = useMemo(() => {
+    return habits.filter(h => h.habit_mode !== 'avoid');
+  }, [habits]);
+
+  const bestStreakHabit = useMemo(() => {
+    if (buildHabitsList.length === 0) return null;
+    return [...buildHabitsList].sort((a, b) => b.weekly_streak - a.weekly_streak)[0];
+  }, [buildHabitsList]);
+
+  const neglectedHabit = useMemo(() => {
+    if (buildHabitsList.length === 0) return null;
+    // Math: sessions_this_week / target
+    const analysed = buildHabitsList.map(h => {
+      const target = h.sessions_per_week || 1;
+      const ratio = h.sessions_this_week / target;
+      return { habit: h, ratio };
+    }).sort((a, b) => a.ratio - b.ratio);
+
+    return analysed[0].ratio < 1 ? analysed[0].habit : null;
+  }, [buildHabitsList]);
+
+  // ----------------------------------------------------
+  // PILLAR C — AGENDAMENTOS (Schedules Rate)
+  // ----------------------------------------------------
+  const scheduleCompliance = useMemo(() => {
+    const completed = scheduledActivities.filter(sa => sa.status === 'completed').length;
+    const cancelled = scheduledActivities.filter(sa => sa.status === 'cancelled').length;
+
+    // Check lost schedules: pending and in the PAST datetime
+    const lostList = scheduledActivities.filter(sa => {
+      if (sa.status !== 'pending') return false;
+      const sched = new Date(`${sa.scheduled_date}T${sa.scheduled_time || '00:00'}`);
+      return sched.getTime() < new Date().getTime();
+    });
+    const lost = lostList.length;
+
+    // Check pending schedules: pending and in the FUTURE datetime
+    const pendentesList = scheduledActivities.filter(sa => {
+      if (sa.status !== 'pending') return false;
+      const sched = new Date(`${sa.scheduled_date}T${sa.scheduled_time || '00:00'}`);
+      return sched.getTime() >= new Date().getTime();
+    });
+    const pendentes = pendentesList.length;
+
+    const denominator = completed + lost;
+    const rate = denominator > 0 ? Math.round((completed / denominator) * 100) : 100;
+
+    return { completed, lost, cancelled, pendentes, rate, total: scheduledActivities.length };
+  }, [scheduledActivities]);
+
+  // ----------------------------------------------------
+  // LAST 30 DAYS COMPACT HEATMAP
+  // ----------------------------------------------------
+  const heatmapCells30 = useMemo(() => {
+    const focusMap: { [day: string]: number } = {};
+    sessions.forEach(session => {
+      if (!session.started_at) return;
+      const minutes = getTrackedSessionMinutes(session);
+      if (minutes <= 0) return;
+      const day = getLocalDateString(new Date(session.started_at));
+      if (day) focusMap[day] = (focusMap[day] || 0) + minutes;
+    });
+
+    return Array.from({ length: 30 }, (_, idx) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - idx));
+      const dStr = getLocalDateString(d);
+      const mins = focusMap[dStr] || 0;
+
+      let intensityLevel = 0;
+      if (mins > 0 && mins <= 25) intensityLevel = 1;
+      else if (mins > 25 && mins <= 60) intensityLevel = 2;
+      else if (mins > 60 && mins <= 120) intensityLevel = 3;
+      else if (mins > 120) intensityLevel = 4;
+
+      const formatLabel = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      return {
+        dateStr: dStr,
+        label: `${formatLabel}: ${mins > 0 ? `${mins}m focados` : 'Nenhum foco'}`,
+        intensity: intensityLevel,
+        dayOfMonth: d.getDate(),
+        weekday: d.getDay(),
+        mins
+      };
+    });
+  }, [sessions]);
+
+  
+  // ----------------------------------------------------
+  // IDENTITY LAYER CALCULATIONS (WAVE 2C)
+  // ----------------------------------------------------
+  const identityData = useMemo(() => {
+    // 1. Focus days in the last 7 days
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return getLocalDateString(d);
+    });
+
+    let focusDaysCount = 0;
+    last7Days.forEach(dStr => {
+      const dayHasFocus = sessions.some(s => s.started_at && getTrackedSessionMinutes(s) > 0 && getLocalDateString(new Date(s.started_at)) === dStr);
+      if (dayHasFocus) focusDaysCount++;
+    });
+
+    // 2. Focus streak
+    const streak = currentStreak;
+
+    // 3. Steady habits streak (weekly_streak >= 2 or sessions_this_week >= 3)
+    const hasSteadyHabits = habits.filter(h => h.habit_mode !== 'avoid').some(h => (h.weekly_streak || 0) >= 2 || (h.sessions_this_week || 0) >= 3);
+
+    // 4. Confirmed autocontrol days in the last 7 days. A relapse on a day
+    // takes priority over any resistance entry from that same day.
+    const avoidanceDayOutcomes = new Map<string, 'success' | 'relapse'>();
+    avoidanceCheckins.forEach(checkin => {
+      const status = normalizeAvoidanceStatus(checkin.status);
+      const dateKey = checkin.checkin_date?.slice(0, 10);
+      if (!dateKey || !status || status === 'pending') return;
+      if (status === 'relapse') avoidanceDayOutcomes.set(dateKey, 'relapse');
+      else if (!avoidanceDayOutcomes.has(dateKey)) avoidanceDayOutcomes.set(dateKey, 'success');
+    });
+    const avoidanceDaysCount = last7Days.filter(dateKey => avoidanceDayOutcomes.get(dateKey) === 'success').length;
+
+    // Determine the Headline based on hierarchy
+    let headline = 'Ainda não há registros suficientes para resumir sua semana.';
+    if (focusDaysCount >= 5) {
+      headline = `Você registrou sessões de foco em ${focusDaysCount} dos últimos 7 dias.`;
+    } else if (streak >= 3) {
+      headline = `Sua sequência atual de foco é de ${streak} dias.`;
+    } else if (hasSteadyHabits) {
+      headline = 'Você tem mantido alguns hábitos com regularidade.';
+    } else if (avoidanceDaysCount >= 4) {
+      headline = `Você registrou resistência em ${avoidanceDaysCount} dos últimos 7 dias.`;
+    }
+
+    // --- Compute Milestone States ---
+    const completedSessions = sessions.filter(session => session.completed && session.started_at);
+    const bestStreakValue = completedSessions.length === 0 ? 0 : (() => {
+      const sortedDates = Array.from(new Set(
+        completedSessions.map(session => getLocalDateString(new Date(session.started_at)))
+      )).sort();
+  
+      let longest = 0;
+      let current = 0;
+      let prevDateStr: string | null = null;
+  
+      for (const dateStr of sortedDates) {
+        if (!prevDateStr) {
+          current = 1;
+        } else {
+          const prev = new Date(`${prevDateStr}T12:00:00`);
+          const curr = new Date(`${dateStr}T12:00:00`);
+          const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24));
+          if (diffDays === 1) {
+            current++;
+          } else if (diffDays > 1) {
+            if (current > longest) longest = current;
+            current = 1;
+          }
+        }
+        prevDateStr = dateStr;
+      }
+      if (current > longest) longest = current;
+      return Math.max(longest, streak);
+    })();
+
+    const isFocoDiarioUnlocked = streak >= 7 || bestStreakValue >= 7;
+
+    // B) Madrugador do Foco: Focus registered between 5:00 and 10:59 on at least 3 distinct days
+    const focusMorningDays = new Set<string>();
+    sessions.forEach(s => {
+      if (!s.started_at || getTrackedSessionMinutes(s) <= 0) return;
+      const date = new Date(s.started_at);
+      const hour = date.getHours();
+      if (hour >= 5 && hour < 11) {
+        focusMorningDays.add(getLocalDateString(date));
+      }
+    });
+    const isMadrugadorUnlocked = focusMorningDays.size >= 3;
+
+    // C) Construtor de Hábitos: At least 1 habit with weekly_streak >= 3 or total completions >= 15
+    const totalCompletions = habitCompletions.length;
+    const hasWeeklyStreak3 = habits.filter(h => h.habit_mode !== 'avoid').some(h => (h.weekly_streak || 0) >= 3);
+    const isConstrutorUnlocked = hasWeeklyStreak3 || totalCompletions >= 15;
+
+    // D) Autocontrole consistente: 5 dias diferentes com resistência registrada
+    const avoidanceDayOutcomes = new Map<string, 'success' | 'relapse'>();
+    avoidanceCheckins.forEach(checkin => {
+      const status = normalizeAvoidanceStatus(checkin.status);
+      if (!status || status === 'pending') return;
+      const dateKey = checkin.checkin_date?.slice(0, 10);
+      if (!dateKey) return;
+      if (status === 'relapse') avoidanceDayOutcomes.set(dateKey, 'relapse');
+      else if (!avoidanceDayOutcomes.has(dateKey)) avoidanceDayOutcomes.set(dateKey, 'success');
+    });
+    const successfulAvoidanceDays = new Set(
+      [...avoidanceDayOutcomes.entries()]
+        .filter(([, status]) => status === 'success')
+        .map(([dateKey]) => dateKey)
+    );
+    const isAutocontroleConsistenteUnlocked = successfulAvoidanceDays.size >= 5;
+
+    // E) Palavra Cumprida: At least 5 completed scheduled activities
+    const completedSchedulesCount = scheduledActivities.filter(sa => sa.status === 'completed').length;
+    const isPalavraCumpridaUnlocked = completedSchedulesCount >= 5;
+
+    return {
+      headline,
+      focusDaysCount,
+      milestones: [
+        {
+          key: 'foco_diario',
+          title: 'Foco Diário',
+          description: 'Aparecer todos os dias para o que realmente importa.',
+          unlocked: isFocoDiarioUnlocked,
+          requirement: 'Sequência de foco de 7 dias (atual ou melhor)',
+          progress: `${Math.max(streak, bestStreakValue)}/7 dias`
+        },
+        {
+          key: 'madrugador',
+          title: 'Madrugador do Foco',
+          description: 'Começar o trabalho profundo nas primeiras horas do dia.',
+          unlocked: isMadrugadorUnlocked,
+          requirement: 'Focalizar pela manhã (05h - 11h) em 3 dias diferentes',
+          progress: `${focusMorningDays.size}/3 dias`
+        },
+        {
+          key: 'construtor',
+          title: 'Construtor de Hábitos',
+          description: 'Sustentar rituais consistentes semana após semana.',
+          unlocked: isConstrutorUnlocked,
+          requirement: 'Hábito com sequência ≥ 3 sem. ou 15 registros totais',
+          progress: hasWeeklyStreak3 ? 'Sequência ≥ 3 em dia!' : `${totalCompletions}/15 registros`
+        },
+        {
+          key: 'autocontrole_consistente',
+          title: 'Autocontrole consistente',
+          description: 'Registrar escolhas de autocontrole em dias diferentes.',
+          unlocked: isAutocontroleConsistenteUnlocked,
+          requirement: 'Registrar resistência em 5 dias diferentes',
+          progress: `${successfulAvoidanceDays.size}/5 dias`
+        },
+        {
+          key: 'palavra_cumprida',
+          title: 'Palavra Cumprida',
+          description: 'Cumprir o que foi planejado na agenda.',
+          unlocked: isPalavraCumpridaUnlocked,
+          requirement: 'Completar 5 atividades agendadas ou planejadas',
+          progress: `${completedSchedulesCount}/5 concluídas`
+        }
+      ]
+    };
+  }, [sessions, habits, profile, avoidanceCheckins, habitCompletions, scheduledActivities, currentStreak]);
+
+
+
+  const completedSessionsCount = useMemo(() => {
+    return periodSessions.filter(s => s.completed).length;
+  }, [periodSessions]);
+
+  const getSessionTimeOfDay = (session: any): 'Manhã' | 'Tarde' | 'Noite' => {
+    const dateStr = session.completed_at || session.started_at;
+    if (!dateStr) return 'Manhã';
+    const date = new Date(dateStr);
+    const hour = date.getHours();
+    if (hour >= 5 && hour < 12) return 'Manhã';
+    if (hour >= 12 && hour < 18) return 'Tarde';
+    return 'Noite';
+  };
+
+  const groupedSessions = useMemo(() => {
+    const completedSessions = periodSessions.filter(s => s.completed);
+    const groups: { title: string; sessions: typeof completedSessions }[] = [
+      { title: 'Manhã', sessions: [] },
+      { title: 'Tarde', sessions: [] },
+      { title: 'Noite', sessions: [] },
+    ];
+
+    completedSessions.forEach(session => {
+      const timeOfDay = getSessionTimeOfDay(session);
+      if (timeOfDay === 'Manhã') groups[0].sessions.push(session);
+      else if (timeOfDay === 'Tarde') groups[1].sessions.push(session);
+      else groups[2].sessions.push(session);
+    });
+
+    return groups.filter(g => g.sessions.length > 0);
+  }, [periodSessions]);
+
+  const firstName = profile?.full_name?.split(' ')[0] || 'Campeão';
+
+  const todayStr = getLocalDateString(new Date());
+
+  return (
+    <div className="w-full max-w-4xl mx-auto px-4 md:px-0">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 15 }}
+        className="w-full bg-surface border border-primary-green/10 rounded-[2rem] p-6 md:p-10 relative shadow-[0_0_100px_rgba(110,231,168,0.06)] space-y-6"
+      >
+        {/* HEADER SECTION */}
+        <header className="space-y-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#6ee7a8]/10 border border-[#6ee7a8]/30 rounded-full text-[#6ee7a8]">
+            <Sparkles size={13} className="animate-pulse" />
+            <span className="text-[11px] font-extrabold uppercase tracking-widest font-sans">Raio-X do seu Tempo</span>
+          </div>
+          <div className="space-y-1 text-left">
+            <h2 className="text-3xl md:text-4.5xl font-extrabold tracking-tight text-text-primary font-sans leading-tight">
+              {firstName}, Aqui está o seu Centro de Inteligência
+            </h2>
+            <p className="text-sm md:text-base text-text-secondary/80 font-medium max-w-2xl leading-normal font-sans">
+              Uma visão completa de como você está utilizando seu tempo e construindo novos hábitos.
+            </p>
+          </div>
+        </header>
+
+        {/* PERIOD SELECTOR */}
+        <div className="w-full flex">
+          <div className="w-full grid grid-cols-4 bg-white/[0.02] border border-white/5 p-1 rounded-2xl font-sans">
+            {(['today', 'week', 'month', 'all'] as PeriodType[]).map((pType) => (
+              <button
+                key={pType}
+                onClick={() => setPeriod(pType)}
+                className={`py-3 text-xs md:text-sm font-bold uppercase tracking-wider rounded-xl cursor-pointer transition-all ${
+                  period === pType
+                    ? 'bg-primary-green text-background shadow-[0_0_20px_rgba(110,231,168,0.25)]'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {pType === 'today' ? 'Hoje' : pType === 'week' ? 'Semana' : pType === 'month' ? 'Mês' : 'Tudo'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {currentEnergyState && (
+          <div className="p-5 bg-white/[0.01] border border-white/5 rounded-3xl flex items-start gap-4 font-sans text-left">
+            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
+              <Activity size={18} className="text-text-secondary" />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <p className="text-sm text-text-primary/90">
+                Seu estado energético atual é:
+              </p>
+              <p className="text-base text-white font-medium capitalize mt-1">
+                {currentEnergyState}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Personalized synthesis phrase */}
+        <div className="p-4 bg-primary-green/[0.015] border border-primary-green/10 rounded-2xl flex items-start gap-3">
+          <div className="w-5 h-5 rounded-full bg-primary-green/10 flex items-center justify-center shrink-0 border border-primary-green/10 font-sans mt-0.5">
+            <Sparkles size={11} className="text-primary-green animate-pulse" />
+          </div>
+          <div className="flex-1 flex flex-col font-sans">
+            {sessions.length === 0 ? (
+              <>
+                <p className="text-sm text-white font-medium leading-relaxed">
+                  "{emptyStatePhrase}"
+                </p>
+                <p className="text-[11px] text-white/50 mt-1.5">
+                  Registre sua primeira sessão para começar a acompanhar seu ritmo.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-white font-medium">
+                  "{interpretiveHeadline}"
+                </p>
+                {lifetimeMetric && (
+                  <p className="text-[11px] text-white/50 mt-1.5">
+                    ↳ Média histórica: <span className="text-white/80 font-semibold">{lifetimeMetric}</span>h / dia em sessões profundas.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* PERIOD NUMBERS BLOCK (foco, sessões, projetos, "dias invictos", "recorde pessoal") */}
+        <div className="space-y-4">
+          <section className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 md:p-8 space-y-4 relative overflow-hidden text-left font-sans">
+            {/* Subtle decoration background glow */}
+            <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-primary-green/5 blur-3xl rounded-full pointer-events-none" />
+
+            <div className="space-y-1 select-none cursor-default font-sans">
+              <span className="text-[13px] md:text-sm font-semibold tracking-wide text-text-secondary/75 uppercase block font-sans">
+                Tempo de Foco {period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'Acumulado Total'}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70 drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] tracking-tight whitespace-nowrap inline-block font-mono">
+                  {formatCompactDuration(period === 'all' ? totalFocusAllTimeMins : currentPeriodMins)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2 mt-2 font-sans">
+                <span className={`w-2 h-2 rounded-full ${supportingStats.sessionCount > 0 ? 'bg-primary-green animate-pulse' : 'bg-text-secondary/30'}`} />
+                <p className="text-xs md:text-[13.5px] font-semibold tracking-wide text-text-primary font-sans">
+                  {comparisonLine}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* METRICS BENTO GRID */}
+          <section className="grid grid-cols-3 gap-6 md:gap-8 font-sans py-4 select-none">
+            {/* Card 1: Sessões Profundas */}
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{supportingStats.sessionCount}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Sessões Profundas</span>
+            </div>
+            {/* Card 2: Projetos */}
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-text-primary mb-1 block leading-none">{supportingStats.projectsCount}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Projetos</span>
+            </div>
+            {/* Card 3: Dias Invictos */}
+            <div className="flex flex-col justify-between text-left font-sans">
+              <span className="text-4xl md:text-5xl font-black text-[#6ee7a8] mb-1 block leading-none">{currentStreak}</span>
+              <span className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-[0.2em] block">Dias Invictos</span>
+            </div>
+          </section>
+        </div>
+
+
+
+        {/* TAREFAS REALIZADAS NO DIA - SUBSTITUÍDO POR CARD EXPANSÍVEL BENTO E MODAL */}
+        <section className="font-sans">
+          <button
+            onClick={() => setShowCompletedTasksModal(true)}
+            className="w-full flex items-center justify-between p-5 bg-white/[0.01] hover:bg-white/[0.025] border border-white/5 hover:border-primary-green/30 rounded-3xl transition-all duration-300 group cursor-pointer text-left"
+          >
+            <div className="flex items-center gap-4 font-sans">
+              <div className="w-10 h-10 rounded-xl bg-[#6ee7a8]/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="text-[#6ee7a8]" size={20} />
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-lg font-black text-text-primary tracking-tight font-sans block group-hover:text-primary-green transition-colors leading-tight">
+                  {completedSessionsCount} {completedSessionsCount === 1 ? 'Sessão Concluída' : 'Sessões Concluídas'} {
+                    period === 'today' ? 'Hoje' : period === 'week' ? 'esta Semana' : period === 'month' ? 'este Mês' : 'no Total'
+                  }
+                </span>
+                <span className="text-xs text-text-secondary/60 font-semibold block uppercase tracking-wider">
+                  Visualizar Diário de Atividades e Métricas · {periodSessions.length} {periodSessions.length === 1 ? 'sessão' : 'sessões'}
+                </span>
+              </div>
+            </div>
+            <div className="text-text-secondary/40 group-hover:text-primary-green transition-all duration-300 transform group-hover:translate-x-1 p-2 bg-white/5 rounded-full">
+              <ChevronDown size={14} className="-rotate-90" />
+            </div>
+          </button>
+
+          {/* OVERLAY MODAL FOR COMPLETED TASKS & LOGS */}
+          <AnimatePresence>
+            {showCompletedTasksModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowCompletedTasksModal(false)}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
+                />
+
+                {/* Modal Container */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 350 }}
+                  className="relative w-full max-w-2xl bg-surface border border-white/10 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[85vh] font-sans"
+                >
+                  {/* Modal Header */}
+                  <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                    <div className="space-y-1 text-left">
+                      <h4 className="text-lg md:text-xl font-extrabold text-text-primary tracking-tight font-sans flex items-center gap-2">
+                        <span className="text-primary-green">☑</span> Diário de Atividades Concluídas
+                      </h4>
+                      <p className="text-xs text-text-secondary/65 uppercase tracking-wider font-semibold font-mono">
+                        {completedSessionsCount} {completedSessionsCount === 1 ? 'sessão concluída' : 'sessões concluídas'} no período selecionado
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowCompletedTasksModal(false)}
+                      className="p-2.5 hover:bg-white/5 rounded-xl text-text-secondary/70 hover:text-text-primary transition-colors cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Modal Scrollable Body */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar text-left font-sans">
+                    {groupedSessions.length > 0 ? (
+                      groupedSessions.map(group => (
+                        <div key={group.title} className="space-y-3">
+                          <h5 className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold ml-1">
+                            {group.title}
+                          </h5>
+                          <div className="space-y-3">
+                            {group.sessions.map(session => {
+                              const resolved = resolverNomeSessao(session, habits, projects);
+                              const isPartial = session.parcial === true || 
+                                               (session.actual_duration_minutes !== null && 
+                                                session.actual_duration_minutes !== undefined && 
+                                                session.actual_duration_minutes < session.duration_minutes);
+                              const durationToUse = session.actual_duration_minutes ?? session.duration_minutes ?? 0;
+                              const formattedDuration = formatSessionDuration(durationToUse);
+                              const timeRange = formatTimeRange(session.started_at, session.completed_at, durationToUse);
+
+                              const tasks = sessionTasks.filter(t => t.session_id === session.id);
+                              const completedTasks = tasks.filter(t => t.completed);
+
+                              return (
+                                <div key={session.id} className="p-4 bg-white/[0.015] border border-white/5 rounded-2xl flex gap-3.5 items-start font-sans">
+                                  <CheckSquare 
+                                    size={15} 
+                                    className="shrink-0 mt-1" 
+                                    style={{ color: isPartial ? 'var(--amber)' : '#10b981' }}
+                                  />
+                                  <div className="flex-1 min-w-0 font-sans">
+                                    <div className="flex items-center gap-2 flex-wrap font-sans">
+                                      <span className="text-sm md:text-base font-extrabold text-text-primary break-words max-w-full">
+                                        {resolved.titulo}
+                                      </span>
+                                      <span className="text-text-secondary/30">—</span>
+                                      <span className="text-xs text-text-secondary/60 truncate font-bold uppercase tracking-widest font-mono">
+                                        {resolved.projeto}
+                                      </span>
+                                      {session.scheduled_activity_id && (
+                                        <span 
+                                          className="inline-flex items-center font-bold font-mono text-[9px] bg-purple-500/10 border border-purple-500/20 text-purple-400 tracking-wider py-0.5 px-2 rounded-full"
+                                        >
+                                          AGENDADA
+                                        </span>
+                                      )}
+                                      {isPartial && (
+                                        <span 
+                                          className="inline-flex items-center font-bold font-mono text-[9px] bg-amber-500/10 border border-amber-500/20 text-amber-400 tracking-wider py-0.5 px-2 rounded-full"
+                                        >
+                                          INCOMPLETA
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="text-[11px] md:text-xs font-semibold leading-normal mt-1 flex items-center gap-1.5 text-text-secondary/50 font-mono">
+                                      <span>{timeRange}</span>
+                                      <span className="text-text-secondary/30">·</span>
+                                      <span>{formattedDuration}</span>
+                                    </div>
+
+                                    {/* Checklist tasks of the session */}
+                                    {tasks.length > 0 ? (
+                                      <div className="mt-3.5 space-y-2 pl-1 border-t border-white/5 pt-3 font-sans">
+                                        {tasks.map(task => (
+                                          <div key={task.id} className="flex items-center gap-2.5 text-xs md:text-sm text-text-secondary/80 font-sans">
+                                            <span className={task.completed ? "text-primary-green select-none font-bold" : "text-text-secondary/30 select-none"}>
+                                              {task.completed ? "☑" : "☐"}
+                                            </span>
+                                            <span className={task.completed ? "line-through decoration-white/10 text-text-secondary/40 font-medium" : "text-text-primary font-medium"}>
+                                              {task.description}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[10px] md:text-xs text-text-secondary/40 italic font-medium mt-3 font-sans">
+                                        Nenhum item de checklist associado a esta sessão de foco.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs md:text-sm text-text-secondary/40 italic font-light pt-4 text-center font-sans">
+                        Nenhuma sessão realizada neste período.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-5 border-t border-white/5 bg-white/[0.01] flex justify-end">
+                    <button
+                      onClick={() => setShowCompletedTasksModal(false)}
+                      className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold text-text-primary uppercase tracking-wider rounded-xl transition-all cursor-pointer font-sans"
+                    >
+                      Fechar Diário
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+        </section>
+
+        {/* ONDE SEU TEMPO FOI */}
+        <section className="space-y-5 font-sans">
+          <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+            <Target size={12} className="text-primary-green" /> Onde seu tempo foi
+          </h3>
+
+          <div className="space-y-4 font-sans text-left">
+            {projectDistribution.length === 0 ? (
+              <div className="py-8 text-center bg-white/[0.01] border border-dashed border-white/5 rounded-2xl font-sans">
+                <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans">Sem sessões de foco neste período.</p>
+              </div>
+            ) : (
+              projectDistribution.map((item, idx) => (
+                <div key={idx} className="space-y-1.5 font-sans">
+                  <div className="flex justify-between items-baseline text-xs md:text-sm font-sans">
+                    <span className="font-semibold text-text-primary max-w-[65%] truncate block font-sans">{item.name}</span>
+                    <span className="text-text-secondary/80 text-right whitespace-nowrap block font-sans">
+                      {formatCompactDuration(item.mins)} · <strong className="text-[#6ee7a8] font-bold">{item.percent}%</strong>
+                    </span>
+                  </div>
+                  {/* Compact progress bar */}
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary-green/80 to-[#6ee7a8] rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(110,231,168,0.3)]" 
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* BLOCK 3: EVOLUÇÃO DISCIPLINADA (BARS HEIGHT BUG FIXED) */}
+        <section className="space-y-4 font-sans">
+          <div className="flex items-center justify-between font-sans">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5 font-sans">
+              <BarChart2 size={12} className="text-primary-green" /> Evolução de Concentração
+            </h3>
+            <span className="text-[10px] font-mono uppercase bg-primary-green/10 text-primary-green px-2 py-0.5 rounded border border-primary-green/15 tracking-wider">
+              Últimos 7 dias
+            </span>
+          </div>
+
+          <div id="focus-evolution-chart-container" className="flex flex-col space-y-2 font-sans">
+            
+            {/* The chart area */}
+            <div className="h-[120px] md:h-[150px] flex items-end gap-3 md:gap-4 px-2 pt-6 w-full relative font-sans">
+              {chartData.map((dataItem, idx) => {
+                const heightPercent = maxChartMins > 0 ? (dataItem.mins / maxChartMins) * 100 : 0;
+                // Proportional bar calculation with a minimum height for Zero/Near-zero days
+                const heightStyle = dataItem.mins > 0 ? `${Math.max(6, heightPercent)}%` : '4px';
+
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full relative group font-sans">
+                    {/* Always visible label top of column to avoid hover requirements */}
+                    <span className="text-[10px] md:text-[11px] font-medium text-text-secondary/85 tracking-tight mb-1 select-none font-sans font-mono">
+                      {dataItem.displayValue}
+                    </span>
+
+                    {/* The bar core */}
+                    <div 
+                      className={`w-full rounded-t-lg transition-all duration-300 ${
+                        dataItem.mins > 0 
+                          ? 'bg-gradient-to-t from-primary-green/5 to-primary-green border-t border-primary-green group-hover:brightness-110 shadow-[0_-2px_10px_rgba(110,231,168,0.15)] cursor-pointer' 
+                          : 'bg-white/[0.02] border-t border-dashed border-white/10'
+                      }`}
+                      style={{ height: heightStyle }}
+                    />
+
+                    {/* Below-label */}
+                    <span className="text-[10px] md:text-xs font-semibold text-text-secondary/70 mt-2 tracking-wide select-none font-sans">
+                      {dataItem.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {maxChartMins === 0 && (
+              <p className="text-xs md:text-sm text-text-secondary/60 italic font-sans text-center pt-2 font-sans">
+                Sem foco registrado nos últimos 7 dias.
+              </p>
+            )}
+          </div>
+        </section>
+
+
+        {/* SEU HISTÓRICO DE SESSÕES PROFUNDAS POR DATAS */}
+        <section className="bg-white/[0.01] border border-white/5 p-6 rounded-3xl space-y-6 font-sans">
+          <div className="flex flex-col space-y-1 select-none">
+            <h3 className="text-xs md:text-[13px] font-semibold text-text-secondary/75 uppercase tracking-wide flex items-center gap-1.5">
+              <Calendar size={12} className="text-primary-green" /> Seu Histórico de Sessões Profundas por datas
+            </h3>
+            <span className="text-xs text-text-secondary/60 leading-normal">
+              Toque em qualquer dia no mapa de 30 dias abaixo ou use o seletor de data para acessar e detalhar sessões e tarefas de qualquer período.
+            </span>
+          </div>
+
+          {/* Redesigned Clickable Heatmap (30 days) with larger calendar-like cells */}
+          <div className="space-y-3">
+            <span className="text-[10px] uppercase tracking-wider text-text-secondary/50 font-bold block">
+              Seu Histórico (Últimos 30 Dias)
+            </span>
+            
+            <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-10 gap-2">
+              {heatmapCells30.map((cell) => {
+                const isSelected = selectedDate === cell.dateStr;
+                const bgClass = {
+                  0: 'bg-white/[0.01] border-white/5 hover:bg-white/[0.04]',
+                  1: 'bg-primary-green/15 border-primary-green/10 hover:bg-primary-green/25',
+                  2: 'bg-primary-green/35 border-primary-green/30 hover:bg-primary-green/45',
+                  3: 'bg-primary-green/65 border-primary-green/60 hover:bg-primary-green/75',
+                  4: 'bg-primary-green border-primary-green/90 hover:brightness-110'
+                }[cell.intensity];
+
+                return (
+                  <button
+                    key={cell.dateStr}
+                    onClick={() => setSelectedDate(cell.dateStr)}
+                    className={`aspect-square p-2 rounded-xl border flex flex-col justify-between transition-all duration-150 cursor-pointer ${bgClass} ${
+                      isSelected 
+                        ? 'ring-2 ring-primary-green ring-offset-2 ring-offset-background border-primary-green scale-[1.03] shadow-[0_0_15px_rgba(110,231,168,0.25)]' 
+                        : ''
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono font-black block text-left text-text-primary">
+                      {cell.dayOfMonth}
+                    </span>
+                    <span className="text-[8px] font-sans font-medium text-text-secondary/70 truncate block text-left w-full">
+                      {cell.mins > 0 ? `${cell.mins}m` : '0m'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Heatmap Legend */}
+            <div className="flex items-center justify-between text-[10px] font-medium text-text-secondary/50 pt-1 border-t border-white/5">
+              <span>Menos Sessões</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-white/[0.01] border border-white/5 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/15 border border-primary-green/10 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/35 border border-primary-green/30 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green/65 border border-primary-green/60 rounded-sm" />
+                <span className="w-2.5 h-2.5 bg-primary-green border border-primary-green rounded-sm" />
+                <span>Mais Sessões</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Date Picker select details */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.01] border border-white/5 p-4 rounded-2xl">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-bold text-text-secondary/70 uppercase tracking-wide font-sans">Ir para uma data histórica</span>
+              <p className="text-[10px] text-text-secondary/50 leading-tight font-sans">Escolha qualquer dia anterior para auditar.</p>
+            </div>
+            
+            <input 
+              type="date"
+              value={selectedDate || ''}
+              onChange={(e) => setSelectedDate(e.target.value || null)}
+              className="bg-background/80 border border-white/10 rounded-xl px-4 py-2 text-xs text-text-primary font-mono focus:border-primary-green focus:outline-none transition-all cursor-pointer shadow-inner shrink-0"
+            />
+          </div>
+
+        </section>
+
+        {/* PROGRESSIVE DISCLOSURE INNER TRIGGER BANNER ("Mapa do Tempo") */}
+        <section className="font-sans">
+          <div className="p-6 bg-gradient-to-br from-primary-green/[0.05] to-primary-green/[0.015] border border-primary-green/20 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-green/5 blur-2xl rounded-full pointer-events-none" />
+            
+            <div className="flex gap-4 items-start md:items-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
+                <Brain className="text-[#6ee7a8]" size={22} />
+              </div>
+              <div className="space-y-1 text-left max-w-sm md:max-w-md font-sans">
+                <div className="flex items-center gap-1.5 mb-0.5 font-sans">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary-green" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#6ee7a8] block">Seu ritmo</span>
+                </div>
+                <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
+                  Como você usa seu tempo
+                </h4>
+                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
+                  Resumo das sessões que você registrou nos últimos 30 dias.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsEvolucaoModalOpen(true)}
+              className="px-6 py-3 bg-[#6ee7a8] hover:bg-[#5cd697] text-black font-extrabold text-xs uppercase tracking-widest rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary-green/10 cursor-pointer text-center md:self-center shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <span>Ver resumo</span>
+              <span>➔</span>
+            </button>
+          </div>
+        </section>
+
+        {/* PROGRESSIVE DISCLOSURE: ANOTAÇÕES DE AUTOCONTROLE */}
+        <section className="font-sans">
+          <div className="p-6 bg-gradient-to-br from-white/[0.035] to-white/[0.01] border border-white/10 rounded-3xl flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-8 relative overflow-hidden select-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.025] blur-2xl rounded-full pointer-events-none" />
+            
+            <div className="flex gap-4 items-start md:items-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
+                <FileText className="text-zinc-200" size={22} />
+              </div>
+              <div className="space-y-1 text-left max-w-sm md:max-w-md font-sans">
+                <div className="flex items-center gap-1.5 mb-0.5 font-sans">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-zinc-300 block">Autocontrole</span>
+                </div>
+                <h4 className="text-lg font-bold text-text-primary tracking-tight font-sans">
+                  Anotações de autocontrole
+                </h4>
+                <p className="text-xs md:text-sm text-text-secondary/70 font-light leading-normal font-sans">
+                  Consulte e edite as anotações que você registrou durante o acompanhamento.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsNotesModalOpen(true)}
+              className="px-6 py-3 bg-[#6ee7a8] hover:bg-[#5cd697] text-black font-extrabold text-xs uppercase tracking-widest rounded-2xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary-green/10 cursor-pointer text-center md:self-center shrink-0 flex items-center justify-center gap-1.5 font-sans"
+            >
+              <span>Ver anotações</span>
+              <span>➔</span>
+            </button>
+          </div>
+        </section>
+
+
+
+        {/* RESUMO DA SEMANA */}
+        <section className="space-y-4 font-sans pt-4 border-t border-white/5">
+          {/* Weekly Summary */}
+          <div className="p-5 bg-gradient-to-r from-primary-green/[0.04] to-primary-green/[0.012] border border-[#6ee7a8]/15 rounded-3xl relative overflow-hidden select-none cursor-default">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#6ee7a8]/5 blur-2xl rounded-full pointer-events-none" />
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6ee7a8]" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#6ee7a8] block">
+                Resumo da semana
+              </span>
+            </div>
+            <h3 className="text-sm md:text-lg lg:text-xl font-bold md:font-extrabold text-text-primary leading-normal">
+              {identityData.headline}
+            </h3>
+            <p className="mt-2 text-[11px] text-text-secondary/60">
+              Baseado nas sessões e nos registros dos últimos 7 dias.
+            </p>
+          </div>
+        </section>
+
+        {/* PROGRESSIVE DISCLOSURE - BOTTOM SHEET MODAL - SELECTED DATE DETAILS */}
+        <AnimatePresence>
+          {selectedDate && (() => {
+            const formattedDateString = (() => {
+              try {
+                const parts = selectedDate.split('-');
+                const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                return dObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+              } catch {
+                return selectedDate;
+              }
+            })();
+
+            const daySessions = sessions.filter(s => getLocalDateString(new Date(s.started_at)) === selectedDate);
+            const dayMins = daySessions.reduce((acc, session) => acc + getTrackedSessionMinutes(session), 0);
+            const formattedTotalTime = (() => {
+              const h = Math.floor(dayMins / 60);
+              const m = Math.floor(dayMins % 60);
+              if (h > 0) return `${h}h ${m > 0 ? `${m}m` : ''}`.trim();
+              return `${m}m`;
+            })();
+
+            // Calculate project breakdown
+            const breakdown: Record<string, { mins: number, name: string }> = {};
+            daySessions.forEach(session => {
+              const resolved = resolverNomeSessao(session, habits, projects);
+              const pName = resolved.projeto;
+              const m = session.actual_duration_minutes ?? session.duration_minutes ?? 0;
+              if (!breakdown[pName]) breakdown[pName] = { mins: 0, name: pName };
+              breakdown[pName].mins += m;
+            });
+            const projectBreakdown = Object.values(breakdown).sort((a, b) => b.mins - a.mins);
+
+            return (
+              <div className="fixed inset-0 z-[500] flex flex-col justify-end">
+                {/* Overlay */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setSelectedDate(null)}
+                  className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                />
+
+                {/* Bottom Sheet */}
+                <motion.div
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                  className="relative w-full h-[85vh] bg-[#1a1f1c] rounded-t-[2rem] flex flex-col shadow-2xl overflow-hidden font-sans"
+                >
+                  {/* Top drag pill */}
+                  <div className="w-full flex justify-center pt-4 pb-2 shrink-0">
+                    <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+                  </div>
+
+                  {/* Close button */}
+                  <button 
+                    onClick={() => setSelectedDate(null)}
+                    className="absolute top-4 right-5 p-2 bg-white/5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors z-10"
+                  >
+                    <X size={20} />
+                  </button>
+
+                  <div className="flex-1 overflow-y-auto px-6 pb-12 custom-scrollbar">
+                    
+                    {/* BLOCO 1 (Hero) */}
+                    <div className="flex flex-col items-center justify-center text-center mt-6 mb-10">
+                      <span className="text-zinc-500 font-medium text-xs tracking-widest uppercase mb-4">
+                        {formattedDateString}
+                      </span>
+                      <h2 className="text-6xl font-bold text-white tracking-tighter mb-2">
+                        {formattedTotalTime}
+                      </h2>
+                      <p className="text-zinc-400 text-sm font-medium mb-4">Tempo Presente</p>
+                      
+                      <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 inline-flex items-center">
+                        <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">
+                          {daySessions.length} Sessões Profundas
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* BLOCO 2 (Raio-X de Projetos) */}
+                    {projectBreakdown.length > 0 && (
+                      <div className="mb-10 space-y-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">
+                            Projetos do Dia
+                          </h4>
+                        </div>
+                        
+                        {/* Stacked Bar */}
+                        <div className="w-full h-3 rounded-full flex overflow-hidden bg-white/5">
+                          {projectBreakdown.map((p, i) => {
+                            const pct = dayMins > 0 ? (p.mins / dayMins) * 100 : 0;
+                            const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                            const color = colors[i % colors.length];
+                            return (
+                              <div key={p.name} style={{ width: `${pct}%` }} className={`h-full ${color}`} />
+                            )
+                          })}
+                        </div>
+                        
+                        {/* Legend */}
+                        <div className="flex flex-col gap-2.5">
+                          {projectBreakdown.map((p, i) => {
+                            const pct = dayMins > 0 ? Math.round((p.mins / dayMins) * 100) : 0;
+                            const colorsText = ['text-emerald-500', 'text-blue-500', 'text-purple-500', 'text-amber-500', 'text-rose-500'];
+                            const colorsBg = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                            const cText = colorsText[i % colorsText.length];
+                            const cBg = colorsBg[i % colorsBg.length];
+                            
+                            return (
+                              <div key={p.name} className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${cBg}`} />
+                                  <span className="text-zinc-300 font-medium uppercase tracking-wide text-[10px]">{p.name}</span>
+                                </div>
+                                <span className="text-zinc-500 font-bold">{pct}% <span className="font-normal text-zinc-600">({p.mins}m)</span></span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* BLOCO 3 (Timeline Minimalista) */}
+                    {daySessions.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-6">
+                          Linha do Tempo
+                        </h4>
+                        <div className="relative border-l border-white/10 ml-2 pl-6 space-y-8">
+                          {daySessions.sort((a,b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()).map(session => {
+                            const resolved = resolverNomeSessao(session, habits, projects);
+                            const tStart = new Date(session.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                            const tEnd = session.completed_at 
+                              ? new Date(session.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                              : '';
+                            const m = session.actual_duration_minutes ?? session.duration_minutes ?? 0;
+                            
+                            return (
+                              <div key={session.id} className="relative">
+                                {/* Timeline Dot */}
+                                <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-4 ring-[#1a1f1c]" />
+                                
+                                <div className="flex justify-between items-start gap-4">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] text-zinc-500 font-medium mb-0.5">
+                                      {tStart} {tEnd && `- ${tEnd}`}
+                                    </span>
+                                    <span className="text-sm font-bold text-white mb-0.5">
+                                      {resolved.titulo}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+                                      {resolved.projeto}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-bold text-zinc-400 shrink-0">
+                                    {m} min
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>
+
+      </motion.div>
+
+      {/* MODAL PORTAL: RESUMO DO SEU RITMO */}
+      {isEvolucaoModalOpen && <SuaEvolucaoModal isOpen={true} onClose={() => setIsEvolucaoModalOpen(false)} />}
+
+      {/* MODAL PORTAL: ANOTAÇÕES DE AUTOCONTROLE */}
+      {isNotesModalOpen && <TrendsAntiVicioModal isOpen={true} onClose={() => setIsNotesModalOpen(false)} />}
+    </div>
+  );
+};

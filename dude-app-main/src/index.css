@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --base: #0D0F14;
+  --surface-1: #161922;
+  --surface-2: #1F2430;
+  --border: #2A3040;
+
+  --green: #6EE7B7;
+  --violet: #A78BFA;
+  --amber: #FBBF24;
+  --coral: #F87171;
+
+  --text: #F3F4F6;
+  --text-dim: #9CA3AF;
+  --text-dimmer: #5B6473;
+  
+  --mood: var(--text-dimmer);
+}
+
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-app-base: var(--base);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border-custom: var(--border);
+  
+  --color-green: var(--green);
+  --color-violet: var(--violet);
+  --color-amber: var(--amber);
+  --color-coral: var(--coral);
+  
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-dimmer: var(--text-dimmer);
+  --color-mood: var(--mood);
+
+  /* Maintain standard/fallback classes mapped safely to our functional colors */
+  --color-background: var(--base);
+  --color-surface: var(--surface-1);
+  --color-primary-green: var(--green);
+  --color-glow-green: var(--green);
+  --color-text-primary: var(--text);
+  --color-text-secondary: var(--text-dim);
+  --color-border-white: var(--border);
+}
+
+@layer base {
+  body {
+    @apply bg-app-base text-text font-sans antialiased selection:bg-green/30 selection:text-green;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .backdrop-blur-3xl,
+  .backdrop-blur-xl,
+  .backdrop-blur-md {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+

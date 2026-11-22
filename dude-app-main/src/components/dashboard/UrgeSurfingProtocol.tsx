@@ -1,0 +1,1511 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle, Maximize, Minimize, CheckCircle2 } from 'lucide-react';
+import { useDataStore } from '../../store/useDataStore';
+import { getLocalDateString } from '../../lib/utils';
+
+interface UrgeSurfingProtocolProps {
+  key?: string | number;
+  habitId?: string;
+  onClose: () => void;
+}
+
+// Clinically equalized real-time Tone Generator supporting Solfeggio & Perceptually-boosted Binaural Beats
+class AudioSynthesizer {
+  private ctx: AudioContext | null = null;
+  private oscLeft: OscillatorNode | null = null;
+  private oscRight: OscillatorNode | null = null;
+  private gainNode: GainNode | null = null;
+  private compressorNode: DynamicsCompressorNode | null = null;
+  private currentFreq: number = 0;
+  private currentOffset: number = 0;
+
+  start(frequency: number, binauralOffset: number = 0, volumeMultiplier: number = 1.0) {
+    const baseGain = 0.08;
+    const targetVolume = baseGain * volumeMultiplier;
+
+    if (this.ctx && this.currentFreq === frequency && this.currentOffset === binauralOffset) {
+      return; 
+    }
+
+    if (this.ctx && this.oscLeft && this.gainNode) {
+      if ((this.currentOffset === 0 && binauralOffset !== 0) || (this.currentOffset !== 0 && binauralOffset === 0)) {
+         // Force recreate nodes to ensure structural integrity of channels
+      } else {
+        this.currentFreq = frequency;
+        this.currentOffset = binauralOffset;
+        const currentTime = this.ctx.currentTime;
+        this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.05);
+        if (this.oscRight) {
+          this.oscRight.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.05);
+        }
+        this.gainNode.gain.setTargetAtTime(targetVolume, currentTime, 0.05);
+        return;
+      }
+    }
+
+    this.currentFreq = frequency;
+    this.currentOffset = binauralOffset;
+    
+    try {
+      this.stop();
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      
+      this.ctx = new AudioContextClass();
+      
+      // Auto-resume if in suspended state (Safari/iOS requirement)
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+
+      this.gainNode = this.ctx.createGain();
+      this.compressorNode = this.ctx.createDynamicsCompressor();
+      
+      this.compressorNode.threshold.setValueAtTime(-12, this.ctx.currentTime);
+      this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
+      this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
+      this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
+      this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
+      this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+      
+      this.gainNode.connect(this.compressorNode);
+      this.compressorNode.connect(this.ctx.destination);
+
+      const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+
+      this.oscLeft = this.ctx.createOscillator();
+      this.oscLeft.type = 'sine';
+      this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+
+      this.oscRight = this.ctx.createOscillator();
+      this.oscRight.type = 'sine';
+      this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
+
+      if (pannerLeft && pannerRight && binauralOffset !== 0) {
+        pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime);
+        pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);
+        
+        this.oscLeft.connect(pannerLeft).connect(this.gainNode);
+        this.oscRight.connect(pannerRight).connect(this.gainNode);
+      } else {
+        this.oscLeft.connect(this.gainNode);
+        this.oscRight.connect(this.gainNode);
+      }
+
+      this.oscLeft.start();
+      this.oscRight.start();
+      
+      // Ensure loop/lifecycle is continuous
+      // Oscillators loop naturally, but we ensure gain isn't zero
+      this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.05);
+
+    } catch (e) {
+      console.warn("AudioContext blocked or failed initialization.", e);
+    }
+  }
+
+  stop() {
+    const ctx = this.ctx;
+    const oscLeft = this.oscLeft;
+    const oscRight = this.oscRight;
+    const gainNode = this.gainNode;
+    const compressorNode = this.compressorNode;
+
+    this.currentFreq = 0;
+    this.currentOffset = 0;
+    this.ctx = null;
+    this.oscLeft = null;
+    this.oscRight = null;
+    this.gainNode = null;
+    this.compressorNode = null;
+
+    if (!ctx) return;
+
+    try {
+      if (gainNode && ctx.state !== 'closed') {
+        gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+      }
+    } catch {
+      // Audio context may already be suspended or closed by the browser.
+    }
+
+    // Capture the old nodes in this closure. A new start() can safely create
+    // another context before this short fade-out finishes.
+    setTimeout(() => {
+      try {
+        if (oscLeft) { try { oscLeft.stop(); } catch {} oscLeft.disconnect(); }
+        if (oscRight) { try { oscRight.stop(); } catch {} oscRight.disconnect(); }
+        gainNode?.disconnect();
+        compressorNode?.disconnect();
+        if (ctx.state !== 'closed') ctx.close().catch(() => {});
+      } catch {
+        // Cleanup is best-effort; the browser may have already disposed nodes.
+      }
+    }, 100);
+  }
+
+  playAlertChime() {
+    if (!this.ctx) return;
+    try {
+      // Cria um "Sino de Atenção" não-bloqueante por cima da frequência atual
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(888, this.ctx.currentTime); // Frequência harmônica aguda e limpa
+      
+      // Envelope de som (Ataque rápido, decay longo de 3 segundos)
+      gain.gain.setValueAtTime(0, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 3.0);
+      
+      osc.connect(gain);
+      gain.connect(this.ctx.destination); // Conecta direto ao destino para não sofrer compressão
+      
+      osc.start();
+      osc.stop(this.ctx.currentTime + 3.0);
+    } catch (e) {
+      console.warn("Chime failed", e);
+    }
+  }
+
+
+}
+
+export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolProps) => {
+  const dataStore = useDataStore();
+  const { profile, habits } = dataStore;
+
+  const currentHabit = habits.find(h => h.id === habitId);
+  const habitName = currentHabit ? currentHabit.name : 'Crise Geral';
+
+  // Protocolo guiado de 3 minutos e 33 segundos.
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
+  const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
+  const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
+
+  // Fullscreen Native Engine (Desktop)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const toggleFullscreen = () => {
+    const element = document.getElementById('urge_surfing_portal_screen');
+    if (!element) return;
+    if (!document.fullscreenElement) {
+      element.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  // Infinite Extension Mode properties
+  const [isInfiniteMode, setIsInfiniteMode] = useState<boolean>(false);
+  const [infiniteSeconds, setInfiniteSeconds] = useState<number>(0);
+  const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
+  const [infiniteNote, setInfiniteNote] = useState<string>('');
+  const [phase3Seconds, setPhase3Seconds] = useState<number>(0);
+  const [isAccelerated, setIsAccelerated] = useState<boolean>(false);
+
+  // Refs for tracking check-in updates and text concatenation under Directive 1
+  const lastSavedCheckinIdRef = useRef<string | null>(null);
+  const lastSavedTextRef = useRef<string>('');
+
+  // Sound generator reference
+  const synthRef = useRef<AudioSynthesizer | null>(null);
+  // Screen Wake Lock API reference
+  const wakeLockRef = useRef<any>(null);
+
+  // Screen Wake Lock initialization/disposal
+  useEffect(() => {
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn("Screen Wake Lock could not be obtained:", err);
+      }
+    }
+    requestWakeLock();
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().then(() => {
+          wakeLockRef.current = null;
+        }).catch(() => {});
+      }
+    };
+  }, []);
+
+  // Retrieve or initialize the session progress from localStorage (Tab-close protection)
+  useEffect(() => {
+    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
+    const savedEndTime = localStorage.getItem(key);
+    const now = Date.now();
+    let initialSeconds = 213; // 213 segundos (3m33s)
+
+    if (savedEndTime) {
+      const remaining = Math.round((parseInt(savedEndTime, 10) - now) / 1000);
+      if (remaining > 0 && remaining <= 213) {
+        initialSeconds = remaining;
+      } else {
+        const newEndTime = now + 213 * 1000;
+        localStorage.setItem(key, newEndTime.toString());
+      }
+    } else {
+      const newEndTime = now + 213 * 1000;
+      localStorage.setItem(key, newEndTime.toString());
+    }
+
+    setTimeLeft(initialSeconds);
+  }, [habitId]);
+
+  // Main countdown scheduler
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0 || isInfiniteMode || isEncruzilhada) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null) return null;
+        if (prev === 1) {
+          // Congelamento Empático: se está no último segundo da Fase 3 e o usuário começou a digitar mas não salvou, congele o tempo.
+          if (ghostQuoteContent.trim().length > 0 && !reflectionSaved) {
+            return 1;
+          }
+        }
+        if (prev <= 1) {
+          clearInterval(timer);
+          const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
+          localStorage.removeItem(key);
+          setIsEncruzilhada(true); // Enters decision checkpoint
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, isInfiniteMode, isEncruzilhada, habitId, ghostQuoteContent, reflectionSaved]);
+
+  // Infinite mode counting sequence logic (Count up elapsed seconds)
+  useEffect(() => {
+    if (!isInfiniteMode) return;
+
+    const timer = setInterval(() => {
+      setInfiniteSeconds(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isInfiniteMode]);
+
+  // EMDR Random Acceleration logic
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let finishTimeoutId: NodeJS.Timeout;
+    
+    const scheduleNextAcceleration = () => {
+      // O gatilho aleatório dispara entre 15s e 25s (15000ms and 25000ms)
+      const randomDelay = Math.floor(Math.random() * 10001) + 15000;
+      
+      timeoutId = setTimeout(() => {
+        setIsAccelerated(true);
+        // O Pico Abrupto dura exatos 3.5 segundos (3500ms) antes de frear
+        finishTimeoutId = setTimeout(() => {
+          setIsAccelerated(false);
+          scheduleNextAcceleration();
+        }, 3500);
+      }, randomDelay);
+    };
+
+    scheduleNextAcceleration();
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(finishTimeoutId);
+    };
+  }, []);
+
+  // Headphones notification banner fading control (Fades out after 10s)
+  useEffect(() => {
+    const alertTimer = setTimeout(() => {
+      setShowHeadphonesAlert(false);
+    }, 10000);
+    return () => clearTimeout(alertTimer);
+  }, []);
+
+  // Compute chronologically secure steps (State Machine render blocks)
+  // Phase 0: Opening / Absorção Inicial (First millisecond checks)
+  // Phase 1: Freio Vagal (05:00 down to 03:30; 300 to 210 seconds remaining)
+  // Phase 2: A Viajante / EMDR (03:30 to 01:30; 210 to 90 seconds remaining)
+  // Phase 3: Aterramento e Descarga (01:30 to 00:00; 90 to 1 seconds remaining)
+  // Phase 4: A Encruzilhada (Decision Checkpoint, reached 00:00)
+  // Phase 5: Modo Infinito (Countdown extension)
+  const currentPhase = useMemo(() => {
+    if (isInfiniteMode) return 5;
+    if (isEncruzilhada) return 4;
+    if (timeLeft === null) return -1; 
+    if (timeLeft > 205) return 0;     // 213s a 205s (8 segundos): Fase 0 (Abertura)
+    if (timeLeft > 108) return 1;     // 205s a 108s (97 segundos): Fase 1 (Freio Vagal)
+    if (timeLeft > 78) return 2;      // 108s a 78s (30 segundos): Fase 2 (EMDR)
+    if (timeLeft > 0) return 3;       // 78s a 1s (78 segundos): Fase 3 (Aterramento)
+    return 4;                         // 0s: Encruzilhada
+  }, [timeLeft, isInfiniteMode, isEncruzilhada]);
+
+  const infiniteAct = useMemo(() => {
+    if (infiniteSeconds <= 11) return 1;    // 0 a 11: Ato 1 (Abertura)
+    if (infiniteSeconds <= 91) return 2;   // 12 a 91: Transição A (Lótus Box Breathing)
+    if (infiniteSeconds <= 96) return 3;   // 92 a 96: Ato 2 (Transição EMDR)
+    return 4;                              // >= 97: Transição B (Bolinha EMDR)
+  }, [infiniteSeconds]);
+
+  // Invisible counter for Phase 3 Nudge (300 seconds)
+  useEffect(() => {
+    if (currentPhase !== 3 || reflectionSaved) {
+      setPhase3Seconds(0);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setPhase3Seconds(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentPhase, reflectionSaved]);
+
+  // 1. Hook de Orquestração (O Piloto): Muda frequências e muta o som sem matar a classe
+  useEffect(() => {
+    if (!synthRef.current) {
+      synthRef.current = new AudioSynthesizer();
+    }
+
+    const synth = synthRef.current;
+
+    if (isAudioEnabled) {
+      if (currentPhase === 1) {
+        // Fase 1: Solfeggio 432Hz imediatamente
+        synth.start(432, 0, 1.0);
+      } else if (currentPhase === 2) {
+        // Fase 2: 40 Hz (Foco)
+        synth.start(40, 0, 1.5);
+      } else if (currentPhase === 3) {
+        // Fase 3: Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
+        synth.start(150, 7.5, 4.5); // Deep Theta 7.5Hz Binaural (150Hz carrier)
+      } else if (currentPhase === 5) {
+        // Loop Total: 840 Segundos (14 minutos)
+        const cycleTime = infiniteSeconds % 840;
+        
+        if (cycleTime < 180) {
+          // 0 a 3 min: 432 Hz - Aterramento Emocional
+          synth.start(432, 0, 1.0);
+        } else if (cycleTime < 360) {
+          // 3 a 6 min: 174 Hz - Alívio Físico
+          synth.start(174, 0, 1.2);
+        } else if (cycleTime < 540) {
+          // 6 a 9 min: 40 Hz - Foco Gamma
+          synth.start(40, 0, 9.5);
+        } else {
+          // 9 a 14 min (Duração estendida de 5 min): 888 Hz Binaural - Abundância & Flow
+          synth.start(888, 8, 1.5);
+        }
+      } else {
+        synth.stop();
+      }
+    } else {
+      synth.stop();
+    }
+  }, [currentPhase, isAudioEnabled, infiniteSeconds]);
+
+  // 1.5 Alerta Sonoro a cada 15 Minutos (900 segundos) na Fase 5
+  useEffect(() => {
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds > 0 && infiniteSeconds % 900 === 0) {
+      if (isAudioEnabled && synthRef.current) {
+        synthRef.current.playAlertChime();
+      }
+    }
+  }, [infiniteSeconds, currentPhase, isInfiniteMode, isAudioEnabled]);
+
+  // 2. Hook de Limpeza (A Faxina): Garante o Garbage Collection apenas quando o componente desmonta (fechar tela)
+  useEffect(() => {
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.stop();
+      }
+    };
+  }, []);
+
+  // Inhalation/Exhalation breathing guidance sequence (Zero-aligned multi-technique clinical engine)
+  const breathingState = useMemo(() => {
+    // Fase 1A: O Extintor 4-7-8 (De 205s a 148s)
+    if (currentPhase === 1 && timeLeft > 148) {
+      const elapsed = 205 - (timeLeft || 205);
+      const cycle = elapsed % 22;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 13) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(7 - (cycle - 5))}`, duration: 8.0 };
+      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(8 - (cycle - 13))}`, duration: 9.0 };
+    }
+    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 140s, após os 8s de frase empática)
+    if (currentPhase === 1 && timeLeft <= 140 && timeLeft > 108) {
+      const elapsed = 140 - (timeLeft || 140);
+      const cycle = elapsed % 20;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
+      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
+    }
+    // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
+    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
+      const elapsed = infiniteSeconds - 12;
+      const cycle = elapsed % 20;
+      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
+      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
+      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
+      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
+    }
+    return { phase: 'idle', text: '', countText: '', duration: 4.0 };
+  }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
+
+  // SVG progressive ring stroke coefficients
+  const timerCircleProps = useMemo(() => {
+    const radius = 64;
+    const strokeWidth = 5;
+    const circumference = 2 * Math.PI * radius; // Approx 402.12
+    const totalDuration = 213; // 213s
+    const elapsed = totalDuration - (timeLeft || 0);
+    const progressRatio = elapsed / totalDuration;
+    const strokeDashoffset = circumference * (1 - progressRatio);
+
+    return {
+      radius,
+      strokeWidth,
+      circumference,
+      strokeDashoffset,
+    };
+  }, [timeLeft]);
+
+  // Triggers immediate database persistence insert & reactive state synchronization
+  const saveReflection = async () => {
+    if (!dataStore.profile?.id) {
+      dataStore.showNotification('Entre na sua conta para salvar este registro.', 'error');
+      return;
+    }
+
+    setSaveStatus('saving');
+    try {
+      const timestamp = new Date().toISOString();
+      const totalSecondsActive = isInfiniteMode ? (213 + infiniteSeconds) : (213 - (timeLeft || 0));
+      const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
+
+      let mergedText = currentText;
+      if (lastSavedCheckinIdRef.current && lastSavedTextRef.current) {
+        if (currentText && currentText !== lastSavedTextRef.current) {
+          mergedText = `${lastSavedTextRef.current} | ${currentText}`;
+        } else {
+          mergedText = lastSavedTextRef.current;
+        }
+      }
+
+      // A guided pause can be started without an avoidance habit. In that case,
+      // save an optional reflection as an inbox note instead of inserting a
+      // an unlinked guided pause into the avoidance-check-in table.
+      if (!habitId) {
+        if (mergedText) {
+          const capture = await dataStore.addInboxCapture(
+            dataStore.profile.id,
+            `[Pausa guiada] ${mergedText}`
+          );
+          if (!capture) {
+            setSaveStatus('error');
+            dataStore.showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
+            return;
+          }
+          dataStore.showNotification('Anotação salva na sua caixa de entrada.', 'success');
+        } else {
+          dataStore.showNotification('Pausa concluída. Nenhuma anotação foi salva.', 'success');
+        }
+
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+          if (timeLeft === 1) {
+            setTimeLeft(0);
+            setIsEncruzilhada(true);
+          }
+        }
+        return;
+      }
+
+      const triggerNote = mergedText ? `[PAUSA GUIADA] ${mergedText}` : null;
+
+      if (lastSavedCheckinIdRef.current) {
+        const updated = await dataStore.updateAvoidanceCheckin(lastSavedCheckinIdRef.current, {
+          status: 'success',
+          intensity: 5,
+          trigger_note: triggerNote,
+          time_spent: totalSecondsActive
+        });
+
+        if (!updated) {
+          setSaveStatus('error');
+          dataStore.showNotification('Não foi possível atualizar o registro. Tente novamente.', 'error');
+          return;
+        }
+
+        lastSavedTextRef.current = mergedText;
+        await dataStore.fetchAvoidanceCheckins(dataStore.profile.id);
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+        }
+        dataStore.showNotification('Registro atualizado.', 'success');
+      } else {
+        const checkinData = {
+          user_id: dataStore.profile.id,
+          habit_id: habitId,
+          checkin_date: getLocalDateString(),
+          checkin_period: 'window',
+          status: 'success',
+          intensity: 5,
+          trigger_tag: 'PAUSA GUIADA',
+          trigger_note: triggerNote,
+          window_label: null,
+          created_at: timestamp,
+          time_spent: totalSecondsActive
+        };
+
+        const created = await dataStore.addAvoidanceCheckin(checkinData);
+        if (!created) {
+          setSaveStatus('error');
+          dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
+          return;
+        }
+
+        lastSavedCheckinIdRef.current = created.id;
+        lastSavedTextRef.current = mergedText;
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+          if (timeLeft === 1) {
+            setTimeLeft(0);
+            setIsEncruzilhada(true);
+          }
+        }
+        dataStore.showNotification('Registro salvo.', 'success');
+      }
+    } catch (err) {
+      console.error('Error saving guided pause reflection:', err);
+      setSaveStatus('error');
+      dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
+    }
+  };
+
+  const handleCancel = () => {
+    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
+    localStorage.removeItem(key);
+    setTimeLeft(null);
+    if (synthRef.current) {
+      synthRef.current.stop();
+      synthRef.current = null;
+    }
+    onClose();
+  };
+
+  const formatMinSec = (secs: number) => {
+    const mm = Math.floor(secs / 60);
+    const ss = secs % 60;
+    return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+  };
+
+  // Skip phases helper for grading validation
+  const skipToPhase = (phase: number) => {
+    setIsInfiniteMode(false);
+    setIsEncruzilhada(false);
+
+    if (phase === 0) setTimeLeft(213);
+    else if (phase === 1) setTimeLeft(204);
+    else if (phase === 2) setTimeLeft(107);
+    else if (phase === 3) setTimeLeft(77);
+    else if (phase === 4) {
+      setTimeLeft(0);
+      setIsEncruzilhada(true);
+    } else if (phase === 5) {
+      setIsInfiniteMode(true);
+      setInfiniteSeconds(1);
+    }
+  };
+
+  // Dynamic mapped frequency for the Apple Glassmorphic Card
+  const currentInfiniteFrequencyCardText = useMemo(() => {
+    if (!isInfiniteMode) return '';
+    const cycleTime = infiniteSeconds % 840;
+    if (cycleTime < 180) {
+      return '📻 432 hertz - Frequência do Aterramento';
+    } else if (cycleTime < 360) {
+      return '📻 174 hertz - Frequência do Alívio';
+    } else if (cycleTime < 540) {
+      return '📻 40 hertz - Frequência do Foco';
+    } else {
+      return '📻 888 hertz - Frequência da Prosperidade';
+    }
+  }, [isInfiniteMode, infiniteSeconds]);
+
+  // Audio frequency tag name under infinite mode looping
+  const currentInfiniteFrequencyTag = useMemo(() => {
+    if (!isInfiniteMode) return '';
+    const cycleTime = infiniteSeconds % 840;
+    if (cycleTime < 180) {
+      return '432 Hz · Aterramento Cósmico';
+    } else if (cycleTime < 360) {
+      return '174 Hz · Alívio Biológico';
+    } else if (cycleTime < 540) {
+      return '40 Hz · Ondas Foco Gamma (Pense e Foque)';
+    } else {
+      return '888 Hz · Abundância & Flow (Binaural Theta)';
+    }
+  }, [isInfiniteMode, infiniteSeconds]);
+
+  // Construct UI payload using safe standard portal injection
+  return createPortal(
+    <div 
+      id="urge_surfing_portal_screen"
+      style={{ isolation: 'isolate' }}
+      className="fixed inset-0 w-full h-full bg-[#030303] text-white z-[9999] flex flex-col justify-between p-6 md:p-12 overflow-hidden select-none outline-none font-sans"
+    >
+      {/* Absolute discretely elegant close escaper (Apple Mindfulness visual cues) */}
+      <button 
+        id="sos_esc_button"
+        onClick={handleCancel}
+        className="absolute top-6 right-6 text-white/20 hover:text-white/80 hover:scale-105 active:scale-95 transition-all p-3 rounded-full hover:bg-white/5 z-[10000] cursor-pointer"
+        aria-label="Encerrar Resgate"
+      >
+        <X size={22} />
+      </button>
+
+      {/* Symmetrical audio mute button placed elegantly in top-left to replace clutter */}
+      <div className="absolute top-6 left-6 z-[10000]">
+        <button
+          onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+          className={`p-3 rounded-xl transition-all text-xs flex items-center gap-2 hover:bg-white/5 ${
+            isAudioEnabled 
+              ? 'text-purple-400 hover:text-purple-300' 
+              : 'text-white/30 hover:text-white/50'
+          }`}
+        >
+          {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          <span className="text-[9px] uppercase tracking-[0.18em] font-mono font-bold select-none hidden sm:inline">
+            {isAudioEnabled ? 'SONS ATIVOS' : 'MUTADO'}
+          </span>
+        </button>
+      </div>
+
+      {/* Hidden tester phase skips - Hover revealed at bottom-left corner to keep top pristine */}
+      <div className="absolute bottom-6 left-6 z-[10000] flex items-center gap-1 bg-white/[0.01] hover:bg-white/[0.04] px-2 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
+        {[0, 1, 2, 3, 4, 5].map(p => (
+          <button 
+            key={p} 
+            onClick={() => skipToPhase(p)}
+            className="w-5 h-5 text-[9px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer text-white/30 hover:bg-white/20 hover:text-white"
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Main active stage content area */}
+      <div className="flex-1 w-full flex flex-col items-center justify-center relative py-6 max-w-2xl mx-auto space-y-6">
+        
+        {/* TIMER APPLE-RING: Circular countdown indicator at center-top */}
+        {currentPhase <= 3 && (
+          <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+            <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 144 144">
+              <circle
+                cx="72"
+                cy="72"
+                r={timerCircleProps.radius}
+                className="text-purple-500/10"
+                strokeWidth={timerCircleProps.strokeWidth}
+                stroke="currentColor"
+                fill="transparent"
+              />
+              <circle
+                cx="72"
+                cy="72"
+                r={timerCircleProps.radius}
+                className="text-purple-500"
+                strokeWidth={timerCircleProps.strokeWidth}
+                strokeDasharray={timerCircleProps.circumference}
+                strokeDashoffset={timerCircleProps.strokeDashoffset}
+                strokeLinecap="round"
+                stroke="#A855F7"
+                fill="transparent"
+                style={{ transition: 'stroke-dashoffset 1s linear' }}
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center">
+              <span className="text-2xl font-mono font-extrabold text-white tracking-tighter">
+                {formatMinSec(timeLeft || 0)}
+              </span>
+              <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] font-mono mt-0.5">
+                TIMER S.O.S.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* INFINITE MODE COUNTER: Minimalist upward ring */}
+        {currentPhase === 5 && (
+          <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+            <div className="absolute inset-0 rounded-full bg-emerald-500/5 border border-emerald-500/10 animate-pulse blur-sm" />
+            <div className="absolute flex flex-col items-center justify-center">
+              <span className="text-3xl font-mono font-black text-emerald-400 tracking-tighter">
+                {formatMinSec(infiniteSeconds)}
+              </span>
+              <span className="text-[7.5px] font-black text-emerald-500/55 uppercase tracking-[0.2em] font-mono mt-1">
+                MODO INFINITO
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* MUTUALLY EXCLUSIVE SCENE RENDER CHANNELS */}
+        <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[340px]">
+          <AnimatePresence mode="wait">
+            
+            {/* FASE 0: ABERTURA EMPÁTICA (5 Segundos) */}
+            {currentPhase === 0 && (
+              <motion.div 
+                key="phase-0"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 1.0, ease: "easeOut" }}
+                className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
+              >
+                <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
+                  "Você não está sozinho. A DUDE assumiu o controle. Apenas siga o guia."
+                </h2>
+                <div className="h-[1px] w-12 bg-white/10" />
+                <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
+                  Fase 0 · Absorção Inicial
+                </span>
+              </motion.div>
+            )}
+
+            {/* FASE 1: FREIO VAGAL (Breath control loops with Apple Lotus Waves) */}
+            {currentPhase === 1 && (
+              <motion.div 
+                key="phase-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0 }}
+                className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
+              >
+                <AnimatePresence mode="wait">
+                  {/* Fase 1A: De 205 a 148, renderize a Lótus 4-7-8 */}
+                  {timeLeft !== null && timeLeft > 148 && (
+                    <motion.div
+                      key="phase-1a-lotus"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-12"
+                    >
+                      {/* 4x Layered concentric expanding lotus circles */}
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
+                        />
+                      </div>
+
+                      {/* Breathing status instructions */}
+                      <div className="text-center space-y-3">
+                        <span className="text-xl font-light tracking-wide text-white block">
+                          {breathingState.text}
+                        </span>
+                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                          {breathingState.countText}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Transição Limpa: De 148 a 140 */}
+                  {timeLeft !== null && timeLeft <= 148 && timeLeft > 140 && (
+                    <motion.div
+                      key="phase-1-text"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
+                    >
+                      <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
+                        "Vamos mudar de ritmo. Acompanhe o flow para retomar o controle da sua mente."
+                      </h2>
+                      <div className="h-[1px] w-12 bg-white/10" />
+                      <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
+                        Fase 1B · Transição de Respiração
+                      </span>
+                    </motion.div>
+                  )}
+
+                  {/* Fase 1B: De 140 a 108, renderize a Lótus Box Breathing */}
+                  {timeLeft !== null && timeLeft <= 140 && (
+                    <motion.div
+                      key="phase-1b-lotus"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.8 }}
+                      className="flex flex-col items-center justify-center space-y-12"
+                    >
+                      {/* 4x Layered concentric expanding lotus circles */}
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/10"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/20"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-500/30"
+                        />
+                        <motion.div
+                          animate={{
+                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                          }}
+                          transition={{
+                            duration: breathingState.duration,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute w-40 h-40 rounded-full bg-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)]"
+                        />
+                      </div>
+
+                      {/* Breathing status instructions */}
+                      <div className="text-center space-y-3">
+                        <span className="text-xl font-light tracking-wide text-white block">
+                          {breathingState.text}
+                        </span>
+                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                          {breathingState.countText}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+
+            {/* FASE 2: A VIAJANTE (EMDR - Cinematic Choreography) */}
+            {currentPhase === 2 && (
+              <motion.div 
+                key="phase-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0 }}
+                className="w-full h-full absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible"
+              >
+                {/* Texto Empático: Fica no centro por 6s, depois desce */}
+                <motion.div
+                  initial={{ y: "-5vh", opacity: 0 }}
+                  animate={{ 
+                    y: ["-5vh", "-5vh", "25vh"], 
+                    opacity: [0, 1, 1, 1] 
+                  }}
+                  transition={{ 
+                    duration: 7.5, 
+                    times: [0, 0.1, 0.8, 1], // Aparece rápido (10%), fica parado até 80% (6s), desce no final
+                    ease: "easeInOut" 
+                  }}
+                  className="absolute text-center space-y-1.5 z-40 px-4 w-full"
+                >
+                  <span className="text-lg font-light tracking-wide text-white/95 leading-none block drop-shadow-lg">
+                    Acompanhe a luz com o olhar.
+                  </span>
+                  <p className="text-[10px] text-white/20 tracking-[0.2em] font-mono uppercase">
+                    Deslocando a atenção cognitiva para dissolver a fissura
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* FASE 3: ATERRAMENTO & DESCARGA COGNITIVA */}
+            {currentPhase === 3 && (
+              <motion.div 
+                key="phase-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0 }}
+                className="w-full max-w-lg flex flex-col items-center space-y-6 px-4"
+              >
+                {/* Centralized grounding guide representation */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <div className="absolute w-8 h-8 rounded-full bg-emerald-500/10 animate-ping" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-[0_0_20px_10px_#10b981,0_0_50px_20px_#10b981] animate-pulse" />
+                </div>
+
+                {/* Cognitive Discharge Panel */}
+                <div className="w-full flex flex-col space-y-4">
+                  <span className="text-xs text-white/70 font-light leading-relaxed text-center block max-w-md mx-auto">
+                    Esvazie sua mente, descreva o que sente agora. (Anotar é opcional, apenas respire e sinta a frequência)
+                  </span>
+
+                  <div className="relative w-full">
+                     {!reflectionSaved ? (
+                      <div className="space-y-4">
+                        <textarea
+                          id="sos_reflection_textarea"
+                          value={ghostQuoteContent}
+                          onChange={(e) => setGhostQuoteContent(e.target.value)}
+                          placeholder="Digite sem filtros, o bloco de escrita cresce elasticamente conforme sua escrita flui..."
+                          className="w-full min-h-[140px] bg-white/[0.03] border-none text-white/95 text-sm font-light rounded-2xl p-5 focus:outline-none placeholder-white/20 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
+                          style={{ height: 'auto' }}
+                          onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${target.scrollHeight}px`;
+                          }}
+                        />
+                        <button
+                          id="sos_submit_reflection_btn"
+                          onClick={saveReflection}
+                          disabled={saveStatus === 'saving'}
+                          className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2"
+                        >
+                          {saveStatus === 'saving' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                              <span>Sincronizando Banco de Dados...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={14} />
+                              <span>GUARDAR REFLEXÃO</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <motion.div
+                        id="sos_save_confirmation"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="py-6 px-8 bg-emerald-500/5 border border-emerald-500/15 rounded-3xl text-center space-y-2 max-w-sm mx-auto shadow-xl"
+                      >
+                        <span className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 uppercase tracking-widest leading-none">
+                          <ShieldCheck size={16} /> Registro de campo salvo ✓
+                        </span>
+                        <p className="text-[11px] text-white/40 leading-relaxed">
+                          Sua reflexão foi gravada com segurança no banco de dados e sincronizada reativamente de forma imediata.
+                        </p>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* FASE 4: A ENCRUZILHADA DECISION CHECKPOINT */}
+            {currentPhase === 4 && (
+              <motion.div 
+                key="phase-4"
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 1.0 }}
+                className="flex flex-col items-center justify-center space-y-10 text-center max-w-sm px-6"
+              >
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-light tracking-wide text-white leading-relaxed">
+                    "O tempo passou. Como está a sua mente agora?"
+                  </h3>
+                  <div className="h-[1px] w-12 bg-white/10 mx-auto" />
+                  <span className="text-[10px] text-white/35 tracking-[0.25em] font-mono uppercase block">
+                    Decisão Consciente
+                  </span>
+                </div>
+
+                <div className="w-full space-y-4">
+                  {/* Estou em paz (Close and complete successfully) */}
+                  <button
+                    id="sos_peace_button"
+                    onClick={handleCancel}
+                    className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/10 hover:bg-white/[0.08] text-white font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck size={15} className="text-emerald-400" />
+                    <span>Estou em paz.</span>
+                  </button>
+
+                  {/* Preciso de mais tempo (Turns on Infinite Mode) */}
+                  <button
+                    id="sos_infinite_button"
+                    onClick={() => {
+                      setIsEncruzilhada(false);
+                      setIsInfiniteMode(true);
+                      setInfiniteSeconds(1);
+                    }}
+                    className="w-full py-4 px-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/15 text-emerald-300 font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.15)] flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={15} />
+                    <span>Preciso de mais tempo.</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* FASE 5: MODO INFINITO (Extensão da sessão) */}
+            {currentPhase === 5 && (
+              <motion.div 
+                key="phase-5"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0 }}
+                className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
+              >
+                {/* ATO 1: Totalmente minimalista (De 0 a 11 segundos) */}
+                {infiniteAct === 1 && (
+                  <motion.div 
+                    key="infinite-act-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.0 }}
+                    className="text-center px-6 max-w-lg mx-auto"
+                  >
+                    <p className="text-lg md:text-xl font-light tracking-wide text-white/95 leading-relaxed">
+                      "Está tudo bem, se acalme, se quiser faça mais alguns ciclos de respiração guiada. O que verdadeiramente importa agora é: escute o som das frequências."
+                    </p>
+                  </motion.div>
+                )}
+
+                {/* TRANSIÇÃO A: Respirador Lótus (De 12 a 91 segundos) */}
+                {infiniteAct === 2 && (
+                  <motion.div 
+                    key="infinite-act-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.0 }}
+                    className="flex flex-col items-center justify-center space-y-12"
+                  >
+                    {/* 4x layers of pulsing Lótus representation in Purple/Indigo */}
+                    <div className="relative w-40 h-40 flex items-center justify-center">
+                      {/* Camada 1: bg-purple-500/10 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.duration,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-purple-500/10"
+                      />
+                      {/* Camada 2: bg-purple-500/20 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.duration,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-purple-500/20"
+                      />
+                      {/* Camada 3: bg-indigo-500/30 */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.duration,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-indigo-500/30"
+                      />
+                      {/* Camada 4: bg-gradient-to-tr from-purple-500 to-indigo-500 with slight glow */}
+                      <motion.div
+                        animate={{
+                          scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                        }}
+                        transition={{
+                          duration: breathingState.duration,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.5)]"
+                      />
+                    </div>
+
+                    {/* Loop breathing guidance details */}
+                    <div className="text-center space-y-3 px-4 max-w-lg mt-6">
+                      <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
+                        Modo Extensão
+                      </span>
+                      
+                      <span className="text-sm font-light tracking-wide text-white block leading-relaxed">
+                        {breathingState.text}
+                      </span>
+                      
+                      <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
+                        {breathingState.countText}
+                      </span>
+
+                      {/* Active Loop details */}
+                      <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/10 px-4 py-2 rounded-full mt-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                        <span className="text-[9px] font-mono font-bold tracking-widest text-[#a855f7] uppercase">
+                          {currentInfiniteFrequencyTag}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ATO 2: Mensagem Transicional Central (De 92 a 96 segundos) */}
+                {infiniteAct === 3 && (
+                  <motion.div 
+                    key="infinite-act-3"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="text-center space-y-4 px-6 max-w-md"
+                  >
+                    <p className="text-xl md:text-2xl font-light tracking-wide text-white leading-relaxed">
+                      "Acompanhe a bolinha até a mente se acalmar."
+                    </p>
+                    <div className="h-[1px] w-12 bg-white/10 mx-auto" />
+                    <span className="text-[10px] text-white/35 tracking-[0.2em] font-mono uppercase block">
+                      Preparando campo perceptual...
+                    </span>
+                  </motion.div>
+                )}
+
+                {/* TRANSIÇÃO B: Modo Foco Ativo (A partir de 97 segundos) */}
+                {infiniteAct === 4 && (
+                  <motion.div 
+                    key="infinite-act-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="w-full flex flex-col items-center justify-center space-y-8 px-4"
+                  >
+                    {/* Elegant translucent text input workspace */}
+                    <div className="relative w-full max-w-md z-40 space-y-4">
+                      <textarea
+                        id="sos_infinite_reflection_textarea"
+                        value={infiniteNote}
+                        onChange={(e) => setInfiniteNote(e.target.value)}
+                        placeholder="Digite sem pressa, solte o fluxo de consciência..."
+                        className="w-full min-h-[140px] bg-white/[0.03] border border-white/5 hover:border-white/10 focus:border-[#10b981]/30 focus:outline-none text-white/95 text-sm font-light rounded-2xl p-5 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
+                        style={{ height: 'auto' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
+                      />
+
+                      <div className="flex flex-col gap-3">
+                        <button
+                          id="sos_infinite_submit_reflection_btn"
+                          onClick={saveReflection}
+                          disabled={saveStatus === 'saving'}
+                          className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-[11px] uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2"
+                        >
+                          {saveStatus === 'saving' ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                              <span>Sincronizando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={13} />
+                              <span>GUARDAR REFLEXÃO</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* INDICADOR DE FREQUÊNCIA PREMIUM (Apple Native Text - Sem Caixas) */}
+                        <div className="py-2 flex items-center justify-center select-none opacity-80">
+                          <span className="text-[10px] md:text-xs tracking-[0.15em] text-white/50 font-mono uppercase font-semibold">
+                            {currentInfiniteFrequencyCardText}
+                          </span>
+                        </div>
+
+                        <button
+                          id="sos_infinite_finish_btn"
+                          onClick={handleCancel}
+                          className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 font-extrabold text-[11px] uppercase tracking-[0.2em] border border-white/10 transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <ShieldCheck size={14} className="text-emerald-400" />
+                          <span>CONCLUIR SESSÃO</span>
+                        </button>
+                      </div>
+
+                      {/* TEXTO EMPÁTICO (Fluxo Natural - Evita Sobreposição) */}
+                      <div className="pt-3 px-2 text-center pointer-events-none">
+                        <p className="text-[11px] font-light tracking-wide text-white/50 leading-relaxed">
+                          "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                        </p>
+                        <span className="text-[8px] text-[#10b981]/40 tracking-[0.2em] font-mono uppercase block mt-1">
+                          Espaço de Resgate Perceptual Ativo
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+
+      </div>
+
+      {/* Dynamic island recommended headphones (Placed at top-[24vh] in high negative space) */}
+      <AnimatePresence>
+        {showHeadphonesAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="absolute top-[24vh] left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-[10010] shadow-2xl pointer-events-none w-[90%] max-w-sm"
+          >
+            <span className="text-xs text-white/90 tracking-wide font-medium block">
+              🎧 Recomendamos fones de ouvido para imersão profunda
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+ 
+      {/* Nudge Fase 3 - Glassmorphism notification overspread */}
+      <AnimatePresence>
+        {currentPhase === 3 && phase3Seconds >= 300 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-[10020] p-6"
+          >
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] max-w-md text-center space-y-6 shadow-2xl relative">
+              <p className="text-white text-base font-light leading-relaxed">
+                "Você já externalizou bastante coisa. Salve este registro para libertar sua mente e darmos o próximo passo."
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => saveReflection()}
+                  disabled={saveStatus === 'saving'}
+                  className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)]"
+                >
+                  {saveStatus === 'saving' ? 'Salvando...' : 'GUARDAR REGISTRO'}
+                </button>
+                <button
+                  onClick={() => setPhase3Seconds(0)}
+                  className="text-white/40 hover:text-white/60 text-[10px] uppercase tracking-widest font-mono py-2"
+                >
+                  Continuar Escrevendo
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
+      <AnimatePresence>
+        {currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 300 && (infiniteSeconds % 300 < 15) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.5 }}
+            className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-[24px] text-center z-[10015] shadow-2xl w-[90%] max-w-md"
+          >
+            <p className="text-white text-xs font-light leading-relaxed">
+              "A crise foi contida e a mente está limpa. Salve seu registro, feche a sessão e volte a dominar suas tarefas. O mundo real te espera."
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom informational branding layout */}
+      <div className="w-full shrink-0 flex flex-col items-center justify-end z-[9999]">
+        {currentPhase <= 3 ? (
+          <div className="flex flex-col items-center justify-center space-y-1">
+            <span className="text-[9px] font-mono font-bold text-white/20 uppercase tracking-[0.3em]">
+              Fase {currentPhase} integrada · DUDE Mindfulness
+            </span>
+          </div>
+        ) : (
+          <div className="h-4" />
+        )}
+      </div>
+
+      {/* BOTÃO DE TELA CHEIA (Exclusivo Desktop) */}
+      <div className="absolute bottom-6 right-6 z-[10000] hidden md:flex">
+        <button
+          onClick={toggleFullscreen}
+          className="bg-white/[0.03] border border-white/10 hover:bg-white/10 p-3 rounded-xl text-white/40 hover:text-white transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono font-bold cursor-pointer"
+        >
+          {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+          <span>{isFullscreen ? 'Sair da Tela Cheia' : 'Modo Tela Cheia'}</span>
+        </button>
+      </div>
+
+      {/* A BOLINHA SOBERANA GLOBAL (Z-Index Absoluto sobre Timer e UI) */}
+      <AnimatePresence>
+        {(currentPhase === 2 || (currentPhase === 5 && infiniteAct === 4)) && (
+          <motion.div
+            key="sovereign-emdr-ball"
+            style={{ top: 0, left: 0 }}
+            animate={{ 
+              x: ['0px', 'calc(100vw - 24px)'], 
+              y: ['0px', 'calc(100vh - 24px)'] 
+            }}
+            exit={{ 
+              top: '50%', 
+              left: '50%', 
+              x: '-50%', 
+              y: '-50%', 
+              scale: 0, 
+              opacity: 0, 
+              transition: { duration: 1.0, ease: "anticipate" } 
+            }}
+            transition={{ 
+              x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
+              y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
+            }}
+            className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[999999] pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* POP-UP DE SUCESSO (Modo Infinito) */}
+      <AnimatePresence>
+        {showSaveSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-gray-900 rounded-2xl border border-emerald-500/30 p-8 max-w-sm w-full shadow-2xl flex flex-col items-center justify-center text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
+                <CheckCircle2 size={32} className="text-emerald-500" />
+              </div>
+              <h3 className="text-white text-lg font-semibold">Reflexão guardada com segurança</h3>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">
+                Seu registro de campo foi armazenado. Você pode continuar nesta sessão o tempo que precisar.
+              </p>
+              <button
+                onClick={() => setShowSaveSuccess(false)}
+                className="mt-4 px-8 py-2.5 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-full transition-colors border border-white/10"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>,
+    document.body
+  );
+};

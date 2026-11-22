@@ -1,0 +1,504 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, Play, Pause, Moon } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useDataStore } from '../../store/useDataStore';
+
+interface DecompressionSessionProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionProps) => {
+  const { user } = useAuthStore();
+  const addInboxCapture = useDataStore(state => state.addInboxCapture);
+  const showNotification = useDataStore(state => state.showNotification);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [text, setText] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [sleepTimer, setSleepTimer] = useState<number>(30); // Sleep timer in minutes
+  const [timeRemaining, setTimeRemaining] = useState<number>(30 * 60);
+  const [showContinuePopup, setShowContinuePopup] = useState(false);
+  const [effectIndex, setEffectIndex] = useState(0);
+
+  const wakeLockRef = useRef<any>(null);
+  
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Audio Refs
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch (err) {
+      console.error('Wake Lock error:', err);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch (err) {
+      console.error('Wake Lock release error:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (wakeLockRef.current !== null && document.visibilityState === 'visible' && isPlaying) {
+        await requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setEffectIndex((prev) => (prev + 1) % 3);
+    }, 5 * 60 * 1000); // Muda o efeito visual a cada 5 minutos
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+
+  const stopAudio = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    const source = sourceRef.current;
+    const masterGain = gainNodeRef.current;
+    
+    if (ctx && source && masterGain) {
+      // Smooth fade out
+      masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2); 
+      
+      setTimeout(() => {
+        try {
+          source.stop();
+          source.disconnect();
+          masterGain.disconnect();
+        } catch (e) {
+          // ignore
+        }
+      }, 2100);
+      
+      sourceRef.current = null;
+      gainNodeRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopAudio();
+      setIsPlaying(false);
+    }
+    
+    return () => {
+      stopAudio();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(console.error);
+      }
+    };
+  }, [isOpen, stopAudio]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setTimeRemaining(previous => {
+        if (previous <= 1) {
+          stopAudio();
+          setIsPlaying(false);
+          setShowContinuePopup(true);
+          return 0;
+        }
+        return previous - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPlaying, stopAudio]);
+
+  const initAudio = () => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+
+      // Create 10 seconds of Brown Noise buffer
+      const bufferSize = ctx.sampleRate * 10;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        data[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = data[i];
+        data[i] *= 3.5; // compensate gain
+      }
+
+      (ctx as any).brownNoiseBuffer = buffer;
+    }
+  };
+
+  const playAudio = () => {
+    initAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    if (sourceRef.current) return; // already playing
+
+    const source = ctx.createBufferSource();
+    source.buffer = (ctx as any).brownNoiseBuffer;
+    source.loop = true;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3); // 3 second smooth fade in
+    
+    // Gentle lowpass filter for deep rumble like Calm app
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 350; 
+    
+    source.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    source.start();
+
+    sourceRef.current = source;
+    gainNodeRef.current = masterGain;
+  };
+
+
+
+  const toggleAudio = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isPlaying) {
+      stopAudio();
+      setIsPlaying(false);
+      return;
+    }
+
+    // The session timer must work even if this browser/device cannot play audio.
+    try {
+      playAudio();
+    } catch (error) {
+      console.warn('Áudio ambiente indisponível neste dispositivo.', error);
+      showNotification('O áudio não está disponível neste dispositivo. A sessão pode continuar sem som.', 'info');
+    }
+    setIsPlaying(true);
+  };
+
+  const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const contentToSave = text.trim();
+    if (!contentToSave || !user || isSaving) return;
+
+    setIsSaving(true);
+    const saved = await addInboxCapture(user.id, contentToSave);
+    setIsSaving(false);
+
+    if (!saved) {
+      showNotification('Não foi possível salvar sua anotação. O texto foi mantido para você tentar novamente.', 'error');
+      return;
+    }
+
+    setText('');
+    setShowFeedback(true);
+    showNotification('Anotação salva.', 'success');
+    setTimeout(() => setShowFeedback(false), 2500);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave(e);
+    }
+  };
+
+  const handleContainerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      onClick={handleContainerClick}
+      className="fixed inset-0 z-[2000] bg-black flex flex-col justify-between text-white font-sans"
+    >
+      {/* Cabeçalho */}
+      <div className="flex justify-between p-6 relative z-10">
+        <div className="flex items-center gap-2">
+          <span className="text-zinc-500 text-xs mr-2">Desligar áudio em:</span>
+          {[15, 30, 60].map((t) => (
+            <button
+              key={t}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSleepTimer(t);
+                setTimeRemaining(t * 60);
+              }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${sleepTimer === t ? 'bg-zinc-800 text-zinc-200 border-zinc-700 w-[60px]' : 'bg-transparent text-zinc-600 border-zinc-800 hover:text-zinc-400'}`}
+            >
+              {sleepTimer === t ? formatTime(timeRemaining) : `${t}m`}
+            </button>
+          ))}
+        </div>
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
+          className="text-zinc-600 hover:text-zinc-300 transition-colors p-2"
+        >
+          <X size={28} strokeWidth={1.5} />
+        </button>
+      </div>
+
+      {/* Centro da Tela - Ancoragem Minimalista */}
+      <div className="flex-1 flex flex-col items-center justify-center relative -mt-10">
+        {/* Efeitos Visuais Neurologicamente Comprovados (Ciclo de 5min) */}
+        <AnimatePresence mode="wait">
+          {effectIndex === 0 && (
+            <motion.div 
+              key="effect-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            >
+              {/* Respiração Guiada 4-7-8 (Bioluminescência Pulsante) */}
+              <motion.div
+                animate={{
+                  scale: [1, 1.4, 1.4, 1],
+                  opacity: [0.15, 0.5, 0.5, 0.15],
+                }}
+                transition={{
+                  duration: 19,
+                  times: [0, 4/19, 11/19, 1],
+                  ease: "easeInOut",
+                  repeat: Infinity
+                }}
+                className="w-[60vw] h-[60vw] max-w-[400px] max-h-[400px] rounded-full bg-emerald-500/20 blur-3xl absolute"
+              />
+              <motion.div
+                animate={{
+                  scale: [0.8, 1.1, 1.1, 0.8],
+                  opacity: [0.3, 0.8, 0.8, 0.3],
+                }}
+                transition={{
+                  duration: 19,
+                  times: [0, 4/19, 11/19, 1],
+                  ease: "easeInOut",
+                  repeat: Infinity
+                }}
+                className="w-[40vw] h-[40vw] max-w-[250px] max-h-[250px] rounded-full bg-emerald-400/20 blur-2xl absolute"
+              />
+            </motion.div>
+          )}
+
+          {effectIndex === 1 && (
+            <motion.div 
+              key="effect-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none overflow-hidden"
+            >
+              {/* Ondas Delta (Marés Lentas) */}
+              {[1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    y: [0, 40, -40, 0],
+                    rotate: [0, 3, -3, 0],
+                    opacity: [0.1, 0.3, 0.1]
+                  }}
+                  transition={{
+                    duration: 16 + i * 4,
+                    ease: "easeInOut",
+                    repeat: Infinity
+                  }}
+                  className="absolute w-[150vw] h-[25vh] rounded-[100%] bg-blue-500/10 blur-3xl"
+                  style={{
+                    top: `${30 + i * 15}%`,
+                    left: '-25vw'
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+
+          {effectIndex === 2 && (
+            <motion.div 
+              key="effect-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 3 }}
+              className="absolute inset-0 pointer-events-none overflow-hidden"
+            >
+              {/* Estrelas / Partículas em Deriva (Foco Desfocado) */}
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    x: `${(i * 5) % 100}vw`, 
+                    y: '100vh',
+                    opacity: 0
+                  }}
+                  animate={{ 
+                    y: '-10vh',
+                    opacity: [0, 0.6, 0],
+                    scale: [1, 2.5, 1]
+                  }}
+                  transition={{
+                    duration: 20 + (i % 10),
+                    ease: "linear",
+                    repeat: Infinity,
+                    delay: i * 0.5
+                  }}
+                  className="absolute w-3 h-3 rounded-full bg-indigo-200/30 blur-md"
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Áudio Player Minimalista */}
+        <div className="relative z-10 mt-64">
+          <button 
+            type="button"
+            onClick={toggleAudio}
+            className="rounded-full p-4 bg-zinc-900/80 hover:bg-zinc-800 transition-colors flex items-center justify-center border border-zinc-700/60 shadow-lg"
+          >
+            {isPlaying ? <Pause size={24} className="text-zinc-400" /> : <Play size={24} className="text-zinc-400 ml-1" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Base da Tela - Textarea Imersivo e Translúcido */}
+      <div className="w-full px-8 pb-12 relative flex flex-col">
+        <AnimatePresence>
+          {showFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-zinc-500 text-sm mb-3 font-medium"
+            >
+              Anotação salva.
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Escreva o que está ocupando sua mente..."
+          className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-300 placeholder:text-zinc-700 text-lg p-0"
+          rows={3}
+        />
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!text.trim() || isSaving}
+            className="rounded-xl bg-white/10 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isSaving ? 'Salvando…' : 'Salvar anotação'}
+          </button>
+        </div>
+      </div>
+      <AnimatePresence>
+        {showContinuePopup && (
+          <div className="fixed inset-0 z-[2010] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-[#1c1c1e] border border-white/10 rounded-3xl p-6 relative z-10 flex flex-col items-center text-center shadow-2xl"
+            >
+              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mb-4">
+                <Moon size={24} className="text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">Sessão Concluída</h3>
+              <p className="text-zinc-400 text-sm mb-6">
+                O tempo programado chegou ao fim. Deseja continuar a descompressão?
+              </p>
+              <div className="flex w-full gap-3">
+                <button
+                  onClick={() => {
+                    setShowContinuePopup(false);
+                    onClose();
+                  }}
+                  className="flex-1 py-3.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-sm transition-colors"
+                >
+                  Encerrar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowContinuePopup(false);
+                    setSleepTimer(15);
+                    setTimeRemaining(15 * 60);
+                    setIsPlaying(true);
+                    playAudio();
+                  }}
+                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-semibold text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                >
+                  Continuar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};

@@ -1,0 +1,1806 @@
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useTimerStore } from '../../store/useTimerStore';
+import { useDataStore } from '../../store/useDataStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { sendToServiceWorker, listenToServiceWorker } from '../../hooks/useServiceWorker';
+import { useSessionNotifications } from '../../hooks/useSessionNotifications';
+import { motion, AnimatePresence } from 'motion/react';
+import { CustomSelect } from '../ui/CustomSelect';
+import { Play, Pause, X, AlertTriangle, CheckCircle, StickyNote, Target, ListTodo, Pencil, Paperclip, Link, ArrowLeft } from 'lucide-react';
+import { resolverNomeSessao, cleanActivityName, getLocalDateString } from '../../lib/utils';
+import { SessionTasksModal } from '../session/SessionTasksModal';
+import { SessionEditPanel } from '../session/SessionEditPanel';
+import { RepeatSessionModal } from '../session/RepeatSessionModal';
+import { AntiVicioModal } from './AntiVicioModal';
+import { ConfirmDeleteModal } from '../ui/ConfirmDeleteModal';
+
+const getDolphinColor = (p: number, index: number, alpha?: number) => {
+  const stops: { t: number, color: [number, number, number] }[] = [
+    { t: 0.0, color: index === 0 ? [167, 139, 250] : index === 1 ? [129, 140, 248] : [96, 165, 250] }, // violet, indigo, light blue
+    { t: 0.5, color: [110, 231, 183] }, // Green-Mint (#6EE7B7)
+    { t: 0.85, color: [251, 191, 36] }, // Warm Amber (#FBBF24)
+    { t: 1.0, color: [52, 211, 153] }  // Victory Green (#34D399)
+  ];
+
+  let i = 0;
+  for (; i < stops.length - 1; i++) {
+    if (p <= stops[i+1].t) {
+      break;
+    }
+  }
+  const stopA = stops[i];
+  const stopB = stops[i+1];
+  const segmentT = stopB.t === stopA.t ? 0 : (p - stopA.t) / (stopB.t - stopA.t);
+  
+  const r = Math.round(stopA.color[0] + (stopB.color[0] - stopA.color[0]) * segmentT);
+  const g = Math.round(stopA.color[1] + (stopB.color[1] - stopA.color[1]) * segmentT);
+  const b = Math.round(stopA.color[2] + (stopB.color[2] - stopA.color[2]) * segmentT);
+
+  if (alpha !== undefined) {
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
+const desaturateRGB = (rgbStr: string, factor = 0.55) => {
+  const match = rgbStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  if (!match) return rgbStr;
+  const r = parseInt(match[1]);
+  const g = parseInt(match[2]);
+  const b = parseInt(match[3]);
+  const a = match[4] !== undefined ? parseFloat(match[4]) : null;
+  
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+  const newR = Math.round(r + (gray - r) * factor);
+  const newG = Math.round(g + (gray - g) * factor);
+  const newB = Math.round(b + (gray - b) * factor);
+  
+  if (a !== null) {
+    return `rgba(${newR}, ${newG}, ${newB}, ${a})`;
+  }
+  return `rgb(${newR}, ${newG}, ${newB})`;
+};
+
+export const ActiveSession = () => {
+  const timer = useTimerStore();
+  const dataStore = useDataStore();
+  const { user } = useAuthStore();
+  const [display, setDisplay] = useState("00:00:00");
+  const [progress, setProgress] = useState(0);
+  const [completedPulseActive, setCompletedPulseActive] = useState(false);
+  const prevProgressRef = useRef(0);
+
+  useEffect(() => {
+    if (progress >= 100 && prevProgressRef.current < 100) {
+      setCompletedPulseActive(true);
+      const timeoutId = setTimeout(() => {
+        setCompletedPulseActive(false);
+      }, 1500);
+      return () => clearTimeout(timeoutId);
+    }
+    prevProgressRef.current = progress;
+  }, [progress]);
+
+  const sessionIndex = (timer.initialStartTime || 0) % 3;
+  const baseColor = getDolphinColor(progress / 100, sessionIndex);
+  const baseColorAlpha = getDolphinColor(progress / 100, sessionIndex, 0.55);
+  const displayColor = timer.isPaused ? desaturateRGB(baseColor) : baseColor;
+  const displayColorAlpha = timer.isPaused ? desaturateRGB(baseColorAlpha) : baseColorAlpha;
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
+  const [showNotificationRequest, setShowNotificationRequest] = useState(true);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showEarlyCompleteConfirm, setShowEarlyCompleteConfirm] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showLateConfig, setShowLateConfig] = useState(false);
+  const [showResourcesModal, setShowResourcesModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [showTasksOverlay, setShowTasksOverlay] = useState(false);
+  const [sessionTasksLocal, setSessionTasksLocal] = useState<string[]>([]);
+  const [completedTasksLocal, setCompletedTasksLocal] = useState<string[]>([]);
+  const [showAllTasksDonePopup, setShowAllTasksDonePopup] = useState(false);
+  const [allTasksCompletedTime, setAllTasksCompletedTime] = useState<number | null>(null);
+  const [actualDurationMinutes, setActualDurationMinutes] = useState<number | null>(null);
+
+  // Repeat Session flow state (Sessão Profunda concluída -> opção de repetir)
+  const [showRepeatModal, setShowRepeatModal] = useState(false);
+  const [repeatSnapshot, setRepeatSnapshot] = useState<{
+    projectId: string | null;
+    habitId: string | null;
+    activityId: string | null;
+    activityName: string;
+    durationMinutes: number;
+    incompleteTasks: string[];
+  } | null>(null);
+
+  // Inline edit state in completion modal
+  const [isEditingConclusao, setIsEditingConclusao] = useState(false);
+  const [editedProjectId, setEditedProjectId] = useState<string | null>(null);
+  const [editedActivityName, setEditedActivityName] = useState<string>('');
+  const [editedHabitId, setEditedHabitId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showCompleteModal) {
+      setEditedProjectId(timer.projectId);
+      setEditedActivityName(timer.activityName);
+      setEditedHabitId(timer.habitId);
+    } else {
+      setIsEditingConclusao(false);
+    }
+  }, [showCompleteModal, timer.projectId, timer.activityName, timer.habitId]);
+  
+  // Late session config state
+  const [lateProjectId, setLateProjectId] = useState(timer.projectId || '');
+  const [lateActivityId, setLateActivityId] = useState(timer.activityId || '');
+  const [lateActivityName, setLateActivityName] = useState(timer.activityId ? '' : timer.activityName || '');
+
+  const filteredLateActivities = useMemo(() => {
+    if (!lateProjectId) return dataStore.activities;
+    return dataStore.activities.filter(a => a.project_id === lateProjectId);
+  }, [dataStore.activities, lateProjectId]);
+
+  useEffect(() => {
+    if (showLateConfig) {
+      setLateProjectId(timer.projectId || '');
+      setLateActivityId(timer.activityId || '');
+      setLateActivityName(timer.activityId ? '' : timer.activityName || '');
+    }
+  }, [showLateConfig, timer.projectId, timer.activityId, timer.activityName]);
+
+  useEffect(() => {
+    if (showNoteModal) {
+      setNoteProjectId(timer.projectId || '');
+      setNoteActivityId('');
+    }
+  }, [showNoteModal, timer.projectId]);
+
+  useEffect(() => {
+    if (showLinkModal) {
+      setLinkProjectId(timer.projectId || '');
+    }
+  }, [showLinkModal, timer.projectId]);
+
+  // Note Creation State
+  const [noteContent, setNoteContent] = useState('');
+  const [noteProjectId, setNoteProjectId] = useState(timer.projectId || '');
+  const [noteActivityId, setNoteActivityId] = useState('');
+  const [linkProjectId, setLinkProjectId] = useState(timer.projectId || '');
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+
+  const filteredNotes = useMemo(() => {
+    let list = [...dataStore.notes];
+    if (noteProjectId) {
+      list = list.filter(note => note.project_id === noteProjectId);
+    }
+    return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [dataStore.notes, noteProjectId]);
+
+  const { triggerNotification, unlockAudio } = useSessionNotifications();
+  const hasObservedFinish = useRef(false);
+  const hasObservedWarning = useRef(false);
+  const wakeLockRef = useRef<any>(null);
+  const timerStartedRef = useRef(false);
+  const lastStartTimeRef = useRef<number | null>(null);
+
+  const currentProjectName = dataStore.projects.find(p => p.id === timer.projectId)?.name || 'Projeto Padrão';
+  
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        // @ts-ignore
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      }
+    } catch (err) {
+      console.log('Wake Lock não suportado:', err);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (err) {
+        wakeLockRef.current = null;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (timer.isActive && !timer.isPaused) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && timer.isActive && !timer.isPaused) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [timer.isActive, timer.isPaused]);
+
+  // SW Timer Logic
+  useEffect(() => {
+    if (timer.isActive && timer.initialStartTime && !timerStartedRef.current) {
+      timerStartedRef.current = true;
+      const endTime = timer.initialStartTime + (timer.totalDurationMs || 0);
+      sendToServiceWorker('START_TIMER', {
+        totalMs: timer.totalDurationMs,
+        endTime: endTime,
+        activity: timer.activityName,
+        project: currentProjectName || 'Geral'
+      });
+    }
+    if (!timer.isActive) {
+      timerStartedRef.current = false;
+    }
+  }, [timer.isActive, timer.initialStartTime]);
+
+  // Sincroniza o endTime com SW a cada 30 segundos (resiliência)
+  useEffect(() => {
+    if (!timer.isActive) return;
+    const syncInterval = setInterval(() => {
+      const endTime = (timer.initialStartTime || 0) + (timer.totalDurationMs || 0);
+      sendToServiceWorker('SYNC_TIMER', {
+        endTime,
+        activity: timer.activityName,
+        project: currentProjectName || 'Geral'
+      });
+    }, 30000);
+    return () => clearInterval(syncInterval);
+  }, [timer.isActive]);
+
+  useEffect(() => {
+    const unsubscribe = listenToServiceWorker((data) => {
+      if (data.type === 'TIMER_COMPLETE') {
+         if (!hasObservedFinish.current) {
+           hasObservedFinish.current = true;
+           triggerNotification('complete');
+         }
+         setShowCompleteModal(true);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!timer.isActive) {
+      hasObservedFinish.current = false;
+      hasObservedWarning.current = false;
+    } else {
+      console.log('[SP Audio] Active session initialized. StartTime:', timer.initialStartTime, 'DurationMs:', timer.totalDurationMs);
+      hasObservedFinish.current = false;
+      hasObservedWarning.current = false;
+    }
+  }, [timer.isActive, timer.initialStartTime]);
+
+  useEffect(() => {
+    if (!timer.isActive) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const ms = timer.getRemainingMs();
+      
+      // Update Progress
+      if (timer.totalDurationMs) {
+        const elapsed = timer.totalDurationMs - ms;
+        const p = (elapsed / timer.totalDurationMs) * 100;
+        setProgress(Math.min(100, p));
+      }
+
+      // 5-minute warning (300000ms) - only applicable if total session > 5 min
+      const is5MinWarningApplicable = timer.totalDurationMs ? (timer.totalDurationMs > 300000) : false;
+      if (is5MinWarningApplicable && ms <= 300000 && ms > 0 && !hasObservedWarning.current && timer.isActive && !timer.isPaused) {
+        hasObservedWarning.current = true;
+        console.log('[SP Audio] 5-minute warning sound triggered. Remaining MS:', ms);
+        triggerNotification('warning');
+      }
+
+      if (ms <= 0 && timer.isActive && !hasObservedFinish.current && !timer.isPaused) {
+        hasObservedFinish.current = true;
+        console.log('[SP Audio] End of session complete sound triggered. Remaining MS:', ms);
+        
+        // Vibrate and Play Sound
+        triggerNotification('complete');
+        
+        setShowCompleteModal(true);
+        timer.pause(); // Pause so it stays at 0
+        return;
+      }
+
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      
+      if (h > 0) {
+        setDisplay(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      } else {
+        setDisplay(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [timer.isActive, timer.initialStartTime, timer.totalDurationMs, timer.getRemainingMs, timer.isPaused]);
+
+  useEffect(() => {
+    if (timer.isActive && timer.initialStartTime && timer.initialStartTime !== lastStartTimeRef.current) {
+      lastStartTimeRef.current = timer.initialStartTime;
+      // Starting a brand new session! Clean up any stale task states or popup states.
+      setShowAllTasksDonePopup(false);
+      setAllTasksCompletedTime(null);
+      setCompletedTasksLocal([]);
+      setSessionTasksLocal(timer.pendingTasks || []);
+      timer.clearPendingTasks();
+    }
+  }, [timer.isActive, timer.initialStartTime, timer.pendingTasks]);
+
+  const handleCompletedTasksChange = (nextCompleted: string[]) => {
+    // Only trigger if a task was checked (nextCompleted length is greater than completedTasksLocal)
+    if (nextCompleted.length > completedTasksLocal.length) {
+      const isAllDone = sessionTasksLocal.length > 0 && sessionTasksLocal.every(t => nextCompleted.includes(t));
+      const wasAllDoneBefore = sessionTasksLocal.length > 0 && sessionTasksLocal.every(t => completedTasksLocal.includes(t));
+      
+      if (isAllDone && !wasAllDoneBefore && !allTasksCompletedTime && !showAllTasksDonePopup) {
+        setAllTasksCompletedTime(Date.now());
+        setShowAllTasksDonePopup(true);
+      }
+    }
+    setCompletedTasksLocal(nextCompleted);
+  };
+
+  const handleSave = async () => {
+    if (!user || !timer.totalDurationMs || isSaving) return;
+
+    setIsSaving(true);
+
+    const allDone = completedTasksLocal.length === sessionTasksLocal.length && sessionTasksLocal.length > 0;
+    const targetMinutes = Math.round((timer.totalDurationMs || 0) / 60000);
+    const actualMinutes = actualDurationMinutes !== null ? actualDurationMinutes : targetMinutes;
+
+    // Snapshot dos dados finais desta sessão, usado tanto para salvar quanto,
+    // se o usuário optar, para repetir a sessão em seguida
+    const finalProjectId = editedProjectId !== null ? editedProjectId : (timer.projectId || null);
+    const finalHabitId = editedHabitId !== null ? editedHabitId : (timer.habitId || null);
+    const finalActivityName = editedActivityName || timer.activityName || 'Sessão Sem Título';
+    const finalActivityId = timer.activityId || null;
+    const incompleteTasksSnapshot = sessionTasksLocal.filter(t => !completedTasksLocal.includes(t));
+
+    const sessionToSave = {
+      user_id: user.id,
+      project_id: finalProjectId,
+      habit_id: finalHabitId,
+      activity_name: finalActivityName,
+      description: timer.description,
+      duration_minutes: targetMinutes,
+      started_at: new Date(timer.initialStartTime || Date.now()).toISOString(),
+      completed_at: new Date().toISOString(),
+      completed: true,
+      all_tasks_completed: allDone,
+      actual_duration_minutes: actualMinutes,
+      activity_id: finalActivityId,
+      scheduled_activity_id: timer.scheduledActivityId || null,
+    };
+
+    const noteDescription = timer.description.trim();
+    const noteProjectIdFix = (editedProjectId !== null ? editedProjectId : timer.projectId) || undefined;
+
+    let saveSucceeded = false;
+
+    try {
+      const savedSession = await dataStore.addSession(sessionToSave);
+
+      if (savedSession?.id) {
+        if (timer.scheduledActivityId) {
+          await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+            status: 'concluida',
+            completed_session_id: savedSession.id,
+            resolved_at: new Date().toISOString()
+          });
+          // Fix for daily tasks launched directly into deep session
+          // scheduledActivityId holds the daily task ID in this flow
+          await dataStore.updateDailyTask(timer.scheduledActivityId, {
+            is_completed: true,
+            completed_at: new Date().toISOString()
+          });
+        }
+
+        if (sessionTasksLocal.length > 0) {
+          for (const task of sessionTasksLocal) {
+            await dataStore.addSessionTask(
+              savedSession.id,
+              user.id,
+              task,
+              completedTasksLocal.includes(task)
+            );
+          }
+        }
+
+        // Determine context for pending tasks
+        let contextHabitId: string | null = null;
+        let contextActivityId: string | null = null;
+        let contextAvulsa: string | null = null;
+
+        const currentHabitId = editedHabitId !== null ? editedHabitId : (timer.habitId || null);
+        if (currentHabitId) {
+          contextHabitId = currentHabitId;
+        } else if (timer.activityId) {
+          contextActivityId = timer.activityId;
+        } else {
+          contextAvulsa = sessionToSave.activity_name;
+        }
+
+        const isPartial = actualMinutes < targetMinutes;
+        const hasContext = !!(contextHabitId || contextActivityId || (contextAvulsa && contextAvulsa.trim().length > 0 && contextAvulsa.trim() !== 'Sessão Sem Título'));
+
+        // REGRA 1 — Se incompleta (parcial: true), salvar não concluídas em pending_tasks
+        if (isPartial && hasContext) {
+          const uncompletedTasks = sessionTasksLocal.filter(task => !completedTasksLocal.includes(task));
+          for (const taskText of uncompletedTasks) {
+            await dataStore.addPendingTask({
+              user_id: user.id,
+              habit_id: contextHabitId,
+              activity_id: contextActivityId,
+              atividade_avulsa: contextAvulsa ? contextAvulsa.trim() : null,
+              description: taskText,
+              origin_session_id: savedSession.id
+            });
+          }
+        } else if (isPartial && !hasContext) {
+          console.warn('Sessão incompleta sem contexto identificável. Tarefas pendentes não serão persistidas.');
+        }
+
+        // REGRA 2 — Se houver tarefas concluídas, deletá-las de pending_tasks
+        if (completedTasksLocal.length > 0 && hasContext) {
+          await dataStore.deletePendingTasksByDescription(completedTasksLocal, {
+            habit_id: contextHabitId,
+            activity_id: contextActivityId,
+            atividade_avulsa: contextAvulsa ? contextAvulsa.trim() : null
+          });
+        }
+      }
+      
+      if (!dataStore.hasCompletedFirstSession) {
+        dataStore.completeFirstSession();
+      }
+
+      saveSucceeded = true;
+    } catch (err) {
+      console.error("Erro ao salvar sessão:", err);
+    } finally {
+      setSessionTasksLocal([]);
+      setCompletedTasksLocal([]);
+      setActualDurationMinutes(null);
+      setAllTasksCompletedTime(null);
+      setIsEditingConclusao(false);
+      setEditedProjectId(null);
+      setEditedActivityName('');
+      setEditedHabitId(null);
+      setShowCompleteModal(false);
+      timer.reset();
+      setIsSaving(false);
+
+      if (saveSucceeded) {
+        // Em vez de navegar direto pra Home, oferece a opção de repetir a sessão
+        setRepeatSnapshot({
+          projectId: finalProjectId,
+          habitId: finalHabitId,
+          activityId: finalActivityId,
+          activityName: finalActivityName,
+          durationMinutes: targetMinutes,
+          incompleteTasks: incompleteTasksSnapshot,
+        });
+        setShowRepeatModal(true);
+      } else {
+        // Se der erro ao salvar, mantém o comportamento anterior de voltar pra Home
+        window.dispatchEvent(new CustomEvent('close-action-center'));
+        window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+      }
+    }
+  };
+
+  const handleConcludeNow = () => {
+    setShowRepeatModal(false);
+    setRepeatSnapshot(null);
+    // Redirecionar usuário para a Hero/Início
+    window.dispatchEvent(new CustomEvent('close-action-center'));
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+  };
+
+  const handleRepeatSession = (config: {
+    projectId: string | null;
+    habitId: string | null;
+    activityId: string | null;
+    activityName: string;
+    durationMinutes: number;
+    tasks: string[];
+  }) => {
+    unlockAudio();
+    // Garante que a nova sessão não herda o vínculo de agendamento da anterior
+    timer.setScheduledActivityId(null);
+    timer.start(
+      config.durationMinutes,
+      config.activityName || 'Sessão Sem Título',
+      config.projectId || undefined,
+      config.habitId || undefined,
+      '',
+      getLocalDateString(new Date()),
+      config.activityId || undefined,
+      undefined
+    );
+    timer.setPendingTasks(config.tasks);
+    setShowRepeatModal(false);
+    setRepeatSnapshot(null);
+  };
+
+  const handleCancel = async () => {
+    sendToServiceWorker('CANCEL_TIMER');
+    if (timer.scheduledActivityId) {
+      await dataStore.updateScheduledActivity(timer.scheduledActivityId, {
+        status: 'cancelada',
+        resolved_at: new Date().toISOString()
+      });
+    }
+    timer.reset();
+    setShowCancelConfirm(false);
+    setShowEarlyCompleteConfirm(false);
+    setShowDiscardConfirm(false);
+    setShowCompleteModal(false);
+    setShowNoteModal(false);
+    
+    // Redirecionar usuário para a Hero/Início
+    window.dispatchEvent(new CustomEvent('close-action-center'));
+    window.dispatchEvent(new CustomEvent('set-active-tab', { detail: { tab: 'home' } }));
+  };
+
+  const handleAddNote = async () => {
+    if (!user || !noteContent) return;
+    
+    // Save note
+    const content = noteContent;
+    const pId = noteProjectId || timer.projectId || undefined;
+    const aId = noteActivityId || undefined;
+    
+    // Clear and close immediately
+    setNoteContent('');
+    setShowNoteModal(false);
+
+    await dataStore.addNote(
+      user.id, 
+      content, 
+      pId,
+      aId
+    );
+  };
+
+  const handleSaveLink = async () => {
+    if (!newLinkUrl.trim() || !user) return;
+    let url = newLinkUrl.trim();
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+    let title = url;
+    try {
+      const parsed = new URL(url);
+      title = parsed.hostname.replace('www.', '') + parsed.pathname;
+      if (title.length > 30) {
+        title = title.substring(0, 27) + '...';
+      }
+    } catch (e) {
+      // ignore parsing error
+    }
+    
+    await dataStore.addLink(user.id, {
+      title: title,
+      url: url,
+      projectId: linkProjectId || null,
+      habitId: timer.habitId || null
+    });
+    setNewLinkUrl('');
+  };
+
+  const handleUpdateLateConfig = () => {
+    let finalActivityName = '';
+    if (lateActivityId) {
+      finalActivityName = dataStore.activities.find(a => a.id === lateActivityId)?.name || '';
+    } else {
+      finalActivityName = lateActivityName;
+    }
+
+    const activityName = finalActivityName || timer.activityName || 'Sessão Sem Título';
+
+    timer.updateConfig(
+      lateProjectId, 
+      undefined, 
+      activityName, 
+      lateActivityId
+    );
+    setShowLateConfig(false);
+  };
+
+  const handleEarlyComplete = () => {
+    const elapsedMs = (timer.totalDurationMs || 0) - timer.getRemainingMs();
+    const actualMinutes = Math.max(1, Math.round(elapsedMs / 60000));
+    setActualDurationMinutes(actualMinutes);
+    setShowEarlyCompleteConfirm(false);
+    setShowCompleteModal(true); // abre popup normal de confirmação
+  };
+
+  const handleRequestPermission = () => {
+    if (typeof Notification !== 'undefined') {
+      Notification.requestPermission().then(permission => {
+        setNotificationPermission(permission);
+        setShowNotificationRequest(false);
+      });
+    }
+  };
+
+  if (!timer.isActive && !showCompleteModal && !showRepeatModal) return null;
+
+  const currentHabitName = dataStore.habits.find(h => h.id === timer.habitId)?.name;
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-background/95 backdrop-blur-3xl flex flex-col overflow-hidden">
+      {isSaving && (
+        <div className="absolute inset-0 z-[1500] bg-background/90 backdrop-blur-3xl flex flex-col items-center justify-center space-y-4 pointer-events-auto">
+          <div className="w-12 h-12 rounded-full border-t-2 border-primary-green animate-spin" />
+          <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-primary-green animate-pulse">
+            Registrando Sessão Operacional...
+          </span>
+        </div>
+      )}
+
+      <AnimatePresence mode="wait">
+        {timer.isActive && (
+          <motion.div
+            layout={false}
+            key="active-session"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1 flex flex-col items-center justify-between py-20 px-6 relative z-10"
+          >
+            {/* Style Inject */}
+            <style>{`
+              @keyframes breathe {
+                0%, 100% {
+                  transform: translate(-50%, -50%) scale(0.90);
+                  opacity: 0.24;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.15);
+                  opacity: 0.44;
+                }
+              }
+              @keyframes celebrate {
+                0% {
+                  transform: translate(-50%, -50%) scale(1);
+                  filter: drop-shadow(0 0 0px var(--glow-color));
+                  opacity: 0.25;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(1.45);
+                  filter: drop-shadow(0 0 60px var(--glow-color));
+                  opacity: 0.8;
+                }
+                100% {
+                  transform: translate(-50%, -50%) scale(1);
+                  filter: drop-shadow(0 0 0px var(--glow-color));
+                  opacity: 0.25;
+                }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .animate-breathe-glow {
+                  animation: none !important;
+                  transform: translate(-50%, -50%) scale(1) !important;
+                  opacity: 0.2 !important;
+                }
+              }
+            `}</style>
+
+            {/* Breathing Background Glow Layer */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              <div 
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] h-[75vw] max-w-[650px] max-h-[650px] rounded-full filter blur-[110px] pointer-events-none transition-colors duration-1000 animate-breathe-glow"
+                style={{
+                  background: `radial-gradient(circle, ${displayColor} 0%, transparent 70%)`,
+                  animation: completedPulseActive 
+                    ? 'celebrate 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' 
+                    : 'breathe 4.5s ease-in-out infinite',
+                  animationPlayState: timer.isPaused ? 'paused' : 'running',
+                  ['--glow-color' as any]: displayColor
+                }}
+              />
+            </div>
+
+            {/* Notification Permission Request */}
+            {notificationPermission !== 'granted' && showNotificationRequest && (
+              <motion.div 
+                layout={false}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute top-10 flex flex-col md:flex-row items-center gap-4 px-6 py-3 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-md z-[1001]"
+              >
+                <p className="text-[10px] text-text-secondary/60 font-medium tracking-wide">
+                  Ative as notificações para receber alertas durante sua sessão.
+                </p>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={handleRequestPermission}
+                    className="text-[10px] font-bold text-[#6ee7b7] uppercase tracking-widest hover:text-white transition-colors min-h-[44px]"
+                  >
+                    Ativar Notificações
+                  </button>
+                  <button 
+                    onClick={() => setShowNotificationRequest(false)}
+                    className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest hover:text-text-secondary transition-colors min-h-[44px]"
+                  >
+                    Agora Não
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 1. Header Activity Info */}
+            {timer.habitId ? (
+              <div className="flex flex-col items-center gap-1 relative z-10 w-full">
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#6ee7b7]/60 flex items-center gap-1">
+                  ⚡ Sessão Hábito Atômico
+                </span>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary tracking-tight text-center break-words w-full px-4">
+                  {dataStore.habits.find(h => h.id === timer.habitId)?.name || 'Hábito'}
+                </h2>
+                {(() => {
+                  const proj = timer.projectId ? dataStore.projects.find(p => p.id === timer.projectId) : null;
+                  return proj && proj.name ? (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">
+                      {proj.name}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+            ) : (
+              // Mantém o layout atual para sessões sem hábito
+              <div className="flex flex-col items-center gap-1 relative z-10 w-full">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary tracking-tight text-center break-words w-full px-4">
+                  {(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? cleanActivityName(timer.activityName) : 'Sessão Profunda'}
+                </h2>
+                {(() => {
+                  const proj = timer.projectId ? dataStore.projects.find(p => p.id === timer.projectId) : null;
+                  return proj && proj.name ? (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">
+                      {proj.name}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* Botão VER TAREFAS ou + ADICIONAR TAREFA */}
+            <div className="flex justify-center mt-4 mb-2 relative z-10">
+              <button
+                onClick={() => setShowTasksOverlay(true)}
+                className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 transition-all duration-200 cursor-pointer text-[#6ee7b7]"
+                style={{
+                  borderRadius: '999px',
+                  backgroundColor: 'rgba(110, 231, 183, 0.08)',
+                  border: '0.5px solid rgba(110, 231, 183, 0.25)',
+                  fontSize: '10px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  fontWeight: 500,
+                }}
+              >
+                <ListTodo size={12} className="shrink-0" />
+                <span>{sessionTasksLocal.length > 0 ? 'VER TAREFAS' : '+ ADICIONAR TAREFA'}</span>
+                {sessionTasksLocal.length > 0 && (
+                  <span
+                    className="ml-1 text-[9px] font-bold text-[#6ee7b7]"
+                    style={{
+                      backgroundColor: 'rgba(110, 231, 168, 0.2)',
+                      padding: '2px 6px',
+                      borderRadius: '999px',
+                    }}
+                  >
+                    {completedTasksLocal.length}/{sessionTasksLocal.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* 2. Central Timer Display */}
+            <div className="relative flex flex-col items-center justify-center w-full max-w-5xl z-10">
+              <h1 
+                className="text-[21vw] md:text-[16.5rem] font-semibold tabular-nums tracking-tighter leading-none transition-all duration-1000 select-none"
+                style={{ 
+                  color: displayColor,
+                  textShadow: `0 0 40px ${displayColorAlpha}, 0 0 80px ${displayColorAlpha}`,
+                  willChange: 'color'
+                }}
+              >
+                {display}
+              </h1>
+              {timer.isPaused && (
+                <motion.span 
+                  layout={false}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute -bottom-10 text-red-500/70 font-bold uppercase tracking-[0.5em] text-xs"
+                >
+                  Sessão Pausada
+                </motion.span>
+              )}
+            </div>
+
+            {/* 3. Progress Bar */}
+            <div className="w-full max-w-md space-y-4 relative z-10">
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <motion.div 
+                  layout={false}
+                  className="h-full transition-all duration-1000"
+                  style={{
+                    backgroundColor: displayColor,
+                    boxShadow: `0 0 15px ${displayColorAlpha}`
+                  }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.5, ease: "linear" }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest">
+                <span>Início</span>
+                <span>{progress.toFixed(0)}% Concluído</span>
+                <span>Alvo</span>
+              </div>
+            </div>
+
+            {/* 4. Action Buttons */}
+            <div className="grid grid-cols-2 md:grid-cols-4 items-center gap-4 md:gap-6 w-full max-w-2xl px-4 relative z-10">
+              <button 
+                onClick={() => {
+                  if (user?.id) {
+                    dataStore.fetchLinks(user.id);
+                  }
+                  setShowResourcesModal(true);
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-5 bg-surface/40 border border-border-white rounded-2xl text-text-primary text-[10px] font-bold uppercase tracking-widest hover:bg-surface/60 transition-all min-h-[44px] touch-manipulation col-span-1"
+              >
+                <Paperclip size={14} className="text-[#6ee7b7]" />
+                Recursos
+              </button>
+
+              <button 
+                onClick={() => {
+                  unlockAudio();
+                  if (timer.isPaused) {
+                    timer.resume();
+                    sendToServiceWorker('RESUME_TIMER');
+                  } else {
+                    timer.pause();
+                    sendToServiceWorker('PAUSE_TIMER');
+                  }
+                }}
+                className={`flex items-center justify-center gap-2 px-4 py-5 border rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all min-h-[44px] touch-manipulation col-span-1 ${
+                  timer.isPaused 
+                    ? "bg-[#6ee7b7] text-background border-[#6ee7b7] hover:bg-[#6ee7b7]/80" 
+                    : "bg-surface/40 border-border-white text-text-primary hover:bg-surface/60"
+                }`}
+              >
+                {timer.isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+                {timer.isPaused ? "Retomar" : "Pausar"}
+              </button>
+
+              <button 
+                onClick={() => setShowEarlyCompleteConfirm(true)}
+                className="flex items-center justify-center gap-2 px-4 py-5 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-widest hover:bg-amber-500/10 transition-all min-h-[44px] touch-manipulation col-span-1"
+              >
+                <CheckCircle size={14} />
+                Encerrar
+              </button>
+
+              <button 
+                onClick={() => setShowCancelConfirm(true)}
+                className="flex items-center justify-center gap-2 px-4 py-5 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 transition-all min-h-[44px] touch-manipulation col-span-1"
+              >
+                <X size={14} />
+                Cancelar
+              </button>
+
+              <button
+                onClick={() => setShowLateConfig(true)}
+                className="col-span-2 md:col-span-4 text-[9px] text-text-secondary/30 hover:text-text-secondary/60 transition-colors underline underline-offset-2 mt-2 touch-manipulation pb-4 text-center"
+              >
+                Esqueceu de configurar Projeto e Atividade? Configura aqui!
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Late Config Modal */}
+      <AnimatePresence>
+        {showLateConfig && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 rounded-[2.5rem] max-w-sm w-full space-y-6 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+            >
+              <h3 className="text-xl font-semibold text-text-primary text-center">Configurar Sessão</h3>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
+                  <CustomSelect
+                    value={lateProjectId}
+                    onChange={val => {
+                      setLateProjectId(val);
+                      setLateActivityId('');
+                    }}
+                    placeholder="Sem Projeto"
+                    options={[
+                      { value: '', label: 'Sem Projeto' },
+                      ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
+                  <CustomSelect
+                    className={!!lateActivityName ? 'opacity-50 pointer-events-none' : ''}
+                    value={lateActivityId}
+                    onChange={val => setLateActivityId(val)}
+                    placeholder="Selecionar Atividade"
+                    options={[
+                      { value: '', label: 'Selecionar Atividade' },
+                      ...filteredLateActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
+                    ]}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade Avulsa</label>
+                  <input
+                    disabled={!!lateActivityId}
+                    placeholder="O que está fazendo?"
+                    autoComplete="off" enterKeyHint="done"
+                    className={`w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px] ${!!lateActivityId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    value={lateActivityName}
+                    onChange={e => setLateActivityName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowLateConfig(false)}
+                  className="flex-1 py-3 border border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest text-text-secondary min-h-[44px]"
+                >
+                  Voltar
+                </button>
+                <button 
+                  onClick={handleUpdateLateConfig}
+                  className="flex-1 py-3 bg-primary-green text-background rounded-xl text-[10px] font-bold uppercase tracking-widest min-h-[44px]"
+                >
+                  Ok
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showResourcesModal && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-sm w-full relative space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)] text-center"
+            >
+              <button
+                type="button"
+                onClick={() => setShowResourcesModal(false)}
+                className="absolute top-6 right-6 p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="space-y-2">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">
+                  Recursos da Sessão
+                </h3>
+                <p className="text-xs text-text-secondary/60">
+                  Gerencie suas anotações e referências de links rápidos.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setShowNoteModal(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-white/5 border border-white/5 hover:border-[#6ee7b7]/30 hover:bg-white/10 rounded-2xl text-text-primary group transition-all"
+                >
+                  <span className="text-sm font-extrabold tracking-widest text-text-primary group-hover:text-[#6ee7b7]">
+                    ANOTAÇÃO
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setShowLinkModal(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-white/5 border border-white/5 hover:border-[#6ee7b7]/30 hover:bg-white/10 rounded-2xl text-text-primary group transition-all"
+                >
+                  <span className="text-sm font-extrabold tracking-widest text-text-primary group-hover:text-[#6ee7b7]">
+                    🔗 VER/SALVAR LINKS
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourcesModal(false);
+                    setIsAntiVicioOpen(true);
+                  }}
+                  className="flex items-center justify-center gap-3 p-6 bg-red-500/5 border border-red-500/10 hover:border-red-500/30 hover:bg-red-500/10 rounded-2xl text-red-400 group transition-all cursor-pointer"
+                >
+                  <span className="text-xs font-black tracking-widest text-red-400 group-hover:text-red-300 uppercase">
+                    🛡️ AUTOCONTROLE - TÔ COM VONTADE
+                  </span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowResourcesModal(false)}
+                className="w-full py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+              >
+                Voltar ao Timer
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showNoteModal && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="relative bg-surface border border-border-white p-8 md:p-10 rounded-[2.5rem] max-w-4xl w-full max-h-[90vh] md:max-h-[85vh] h-full flex flex-col overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+            >
+              {/* Rota de Fuga - Absolute Master Close Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNoteModal(false);
+                  setShowResourcesModal(false);
+                }}
+                className="absolute top-4 right-4 z-50 text-text-secondary/40 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                title="Fechar tudo e voltar ao Timer"
+                id="notes_master_close_btn"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="flex justify-between items-center border-b border-white/5 pb-4 shrink-0 pr-8">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
+                  <StickyNote className="text-primary-green" /> Registro Rápido & Bloco de Notas
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-8 flex-1 min-h-0 overflow-y-auto md:overflow-hidden py-2">
+                {/* COLUMN L: Note creation */}
+                <div className="space-y-6 flex flex-col justify-between shrink-0 min-w-0">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2 min-w-0">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Projeto</label>
+                        <CustomSelect
+                          value={noteProjectId}
+                          onChange={val => setNoteProjectId(val)}
+                          placeholder="Sem Projeto"
+                          options={[
+                            { value: '', label: 'Sem Projeto' },
+                            ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                          ]}
+                        />
+                      </div>
+                      <div className="space-y-2 min-w-0">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40">Atividade</label>
+                        <CustomSelect
+                          value={noteActivityId}
+                          onChange={val => setNoteActivityId(val)}
+                          placeholder="Sem Atividade"
+                          options={[
+                            { value: '', label: 'Sem Atividade' },
+                            ...dataStore.activities
+                              .filter(a => !noteProjectId || a.project_id === noteProjectId)
+                              .map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
+                          ]}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-left py-1">
+                      <p className="text-[10px] font-bold text-primary-green/60 uppercase tracking-widest flex items-center gap-2">
+                        📅 {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 font-sans">Nova Anotação</label>
+                      <textarea
+                        placeholder="O que precisa registrar agora para não esquecer?"
+                        className="w-full bg-surface/40 border border-border-white rounded-2xl p-5 text-base font-light text-text-primary outline-none focus:border-primary-green h-40 resize-none touch-manipulation min-h-[44px]"
+                        value={noteContent}
+                        onChange={e => setNoteContent(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNoteModal(false);
+                        setShowResourcesModal(true);
+                      }}
+                      className="flex-1 py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+                    >
+                      ← Voltar
+                    </button>
+                    <button
+                      disabled={!noteContent}
+                      onClick={handleAddNote}
+                      className="flex-[2] py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_20px_40px_rgba(110,231,168,0.2)]"
+                    >
+                      Gravar Nota
+                    </button>
+                  </div>
+                </div>
+
+                {/* COLUMN R: Note History (INLINE) */}
+                <div className="border-t md:border-t-0 md:border-l border-white/5 pt-6 md:pt-0 md:pl-8 flex flex-col min-h-0 min-w-0 md:h-full flex-1">
+                  <div className="pb-3 flex justify-between items-center shrink-0">
+                    <label className="text-[10px] font-black tracking-widest text-text-secondary/40 uppercase font-sans">
+                      {noteProjectId ? (
+                        `HISTÓRICO: ${(dataStore.projects.find(p => p.id === noteProjectId)?.name || 'PROJETO').toUpperCase()}`
+                      ) : (
+                        "HISTÓRICO DE ANOTAÇÕES"
+                      )}
+                    </label>
+                    {filteredNotes.length > 0 && (
+                      <span className="px-2 py-0.5 bg-primary-green/10 text-primary-green rounded-full text-[9px] font-extrabold uppercase font-mono">
+                        {filteredNotes.length} {filteredNotes.length === 1 ? 'Nota' : 'Notas'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto min-h-[200px] md:min-h-0 pr-2 space-y-3 custom-scrollbar pb-10">
+                    {filteredNotes.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center py-10 space-y-2">
+                        <StickyNote size={24} className="text-text-secondary/10" />
+                        <p className="text-xs text-text-secondary/30 italic font-light">
+                          Nenhuma anotação registrada ainda neste contexto.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredNotes.map((note) => {
+                        const noteProject = dataStore.projects.find(p => p.id === note.project_id);
+                        const noteActivity = dataStore.activities.find(a => a.id === note.activity_id);
+                        return (
+                          <div
+                            key={note.id}
+                            className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/10 transition-all group space-y-2 text-left"
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] text-text-secondary/40 font-mono">
+                                🕒 {new Date(note.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNoteToDelete(note.id);
+                                }}
+                                className="p-1 text-red-500/40 hover:text-red-400 rounded transition-colors"
+                                title="Excluir nota"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                            <p className="text-xs text-text-primary/95 whitespace-pre-wrap font-light leading-relaxed">
+                              {note.content}
+                            </p>
+                            
+                            {(noteProject || noteActivity) && (
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {noteProject && (
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-text-secondary/60 max-w-full truncate inline-block">
+                                    📁 {noteProject.name}
+                                  </span>
+                                )}
+                                {noteActivity && (
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-white/5 rounded text-[#6ee7b7]/60 font-medium max-w-full truncate inline-block">
+                                    ⚡ {noteActivity.name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLinkModal && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] max-w-xl w-full space-y-8 shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex justify-between items-center border-b border-white/5 pb-2 relative">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary flex items-center gap-3">
+                  <Link size={20} className="text-[#6ee7b7]" /> Organizador de Links
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLinkModal(false);
+                    setShowResourcesModal(false);
+                  }}
+                  className="p-2 text-text-secondary/40 hover:text-text-primary rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Fechar tudo e voltar ao Timer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 font-sans">Vincular a um Projeto</label>
+                  <CustomSelect
+                    value={linkProjectId}
+                    onChange={val => setLinkProjectId(val)}
+                    placeholder="Sem Projeto"
+                    options={[
+                      { value: '', label: 'Sem Projeto' },
+                      ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    placeholder="Cole seu link aqui..."
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveLink();
+                      }
+                    }}
+                    className="flex-1 bg-surface/40 border border-border-white rounded-2xl px-5 py-3.5 text-sm text-text-primary outline-none focus:border-primary-green min-h-[44px]"
+                    value={newLinkUrl}
+                    onChange={e => setNewLinkUrl(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveLink}
+                    disabled={!newLinkUrl.trim()}
+                    className="px-6 py-3.5 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all disabled:opacity-20 min-h-[44px] shadow-[0_10px_20px_rgba(110,231,168,0.15)] flex items-center justify-center shrink-0"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-text-secondary/40 uppercase tracking-widest block mb-1">
+                  Seus links salvos nesta sessão / projetos
+                </label>
+                
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {dataStore.savedLinks.length === 0 ? (
+                    <p className="text-center text-text-secondary/20 italic text-sm font-light py-6">
+                      Nenhum link salvo ainda.
+                    </p>
+                  ) : (
+                    dataStore.savedLinks.map((link) => {
+                      const linkProj = dataStore.projects.find(p => p.id === link.project_id);
+                      return (
+                        <div
+                          key={link.id}
+                          className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 transition-all group"
+                        >
+                          <div className="flex-1 min-w-0 pr-3">
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={() => dataStore.registerLinkAccess(link.id)}
+                              className="text-sm font-medium text-text-primary hover:text-primary-green transition-colors block truncate"
+                            >
+                              {link.title || link.url}
+                            </a>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="text-[9px] text-text-secondary/40 font-mono truncate">
+                                {link.url}
+                              </span>
+                              {linkProj && (
+                                <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-[8px] font-semibold text-text-secondary inline-flex items-center gap-1">
+                                  📁 {linkProj.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 text-text-secondary/50 hover:text-text-primary rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                              title="Abrir Link"
+                            >
+                              <Link size={14} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('Deseja realmente excluir este link?')) {
+                                  dataStore.deleteLink(link.id);
+                                }
+                              }}
+                              className="p-2 text-red-500/50 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                              title="Excluir Link"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-4 border-t border-white/5 pt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLinkModal(false);
+                    setShowResourcesModal(true);
+                  }}
+                  className="flex-1 py-4 border border-white/10 rounded-2xl font-bold uppercase tracking-widest text-xs text-text-secondary hover:text-white transition-all min-h-[44px]"
+                >
+                  ← Voltar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Completion Modal */}
+      <AnimatePresence>
+        {showCompleteModal && !showDiscardConfirm && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1200] bg-background/95 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ willChange: 'transform' }}
+              className="bg-surface border border-border-white p-8 md:p-12 rounded-[2.5rem] md:rounded-[3rem] max-w-lg w-full text-center space-y-10 shadow-[0_0_100px_rgba(110,231,168,0.1)] transform translate-z-0"
+            >
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-primary-green/10 text-primary-green rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={48} />
+              </div>
+              
+              <div className="space-y-4">
+                <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-text-primary">Sessão Concluída!</h2>
+                <p className="text-text-secondary font-light text-[1rem]/[1.5rem] md:text-lg">Excelente progresso. Deseja registrar esta sessão no seu histórico?</p>
+              </div>
+
+              {isEditingConclusao ? (
+                <SessionEditPanel
+                  initialProjectId={editedProjectId}
+                  initialActivityName={editedActivityName}
+                  initialHabitId={editedHabitId}
+                  initialTasks={sessionTasksLocal}
+                  initialCompletedTasks={completedTasksLocal}
+                  projects={dataStore.projects}
+                  habits={dataStore.habits}
+                  activities={dataStore.activities}
+                  onSave={(proj, act, hab, tsks, comps) => {
+                    setEditedProjectId(proj);
+                    setEditedActivityName(act);
+                    setEditedHabitId(hab);
+                    setSessionTasksLocal(tsks);
+                    setCompletedTasksLocal(comps);
+                    setIsEditingConclusao(false);
+                  }}
+                  onCancel={() => {
+                    setIsEditingConclusao(false);
+                  }}
+                />
+              ) : (
+                <>
+                  {(() => {
+                    const resolved = resolverNomeSessao(
+                      {
+                        habit_id: editedHabitId !== null ? editedHabitId : timer.habitId,
+                        project_id: editedProjectId !== null ? editedProjectId : timer.projectId,
+                        activity_name: editedActivityName || timer.activityName
+                      },
+                      dataStore.habits,
+                      dataStore.projects
+                    );
+                    return (
+                      <div className="relative p-4 md:p-6 bg-white/5 rounded-3xl space-y-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingConclusao(true)}
+                          className="absolute top-[10px] right-[10px] text-[#6a7570] hover:text-white transition-colors cursor-pointer p-1"
+                          title="Editar Detalhes"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        <p className="text-xl md:text-2xl font-light text-text-primary tracking-tight">{resolved.titulo}</p>
+                        <p className="text-[9px] md:text-[10px] font-bold text-primary-green uppercase tracking-[0.3em]">
+                           {resolved.projeto}
+                        </p>
+                        {(editedHabitId !== null ? editedHabitId : timer.habitId) && (() => {
+                          const habit = dataStore.habits.find(h => h.id === (editedHabitId !== null ? editedHabitId : timer.habitId));
+                          const minutesRealized = actualDurationMinutes !== null ? actualDurationMinutes : Math.round((timer.totalDurationMs || 0) / 60000);
+                          const targetMinutes = habit?.minutes_per_session || 0;
+                          return (
+                            <p className={`text-xs font-bold uppercase mt-2 tracking-widest ${minutesRealized >= targetMinutes ? 'text-primary-green' : 'text-amber-400'}`}>
+                              Progresso de Hoje: {minutesRealized} / {targetMinutes} min
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+
+                  {sessionTasksLocal.length > 0 && (
+                    <div className="space-y-3 text-left border-t border-white/5 pt-6">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block mb-1">
+                        Tarefas da Sessão
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {sessionTasksLocal.map((task, i) => {
+                          const isDone = completedTasksLocal.includes(task);
+                          return (
+                            <label
+                              key={i}
+                              className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-primary-green/20 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={() => {
+                                  if (isDone) {
+                                    handleCompletedTasksChange(completedTasksLocal.filter(t => t !== task));
+                                  } else {
+                                    handleCompletedTasksChange([...completedTasksLocal, task]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-white/10 text-primary-green bg-transparent focus:ring-0 cursor-pointer"
+                              />
+                              <span className={`text-xs ${isDone ? 'line-through text-text-secondary/50 font-light' : 'text-text-primary'}`}>
+                                {task}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={handleSave}
+                  className="w-full py-5 md:py-6 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-[0.2em] text-xs hover:bg-glow-green shadow-[0_0_30px_rgba(110,231,168,0.3)] transition-all min-h-[44px] touch-manipulation"
+                >
+                  Registrar Sessão
+                </button>
+                <button
+                  onClick={() => setShowDiscardConfirm(true)}
+                  className="w-full py-2 text-text-secondary/40 hover:text-red-400 font-bold uppercase tracking-widest text-[10px] transition-colors min-h-[44px] touch-manipulation"
+                >
+                  Descartar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Discard Confirmation Modal */}
+      <AnimatePresence>
+        {showDiscardConfirm && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1300] bg-background/95 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-surface border border-border-white p-10 rounded-[2.5rem] max-w-md w-full text-center space-y-8 shadow-[0_0_80px_rgba(0,0,0,0.5)]"
+            >
+              <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Tem certeza?</h3>
+                <p className="text-text-secondary font-light">Essa sessão não será salva e seu progresso será perdido.</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleCancel}
+                  className="w-full py-4 bg-red-500 text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-red-400 transition-all"
+                >
+                  Sim, descartar
+                </button>
+                <button
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Early Completion Confirmation Modal */}
+      <AnimatePresence>
+        {showEarlyCompleteConfirm && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-surface border border-border-white p-10 rounded-[2.5rem] max-w-md w-full text-center space-y-8 shadow-[0_0_80px_rgba(0,0,0,0.5)]"
+            >
+              <div className="w-20 h-20 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle size={32} />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Encerrar com segurança?</h3>
+                <p className="text-text-secondary font-light">
+                  Deseja encerrar a Sessão Profunda agora? Isso registrará uma sessão incompleta de <strong className="text-amber-400 font-bold">{Math.max(1, Math.round(((timer.totalDurationMs || 0) - timer.getRemainingMs()) / 60000))} minutos</strong>.
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleEarlyComplete}
+                  className="w-full py-4 bg-amber-400 text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Sim, encerrar Sessão Profunda
+                </button>
+                <button
+                  onClick={() => setShowEarlyCompleteConfirm(false)}
+                  className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs transition-all hover:bg-white/10"
+                >
+                  Continuar Sessão
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cancellation Confirmation Modal */}
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <motion.div
+            layout={false}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-background/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              layout={false}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-surface border border-border-white p-10 rounded-[2.5rem] max-w-md w-full text-center space-y-8 shadow-[0_0_80px_rgba(0,0,0,0.5)]"
+            >
+              <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle size={32} />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-semibold tracking-tight text-text-primary">Tem certeza?</h3>
+                <p className="text-text-secondary font-light">Este tempo de Sessão Profunda será perdido e não contabilizado no seu histórico.</p>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Continuar Sessão
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="w-full py-4 bg-transparent text-red-500/50 hover:text-red-500 rounded-2xl font-bold uppercase tracking-widest text-[10px] transition-all"
+                >
+                  Sim, cancelar sessão
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Task Checklist Overlay during session */}
+      <AnimatePresence>
+        {showTasksOverlay && (
+          <SessionTasksModal
+            isOpen={showTasksOverlay}
+            onClose={() => setShowTasksOverlay(false)}
+            tasks={sessionTasksLocal}
+            completedTasks={completedTasksLocal}
+            onChangeTasks={setSessionTasksLocal}
+            onChangeCompleted={handleCompletedTasksChange}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* All Tasks Done Popup */}
+      <AnimatePresence>
+        {showAllTasksDonePopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1150] bg-background/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <div className="w-full max-w-sm bg-surface border border-border-white p-8 rounded-[2rem] text-center space-y-6 shadow-[0_0_80px_rgba(110,231,168,0.2)]">
+              <div className="w-16 h-16 bg-primary-green/10 text-primary-green rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle size={32} />
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xl font-semibold tracking-tight text-text-primary">Meta Cumprida!</h4>
+                <p className="text-text-secondary font-light text-sm">
+                  Parabéns, todas as tarefas foram marcadas como concluídas! Deseja finalizar a sessão agora?
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowAllTasksDonePopup(false);
+                    handleEarlyComplete();
+                  }}
+                  className="w-full py-4 bg-primary-green text-background rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-glow-green transition-all"
+                >
+                  Ir para Conclusão
+                </button>
+                <button
+                  onClick={() => setShowAllTasksDonePopup(false)}
+                  className="w-full py-4 bg-white/5 border border-white/10 text-text-secondary rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-white/10 transition-all"
+                >
+                  Continuar Sessão
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AntiVicioModal
+        isOpen={isAntiVicioOpen}
+        onClose={() => setIsAntiVicioOpen(false)}
+        isDeepSessionContext={true}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={!!noteToDelete}
+        onClose={() => setNoteToDelete(null)}
+        onConfirm={() => {
+          if (noteToDelete) {
+            dataStore.deleteNote(noteToDelete);
+            setNoteToDelete(null);
+          }
+        }}
+      />
+
+      {/* Repeat Session Modal - aparece após concluir a sessão com sucesso */}
+      <RepeatSessionModal
+        isOpen={showRepeatModal}
+        initialData={repeatSnapshot}
+        projects={dataStore.projects}
+        activities={dataStore.activities}
+        habits={dataStore.habits}
+        onRepeat={handleRepeatSession}
+        onConcludeNow={handleConcludeNow}
+      />
+    </div>
+  );
+};

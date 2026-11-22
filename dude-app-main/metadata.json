@@ -1,0 +1,8 @@
+{
+  "name": "DUDE",
+  "description": "O seu espelho honesto e treinador gentil. Foco profundo, construção de bons hábitos e consciência real do seu tempo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

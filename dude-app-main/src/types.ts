@@ -1,0 +1,257 @@
+export type Profile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  total_focus_minutes: number;
+  current_streak: number;
+  daily_goal_minutes?: number | null;
+  created_at: string;
+  updated_at: string;
+  mood_status?: 'active' | 'paused' | 'disabled' | null;
+  mood_snoozed_until?: string | null;
+  hide_mood_nudge?: boolean | null;
+  trial_ends_at?: string | null;
+  is_subscribed?: boolean | null;
+  is_admin?: boolean | null;
+};
+
+export type Project = {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+};
+
+export type Habit = {
+  id: string;
+  user_id: string;
+  name: string;
+  total_minutes: number;
+  deep_sessions_count: number;
+  weekly_streak: number;
+  sessions_per_week: number;
+  minutes_per_session: number;
+  preferred_time: 'morning' | 'afternoon' | 'evening';
+  sessions_this_week: number;
+  week_start_date: string;
+  created_at: string;
+  is_recurring?: boolean;
+  recurrence_days?: string[];
+  recurrence_time?: string;
+  last_generated_week?: string;
+  habit_mode?: 'build' | 'avoid';
+  avoidance_target?: string;
+  avoidance_scope?: 'full_day' | 'time_window';
+  avoidance_window_start?: string; // HH:MM
+  avoidance_window_end?: string;   // HH:MM
+  avoidance_checkin_intensity?: 'light' | 'balanced' | 'strong';
+  avoidance_notifications_enabled?: boolean;
+  avoidance_recovery_mode?: boolean;
+  monitor_type?: 'dia_todo' | 'janela';
+  monitor_start?: string | null;  // HH:MM
+  monitor_end?: string | null;    // HH:MM
+  monitor_weekdays?: string;      // '1,2,3,4,5' or 'all' etc.
+  is_scheduled?: boolean;
+  sched_start?: string | null;    // 'HH:MM'
+  sched_duration?: number | null; // in minutes
+  sched_weekdays?: string | null; // '1,2,3,4,5' or 'all' or list of weekdays
+};
+
+export type AvoidanceCheckin = {
+  id: string;
+  user_id: string;
+  habit_id: string | null;
+  checkin_date: string;
+  checkin_period: 'morning' | 'afternoon' | 'evening' | 'window' | string;
+  status: 'success' | 'relapse' | 'pending' | 'resisti' | 'recai' | 'depois' | string;
+  trigger_tag?: string | null; // Tag de neurociência do gatilho 
+  trigger_note?: string | null; // Nota livre opcional
+  created_at: string;
+  window_label?: string | null;
+  prompts_shown?: number;
+  intensity?: number | null;
+  time_spent?: number | null;
+};
+
+export type HabitCompletion = {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_at: string;
+  duration_minutes: number;
+  focus_session_id: string | null;
+};
+
+export type FocusSession = {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  habit_id: string | null;
+  activity_name: string;
+  description: string | null;
+  duration_minutes: number;
+  started_at: string;
+  completed_at: string | null;
+  completed: boolean;
+  created_at: string;
+  all_tasks_completed: boolean;
+  actual_duration_minutes: number | null;
+  parcial?: boolean | null;
+  activity_id?: string | null;
+  scheduled_activity_id?: string | null;
+};
+
+export type ScheduledActivity = {
+  id: string;
+  user_id: string;
+  title: string;
+  project_id: string | null;
+  activity_id: string | null;
+  atividade_avulsa: string | null;
+  habit_id: string | null;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  status: 'agendada' | 'concluida' | 'cancelada' | 'expirada' | 'pending' | 'completed' | 'cancelled';
+  tasks: string[];
+  notes: string | null;
+  created_at: string;
+  completed_session_id?: string | null;
+  resolved_at?: string | null;
+};
+
+export type PendingTask = {
+  id: string;
+  user_id: string;
+  habit_id: string | null;
+  activity_id: string | null;
+  atividade_avulsa: string | null;
+  description: string;
+  created_at: string;
+  origin_session_id: string | null;
+};
+
+export type Note = {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  project_id: string | null;
+  activity_id: string | null;
+  target_date: string | null;
+  created_at: string;
+};
+
+export type Activity = {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  name: string;
+  completed: boolean;
+  created_at: string;
+  habit_id?: string | null;
+  scheduled_date?: string | null;
+};
+
+export type SessionTask = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  description: string;
+  completed: boolean;
+  created_at: string;
+};
+
+export type MoodPeriod = 'manha' | 'tarde' | 'noite';
+
+export type MoodEntry = {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD local
+  entry_date?: string;
+  period: MoodPeriod;
+  mood: 'animado' | 'tranquilo' | 'neutro' | 'ansioso' | 'prabaixo' | null;
+  energy?: 'pleno' | 'inquieto' | 'equilibrado' | 'fadigado' | 'cansado' | 'normal' | 'energizado' | null;
+  created_at: string;
+};
+
+export type DailyShutdown = {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD local
+  entry_date?: string;
+  status: 'completed' | 'dismissed';
+  created_at: string;
+};
+
+export type SavedLink = {
+  id: string;
+  user_id: string;
+  title: string;
+  url: string;
+  project_id: string | null;
+  habit_id: string | null;
+  access_count: number;
+  last_accessed_at: string | null;
+  created_at: string;
+};
+
+export type DailyTask = {
+  id: string;
+  user_id: string;
+  task_date: string;
+  title: string;
+  project_id: string | null;
+  activity_id: string | null;
+  activity_avulsa: string | null;
+  habit_id: string | null;
+  checklist: { text: string; completed: boolean }[] | null;
+  is_completed: boolean;
+  completed_at: string | null;
+  rolled_from_date: string | null;
+  created_at: string;
+};
+
+export type InboxCapture = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+};
+
+// ============================================================
+// FEATURE: OBJETIVOS (Goals)
+// ============================================================
+
+export type GoalTaskItem = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
+
+export type Goal = {
+  id: string;
+  user_id: string;
+  title: string;
+  tasks: GoalTaskItem[];
+  start_date: string; // YYYY-MM-DD, imutável após criação
+  end_date: string;   // YYYY-MM-DD, editável
+  status: 'active' | 'completed' | 'archived';
+  created_at: string;
+};
+
+export type GoalMark = {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  mark_date: string; // YYYY-MM-DD
+  note: string | null;
+  created_at: string;
+};
+
+export type GoalMarkSession = {
+  id: string;
+  goal_mark_id: string;
+  focus_session_id: string | null;
+  created_at: string;
+};
