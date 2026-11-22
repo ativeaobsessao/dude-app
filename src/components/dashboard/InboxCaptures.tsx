@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Inbox, ArrowRightCircle, FileText, Trash2, X } from 'lucide-react';
+import { Inbox, ArrowRightCircle, FileText, Trash2, X, Clock3 } from 'lucide-react';
 import { InboxCapture } from '../../types';
 
 export const InboxCaptures = () => {
-  const { inboxCaptures, deleteInboxCapture } = useDataStore();
+  const { inboxCaptures, deleteInboxCapture, showNotification } = useDataStore();
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -42,7 +42,12 @@ export const InboxCaptures = () => {
     if (!captureToDelete) return;
     try {
       setDeletingId(captureToDelete.id);
-      await deleteInboxCapture(captureToDelete.id);
+      const deleted = await deleteInboxCapture(captureToDelete.id);
+      if (!deleted) {
+        setDeletingId(null);
+        showNotification('Não foi possível excluir a anotação. Tente novamente.', 'error');
+        return;
+      }
       setDeletingId(null);
       setCaptureToDelete(null);
       if (inboxCaptures.length <= 1) {
@@ -51,7 +56,7 @@ export const InboxCaptures = () => {
     } catch (err) {
       console.error('Error deleting capture:', err);
       setDeletingId(null);
-      setCaptureToDelete(null);
+      showNotification('Não foi possível excluir a anotação. Tente novamente.', 'error');
     }
   };
 
@@ -68,8 +73,8 @@ export const InboxCaptures = () => {
             <Inbox size={18} className="text-indigo-400" />
           </div>
           <div className="text-left">
-            <h4 className="text-sm font-semibold text-zinc-100">Caixa de entrada</h4>
-            <p className="text-xs font-medium text-zinc-400">Você tem {inboxCaptures.length} {inboxCaptures.length === 1 ? 'anotação rápida' : 'anotações rápidas'} para organizar.</p>
+            <h4 className="text-sm font-semibold text-zinc-100">Anotações para organizar</h4>
+            <p className="text-xs font-medium text-zinc-400">{inboxCaptures.length} {inboxCaptures.length === 1 ? 'anotação aguardando' : 'anotações aguardando'} sua decisão.</p>
           </div>
         </div>
       </motion.button>
@@ -128,11 +133,20 @@ export const InboxCaptures = () => {
                           className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 rounded-xl text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 transition-colors cursor-pointer"
                         >
                           <FileText size={16} />
-                          Anotação
+                          Salvar nas anotações
                         </button>
 
                         <div className="flex-1" /> {/* Spacer */}
                         
+                        <button
+                          onClick={() => setIsOpen(false)}
+                          disabled={deletingId === capture.id}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+                        >
+                          <Clock3 size={16} />
+                          Manter para depois
+                        </button>
+
                         <button
                           onClick={() => setCaptureToDelete(capture)}
                           disabled={deletingId === capture.id}
