@@ -469,7 +469,7 @@ export default function App() {
       });
 
       const allTargets = [
-        ...todayPending.map(ap => ({ id: ap.id, title: ap.title || 'Seu bloco de foco programado', scheduled_time: ap.scheduled_time })),
+        ...todayPending.map(ap => ({ id: ap.id, title: ap.title || 'Sua atividade programada', scheduled_time: ap.scheduled_time })),
         ...virtualActivities
       ];
 
@@ -484,7 +484,7 @@ export default function App() {
           const key = `${target.id}-5min`;
           if (!notifiedActivityIdsRef.current.has(key)) {
             notifiedActivityIdsRef.current.add(key);
-            triggerNotification(`⏰ Foco aproximando!`, `Sua atividade "${target.title}" começará em 5 minutos.`);
+            triggerNotification(`⏰ Sua atividade está próxima`, `Sua atividade "${target.title}" começará em 5 minutos.`);
           }
         }
 
@@ -1035,7 +1035,7 @@ export default function App() {
               <span className="text-[9px] font-bold tracking-wider font-sans uppercase">Tarefas</span>
             </button>
 
-            {/* 3. CENTER HIGHLIGHTED FOCAR ACTION */}
+            {/* Ação principal */}
             <div className="flex-1 flex justify-center -mt-8 relative z-50">
               <button 
                 onClick={() => {

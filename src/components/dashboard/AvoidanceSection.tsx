@@ -15,17 +15,17 @@ interface AvoidanceCardProps {
 }
 
 const AvoidanceCard = ({ habit, metrics, onEdit, onDelete, onStartSupport }: AvoidanceCardProps) => {
-  const totalLabel = metrics.totalLabel;
-  const streakLabel = metrics.isWindow ? 'janelas seguidas' : 'dias seguidos';
+  const recordLabel = metrics.isWindow ? 'Recorde de períodos consecutivos' : 'Recorde de dias consecutivos';
+  const currentLabel = metrics.isWindow ? 'períodos seguidos' : 'dias seguidos';
 
   return (
     <article className="rounded-[28px] border border-white/10 bg-zinc-950/40 p-6 sm:p-8 flex flex-col justify-between gap-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 text-left">
           <p className="text-4xl sm:text-5xl font-light tracking-tight text-white tabular-nums">
-            {metrics.confirmedDaysTotal}
+            {metrics.bestStreak}
           </p>
-          <p className="mt-1 text-xs text-zinc-400">{totalLabel}</p>
+          <p className="mt-1 text-xs text-zinc-400">{recordLabel}</p>
           <h3 className="mt-3 text-base font-semibold text-white break-words">{habit.name}</h3>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -54,12 +54,12 @@ const AvoidanceCard = ({ habit, metrics, onEdit, onDelete, onStartSupport }: Avo
         <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
           <span className="text-xs text-zinc-400">Sequência atual</span>
           <strong className="text-sm font-semibold text-white tabular-nums">
-            {metrics.currentStreak} {streakLabel}
+            {metrics.currentStreak} {currentLabel}
           </strong>
         </div>
         {!metrics.hasAnyData && (
           <p className="text-xs leading-relaxed text-zinc-500">
-            Seu acompanhamento começa quando você fizer o primeiro registro. Nenhum dia é contado automaticamente.
+            O recorde começa no primeiro dia com resistência registrada. Dias sem registro não são presumidos.
           </p>
         )}
         {metrics.lastRelapseDate && (

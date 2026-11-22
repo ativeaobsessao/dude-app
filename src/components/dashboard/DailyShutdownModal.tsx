@@ -238,7 +238,7 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
 
           <div className="flex-1 overflow-y-auto style-scrollbar space-y-4 pr-1 pb-32">
             
-            {/* Bloco 1: Métricas de Foco */}
+            {/* Bloco 1: métricas do dia */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Tempo Total Presente</span>
               <div className="flex items-baseline gap-3">

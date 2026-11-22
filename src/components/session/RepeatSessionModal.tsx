@@ -119,7 +119,7 @@ export const RepeatSessionModal: React.FC<RepeatSessionModalProps> = ({
             
             <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Sessão Registrada!</h2>
 
-            {/* Caminho 1: Concluir por agora (Padrão Apple - destaque tátil e ação natural) */}
+            {/* Caminho 1: concluir por agora */}
             <div className="w-full pt-1">
               <button
                 type="button"

@@ -390,7 +390,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         // Fase 1: Solfeggio 432Hz imediatamente
         synth.start(432, 0, 1.0);
       } else if (currentPhase === 2) {
-        // Fase 2: 40 Hz (Foco)
+        // Fase 2: 40 Hz
         synth.start(40, 0, 1.5);
       } else if (currentPhase === 3) {
         // Fase 3: Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
@@ -406,7 +406,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           // 3 a 6 min: 174 Hz - Alívio Físico
           synth.start(174, 0, 1.2);
         } else if (cycleTime < 540) {
-          // 6 a 9 min: 40 Hz - Foco Gamma
+          // 6 a 9 min: 40 Hz
           synth.start(40, 0, 9.5);
         } else {
           // 9 a 14 min (Duração estendida de 5 min): 888 Hz Binaural - Abundância & Flow
@@ -660,7 +660,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     }
   };
 
-  // Dynamic mapped frequency for the Apple Glassmorphic Card
+  // Frequência dinâmica exibida no cartão
   const currentInfiniteFrequencyCardText = useMemo(() => {
     if (!isInfiniteMode) return '';
     const cycleTime = infiniteSeconds % 840;
@@ -669,7 +669,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     } else if (cycleTime < 360) {
       return '📻 174 hertz - Frequência do Alívio';
     } else if (cycleTime < 540) {
-      return '📻 40 hertz - Frequência do Foco';
+      return '📻 40 hertz - Frequência de relaxamento';
     } else {
       return '📻 888 hertz - Frequência da Prosperidade';
     }
@@ -684,7 +684,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     } else if (cycleTime < 360) {
       return '174 Hz · Alívio Biológico';
     } else if (cycleTime < 540) {
-      return '40 Hz · Ondas Foco Gamma (Pense e Foque)';
+      return '40 Hz · Ondas suaves de relaxamento';
     } else {
       return '888 Hz · Abundância & Flow (Binaural Theta)';
     }
@@ -697,7 +697,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       style={{ isolation: 'isolate' }}
       className="fixed inset-0 w-full h-full bg-[#030303] text-white z-[9999] flex flex-col justify-between p-6 md:p-12 overflow-hidden select-none outline-none font-sans"
     >
-      {/* Absolute discretely elegant close escaper (Apple Mindfulness visual cues) */}
+      {/* Controle de fechamento */}
       <button 
         id="sos_esc_button"
         onClick={handleCancel}
@@ -740,7 +740,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       {/* Main active stage content area */}
       <div className="flex-1 w-full flex flex-col items-center justify-center relative py-6 max-w-2xl mx-auto space-y-6">
         
-        {/* TIMER APPLE-RING: Circular countdown indicator at center-top */}
+        {/* Indicador circular de tempo */}
         {currentPhase <= 3 && (
           <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
             <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 144 144">
@@ -817,7 +817,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 1: FREIO VAGAL (Breath control loops with Apple Lotus Waves) */}
+            {/* Fase 1: respiração guiada */}
             {currentPhase === 1 && (
               <motion.div 
                 key="phase-1"
@@ -1272,7 +1272,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                   </motion.div>
                 )}
 
-                {/* TRANSIÇÃO B: Modo Foco Ativo (A partir de 97 segundos) */}
+                {/* Transição B: etapa final */}
                 {infiniteAct === 4 && (
                   <motion.div 
                     key="infinite-act-4"
@@ -1317,7 +1317,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           )}
                         </button>
 
-                        {/* INDICADOR DE FREQUÊNCIA PREMIUM (Apple Native Text - Sem Caixas) */}
+                        {/* Indicador de frequência */}
                         <div className="py-2 flex items-center justify-center select-none opacity-80">
                           <span className="text-[10px] md:text-xs tracking-[0.15em] text-white/50 font-mono uppercase font-semibold">
                             {currentInfiniteFrequencyCardText}

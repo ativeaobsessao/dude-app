@@ -17,8 +17,8 @@ export const CentroDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-200/70">Centro</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Seu painel de evolução</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">Uma leitura dos seus registros para entender seu tempo, seus hábitos e os comportamentos que deseja transformar.</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Seu progresso</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">Veja como você usa seu tempo, acompanha seus hábitos e registra seus avanços.</p>
           </div>
         </div>
       </header>
@@ -30,7 +30,7 @@ export const CentroDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) 
           aria-pressed={section === 'tempo'}
           className={`flex min-h-[54px] items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold transition-all ${section === 'tempo' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-400 hover:text-white'}`}
         >
-          <BarChart3 size={16} /> Seu tempo
+          <BarChart3 size={16} /> Análise pessoal
         </button>
         <button
           type="button"

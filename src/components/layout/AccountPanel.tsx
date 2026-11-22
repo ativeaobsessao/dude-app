@@ -174,14 +174,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     const buildHabitsForExport = (dataStore.habits || []).filter(h => h.habit_mode !== 'avoid');
     const avoidHabitsForExport = (dataStore.habits || []).filter(h => h.habit_mode === 'avoid');
     
-    let md = `# 💾 DUDE - IDENTITY VAULT & BACKUP\n`;
+    let md = `# DUDE — Cópia dos seus dados\n`;
     md += `Gerado em: ${new Date().toLocaleString('pt-BR')}\n`;
     md += `Email do Usuário: ${email}\n\n`;
     md += `---\n\n`;
-    md += `## 📊 RELATÓRIO EXECUTIVO & VISÃO GERAL (IA-READY)\n\n`;
-    md += `- **Agente Proprietário:** ${name}\n`;
-    md += `- **Tempo Total Focado:** ${minutes} minutos\n`;
-    md += `- **Ofensiva Atual (Streak):** ${streak} dias\n\n`;
+    md += `## Resumo da conta\n\n`;
+    md += `- **Nome:** ${name}\n`;
+    md += `- **Tempo total registrado:** ${minutes} minutos\n`;
+    md += `- **Sequência atual:** ${streak} dias\n\n`;
     
     if (exportProjects) {
       md += `### 📁 PROJETOS CADASTRADOS (${dataStore.projects?.length || 0})\n`;
@@ -214,7 +214,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
 
     if (exportSessions) {
-      md += `### ⏳ SESSÕES DE FOCO COMPLEMENTADAS (${dataStore.sessions?.length || 0})\n`;
+      md += `### ⏳ SESSÕES REGISTRADAS (${dataStore.sessions?.length || 0})\n`;
       md += `| Atividade | Duração | Data | Concluída com Sucesso? |\n`;
       md += `| :--- | :--- | :--- | :--- |\n`;
       const sortedSessions = [...(dataStore.sessions || [])].sort(
@@ -297,10 +297,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     // AUD-003 FIX: o payload de backup agora reflete a mesma separação do relatório.
     // Hábitos de construção seguem amarrados ao checkbox "Hábitos"; os controles de
     // Anti-Vício (mesma tabela física, habit_mode='avoid') seguem amarrados ao
-    // checkbox "Prevenção e Anti-Vício". Antes, os dois viviam sob o mesmo checkbox
-    // ("Hábitos"), então desmarcar "Prevenção e Anti-Vício" não tinha efeito algum
+    // checkbox "Prevenção e autocontrole". Antes, os dois viviam sob o mesmo checkbox
+    // ("Hábitos"), então desmarcar "Prevenção e autocontrole" não tinha efeito algum
     // sobre eles, e desmarcar "Hábitos" apagava os controles de Anti-Vício do backup
-    // mesmo com "Prevenção e Anti-Vício" marcado — perdendo a definição do controle
+    // mesmo com "Prevenção e autocontrole" marcado — perdendo a definição do controle
     // (nome, escopo, janela) e deixando os check-ins órfãos na restauração.
     if (exportHabits) payload.habits = buildHabitsForExport;
     if (exportActivities) payload.activities = dataStore.activities;
@@ -917,7 +917,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             <label className="text-[10px] font-extrabold uppercase tracking-widest text-[#6ee7a8]">Backup e Transferência</label>
             
             <p className="text-[10px] text-text-dim/60 leading-relaxed px-1">
-              Exporte toda a sua identidade da DUDE (hábitos, foco, logs e notas) em um arquivo ZIP seguro. Contém seu relatório legível e seus dados brutos para restabelecimento em qualquer dispositivo.
+              Exporte toda a sua identidade da DUDE (hábitos, sessões, registros e notas) em um arquivo ZIP seguro. Contém seu relatório legível e seus dados brutos para restabelecimento em qualquer dispositivo.
             </p>
 
             <div className="flex flex-col gap-3">
@@ -1272,7 +1272,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         cadastrados (registros de habits com habit_mode === 'avoid'), que
                         antes eram contados (incorretamente) dentro de "⚡ Hábitos" acima. */}
                     <label className="text-text cursor-pointer select-none font-medium flex items-center gap-2" htmlFor="chk-addiction">
-                      🛡️ Prevenção e Anti-Vício <span className="text-[9px] text-text-dim/60">({(dataStore.avoidanceCheckins?.length || 0) + (dataStore.habits?.filter(h => h.habit_mode === 'avoid').length || 0)})</span>
+                      🛡️ Prevenção e autocontrole <span className="text-[9px] text-text-dim/60">({(dataStore.avoidanceCheckins?.length || 0) + (dataStore.habits?.filter(h => h.habit_mode === 'avoid').length || 0)})</span>
                     </label>
                     <input
                       id="chk-addiction"
@@ -1313,7 +1313,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   <div>• Projetos selecionados: {getAuditCounts().projectsCount}</div>
                   <div>• Atividades selecionadas: {getAuditCounts().activitiesCount}</div>
                   <div>• Hábitos de construção selecionados: {getAuditCounts().habitsCount}</div>
-                  <div>• Sessões de Foco selecionadas: {getAuditCounts().sessionsCount}</div>
+                  <div>• Sessões selecionadas: {getAuditCounts().sessionsCount}</div>
                   <div>• Registro de Humor selecionados: {getAuditCounts().energyMoodCount}</div>
                   <div>• Prevenção e Autocontrole (controles + check-ins): {getAuditCounts().antiAddictionCount}</div>
                   <div>• Outros blocos no Snapshot: {getAuditCounts().insightsTotal + getAuditCounts().notesCount + getAuditCounts().savedLinksCount} itens</div>

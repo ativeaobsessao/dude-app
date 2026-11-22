@@ -151,7 +151,7 @@ export const InboxCaptures = () => {
         )}
       </AnimatePresence>
 
-      {/* Custom Delete Modal (Apple Style) */}
+      {/* Confirmação de exclusão */}
       <AnimatePresence>
         {captureToDelete && (
           <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

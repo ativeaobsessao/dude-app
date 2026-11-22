@@ -57,7 +57,7 @@ export const MenuTab = () => {
           >
             {avoidHabits.map((habit) => {
               const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-              const totalLabel = metrics.totalLabel;
+              const unit = metrics.unitPlural;
               return (
                 <motion.div
                   whileTap={{ scale: 0.96 }}
@@ -67,12 +67,13 @@ export const MenuTab = () => {
                 >
                   <div className="space-y-1">
                     <h3 className="text-4xl font-light text-white tracking-tight leading-none">
-                      {metrics.confirmedDaysTotal}
+                      {metrics.bestStreak}
                     </h3>
-                    <p className="mt-1 text-[11px] text-white/45">{totalLabel}</p>
-                    <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-1">
+                    <p className="mt-1 text-[11px] text-white/45">Recorde · {unit} consecutivos</p>
+                    <h4 className="text-sm font-medium text-white/80 tracking-wide font-sans mt-2">
                       {habit.name}
                     </h4>
+                    <p className="mt-1 text-[11px] text-white/45">Atual: {metrics.currentStreak} {unit} seguidos</p>
                   </div>
                   <button
                     onClick={(e) => {
@@ -81,13 +82,13 @@ export const MenuTab = () => {
                     }}
                     className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
                   >
-                    Editar controle
+                    Editar acompanhamento
                   </button>
                 </motion.div>
               );
             })}
               
-            {/* Minimalist '+' Card for Anti-Vicio */}
+            {/* Novo acompanhamento */}
             <motion.div
               whileTap={{ scale: 0.96 }}
               onClick={() => openScreen('anti-vicio')}
@@ -97,7 +98,7 @@ export const MenuTab = () => {
                 <Plus size={24} />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">
-                Novo Controle
+                Novo acompanhamento
               </span>
             </motion.div>
           </div>
@@ -206,7 +207,7 @@ export const MenuTab = () => {
         </div>
       </div>
 
-      {/* Modal de opções (Editar/Apagar) do Anti-Vício */}
+      {/* Opções do acompanhamento */}
       <AntiVicioCardOptionsModal
         isOpen={!!selectedAntiVicioHabit}
         habit={selectedAntiVicioHabit}

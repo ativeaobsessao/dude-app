@@ -35,7 +35,7 @@ export const ProximasAtividades = ({ onStartSession, onOpenNewSchedule, onNaviga
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-2xl font-bold tracking-tight text-text-primary">ATIVIDADES PROGRAMADAS</h3>
-          <p className="text-xs text-text-secondary/60 mt-1">Foco planejado para os próximos dias com checklists integrados.</p>
+          <p className="text-xs text-text-secondary/60 mt-1">Atividades planejadas para os próximos dias, com listas de tarefas.</p>
         </div>
 
         {onNavigateToFullAgenda && dataStore.scheduledActivities.length > 0 && (

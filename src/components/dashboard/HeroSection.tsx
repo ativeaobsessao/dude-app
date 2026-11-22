@@ -292,8 +292,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     : `${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`;
 
   const todayFocusFormatted = hours === 0
-    ? `${minutes} ${minutes === 1 ? 'minuto focado' : 'minutos focados'}`
-    : `${hours}h ${minutes}m focado${hours === 1 && minutes === 0 ? '' : 's'}`;
+    ? `${minutes} ${minutes === 1 ? 'minuto registrado' : 'minutos registrados'}`
+    : `${hours}h ${minutes}m registrados`;
 
   const hasSessions = dataStore.sessions && dataStore.sessions.length > 0;
 
@@ -679,13 +679,6 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       return `Maior sequência registrada: ${bestHistorical.metrics.bestStreak} ${unitFor(bestHistorical)} com resistência`;
     }
 
-    const bestTotal = [...processed].sort(
-      (a, b) => b.metrics.confirmedDaysTotal - a.metrics.confirmedDaysTotal
-    )[0];
-    if (bestTotal.metrics.confirmedDaysTotal > 0) {
-      return `${bestTotal.metrics.confirmedDaysTotal} ${unitFor(bestTotal)} com resistência registrada no total`;
-    }
-
     return 'Seu primeiro registro começa aqui';
   }, [avoidHabits, dataStore.avoidanceCheckins]);
 
@@ -826,7 +819,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       smartPhrase = `Meta batida! Excelente ritmo hoje. 🔥`;
     }
   } else if (stateType === 'on_pace') {
-    smartPhrase = "No compasso da sua meta diária. Continue focado!";
+    smartPhrase = "No compasso da sua meta diária. Continue assim!";
   } else {
     // stateType === 'below'
     smartPhrase = `Dá tempo de atingir os ${formatCompact(targetMinutes)}. Uma sessão já te aproxima!`;
@@ -853,30 +846,30 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
   if (totalMinutes === 0 && isAfternoonOrLater) {
     reactiveLine = selectChoice([
-      "Você ainda não focou hoje. Que tal uma Sessão Profunda?",
-      "Que tal começar a focar agora? O primeiro passo é o mais importante.",
-      "Sua mente está pronta. Vamos iniciar uma Sessão Profunda hoje?",
-      "O dia está passando. Que tal reservar um tempo para focar?"
+      "Você ainda não começou uma atividade hoje. Que tal iniciar uma Sessão Profunda?",
+      "Que tal começar agora? O primeiro passo é o mais importante.",
+      "Você está pronto para começar. Vamos iniciar uma Sessão Profunda?",
+      "O dia está passando. Que tal reservar um tempo para uma atividade importante?"
     ]);
   } else if (averageData.hasEnoughHistory && totalMinutes > averageData.personalRecord && totalMinutes > 0) {
     reactiveLine = selectChoice([
-      "Seu melhor dia de foco até agora. 🔥",
-      "Incrível! Hoje é o seu dia mais focado de todos os tempos. 🏆",
-      "Você quebrou seu recorde de foco diário hoje! Fantástico!",
+      "Seu dia com mais tempo dedicado até agora. 🔥",
+      "Incrível! Hoje é o dia em que você mais avançou. 🏆",
+      "Você superou seu recorde diário de tempo dedicado! Fantástico!",
       "Superando todos os seus limites. Hoje foi histórico! 🔥"
     ]);
   } else if (averageData.hasEnoughHistory && totalMinutes > 0 && totalMinutes < 0.8 * averageData.averageMinutes) {
     reactiveLine = selectChoice([
-      "Hoje rendeu menos que sua média. Bora recuperar?",
-      "Abaixo do seu ritmo normal. Que tal uma sessão rápida para retomar?",
-      "O dia ainda não acabou. Um bloco de foco pode fazer a diferença hoje!",
-      "Que tal ajustar o foco? Uma sessão curta ajuda a voltar ao ritmo."
+      "Hoje rendeu menos que sua média. Vamos retomar?",
+      "Hoje você avançou menos que o habitual. Que tal uma sessão curta?",
+      "O dia ainda não acabou. Uma sessão curta pode fazer diferença hoje!",
+      "Que tal retomar sua atividade? Uma sessão curta ajuda a voltar ao ritmo."
     ]);
   } else if (averageData.hasEnoughHistory && totalMinutes > 0 && totalMinutes >= averageData.averageMinutes) {
     reactiveLine = selectChoice([
-      `Bom ritmo hoje — ${formattedFocusTime} de foco. Continue assim.`,
-      `Ótimo trabalho! Já são ${formattedFocusTime} de foco acumulados hoje.`,
-      `Foco afiado hoje: ${formattedFocusTime} mantendo o controle do seu dia.`,
+      `Bom ritmo hoje — ${formattedFocusTime} de trabalho registrado. Continue assim.`,
+      `Ótimo trabalho! Já são ${formattedFocusTime} de tempo dedicado hoje.`,
+      `Boa dedicação hoje: ${formattedFocusTime} mantendo o controle do seu dia.`,
       `Consistência excelente! ${formattedFocusTime} dedicados ao que importa hoje.`
     ]);
   }
@@ -886,7 +879,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     if (dayOfWeek === 1 && currentHour >= 5 && currentHour < 12) {
       reactiveLine = selectChoice([
         "Semana nova. Comece com uma sessão e dê o tom.",
-        "Segunda-feira pede foco total para começar a semana com tudo.",
+        "Segunda-feira pede um bom começo para a semana.",
         "Nova semana, novas metas. Estabeleça seu ritmo logo cedo."
       ]);
     } else if (dayOfWeek === 5) {
@@ -910,25 +903,25 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       reactiveLine = selectChoice([
         "Manhã é seu tempo mais nobre. Aproveite.",
         "O dia está decolando. Defina sua prioridade número um agora.",
-        "Mente fresca e silenciosa nas primeiras horas. Melhor momento para focar."
+        "As primeiras horas podem ser um bom momento para começar uma tarefa importante."
       ]);
     } else if (currentHour >= 12 && currentHour < 18) {
       reactiveLine = selectChoice([
-        "Tarde rende. Que tal um bloco de foco?",
+        "Tarde rende. Que tal avançar em uma atividade?",
         "Metade do dia já foi. Mantenha a energia e a consistência.",
         "Hora de avançar nos projetos. Que tal uma sessão produtiva?"
       ]);
     } else if (currentHour >= 18 && currentHour < 23) {
       reactiveLine = selectChoice([
         "Boa hora pra fechar uma última sessão do dia.",
-        "Feche o dia com chave de ouro: mais um bloco de foco profundo.",
+        "Feche o dia com chave de ouro: mais uma sessão de trabalho.",
         "O dia está terminando. Que tal resolver aquela última pendência?"
       ]);
     } else {
       reactiveLine = selectChoice([
         "Tá tarde. Uma sessão curta e depois descanse.",
-        "Quase hora de dormir. Se for focar, faça um bloco curto.",
-        "Silêncio da noite ajuda a focar, mas priorize seu sono."
+        "Quase hora de dormir. Se for continuar, escolha uma tarefa curta.",
+        "A noite pede tranquilidade. Priorize seu sono."
       ]);
     }
   }
@@ -1214,9 +1207,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </button>
               
               <p className="text-xs sm:text-sm text-text font-medium leading-relaxed pr-6 text-left">
-                {dataStore.currentEnergyState === 'pleno' && "⚡ Você está no seu pico cognitivo. Condição ideal para iniciar uma Sessão Profunda agora."}
-                {dataStore.currentEnergyState === 'inquieto' && "🌪️ Energia alta, mas dispersa. Recomendação: faça tarefas rápidas ou um Brain Dump para canalizar a mente."}
-                {dataStore.currentEnergyState === 'equilibrado' && "⚖️ Ritmo de cruzeiro. Excelente momento para focar em tarefas operacionais e rotinas."}
+                {dataStore.currentEnergyState === 'pleno' && "⚡ Você está com bastante energia. Pode ser um bom momento para iniciar uma Sessão Profunda."}
+                {dataStore.currentEnergyState === 'inquieto' && "🌪️ Energia alta, mas dispersa. Recomendação: faça uma tarefa rápida ou anote tudo o que está na cabeça."}
+                {dataStore.currentEnergyState === 'equilibrado' && "⚖️ Seu ritmo está equilibrado. Um bom momento para avançar nas tarefas e rotinas."}
                 {dataStore.currentEnergyState === 'fadigado' && "🪫 Bateria baixa. Respeite seu limite cognitivo, feche o dia ou faça pausas longas."}
               </p>
             </motion.div>
@@ -1254,7 +1247,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   alertSchedule.isOverdue ? 'text-amber-400' : 'text-[#6ee7a8]'
                 }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${alertSchedule.isOverdue ? 'bg-amber-400 animate-pulse' : 'bg-[#6ee7a8] animate-ping'}`} />
-                  ● {alertSchedule.isOverdue ? 'Sessão Profunda Atrasada' : 'Sessão Profunda Iminente'}
+                  ● {alertSchedule.isOverdue ? 'Atividade atrasada' : 'Atividade próxima'}
                 </p>
                 <span className="text-[9px] font-mono font-bold bg-white/5 border border-white/5 px-2.5 py-0.5 rounded-full text-text-secondary/60">
                   {alertSchedule.scheduled_time}
@@ -1264,9 +1257,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <div className="space-y-1 text-left">
                 <h4 className="text-sm font-bold text-text-primary leading-tight font-sans">
                   {alertSchedule.isOverdue ? (
-                    <>Sua Sessão Profunda está atrasada! <span className="text-amber-400 font-extrabold">"{alertSchedule.activity.title}"</span> deveria ter começado.</>
+                    <>Sua atividade está atrasada! <span className="text-amber-400 font-extrabold">"{alertSchedule.activity.title}"</span> deveria ter começado.</>
                   ) : (
-                    <>Você tem uma Sessão Profunda agendada em breve: <span className="text-[#6ee7a8] font-extrabold">"{alertSchedule.activity.title}"</span>.</>
+                    <>Você tem uma atividade agendada em breve: <span className="text-[#6ee7a8] font-extrabold">"{alertSchedule.activity.title}"</span>.</>
                   )}
                 </h4>
               </div>
@@ -1354,7 +1347,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                             ● {habit.name}
                           </p>
                           <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
-                            <span className="text-[8px] font-mono font-bold uppercase text-green">{isJanela ? 'Janelas com resistência:' : 'Dias com resistência:'}</span>
+                            <span className="text-[8px] font-mono font-bold uppercase text-green">Sequência atual:</span>
                             <AnimatePresence mode="popLayout">
                               <motion.span
                                 key={isAnimating ? 'anim' : 'static'}
@@ -1363,7 +1356,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                                 exit={{ scale: 0.8, opacity: 0 }}
                                 className="text-xs font-mono font-black text-green inline-block"
                               >
-                                {isAnimating ? metrics.diasLimpoSeguidos + 1 : metrics.diasLimpoSeguidos}
+                                {metrics.currentStreak} {metrics.unitPlural}
                               </motion.span>
                             </AnimatePresence>
                           </div>
@@ -1375,7 +1368,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                           </h4>
                           {isJanela && (
                             <p className="text-[10px] font-mono text-text-dim/60 uppercase tracking-wider">
-                              Janela Programada: {mStart} às {mEnd}
+                              Período: {mStart} às {mEnd}
                             </p>
                           )}
                         </div>
@@ -1488,7 +1481,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   <div className="flex items-center justify-center gap-2 px-4 w-full opacity-80 animate-fade-in">
                     <Brain size={14} className="text-purple-400 shrink-0" />
                     <p className="text-white/60 font-light text-[12px] truncate">
-                      Faça uma pausa e retome o foco
+                      Faça uma pausa e retome sua atividade.
                     </p>
                   </div>
 
@@ -1506,13 +1499,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           
           {/* MOBILE DESIGN: Single line inline element, fully flat, de-boxed */}
           <div className="md:hidden flex flex-row items-center justify-center w-full py-2 select-none">
-            {/* Slot 1: Horas Focadas */}
+            {/* Slot 1: Tempo registrado */}
             <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-2">
               <span className="text-2xl sm:text-3xl font-mono font-bold text-text tracking-tighter leading-none">
                 {formatCompact(todayMinutesToShow)}
               </span>
               <span className="text-[10px] text-text-dim/60 text-center font-sans tracking-wide leading-tight mt-1.5 px-1 whitespace-nowrap">
-                Horas Focadas
+                Tempo registrado
               </span>
             </div>
 
@@ -1542,13 +1535,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
           {/* DESKTOP DESIGN: Single line inline element, fully flat, de-boxed, scaled for desktop */}
           <div className="hidden md:flex flex-row items-center justify-center w-full max-w-2xl mx-auto py-4 select-none">
-            {/* Slot 1: Horas Focadas */}
+            {/* Slot 1: Tempo registrado */}
             <div className="flex-1 flex flex-col items-center justify-center border-r border-white/5 px-4">
               <span className="text-3xl md:text-4xl font-mono font-bold text-text tracking-tighter leading-none">
                 {formatCompact(todayMinutesToShow)}
               </span>
               <span className="text-[10px] text-text-dim/70 text-center font-sans tracking-wider leading-tight mt-2 px-1 whitespace-nowrap uppercase">
-                Horas Focadas
+                Tempo registrado
               </span>
             </div>
 
@@ -1591,7 +1584,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             <div className="flex items-center justify-center gap-2 opacity-70">
               <Brain size={14} className="text-purple-400" />
               <p className="text-white/60 font-light text-[12px] truncate">
-                Faça uma pausa e retome o foco
+                Faça uma pausa e retome sua atividade.
               </p>
             </div>
           </div>

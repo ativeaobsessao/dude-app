@@ -36,21 +36,29 @@ export function getAvoidanceActiveWeekdays(habit: Habit): number[] {
   return [0, 1, 2, 3, 4, 5, 6];
 }
 
+function validDateKey(value?: string | null): string | null {
+  if (!value) return null;
+  const candidate = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : null;
+}
+
 function dateKeyFromCheckin(checkin: AvoidanceCheckin): string | null {
-  const raw = checkin.checkin_date?.slice(0, 10);
-  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const storedDate = validDateKey(checkin.checkin_date);
+  if (storedDate) return storedDate;
+
+  const occurredAt = checkin.occurred_at ? new Date(checkin.occurred_at) : null;
+  if (occurredAt && !Number.isNaN(occurredAt.getTime())) return getLocalDateString(occurredAt);
+
   if (!checkin.created_at) return null;
-  const parsed = new Date(checkin.created_at);
-  return Number.isNaN(parsed.getTime()) ? null : getLocalDateString(parsed);
+  const createdAt = new Date(checkin.created_at);
+  return Number.isNaN(createdAt.getTime()) ? null : getLocalDateString(createdAt);
 }
 
 function previousActiveDate(dateKey: string, activeWeekdays: number[]): string | null {
   const cursor = new Date(`${dateKey}T12:00:00`);
   for (let offset = 0; offset < 7; offset += 1) {
     cursor.setDate(cursor.getDate() - 1);
-    if (activeWeekdays.includes(cursor.getDay())) {
-      return getLocalDateString(cursor);
-    }
+    if (activeWeekdays.includes(cursor.getDay())) return getLocalDateString(cursor);
   }
   return null;
 }
@@ -66,10 +74,12 @@ function latestActiveDateOnOrBefore(dateKey: string, activeWeekdays: number[]): 
 
 export interface AvoidanceMetrics {
   isWindow: boolean;
-  unitLabel: 'dia' | 'janela';
-  unitPlural: 'dias' | 'janelas';
-  totalLabel: 'dias com resistência' | 'janelas com resistência';
+  unitLabel: 'dia' | 'período';
+  unitPlural: 'dias' | 'períodos';
+  totalLabel: 'dias com resistência' | 'períodos com resistência';
+  /** Current uninterrupted sequence of confirmed resistance on scheduled days. */
   currentStreak: number;
+  /** Best historical uninterrupted sequence of confirmed resistance on scheduled days. */
   bestStreak: number;
   confirmedDaysTotal: number;
   relapseDaysTotal: number;
@@ -79,12 +89,18 @@ export interface AvoidanceMetrics {
   lastCheckinDate: string | null;
   lastRelapseDate: string | null;
   hasAnyData: boolean;
-  // Compatibility aliases used by existing UI while the screens are migrated.
+  // Compatibility aliases used by older components while the screens are migrated.
   diasLimpoSeguidos: number;
   diasLimposTotal: number;
   maxStreak: number;
 }
 
+/**
+ * Calculates streaks from confirmed check-ins only.
+ * A scheduled day without a confirmed resistance record breaks a streak;
+ * it is never silently treated as a successful day.
+ * A relapse on a date takes precedence over any resistance record on that date.
+ */
 export function calculateAvoidanceMetrics(
   habit: Habit,
   allCheckins: AvoidanceCheckin[],
@@ -92,6 +108,7 @@ export function calculateAvoidanceMetrics(
 ): AvoidanceMetrics {
   const isWindow = isTimeWindowAvoidance(habit);
   const activeWeekdays = getAvoidanceActiveWeekdays(habit);
+  const todayKey = getLocalDateString(now);
   const grouped = new Map<string, {
     success: number;
     relapse: number;
@@ -107,7 +124,7 @@ export function calculateAvoidanceMetrics(
     if (checkin.habit_id !== habit.id) continue;
     const dateKey = dateKeyFromCheckin(checkin);
     const status = normalizeAvoidanceStatus(checkin.status);
-    if (!dateKey || !status) continue;
+    if (!dateKey || dateKey > todayKey || !status) continue;
 
     const current = grouped.get(dateKey) || {
       success: 0,
@@ -125,12 +142,11 @@ export function calculateAvoidanceMetrics(
       ? 'relapse'
       : current.success > 0
         ? 'success'
-        : null;
+        : 'pending';
 
     grouped.set(dateKey, current);
   }
 
-  const todayKey = getLocalDateString(now);
   const activeDates = Array.from(grouped.keys())
     .filter(dateKey => activeWeekdays.includes(new Date(`${dateKey}T12:00:00`).getDay()))
     .sort();
@@ -138,9 +154,7 @@ export function calculateAvoidanceMetrics(
   const confirmedDates = activeDates.filter(dateKey => grouped.get(dateKey)?.outcome === 'success');
   const relapseDates = activeDates.filter(dateKey => grouped.get(dateKey)?.outcome === 'relapse');
 
-  // Today remains pending until a real check-in is recorded. We therefore
-  // evaluate the latest completed monitoring day instead of counting time
-  // since habit creation.
+  // The current day is not counted until a real check-in is recorded.
   const todayIsActive = activeWeekdays.includes(now.getDay());
   const todayOutcome = grouped.get(todayKey)?.outcome || null;
   const currentAnchor = todayIsActive && !todayOutcome
@@ -176,14 +190,14 @@ export function calculateAvoidanceMetrics(
 
   const lastCheckinDate = activeDates.length > 0 ? activeDates[activeDates.length - 1] : null;
   const lastRelapseDate = relapseDates.length > 0 ? relapseDates[relapseDates.length - 1] : null;
-  const unitLabel = isWindow ? 'janela' : 'dia';
-  const unitPlural = isWindow ? 'janelas' : 'dias';
+  const unitLabel = isWindow ? 'período' : 'dia';
+  const unitPlural = isWindow ? 'períodos' : 'dias';
 
   return {
     isWindow,
     unitLabel,
     unitPlural,
-    totalLabel: isWindow ? 'janelas com resistência' : 'dias com resistência',
+    totalLabel: isWindow ? 'períodos com resistência' : 'dias com resistência',
     currentStreak,
     bestStreak,
     confirmedDaysTotal: confirmedDates.length,

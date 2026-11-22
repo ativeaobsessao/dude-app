@@ -78,6 +78,9 @@ export const AutocontroleLab: React.FC = () => {
   const profile = useDataStore(state => state.profile);
   const habits = useDataStore(state => state.habits);
   const avoidanceCheckins = useDataStore(state => state.avoidanceCheckins);
+  const sessions = useDataStore(state => state.sessions);
+  const projects = useDataStore(state => state.projects);
+  const activities = useDataStore(state => state.activities);
   const addAvoidanceCheckin = useDataStore(state => state.addAvoidanceCheckin);
   const updateAvoidanceCheckin = useDataStore(state => state.updateAvoidanceCheckin);
   const deleteAvoidanceCheckin = useDataStore(state => state.deleteAvoidanceCheckin);
@@ -95,8 +98,12 @@ export const AutocontroleLab: React.FC = () => {
   const summary = useMemo(() => analyzeAvoidancePatterns({
     checkins: avoidanceCheckins,
     selectedHabitId,
-    days: period
-  }), [avoidanceCheckins, selectedHabitId, period]);
+    days: period,
+    sessions,
+    projects,
+    activities,
+    habits: avoidHabits
+  }), [avoidanceCheckins, selectedHabitId, period, sessions, projects, activities, avoidHabits]);
 
   const selectedHabitName = selectedHabitId === 'all'
     ? 'Todos os acompanhamentos'
@@ -212,11 +219,11 @@ export const AutocontroleLab: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-200/15 bg-violet-200/[0.07] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100">
-            <ShieldCheck size={12} /> Laboratório pessoal
+            <ShieldCheck size={12} /> Autocontrole
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Padrões de autocontrole</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Entenda seus registros</h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
-            Registre o que aconteceu antes, durante e depois de cada episódio. Com o tempo, os registros ajudam a revelar situações recorrentes e estratégias úteis.
+            Registre recaídas e resistências. Com o tempo, você verá quais situações se repetem e o que costuma ajudar.
           </p>
         </div>
         <button
@@ -225,7 +232,7 @@ export const AutocontroleLab: React.FC = () => {
           disabled={avoidHabits.length === 0}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Plus size={15} /> Registrar acontecimento
+          <Plus size={15} /> Novo registro
         </button>
       </div>
 
@@ -240,7 +247,7 @@ export const AutocontroleLab: React.FC = () => {
         <>
           <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 flex-1">
-              <FieldLabel>Comportamento acompanhado</FieldLabel>
+              <FieldLabel>Qual comportamento?</FieldLabel>
               <select value={selectedHabitId} onChange={event => setSelectedHabitId(event.target.value)} className={selectClass}>
                 <option value="all">Todos os acompanhamentos</option>
                 {avoidHabits.map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}
@@ -278,36 +285,67 @@ export const AutocontroleLab: React.FC = () => {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label="Taxa de resistência" value={summary.resistanceRate === null ? '—' : `${summary.resistanceRate}%`} detail="Entre registros conclusivos" tone="green" />
             <Metric label="Taxa de recaída" value={summary.relapseRate === null ? '—' : `${summary.relapseRate}%`} detail="Entre registros conclusivos" tone="rose" />
-            <Metric label="Dias com resistência" value={String(summary.resistanceDays)} detail="Dias com registro, não dias presumidos" tone="green" />
-            <Metric label="Dias com recaída" value={String(summary.relapseDays)} detail="Dias com ocorrência registrada" tone="rose" />
+            <Metric label="Dias com resistência" value={String(summary.resistanceDays)} detail={selectedHabitId === 'all' ? 'Cada acompanhamento é contado separadamente.' : 'Datas com resistência registrada.'} tone="green" />
+            <Metric label="Dias com recaída" value={String(summary.relapseDays)} detail={selectedHabitId === 'all' ? 'Cada acompanhamento é contado separadamente.' : 'Datas com recaída registrada.'} tone="rose" />
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <section className="rounded-3xl border border-white/[0.07] bg-[#141820] p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">O que aparece antes das recaídas</h3>
-                  <p className="mt-1 text-xs text-zinc-500">Categorias registradas nos episódios.</p>
+                  <h3 className="text-sm font-semibold text-white">O que costuma vir antes</h3>
+                  <p className="mt-1 text-xs text-zinc-500">Situações e sentimentos informados nos registros.</p>
                 </div>
                 <Activity size={17} className="text-zinc-500" />
               </div>
+              {selectedHabitId === 'all' && summary.relapseByHabitDistribution.length > 0 && (
+                <div className="mt-5">
+                  <PatternList title="Comportamentos com recaída" items={summary.relapseByHabitDistribution} />
+                </div>
+              )}
               {summary.hasEnoughPatternData ? (
                 <div className="mt-5 space-y-4">
-                  <PatternList title="Gatilhos" items={summary.triggerDistribution} />
-                  <PatternList title="Estados emocionais" items={summary.emotionDistribution} />
-                  <PatternList title="Contextos" items={summary.environmentDistribution} />
-                  <PatternList title="Atividade anterior" items={summary.precedingActivityDistribution} />
-                  <p className="text-[10px] text-zinc-600">Leitura baseada em {summary.patternSample} recaídas registradas. Uma associação recorrente não prova que um fator causou o episódio.</p>
+                  <PatternList title="Gatilhos informados" items={summary.triggerDistribution} />
+                  <PatternList title="Como você se sentia" items={summary.emotionDistribution} />
+                  <PatternList title="Onde estava" items={summary.environmentDistribution} />
+                  <PatternList title="Atividade informada" items={summary.precedingActivityDistribution} />
+                  <div className="border-t border-white/[0.06] pt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Atividade registrada no DUDE</p>
+                    <p className="mt-1 text-[10px] text-zinc-600">Sessão em andamento ou concluída até 4 horas antes de cada recaída.</p>
+                    {summary.recordedSessionContextSample > 0 ? (
+                      <div className="mt-3 space-y-3">
+                        <PatternList title="Atividades" items={summary.recordedActivityBeforeRelapseDistribution} />
+                        <PatternList title="Projetos" items={summary.recordedProjectBeforeRelapseDistribution} />
+                        <p className="text-[10px] text-zinc-600">Encontramos uma sessão próxima em {summary.recordedSessionContextSample} recaídas. Proximidade no tempo não significa que a atividade causou o episódio.</p>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">Não encontramos sessões concluídas nas 4 horas anteriores às recaídas deste período.</p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-600">Considera {summary.patternSample} recaídas registradas. Um fator que aparece junto de uma recaída não significa, por si só, que a causou.</p>
                 </div>
               ) : (
-                <SampleNotice count={summary.patternSample} />
+                <>
+                  <SampleNotice count={summary.patternSample} />
+                  {summary.recordedSessionContextSample > 0 && (
+                    <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Sessões próximas às recaídas</p>
+                      <p className="mt-1 text-[10px] text-zinc-600">Sessões em andamento ou concluídas até 4 horas antes.</p>
+                      <div className="mt-3 space-y-3">
+                        <PatternList title="Atividades" items={summary.recordedActivityBeforeRelapseDistribution} />
+                        <PatternList title="Projetos" items={summary.recordedProjectBeforeRelapseDistribution} />
+                      </div>
+                      <p className="mt-3 text-[10px] text-zinc-600">Encontramos uma sessão próxima em {summary.recordedSessionContextSample} recaídas. Isso mostra proximidade no tempo, não uma causa.</p>
+                    </div>
+                  )}
+                </>
               )}
             </section>
 
             <section className="rounded-3xl border border-white/[0.07] bg-[#141820] p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Quando os episódios aparecem</h3>
+                  <h3 className="text-sm font-semibold text-white">Quando acontece</h3>
                   <p className="mt-1 text-xs text-zinc-500">Distribuição por horário e dia da semana.</p>
                 </div>
                 <CalendarDays size={17} className="text-zinc-500" />
@@ -332,7 +370,7 @@ export const AutocontroleLab: React.FC = () => {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <section className="rounded-3xl border border-white/[0.07] bg-[#141820] p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-white">O que ajudou nas resistências</h3>
+              <h3 className="text-sm font-semibold text-white">O que ajudou você</h3>
               <p className="mt-1 text-xs text-zinc-500">Estratégias que você marcou quando conseguiu interromper o impulso.</p>
               {resistanceActions.length > 0 ? (
                 <div className="mt-4 space-y-3">
@@ -349,7 +387,7 @@ export const AutocontroleLab: React.FC = () => {
             </section>
 
             <section className="rounded-3xl border border-white/[0.07] bg-[#141820] p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-white">Intensidade do impulso</h3>
+              <h3 className="text-sm font-semibold text-white">Intensidade da vontade</h3>
               <p className="mt-1 text-xs text-zinc-500">Média informada nos registros deste período.</p>
               {summary.averageUrgeIntensity !== null ? (
                 <div className="mt-5">
@@ -371,7 +409,7 @@ export const AutocontroleLab: React.FC = () => {
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-200/10 text-violet-100"><Activity size={17} /></div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/70">Leitura do período</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-100/70">O que os registros mostram</p>
                 {summary.hasEnoughPatternData && summary.topRelapseTrigger ? (
                   <>
                     <h3 className="mt-2 text-base font-semibold text-white">“{summary.topRelapseTrigger.label}” aparece com mais frequência.</h3>
@@ -380,7 +418,7 @@ export const AutocontroleLab: React.FC = () => {
                 ) : (
                   <>
                     <h3 className="mt-2 text-base font-semibold text-white">Ainda não há amostra suficiente para apontar um padrão.</h3>
-                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">O painel começa a destacar recorrências a partir de 3 recaídas distribuídas em pelo menos 2 dias. Até lá, mostraremos apenas os registros, sem tirar conclusões.</p>
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">Mostramos padrões quando há pelo menos 3 recaídas em 2 dias diferentes. Antes disso, exibimos apenas os registros.</p>
                   </>
                 )}
                 {summary.relapseRateChange !== null && (
@@ -396,8 +434,8 @@ export const AutocontroleLab: React.FC = () => {
           <section className="rounded-3xl border border-white/[0.07] bg-[#141820] p-5 sm:p-6">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-white">Histórico e anotações</h3>
-                <p className="mt-1 text-xs text-zinc-500">Cada registro preserva a data, o contexto e o que você escreveu.</p>
+                <h3 className="text-sm font-semibold text-white">Registros e anotações</h3>
+                <p className="mt-1 text-xs text-zinc-500">Consulte, edite ou remova seus registros.</p>
               </div>
               <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[10px] text-zinc-400">{summary.totalEvents} registros</span>
             </div>
@@ -405,7 +443,7 @@ export const AutocontroleLab: React.FC = () => {
               <div className="rounded-2xl border border-dashed border-white/[0.09] px-4 py-9 text-center">
                 <FileText size={20} className="mx-auto text-zinc-600" />
                 <p className="mt-3 text-xs text-zinc-500">Nenhum registro encontrado neste período.</p>
-                <button type="button" onClick={openNewEvent} className="mt-4 text-xs font-semibold text-emerald-200 hover:text-white">Adicionar primeiro registro</button>
+                <button type="button" onClick={openNewEvent} className="mt-4 text-xs font-semibold text-emerald-200 hover:text-white">Criar primeiro registro</button>
               </div>
             ) : (
               <div className="space-y-2">
@@ -449,7 +487,7 @@ export const AutocontroleLab: React.FC = () => {
 
           <div className="flex items-start gap-2 px-1 text-[10px] leading-relaxed text-zinc-600">
             <AlertCircle size={13} className="mt-0.5 shrink-0" />
-            <p>Os padrões são descritivos e dependem da qualidade dos registros. O DUDE não diagnostica dependências nem substitui acompanhamento profissional.</p>
+            <p>Os resultados mostram apenas o que foi registrado. O DUDE não faz diagnósticos nem substitui acompanhamento profissional.</p>
           </div>
         </>
       )}
@@ -500,7 +538,7 @@ export const AutocontroleLab: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <FieldLabel>Gatilho percebido</FieldLabel>
+                    <FieldLabel>O que veio antes?</FieldLabel>
                     <select value={form.triggerTag} onChange={event => setForm(current => ({ ...current, triggerTag: event.target.value }))} className={selectClass}>
                       <option value="">Não identificado</option>
                       {triggerOptions.map(option => <option key={option} value={option}>{option}</option>)}
@@ -603,8 +641,8 @@ const PatternList = ({ title, items }: { title: string; items: Array<{ label: st
 
 const SampleNotice = ({ count }: { count: number }) => (
   <div className="mt-5 rounded-2xl bg-white/[0.025] p-4">
-    <div className="flex items-center gap-2 text-zinc-300"><Activity size={15} /><span className="text-xs font-medium">Dados ainda limitados</span></div>
-    <p className="mt-2 text-xs leading-relaxed text-zinc-500">Há {count} {count === 1 ? 'recaída registrada' : 'recaídas registradas'} neste período. Para destacar padrões, aguardamos pelo menos 3 ocorrências distribuídas em 2 dias diferentes.</p>
+    <div className="flex items-center gap-2 text-zinc-300"><Activity size={15} /><span className="text-xs font-medium">Ainda não há dados suficientes</span></div>
+    <p className="mt-2 text-xs leading-relaxed text-zinc-500">Há {count} {count === 1 ? 'recaída registrada' : 'recaídas registradas'} neste período. Mostraremos situações recorrentes quando houver pelo menos 3 registros em 2 dias diferentes.</p>
   </div>
 );
 

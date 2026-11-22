@@ -377,7 +377,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
               transition={{ duration: 3 }}
               className="absolute inset-0 pointer-events-none overflow-hidden"
             >
-              {/* Estrelas / Partículas em Deriva (Foco Desfocado) */}
+              {/* Estrelas e partículas em deriva */}
               {[...Array(20)].map((_, i) => (
                 <motion.div
                   key={i}

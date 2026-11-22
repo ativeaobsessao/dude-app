@@ -80,7 +80,7 @@ export const SessaoProfundaTab = () => {
     const activityName = cleanActivityName(finalActivityName) || 'Sessão Sem Título';
     const totalMinutes = hours * 60 + minutes;
     if (totalMinutes < 1) {
-      dataStore.showNotification('Por favor, defina um tempo válido de foco!', 'error');
+      dataStore.showNotification('Defina uma duração válida para a sessão.', 'error');
       return;
     }
 
@@ -193,7 +193,7 @@ export const SessaoProfundaTab = () => {
       setPendingTasks([]);
       setNewTaskInput('');
 
-      dataStore.showNotification('🚀 Sessão Profunda iniciada! Foco total ativado.', 'success');
+      dataStore.showNotification('Sessão iniciada. Você já pode começar.', 'success');
     }
   };
 
@@ -223,7 +223,7 @@ export const SessaoProfundaTab = () => {
             {(timer.activityName && timer.activityName !== 'Sessão Sem Título') ? timer.activityName : 'Sessão Profunda'}
           </h3>
           <p className="text-xs text-text-secondary/70 leading-normal max-w-sm mx-auto">
-            Uma sessão profissional de foco absoluto está rodando em segundo plano. Use o painel centralizado para gerenciar.
+            Sua sessão está em andamento. Use os controles para acompanhar o tempo.
           </p>
         </div>
         
@@ -235,12 +235,12 @@ export const SessaoProfundaTab = () => {
             }} 
             className="w-full py-3.5 bg-green hover:brightness-110 active:scale-95 text-background rounded-2xl text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-[0_4px_2px_rgba(110,231,168,0.15)] font-sans"
           >
-            Abrir Controles de Foco
+            Ver sessão em andamento
           </button>
           <button 
             type="button" 
             onClick={() => {
-              if (confirm('Tem certeza de que deseja encerrar e cancelar esta sessão de foco?')) {
+              if (confirm('Tem certeza de que deseja encerrar esta sessão?')) {
                 timer.reset();
                 dataStore.showNotification('Sessão cancelada.', 'success');
               }
@@ -265,7 +265,7 @@ export const SessaoProfundaTab = () => {
         <header className="space-y-2.5 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
             <Sparkles size={11} className="animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-wider font-sans">Modo foco</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider font-sans">Sessão em andamento</span>
           </div>
           <div className="space-y-1">
             <h2 className="text-2xl font-black tracking-tight text-text-primary uppercase font-sans">

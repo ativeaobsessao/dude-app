@@ -176,7 +176,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
       .join('\n\n---\n\n');
     
     const blob = new Blob([combinedMarkdown], { type: 'text/markdown;charset=utf-8' });
-    downloadBlob(blob, 'anotacoes-foco.md');
+    downloadBlob(blob, 'anotacoes-dude.md');
     dataStore.showNotification('Download iniciado ✓', 'success');
     setShowDownloadDialog(false);
   };
@@ -193,7 +193,7 @@ export const NotesHistoryOverlay: React.FC<NotesHistoryOverlayProps> = ({ isOpen
     
     try {
       const content = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(content, 'anotacoes-foco.zip');
+      downloadBlob(content, 'anotacoes-dude.zip');
       dataStore.showNotification('Download iniciado ✓', 'success');
       setShowDownloadDialog(false);
     } catch (err) {

@@ -44,7 +44,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
           <div className="space-y-6 text-sm text-text-dim leading-relaxed font-sans">
             <p className="text-white font-medium text-[1rem]/[1.5rem]">
-              A nossa promessa é simples: os seus dados são seus. Nós construímos a DUDE para ser a sua ferramenta definitiva de controle de hábitos e foco, não para vender a sua intimidade. Este documento explica de forma clara e sem letras miúdas como tratamos as suas informações e quais são as regras do jogo.
+              A nossa promessa é simples: os seus dados são seus. Nós construímos a DUDE para ser a sua ferramenta definitiva de controle de hábitos e organização do tempo, não para vender a sua intimidade. Este documento explica de forma clara e sem letras miúdas como tratamos as suas informações e quais são as regras do jogo.
             </p>
 
             <div className="space-y-3 bg-surface-1/50 border border-border-custom p-6 rounded-3xl mt-8">
@@ -64,7 +64,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
                 <li className="flex items-start gap-2">
                   <span className="text-green select-none font-bold mt-0.5">•</span>
                   <span>
-                    <strong className="text-white">Dados de Uso:</strong> Seus registros de hábitos, sessões de foco, variações de humor e histórico do sistema anti-vício.
+                    <strong className="text-white">Dados de Uso:</strong> Seus registros de hábitos, sessões de trabalho, variações de humor e histórico do acompanhamento de autocontrole.
                   </span>
                 </li>
               </ul>

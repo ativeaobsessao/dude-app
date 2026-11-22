@@ -919,7 +919,7 @@ export const TaskListScreen: React.FC<TaskListScreenProps> = ({ onStartSession }
     };
 
     onStartSession(activityPayload);
-    dataStore.showNotification('Sessão Profunda configurada para esta tarefa! Inicie para focar. ⚡', 'success');
+    dataStore.showNotification('Sessão Profunda configurada para esta tarefa. Você já pode iniciar.', 'success');
   };
 
   // Agendar Click (converts daily task to fix-time ScheduledActivity)

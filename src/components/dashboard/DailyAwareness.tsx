@@ -25,7 +25,7 @@ export const DailyAwareness = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 border-t border-border-white pt-6 md:pt-8">
-        <MetricItem label="Tempo focado hoje" value={formatHumanTime(totalMinutesToday)} />
+        <MetricItem label="Tempo registrado hoje" value={formatHumanTime(totalMinutesToday)} />
         <MetricItem label="Sessões profundas" value={`${deepSessionsCountToday} sessões profundas`} />
         <MetricItem label="Dias Invictos" value={`${currentStreak} dias`} />
       </div>

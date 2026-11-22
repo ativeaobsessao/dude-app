@@ -56,7 +56,7 @@ export const TermsOfUse: React.FC<TermsOfUseProps> = ({ onBack }) => {
                 </h2>
               </div>
               <p className="text-xs text-text-dim/90 leading-relaxed">
-                A DUDE é uma ferramenta de produtividade, organização e autoconhecimento. Os nossos módulos de rastreamento e o sistema "Anti-Vício" são desenhados para auxiliar na sua disciplina pessoal, mas não substituem, sob nenhuma hipótese, diagnósticos médicos, tratamentos clínicos, aconselhamento psicológico ou terapia profissional. Se você estiver enfrentando dependências severas ou crises de saúde mental, procure ajuda de um profissional de saúde qualificado.
+                A DUDE é uma ferramenta de produtividade, organização e autoconhecimento. Os nossos módulos de rastreamento e o acompanhamento de autocontrole são desenhados para auxiliar na sua disciplina pessoal, mas não substituem, sob nenhuma hipótese, diagnósticos médicos, tratamentos clínicos, aconselhamento psicológico ou terapia profissional. Se você estiver enfrentando dependências severas ou crises de saúde mental, procure ajuda de um profissional de saúde qualificado.
               </p>
             </div>
           </div>

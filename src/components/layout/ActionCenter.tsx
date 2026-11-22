@@ -1432,7 +1432,7 @@ export const ActionCenter = () => {
           <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-6 px-6 md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {avoidHabits.map((habit) => {
               const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-              const totalLabel = metrics.totalLabel;
+              const unit = metrics.unitPlural;
               return (
                 <motion.div
                   whileTap={{ scale: 0.96 }}
@@ -1442,12 +1442,13 @@ export const ActionCenter = () => {
                 >
                   <div className="space-y-1">
                     <h3 className="text-4xl font-light text-white tracking-tight leading-none">
-                      {metrics.confirmedDaysTotal}
+                      {metrics.bestStreak}
                     </h3>
-                    <p className="text-[11px] text-white/45">{totalLabel}</p>
-                    <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-1">
+                    <p className="text-[11px] text-white/45">Recorde · {unit} consecutivos</p>
+                    <h4 className="text-sm font-medium text-white/80 tracking-wide font-sans mt-2">
                       {habit.name}
                     </h4>
+                    <p className="mt-1 text-[11px] text-white/45">Atual: {metrics.currentStreak} {unit} seguidos</p>
                   </div>
                   <button
                     onClick={(e) => {
@@ -1456,13 +1457,13 @@ export const ActionCenter = () => {
                     }}
                     className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
                   >
-                    Editar controle
+                    Editar acompanhamento
                   </button>
                 </motion.div>
               );
             })}
             
-            {/* Minimalist '+' Card for Anti-Vicio */}
+            {/* Novo acompanhamento */}
             <motion.div
               whileTap={{ scale: 0.96 }}
               onClick={() => setCurrentScreen('anti-vicio')}
@@ -1472,7 +1473,7 @@ export const ActionCenter = () => {
                 <Plus size={24} />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/60">
-                Novo Controle
+                Novo acompanhamento
               </span>
             </motion.div>
           </div>
@@ -2836,7 +2837,7 @@ export const ActionCenter = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="text-3xl font-bold tracking-tight text-text-primary">
-                            {editingAvoidanceId ? 'Editar acompanhamento' : 'Novo Autocontrole'}
+                            {editingAvoidanceId ? 'Editar acompanhamento' : 'Novo acompanhamento'}
                           </h3>
                           <p className="text-xs text-text-secondary/60 mt-1">
                             {editingAvoidanceId ? 'Ajuste os horários e a frequência dos registros.' : 'Escolha o comportamento e defina quando deseja acompanhá-lo.'}
@@ -2853,7 +2854,7 @@ export const ActionCenter = () => {
                             }}
                             className="text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-widest px-3 py-1 bg-red-400/10 rounded-full"
                           >
-                            Cancelar Edição
+                            Cancelar
                           </button>
                         )}
                       </div>
@@ -3089,7 +3090,7 @@ export const ActionCenter = () => {
                             {editingHabitId ? 'Editar Hábito' : 'Novo Hábito'}
                           </h3>
                           <p className="text-xs text-text-secondary/60 mt-1">
-                            {editingHabitId ? 'Ajuste os detalhes do seu hábito e recorrência.' : 'Configure sua prática e construa consistência.'}
+                            {editingHabitId ? 'Ajuste os detalhes do seu hábito e recorrência.' : 'Escolha o comportamento e defina em quais dias deseja acompanhá-lo.'}
                           </p>
                         </div>
                         {editingHabitId && (
