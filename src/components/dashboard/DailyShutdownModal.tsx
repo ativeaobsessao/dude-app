@@ -2,9 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut, Moon, Shield, Sword, Zap, BatteryMedium, BatteryLow, Activity } from 'lucide-react';
+import { X, CheckCircle, Brain, Target, Compass, Lock, LogOut, Moon, Shield, AlertCircle, Zap, BatteryMedium, BatteryLow, Activity } from 'lucide-react';
 import { DailyClosureOverlay } from './DailyClosureOverlay';
 import { DecompressionSession } from './DecompressionSession';
+import { getLocalDateString } from '../../lib/utils';
+import { normalizeAvoidanceStatus } from '../../lib/avoidanceMetrics';
 
 interface DailyShutdownModalProps {
   isOpen: boolean;
@@ -51,8 +53,8 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     if (isOpen) setInternalClosed(false);
   }, [isOpen]);
 
-  const todaySessions = sessions.filter(s => s.started_at && s.started_at.startsWith(targetDate));
-  const totalMinutes = todaySessions.reduce((acc, curr) => acc + (curr.duration_minutes || 0), 0);
+  const todaySessions = sessions.filter(s => s.started_at && getLocalDateString(new Date(s.started_at)) === targetDate);
+  const totalMinutes = todaySessions.reduce((acc, curr) => acc + (curr.actual_duration_minutes ?? (curr.completed ? curr.duration_minutes ?? 0 : 0)), 0);
   
   const todayAvoidanceCheckins = avoidanceCheckins.filter(c => {
     if (!c.checkin_date) return false;
@@ -101,22 +103,22 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
     let wins = 0;
     let relapses = 0;
     todayAvoidanceCheckins.forEach(ac => {
-      const status = ac.status?.toLowerCase();
-      if (status === 'resisti' || status === 'success') {
+      const status = normalizeAvoidanceStatus(ac.status);
+      if (status === 'success') {
         wins++;
-      } else if (status === 'recai' || status === 'relapse') {
+      } else if (status === 'relapse') {
         relapses++;
       }
     });
     return { wins, relapses };
   }, [todayAvoidanceCheckins]);
 
-  const totalBattlesToday = todayAvoidanceCheckins.length;
+  const totalRecordsToday = avoidanceStats.wins + avoidanceStats.relapses;
 
   const timeByProject = useMemo(() => {
     const times: Record<string, number> = {};
     todaySessions.forEach(s => {
-      const dur = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+      const dur = s.actual_duration_minutes ?? (s.completed ? s.duration_minutes ?? 0 : 0);
       const pName = s.project_id ? (projects.find(p => p.id === s.project_id)?.name || 'Outro Projeto') : 'Avulso';
       times[pName] = (times[pName] || 0) + dur;
     });
@@ -291,20 +293,20 @@ export const DailyShutdownModal = ({ isOpen, onClose, targetDate, isCatchUp }: D
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" />
-                      <span className="text-xs font-medium text-zinc-300">Programadas</span>
+                      <span className="text-xs font-medium text-zinc-300">Registros</span>
                     </div>
-                    <span className="text-sm font-semibold text-zinc-100">{totalBattlesToday}</span>
+                    <span className="text-sm font-semibold text-zinc-100">{totalRecordsToday}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <Shield size={14} className="text-emerald-500" />
-                      <span className="text-xs font-medium text-zinc-300">Vitórias</span>
+                      <span className="text-xs font-medium text-zinc-300">Resistências</span>
                     </div>
                     <span className="text-sm font-semibold text-emerald-400">{avoidanceStats.wins}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <Sword size={14} className="text-rose-500" />
+                      <AlertCircle size={14} className="text-rose-500" />
                       <span className="text-xs font-medium text-zinc-300">Recaídas</span>
                     </div>
                     <span className="text-sm font-semibold text-rose-400">{avoidanceStats.relapses}</span>

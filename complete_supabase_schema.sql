@@ -229,6 +229,12 @@ CREATE TABLE IF NOT EXISTS public.avoidance_checkins (
   prompts_shown INTEGER,
   intensity INTEGER,
   time_spent INTEGER,
+  urge_intensity SMALLINT,
+  emotion_tag TEXT,
+  environment_tag TEXT,
+  preceding_activity TEXT,
+  recovery_action TEXT,
+  occurred_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

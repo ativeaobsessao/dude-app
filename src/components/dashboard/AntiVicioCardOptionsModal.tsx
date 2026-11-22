@@ -16,7 +16,8 @@ export const AntiVicioCardOptionsModal: React.FC<AntiVicioCardOptionsModalProps>
   onClose,
   habit,
 }) => {
-  const dataStore = useDataStore();
+  const deleteAvoidanceHabit = useDataStore(state => state.deleteAvoidanceHabit);
+  const showNotification = useDataStore(state => state.showNotification);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -34,13 +35,14 @@ export const AntiVicioCardOptionsModal: React.FC<AntiVicioCardOptionsModalProps>
   const handleConfirmDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
-    try {
-      await dataStore.deleteAvoidanceHabit(habit.id);
-      dataStore.showNotification('Módulo Anti-Vício removido com sucesso.', 'success');
-    } finally {
-      setIsDeleting(false);
-      onClose();
+    const deleted = await deleteAvoidanceHabit(habit.id);
+    setIsDeleting(false);
+    if (!deleted) {
+      showNotification('Não foi possível remover o acompanhamento. Tente novamente.', 'error');
+      return;
     }
+    showNotification('Acompanhamento removido.', 'success');
+    onClose();
   };
 
   return (
@@ -95,7 +97,7 @@ export const AntiVicioCardOptionsModal: React.FC<AntiVicioCardOptionsModalProps>
                   <div className="w-9 h-9 rounded-full bg-primary-green/10 flex items-center justify-center text-primary-green shrink-0">
                     <Pencil size={16} />
                   </div>
-                  Editar Anti-Vício
+                  Editar acompanhamento
                 </button>
 
                 <button
@@ -105,7 +107,7 @@ export const AntiVicioCardOptionsModal: React.FC<AntiVicioCardOptionsModalProps>
                   <div className="w-9 h-9 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 shrink-0">
                     <Trash2 size={16} />
                   </div>
-                  Apagar Anti-Vício
+                  Remover acompanhamento
                 </button>
               </div>
 
@@ -124,8 +126,8 @@ export const AntiVicioCardOptionsModal: React.FC<AntiVicioCardOptionsModalProps>
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleConfirmDelete}
-        title="Apagar Anti-Vício?"
-        message={`Tem certeza que deseja apagar o controle "${habit.name}"? Todo o histórico de check-ins será perdido permanentemente.`}
+        title="Remover acompanhamento?"
+        message={`Tem certeza que deseja remover o acompanhamento "${habit.name}"? Os registros e as anotações serão mantidos no histórico, mas ficarão sem vínculo com este controle.`}
       />
     </>
   );

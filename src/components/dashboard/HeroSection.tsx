@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
@@ -6,7 +7,7 @@ import { usePWA } from '../../context/PWAContext';
 import { Moon, X, Calendar, Shield, Bell, Brain, Hand, Flame, CheckCircle2, Settings, RotateCcw } from 'lucide-react';
 import { resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString } from '../../lib/utils';
 
-import { calculateAvoidanceMetrics } from './AvoidanceSection';
+import { calculateAvoidanceMetrics, getAvoidanceActiveWeekdays, isTimeWindowAvoidance, normalizeAvoidanceStatus } from '../../lib/avoidanceMetrics';
 import { DailyReopenModal } from './DailyReopenModal';
 import { Habit, AvoidanceCheckin } from '../../types';
 import { playScheduleSound } from '../../hooks/useSessionNotifications';
@@ -21,7 +22,24 @@ interface HeroSectionProps {
 
 export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps) => {
   const timer = useTimerStore();
-  const dataStore = useDataStore();
+  const dataStore = useDataStore(useShallow(state => ({
+    addAvoidanceCheckin: state.addAvoidanceCheckin,
+    avoidanceCheckins: state.avoidanceCheckins,
+    currentEnergyState: state.currentEnergyState,
+    dailyShutdowns: state.dailyShutdowns,
+    dailyTasks: state.dailyTasks,
+    deleteDailyShutdown: state.deleteDailyShutdown,
+    habitCompletions: state.habitCompletions,
+    habits: state.habits,
+    initialFetchDone: state.initialFetchDone,
+    profile: state.profile,
+    projects: state.projects,
+    scheduledActivities: state.scheduledActivities,
+    sessions: state.sessions,
+    showNotification: state.showNotification,
+    updateAvoidanceCheckin: state.updateAvoidanceCheckin,
+    updateDailyGoal: state.updateDailyGoal
+  })));
   
   const [isAntiVicioOpen, setIsAntiVicioOpen] = useState(false);
   const [antiVicioHabitId, setAntiVicioHabitId] = useState<string | undefined>(undefined);
@@ -45,8 +63,8 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
   });
 
-  const dismissAntiVicio = (habitId: string, windowLabel: string) => {
-    const key = `${habitId}:${windowLabel}`;
+  const dismissAntiVicio = (habitId: string, windowLabel: string, promptIndex = 1) => {
+    const key = `${habitId}:${windowLabel}:${promptIndex}`;
     setDismissedAntiVicioKeys(prev => {
       const next = prev.includes(key) ? prev : [...prev, key];
       sessionStorage.setItem('dude_dismissed_anti_vicio_keys', JSON.stringify(next));
@@ -243,11 +261,31 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     };
   }, [dataStore.dailyTasks, dataStore.scheduledActivities, dataStore.habits, dataStore.habitCompletions]);
 
-  const todaySessions = dataStore.sessions.filter(s => getLocalDateString(new Date(s.started_at)) === today);
-  const totalMinutes = todaySessions.reduce((acc, s) => acc + s.duration_minutes, 0);
+  const todaySessions = dataStore.sessions.filter(s => s.started_at && getLocalDateString(new Date(s.started_at)) === today);
+  const totalMinutes = todaySessions.reduce((acc, session) => {
+    const trackedMinutes = session.actual_duration_minutes ?? (session.completed ? session.duration_minutes ?? 0 : 0);
+    return acc + Math.max(0, trackedMinutes);
+  }, 0);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  const streak = dataStore.profile?.current_streak || 0;
+  const streak = useMemo(() => {
+    const completedDates = new Set(
+      dataStore.sessions
+        .filter(session => session.completed && session.started_at)
+        .map(session => getLocalDateString(new Date(session.started_at)))
+    );
+    if (completedDates.size === 0) return 0;
+
+    const cursor = new Date(`${today}T12:00:00`);
+    if (!completedDates.has(today)) cursor.setDate(cursor.getDate() - 1);
+
+    let current = 0;
+    while (completedDates.has(getLocalDateString(cursor))) {
+      current += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return current;
+  }, [dataStore.sessions, today]);
 
   const compactFocusTime = hours === 0
     ? `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`
@@ -273,11 +311,9 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const averageData = useMemo(() => {
     const map: { [key: string]: number } = {};
     dataStore.sessions.forEach(s => {
-      if (!s.completed) return;
+      if (!s.completed || !s.started_at) return;
       const sDate = getLocalDateString(new Date(s.started_at));
-      const mins = s.actual_duration_minutes !== null && s.actual_duration_minutes !== undefined
-        ? s.actual_duration_minutes
-        : s.duration_minutes;
+      const mins = s.actual_duration_minutes ?? s.duration_minutes ?? 0;
       map[sDate] = (map[sDate] || 0) + mins;
     });
 
@@ -341,34 +377,20 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
   const [showTriggerInputModal, setShowTriggerInputModal] = useState(false);
   const [relapsedCheckinId, setRelapsedCheckinId] = useState<string | null>(null);
   const [triggerNoteText, setTriggerNoteText] = useState('');
+  const [relapseTriggerTag, setRelapseTriggerTag] = useState('');
+  const [relapseEmotionTag, setRelapseEmotionTag] = useState('');
+  const [relapseEnvironmentTag, setRelapseEnvironmentTag] = useState('');
+  const [relapsePrecedingActivity, setRelapsePrecedingActivity] = useState('');
+  const [relapseUrgeIntensity, setRelapseUrgeIntensity] = useState(5);
 
   const [showCheckinModal, setShowCheckinModal] = useState(false);
 
-  // Estados para as frases rotativas do Chip de Monitoramento de Autocontrole
-  const chipPhrases = useMemo(() => [
-    "⚠ Como está sua vontade?",
-    "⚠ Sua vontade está sob controle?",
-    "⚠ Pausa: como você está agora?",
-    "⚠ Tudo certo com seu controle?"
-  ], []);
-  const [chipPhraseIndex, setChipPhraseIndex] = useState(0);
-  const [displayPhrase, setDisplayPhrase] = useState(chipPhrases[0]);
-  const [fadePhrase, setFadePhrase] = useState(true);
-
+  // Atualiza a avaliação dos horários sem depender de outras mudanças na tela.
+  const [clockNow, setClockNow] = useState(() => Date.now());
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFadePhrase(false);
-      setTimeout(() => {
-        setChipPhraseIndex(prev => {
-          const nextIdx = (prev + 1) % chipPhrases.length;
-          setDisplayPhrase(chipPhrases[nextIdx]);
-          return nextIdx;
-        });
-        setFadePhrase(true);
-      }, 300); // 300ms de duração para o fade out
-    }, 5000); // Rotação a cada 5 segundos
+    const interval = setInterval(() => setClockNow(Date.now()), 30_000);
     return () => clearInterval(interval);
-  }, [chipPhrases]);
+  }, []);
 
   const [cooldownsVal, setCooldownsVal] = useState<Record<string, number>>(() => {
     try {
@@ -388,23 +410,23 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
   });
 
-  const registerCooldown = (habitId: string) => {
-    const updated = { ...cooldownsVal, [habitId]: Date.now() };
+  const registerCooldown = (promptKey: string) => {
+    const updated = { ...cooldownsVal, [promptKey]: Date.now() };
     setCooldownsVal(updated);
     try {
       localStorage.setItem('dude_antivicio_cooldowns', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.warn('Não foi possível salvar o intervalo do lembrete.', error);
     }
   };
 
-  const registerSnooze = (habitId: string) => {
-    const updated = { ...snoozesVal, [habitId]: Date.now() + 2 * 60 * 60 * 1000 };
+  const registerSnooze = (promptKey: string) => {
+    const updated = { ...snoozesVal, [promptKey]: Date.now() + 2 * 60 * 60 * 1000 };
     setSnoozesVal(updated);
     try {
       localStorage.setItem('dude_antivicio_snoozes', JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.warn('Não foi possível adiar o lembrete.', error);
     }
   };
 
@@ -418,7 +440,6 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
         
-        osc. oscillators = osc;
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, start);
         
@@ -437,118 +458,190 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
       playTone(659.25, nowTime + 0.08, 0.18); // E5
       playTone(783.99, nowTime + 0.16, 0.18); // G5
       playTone(1046.50, nowTime + 0.24, 0.35); // C6
+      setTimeout(() => { if (ctx.state !== 'closed') ctx.close().catch(() => {}); }, 750);
     } catch (e) {
       console.error('Failed to play victory sound', e);
     }
   };
 
   const pendingAvoidanceHabits = useMemo(() => {
-    const avoidHabits = dataStore.habits.filter(h => h.habit_mode === 'avoid');
+    const avoidHabits = dataStore.habits.filter(habit => habit.habit_mode === 'avoid');
     if (avoidHabits.length === 0 || !dataStore.profile?.id) return [];
 
-    const now = new Date();
+    const now = new Date(clockNow);
     const nowTime = now.getTime();
     const todayStr = getLocalDateString(now);
-    const dayOfWeek = now.getDay();
+    const currentHour = now.getHours();
+    const results: Array<{
+      habit: Habit;
+      windowLabel: string;
+      checkinPeriod: string;
+      promptIndex: number;
+      checkinDate: string;
+    }> = [];
 
-    const getWeekdays = (weekdaysStr?: string): number[] => {
-      if (!weekdaysStr || weekdaysStr === 'all' || weekdaysStr === '') {
-        return [0, 1, 2, 3, 4, 5, 6];
-      }
-      return weekdaysStr.split(',').map(Number);
-    };
+    for (const habit of avoidHabits) {
+      const isWindow = isTimeWindowAvoidance(habit);
+      const cooldownHours = isWindow ? 4 : 3;
+      const activeWeekdays = getAvoidanceActiveWeekdays(habit);
+      const intensity = habit.avoidance_checkin_intensity || 'balanced';
 
-    const results = [];
+      const addIfPending = (
+        windowLabel: string,
+        checkinPeriod: string,
+        checkinDate: string,
+        requiredCount: number,
+        slotIndex?: number
+      ) => {
+        const related = dataStore.avoidanceCheckins.filter(checkin => {
+          if (checkin.habit_id !== habit.id) return false;
+          if (checkin.window_label === windowLabel) return true;
+          // Compatibility with records created before each monitoring slot had its own label.
+          const sameDate = checkin.checkin_date?.slice(0, 10) === checkinDate;
+          const legacyFullDayLabel = checkin.window_label === checkinDate && checkin.checkin_period === checkinPeriod;
+          return legacyFullDayLabel || (!checkin.window_label && sameDate && checkin.checkin_period === checkinPeriod);
+        });
 
-    for (const h of avoidHabits) {
-      // 1. Cooldown dinâmico: 3h para hábitos contínuos (dia_todo/full_day), 4h para os demais
-      const isContinuous = h.monitor_type === 'dia_todo' || h.avoidance_scope === 'full_day';
-      const cooldownHours = isContinuous ? 3 : 4;
-      const lastChecked = cooldownsVal[h.id] || 0;
-      if (nowTime < lastChecked + cooldownHours * 60 * 60 * 1000) {
-        continue;
-      }
+        const definitive = related.filter(checkin => {
+          const status = normalizeAvoidanceStatus(checkin.status);
+          return status === 'success' || status === 'relapse';
+        });
+        // A relapse resolves the current monitoring unit. More prompts in that same
+        // window would add noise rather than useful information.
+        if (definitive.some(checkin => normalizeAvoidanceStatus(checkin.status) === 'relapse')) return;
+        if (definitive.length >= requiredCount) return;
 
-      // 2. Snooze de 2 horas
-      const snoozeUntil = snoozesVal[h.id] || 0;
-      if (nowTime < snoozeUntil) {
-        continue;
-      }
+        const promptIndex = slotIndex ?? (definitive.length + 1);
+        const promptKey = `${habit.id}:${windowLabel}:${promptIndex}`;
+        const lastChecked = cooldownsVal[promptKey] || 0;
+        if (nowTime < lastChecked + cooldownHours * 60 * 60 * 1000) return;
 
-      const isJanela = h.monitor_type === 'janela' || h.avoidance_scope === 'time_window';
-      const parsedWeekdays = h.monitor_weekdays
-        ? getWeekdays(h.monitor_weekdays)
-        : (h.recurrence_days && h.recurrence_days.length > 0
-            ? h.recurrence_days.map(d => d === '7' ? 0 : parseInt(d))
-            : [0, 1, 2, 3, 4, 5, 6]);
+        const snoozeUntil = snoozesVal[promptKey] || 0;
+        if (nowTime < snoozeUntil) return;
 
-      if (!parsedWeekdays.includes(dayOfWeek)) {
-        continue;
-      }
+        const dismissedKey = `${habit.id}:${windowLabel}:${promptIndex}`;
+        if (dismissedAntiVicioKeys.includes(dismissedKey)) return;
 
-      let isActiveUnit = false;
-      let windowLabel = todayStr;
-      let checkinPeriod = 'all';
-
-      if (!isJanela) {
-        isActiveUnit = true;
-        windowLabel = todayStr;
-        checkinPeriod = 'morning';
-      } else {
-        const mStart = h.monitor_start || h.avoidance_window_start || "18:00";
-        const mEnd = h.monitor_end || h.avoidance_window_end || "22:00";
-        const [startH, startM] = mStart.split(':').map(Number);
-        const [endH, endM] = mEnd.split(':').map(Number);
-
-        const wStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startH, startM, 0, 0);
-        const wEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), endH, endM, 0, 0);
-
-        if (wEnd.getTime() < wStart.getTime()) {
-          wEnd.setDate(wEnd.getDate() + 1);
-        }
-
-        if (nowTime >= wStart.getTime()) {
-          isActiveUnit = true;
-          windowLabel = `${todayStr}:${mStart}-${mEnd}`;
-          checkinPeriod = 'window';
-        }
-      }
-
-      // Check key-based dismissal
-      const dismissalKey = `${h.id}:${windowLabel}`;
-      if (dismissedAntiVicioKeys.includes(dismissalKey)) {
-        continue;
-      }
-
-      if (isActiveUnit) {
-        const cks = dataStore.avoidanceCheckins.filter(
-          c => c.habit_id === h.id && 
-          (c.window_label === windowLabel || (c.checkin_date === todayStr && !c.window_label))
-        );
-        const hasDefinitive = cks.some(
-          c => c.status === 'resisti' || c.status === 'recai' || c.status === 'success' || c.status === 'relapse'
-        );
-
-        if (hasDefinitive) {
-          continue;
-        }
-
-        const promptsShown = cks.filter(c => c.status === 'depois').length;
-        if (promptsShown >= 3) {
-          continue;
-        }
+        const promptsShown = related.filter(checkin => normalizeAvoidanceStatus(checkin.status) === 'pending').length;
+        if (promptsShown >= 3) return;
 
         results.push({
-          habit: h,
+          habit,
           windowLabel,
           checkinPeriod,
-          promptsShown,
+          promptIndex,
+          checkinDate
         });
+      };
+
+      if (!isWindow) {
+        if (!activeWeekdays.includes(now.getDay())) continue;
+
+        const slots = intensity === 'light'
+          ? [{ period: 'afternoon', hour: 15 }]
+          : intensity === 'strong'
+            ? [
+                { period: 'morning', hour: 10 },
+                { period: 'afternoon', hour: 15 },
+                { period: 'evening', hour: 20 }
+              ]
+            : [
+                { period: 'morning', hour: 11 },
+                { period: 'evening', hour: 19 }
+              ];
+
+        for (const slot of slots) {
+          if (currentHour < slot.hour) continue;
+          const windowLabel = `${todayStr}:${slot.period}`;
+          addIfPending(windowLabel, slot.period, todayStr, 1, 1);
+        }
+        continue;
+      }
+
+      const startText = habit.monitor_start || habit.avoidance_window_start || '18:00';
+      const endText = habit.monitor_end || habit.avoidance_window_end || '22:00';
+      const [startHour, startMinute] = startText.split(':').map(Number);
+      const [endHour, endMinute] = endText.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+      const validClock = (hour: number, minute: number) =>
+        Number.isInteger(hour) && hour >= 0 && hour <= 23 &&
+        Number.isInteger(minute) && minute >= 0 && minute <= 59;
+      if (
+        !validClock(startHour, startMinute) ||
+        !validClock(endHour, endMinute) ||
+        startMinutes === endMinutes
+      ) continue;
+
+      const todayStart = new Date(now);
+      todayStart.setHours(startHour, startMinute, 0, 0);
+      let windowStart: Date | null = null;
+      let windowEnd: Date | null = null;
+
+      if (endMinutes > startMinutes) {
+        if (activeWeekdays.includes(now.getDay()) && nowTime >= todayStart.getTime()) {
+          const candidateEnd = new Date(now);
+          candidateEnd.setHours(endHour, endMinute, 0, 0);
+          if (nowTime <= candidateEnd.getTime()) {
+            windowStart = todayStart;
+            windowEnd = candidateEnd;
+          }
+        }
+      } else {
+        const candidateTodayEnd = new Date(now);
+        candidateTodayEnd.setHours(endHour, endMinute, 0, 0);
+        if (activeWeekdays.includes(now.getDay()) && nowTime >= todayStart.getTime()) {
+          const tomorrowEnd = new Date(candidateTodayEnd);
+          tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+          windowStart = todayStart;
+          windowEnd = tomorrowEnd;
+        } else {
+          const yesterdayStart = new Date(todayStart);
+          yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+          if (
+            activeWeekdays.includes(yesterdayStart.getDay()) &&
+            nowTime <= candidateTodayEnd.getTime()
+          ) {
+            windowStart = yesterdayStart;
+            windowEnd = candidateTodayEnd;
+          }
+        }
+      }
+
+      if (!windowStart || !windowEnd) continue;
+
+      const windowDate = getLocalDateString(windowStart);
+      const windowLabel = `${windowDate}:${startText}-${endText}`;
+      const elapsed = nowTime - windowStart.getTime();
+      const duration = windowEnd.getTime() - windowStart.getTime();
+      let dueCount = 0;
+
+      if (intensity === 'light') {
+        if (elapsed >= duration * 0.5) dueCount = 1;
+      } else if (intensity === 'strong') {
+        if (elapsed >= duration * 0.25) dueCount = 1;
+        if (elapsed >= duration * 0.5) dueCount = 2;
+        if (elapsed >= duration * 0.75) dueCount = 3;
+      } else {
+        if (elapsed >= duration * 0.33) dueCount = 1;
+        if (elapsed >= duration * 0.66) dueCount = 2;
+      }
+
+      if (dueCount > 0) {
+        addIfPending(windowLabel, 'window', windowDate, dueCount);
       }
     }
 
     return results;
-  }, [dataStore.habits, dataStore.avoidanceCheckins, dataStore.profile, dismissedAntiVicioKeys, cooldownsVal, snoozesVal]);
+  }, [
+    clockNow,
+    dataStore.habits,
+    dataStore.avoidanceCheckins,
+    dataStore.profile,
+    dismissedAntiVicioKeys,
+    cooldownsVal,
+    snoozesVal
+  ]);
 
   const avoidHabits = useMemo(() => {
     return dataStore.habits.filter(h => h.habit_mode === 'avoid');
@@ -564,55 +657,36 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
 
   const cleanLabel = useMemo(() => {
     if (avoidHabits.length === 0) return '';
-    
-    const processed = avoidHabits.map(h => {
-      return {
-        habit: h,
-        metrics: calculateAvoidanceMetrics(h, dataStore.avoidanceCheckins)
-      };
-    });
 
-    // 1. Encontre o controle com maior diasLimpoSeguidos
-    let bestCleanSeguidosObj = processed[0];
-    for (let i = 1; i < processed.length; i++) {
-      if (processed[i].metrics.diasLimpoSeguidos > bestCleanSeguidosObj.metrics.diasLimpoSeguidos) {
-        bestCleanSeguidosObj = processed[i];
-      }
+    const processed = avoidHabits.map(habit => ({
+      habit,
+      metrics: calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins)
+    }));
+    const unitFor = (item: typeof processed[number]) =>
+      item.metrics.isWindow ? 'janelas' : 'dias';
+
+    const bestCurrent = [...processed].sort(
+      (a, b) => b.metrics.currentStreak - a.metrics.currentStreak
+    )[0];
+    if (bestCurrent.metrics.currentStreak > 0) {
+      return `Sequência atual: ${bestCurrent.metrics.currentStreak} ${unitFor(bestCurrent)} com resistência`;
     }
 
-    const maxSeguidos = bestCleanSeguidosObj ? bestCleanSeguidosObj.metrics.diasLimpoSeguidos : 0;
-    if (maxSeguidos > 0) {
-      return maxSeguidos === 1 ? '1 dia invicto' : `${maxSeguidos} dias invictos`;
+    const bestHistorical = [...processed].sort(
+      (a, b) => b.metrics.bestStreak - a.metrics.bestStreak
+    )[0];
+    if (bestHistorical.metrics.bestStreak > 0) {
+      return `Maior sequência registrada: ${bestHistorical.metrics.bestStreak} ${unitFor(bestHistorical)} com resistência`;
     }
 
-    // 2. Se o maior diasLimpoSeguidos for 0, encontre o com maior maxStreak (Maior sequência)
-    let bestMaxStreakObj = processed[0];
-    for (let i = 1; i < processed.length; i++) {
-      if (processed[i].metrics.maxStreak > bestMaxStreakObj.metrics.maxStreak) {
-        bestMaxStreakObj = processed[i];
-      }
+    const bestTotal = [...processed].sort(
+      (a, b) => b.metrics.confirmedDaysTotal - a.metrics.confirmedDaysTotal
+    )[0];
+    if (bestTotal.metrics.confirmedDaysTotal > 0) {
+      return `${bestTotal.metrics.confirmedDaysTotal} ${unitFor(bestTotal)} com resistência registrada no total`;
     }
 
-    const overallMaxStreak = bestMaxStreakObj ? bestMaxStreakObj.metrics.maxStreak : 0;
-    if (overallMaxStreak > 0) {
-      return overallMaxStreak === 1 ? 'Maior sequência: 1 dia' : `Maior sequência: ${overallMaxStreak} dias`;
-    }
-
-    // 3. Se maxStreak for 0, encontre o com maior diasLimposTotal
-    let bestTotalObj = processed[0];
-    for (let i = 1; i < processed.length; i++) {
-      if (processed[i].metrics.diasLimposTotal > bestTotalObj.metrics.diasLimposTotal) {
-        bestTotalObj = processed[i];
-      }
-    }
-
-    const overallTotal = bestTotalObj ? bestTotalObj.metrics.diasLimposTotal : 0;
-    if (overallTotal > 0) {
-      return overallTotal === 1 ? '1 dia limpo no total' : `${overallTotal} dias limpos no total`;
-    }
-
-    // 4. Se tudo for 0 (Brand-new ou recém-criado sem checkins)
-    return 'Vamos começar';
+    return 'Seu primeiro registro começa aqui';
   }, [avoidHabits, dataStore.avoidanceCheckins]);
 
   const handleToComVontade = () => {
@@ -627,78 +701,107 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
     }
   }, [pendingAvoidanceHabits, showCheckinModal]);
 
-  const handleResisti = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
+  const handleResisti = async (
+    habit: Habit,
+    windowLabel: string,
+    checkinPeriod: string,
+    checkinDate: string,
+    promptIndex: number
+  ) => {
     if (!dataStore.profile?.id) return;
-    playVictorySound();
-    
-    setAnimatingResistedHabitId(habit.id);
-    dismissAntiVicio(habit.id, windowLabel);
-    registerCooldown(habit.id);
-    
-    const todayStr = getLocalDateString(new Date());
-    await dataStore.addAvoidanceCheckin({
-      user_id: dataStore.profile.id,
-      habit_id: habit.id,
-      checkin_date: todayStr,
-      checkin_period: checkinPeriod,
-      status: 'success',
-      window_label: windowLabel,
-      prompts_shown: 1
-    });
 
-    dataStore.showNotification('Incrível! Sua força de vontade foi fortalecida. Continue firme! 🛡️', 'success');
-    
-    setTimeout(() => {
-      setAnimatingResistedHabitId(null);
-    }, 1500);
-  };
-
-  const handleRecai = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
-    if (!dataStore.profile?.id) return;
-    
-    dismissAntiVicio(habit.id, windowLabel);
-    registerCooldown(habit.id);
-
-    const todayStr = getLocalDateString(new Date());
     const created = await dataStore.addAvoidanceCheckin({
       user_id: dataStore.profile.id,
       habit_id: habit.id,
-      checkin_date: todayStr,
+      checkin_date: checkinDate,
       checkin_period: checkinPeriod,
-      status: 'relapse',
+      status: 'success',
+      occurred_at: new Date().toISOString(),
       window_label: windowLabel,
-      prompts_shown: 1
+      prompts_shown: promptIndex
     });
 
-    if (created && created.id) {
-      setRelapsedCheckinId(created.id);
-    } else {
-      setRelapsedCheckinId(null);
+    if (!created) {
+      dataStore.showNotification('Não foi possível salvar seu registro. Verifique a conexão e tente novamente.', 'error');
+      return;
     }
-    setTriggerNoteText('');
 
+    playVictorySound();
+    setAnimatingResistedHabitId(habit.id);
+    setAntiVicioHabitId(habit.id);
+    setAntiVicioCheckinId(created.id);
+    setIsAntiVicioVictory(true);
+    setIsAntiVicioOpen(true);
+    setShowCheckinModal(false);
+    dismissAntiVicio(habit.id, windowLabel, promptIndex);
+    registerCooldown(`${habit.id}:${windowLabel}:${promptIndex}`);
+
+    setTimeout(() => setAnimatingResistedHabitId(null), 1500);
+    dataStore.showNotification('Registro salvo. Você conseguiu atravessar esse momento.', 'success');
+  };
+
+  const handleRecai = async (
+    habit: Habit,
+    windowLabel: string,
+    checkinPeriod: string,
+    checkinDate: string,
+    promptIndex: number
+  ) => {
+    if (!dataStore.profile?.id) return;
+
+    const created = await dataStore.addAvoidanceCheckin({
+      user_id: dataStore.profile.id,
+      habit_id: habit.id,
+      checkin_date: checkinDate,
+      checkin_period: checkinPeriod,
+      status: 'relapse',
+      occurred_at: new Date().toISOString(),
+      window_label: windowLabel,
+      prompts_shown: promptIndex
+    });
+
+    if (!created) {
+      dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
+      return;
+    }
+
+    dismissAntiVicio(habit.id, windowLabel, promptIndex);
+    registerCooldown(`${habit.id}:${windowLabel}:${promptIndex}`);
+    setRelapsedCheckinId(created.id);
+    setTriggerNoteText('');
     setRelapsedHabitName(habit.name);
+    setShowCheckinModal(false);
     setShowSupportiveRelapseModal(true);
   };
 
-  const handleDepois = async (habit: Habit, windowLabel: string, checkinPeriod: string) => {
+  const handleDepois = async (
+    habit: Habit,
+    windowLabel: string,
+    checkinPeriod: string,
+    checkinDate: string,
+    promptIndex: number
+  ) => {
     if (!dataStore.profile?.id) return;
-    
-    dismissAntiVicio(habit.id, windowLabel);
-    registerSnooze(habit.id);
 
-    const todayStr = getLocalDateString(new Date());
-    await dataStore.addAvoidanceCheckin({
+    const promptKey = `${habit.id}:${windowLabel}:${promptIndex}`;
+    const created = await dataStore.addAvoidanceCheckin({
       user_id: dataStore.profile.id,
       habit_id: habit.id,
-      checkin_date: todayStr,
+      checkin_date: checkinDate,
       checkin_period: checkinPeriod,
       status: 'pending',
+      occurred_at: new Date().toISOString(),
       window_label: windowLabel,
-      prompts_shown: 1
+      prompts_shown: promptIndex
     });
 
-    dataStore.showNotification('Acompanhamento adiado por 2 horas.', 'success');
+    if (!created) {
+      dataStore.showNotification('Não foi possível adiar o lembrete. Tente novamente.', 'error');
+      return;
+    }
+
+    registerSnooze(promptKey);
+    dataStore.showNotification('Tudo bem. Vou lembrar você novamente em duas horas.', 'success');
   };
 
   let stateType: 'above' | 'on_pace' | 'below' | 'neutral' = 'neutral';
@@ -923,9 +1026,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
                 </span>
-                <span className={`transition-opacity duration-300 pointer-events-none ${fadePhrase ? 'opacity-100' : 'opacity-0'}`}>
-                  {displayPhrase}
-                </span>
+                <span className="pointer-events-none">Como está sua vontade?</span>
                 <span className="text-red-400/40 text-[9px] font-mono font-medium leading-none whitespace-nowrap">
                   ({pendingAvoidanceHabits.length})
                 </span>
@@ -1221,10 +1322,10 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                     <Shield size={20} />
                   </div>
                   <h4 className="text-lg font-extrabold text-red-300 tracking-tight uppercase">
-                    Check-in de Autocontrole
+                    Como você está agora?
                   </h4>
                   <p className="text-[11px] text-text-dim/80 max-w-xs mx-auto">
-                    Como está sua força de vontade hoje? Mantenha sua mente sob vigília inteligente e livre de vícios.
+                    Um registro rápido ajuda você a perceber como está e escolher o próximo passo.
                   </p>
                   {pendingAvoidanceHabits.length > 1 && (
                     <span className="inline-block px-2.5 py-0.5 mt-2 bg-red-500/10 text-red-400 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider">
@@ -1236,15 +1337,15 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 {/* Render pending habits stacked vertically */}
                 <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1 pb-6">
                   {pendingAvoidanceHabits.map((currentItem) => {
-                    const { habit, windowLabel, checkinPeriod } = currentItem;
+                    const { habit, windowLabel, checkinPeriod, checkinDate, promptIndex } = currentItem;
                     const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
                     const isAnimating = animatingResistedHabitId === habit.id;
-                    const isJanela = habit.monitor_type === 'janela' || habit.avoidance_scope === 'time_window';
+                    const isJanela = isTimeWindowAvoidance(habit);
                     const mStart = habit.monitor_start || habit.avoidance_window_start || "18:00";
                     const mEnd = habit.monitor_end || habit.avoidance_window_end || "22:00";
 
                     return (
-                      <div key={habit.id} className="bg-surface-1/50 border border-border-custom/50 rounded-2xl p-5 space-y-4 relative overflow-hidden text-left">
+                      <div key={`${habit.id}-${windowLabel}-${promptIndex}`} className="bg-surface-1/50 border border-border-custom/50 rounded-2xl p-5 space-y-4 relative overflow-hidden text-left">
                         <div className="absolute inset-0 bg-green/5 animate-pulse opacity-20 pointer-events-none" />
 
                         <div className="flex justify-between items-center relative z-10 w-full">
@@ -1253,7 +1354,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                             ● {habit.name}
                           </p>
                           <div className="flex items-center gap-1.5 bg-green/10 border border-green/20 px-2 py-0.5 rounded-lg shrink-0">
-                            <span className="text-[8px] font-mono font-bold uppercase text-green">Janelas limpas:</span>
+                            <span className="text-[8px] font-mono font-bold uppercase text-green">{isJanela ? 'Janelas com resistência:' : 'Dias com resistência:'}</span>
                             <AnimatePresence mode="popLayout">
                               <motion.span
                                 key={isAnimating ? 'anim' : 'static'}
@@ -1282,71 +1383,14 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                         <div className="grid grid-cols-2 gap-2.5 relative z-10 font-sans">
                           <button
                             type="button"
-                            onClick={async () => {
-                              if (dataStore.profile?.id) {
-                                playVictorySound();
-                                setAnimatingResistedHabitId(habit.id);
-
-                                // Immediate silent save
-                                const todayStr = getLocalDateString(new Date());
-                                const checkinDetails = {
-                                  user_id: dataStore.profile.id,
-                                  habit_id: habit.id,
-                                  checkin_date: todayStr,
-                                  checkin_period: checkinPeriod || 'window',
-                                  status: 'success' as const,
-                                  window_label: windowLabel,
-                                  prompts_shown: 1,
-                                  created_at: new Date().toISOString()
-                                };
-                                const created = await dataStore.addAvoidanceCheckin(checkinDetails);
-                                const checkinId = created ? created.id : undefined;
-
-                                setAntiVicioHabitId(habit.id);
-                                setAntiVicioCheckinId(checkinId);
-                                setIsAntiVicioVictory(true);
-                                setIsAntiVicioOpen(true);
-
-                                dismissAntiVicio(habit.id, windowLabel);
-                                registerCooldown(habit.id);
-
-                                setTimeout(() => {
-                                  setAnimatingResistedHabitId(null);
-                                }, 1500);
-                              }
-                            }}
+                            onClick={() => handleResisti(habit, windowLabel, checkinPeriod, checkinDate, promptIndex)}
                             className="py-3 px-3 bg-green hover:brightness-110 text-background rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
                           >
                             ✓ Resisti
                           </button>
                           <button
                             type="button"
-                            onClick={async () => {
-                              if (dataStore.profile?.id) {
-                                // Immediate silent save
-                                const todayStr = getLocalDateString(new Date());
-                                const checkinDetails = {
-                                  user_id: dataStore.profile.id,
-                                  habit_id: habit.id,
-                                  checkin_date: todayStr,
-                                  checkin_period: checkinPeriod || 'window',
-                                  status: 'relapse' as const,
-                                  window_label: windowLabel,
-                                  prompts_shown: 1,
-                                  created_at: new Date().toISOString()
-                                };
-                                const created = await dataStore.addAvoidanceCheckin(checkinDetails);
-                                const checkinId = created ? created.id : undefined;
-
-                                setAntiVicioHabitId(habit.id);
-                                setAntiVicioCheckinId(checkinId);
-                                setIsAntiVicioVictory(false);
-                                setIsAntiVicioOpen(true);
-
-                                dismissAntiVicio(habit.id, windowLabel);
-                                registerCooldown(habit.id);
-                              }
-                            }}
+                            onClick={() => handleRecai(habit, windowLabel, checkinPeriod, checkinDate, promptIndex)}
                             className="py-3 px-3 bg-red-400/10 hover:bg-red-400/20 border border-red-400/20 text-red-300 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:scale-102 cursor-pointer text-center"
                           >
                             Recaí
@@ -1356,7 +1400,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                         <div className="relative z-10">
                           <button
                             type="button"
-                            onClick={() => handleDepois(habit, windowLabel, checkinPeriod)}
+                            onClick={() => handleDepois(habit, windowLabel, checkinPeriod, checkinDate, promptIndex)}
                             className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-text-dim rounded-xl font-medium tracking-wider text-[10px] transition-all cursor-pointer text-center"
                           >
                             Depois (Adiar 2h)
@@ -1391,9 +1435,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
               </span>
-              <span className={`transition-opacity duration-300 pointer-events-none ${fadePhrase ? 'opacity-100' : 'opacity-0'}`}>
-                {displayPhrase}
-              </span>
+<span className="pointer-events-none">Como está sua vontade?</span>
               <span className="text-red-400/40 text-[10px] font-mono font-bold leading-none whitespace-nowrap">
                 ({pendingAvoidanceHabits.length})
               </span>
@@ -1446,7 +1488,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   <div className="flex items-center justify-center gap-2 px-4 w-full opacity-80 animate-fade-in">
                     <Brain size={14} className="text-purple-400 shrink-0" />
                     <p className="text-white/60 font-light text-[12px] truncate">
-                      Acalme sua mente e reduza sua impulsividade
+                      Faça uma pausa e retome o foco
                     </p>
                   </div>
 
@@ -1549,7 +1591,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
             <div className="flex items-center justify-center gap-2 opacity-70">
               <Brain size={14} className="text-purple-400" />
               <p className="text-white/60 font-light text-[12px] truncate">
-                Acalme sua mente e reduza sua impulsividade
+                Faça uma pausa e retome o foco
               </p>
             </div>
           </div>
@@ -1641,16 +1683,17 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 const startOfWeek = new Date(h.week_start_date);
                 startOfWeek.setHours(0,0,0,0);
 
-                const habitSessionsThisWeek = dataStore.sessions.filter(s => 
-                  s.habit_id === h.id && 
-                  new Date(s.started_at) >= startOfWeek && 
+                const habitSessionsThisWeek = dataStore.sessions.filter(s =>
+                  s.habit_id === h.id &&
+                  !!s.started_at &&
+                  new Date(s.started_at) >= startOfWeek &&
                   s.completed
                 );
 
                 const minutesByDay: { [dateStr: string]: number } = {};
                 habitSessionsThisWeek.forEach(s => {
                   const dStr = getLocalDateString(new Date(s.started_at));
-                  const duration = s.actual_duration_minutes !== null ? s.actual_duration_minutes : s.duration_minutes;
+                  const duration = s.actual_duration_minutes ?? s.duration_minutes ?? 0;
                   minutesByDay[dStr] = (minutesByDay[dStr] || 0) + duration;
                 });
 
@@ -1778,7 +1821,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               </h3>
               
               <p className="text-xs sm:text-sm text-text-secondary/80 mt-3 leading-relaxed">
-                Sem culpa nenhuma. O autocontrole de <strong className="text-red-400 font-bold">{relapsedHabitName}</strong> é uma habilidade que você treina dia após dia, não um castigo. Recaídas são dados de aprendizado para amanhã, e nunca definem sua identidade.
+                Sem culpa nenhuma. O autocontrole de <strong className="text-red-400 font-bold">{relapsedHabitName}</strong> é uma habilidade que você treina dia após dia, não um castigo. Uma recaída não apaga o que você já construiu. Se quiser, registre o que aconteceu para reconhecer situações parecidas no futuro.
               </p>
 
               <p className="text-[11px] text-text-secondary/50 font-mono mt-4 italic uppercase tracking-wide">
@@ -1793,13 +1836,13 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   }}
                   className="py-3 px-4 bg-red-400/20 hover:bg-red-400/30 text-red-300 font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center"
                 >
-                  Mapear Gatilho 🧬
+                  Fazer anotação
                 </button>
                 <button
                   onClick={() => setShowSupportiveRelapseModal(false)}
                   className="py-3 px-4 bg-white/5 hover:bg-white/10 text-text-secondary font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center border border-white/5"
                 >
-                  Continuar Firme
+                  Fechar
                 </button>
               </div>
             </motion.div>
@@ -1824,19 +1867,55 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
               <span className="text-3xl block mb-4 select-none">🧬</span>
               
               <h3 className="text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
-                O que causou essa recaída?
+                O que estava acontecendo?
               </h3>
               
               <p className="text-xs sm:text-sm text-text-secondary/70 mt-2 leading-relaxed">
-                Mapear o gatilho (emoção, local, companhia, pensamento) é o passo mais maduro para prevenir a próxima. Seja honesto e detalhado.
+                Se quiser, registre o que estava sentindo, onde estava ou o que aconteceu antes. Não precisa encontrar uma explicação perfeita.
               </p>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-[10px] text-text-secondary">
+                  <span className="mb-1.5 block uppercase tracking-wider">Gatilho percebido</span>
+                  <select value={relapseTriggerTag} onChange={e => setRelapseTriggerTag(e.target.value)} className="w-full rounded-xl border border-white/10 bg-surface-2 px-3 py-3 text-xs text-text-primary outline-none">
+                    <option value="">Não identifiquei</option>
+                    {['Estresse', 'Tédio', 'Solidão', 'Cansaço', 'Ansiedade', 'Frustração', 'Ambiente digital', 'Conflito', 'Outro'].map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label className="text-[10px] text-text-secondary">
+                  <span className="mb-1.5 block uppercase tracking-wider">Estado emocional</span>
+                  <select value={relapseEmotionTag} onChange={e => setRelapseEmotionTag(e.target.value)} className="w-full rounded-xl border border-white/10 bg-surface-2 px-3 py-3 text-xs text-text-primary outline-none">
+                    <option value="">Não informado</option>
+                    {['Ansiedade', 'Estresse', 'Tédio', 'Tristeza', 'Frustração', 'Solidão', 'Cansaço', 'Calma'].map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label className="text-[10px] text-text-secondary">
+                  <span className="mb-1.5 block uppercase tracking-wider">Ambiente</span>
+                  <select value={relapseEnvironmentTag} onChange={e => setRelapseEnvironmentTag(e.target.value)} className="w-full rounded-xl border border-white/10 bg-surface-2 px-3 py-3 text-xs text-text-primary outline-none">
+                    <option value="">Não informado</option>
+                    {['Em casa', 'No trabalho', 'Na rua', 'Na cama', 'Sozinho', 'Com outras pessoas', 'No celular ou computador', 'Outro'].map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label className="text-[10px] text-text-secondary">
+                  <span className="mb-1.5 block uppercase tracking-wider">O que fazia antes?</span>
+                  <input value={relapsePrecedingActivity} onChange={e => setRelapsePrecedingActivity(e.target.value)} maxLength={120} placeholder="Ex.: navegando no celular" className="w-full rounded-xl border border-white/10 bg-surface-2 px-3 py-3 text-xs text-text-primary outline-none placeholder:text-text-dim/40" />
+                </label>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-white/5 bg-white/[0.025] p-3">
+                <div className="flex items-center justify-between text-[10px] text-text-secondary">
+                  <span className="uppercase tracking-wider">Intensidade do impulso</span>
+                  <strong className="text-text-primary">{relapseUrgeIntensity}/10</strong>
+                </div>
+                <input type="range" min="1" max="10" value={relapseUrgeIntensity} onChange={e => setRelapseUrgeIntensity(Number(e.target.value))} className="mt-2 w-full accent-green" />
+              </div>
 
               <div className="mt-4">
                 <textarea
                   value={triggerNoteText}
                   onChange={(e) => setTriggerNoteText(e.target.value)}
-                  placeholder="Ex: Tive um dia estressante no trabalho, cheguei em casa cansado e acionei o hábito sem pensar..."
-                  className="w-full h-32 px-4 py-3 bg-surface-2 border border-white/5 focus:border-green/50 text-text-primary text-xs sm:text-sm placeholder:text-text-dim/40 rounded-2xl outline-none transition-all resize-none font-sans leading-relaxed"
+                  placeholder="Anote o que aconteceu, o que percebeu ou o que gostaria de fazer diferente..."
+                  className="w-full h-28 px-4 py-3 bg-surface-2 border border-white/5 focus:border-green/50 text-text-primary text-xs sm:text-sm placeholder:text-text-dim/40 rounded-2xl outline-none transition-all resize-none font-sans leading-relaxed"
                 />
               </div>
 
@@ -1846,6 +1925,11 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                   onClick={() => {
                     setShowTriggerInputModal(false);
                     setTriggerNoteText('');
+                    setRelapseTriggerTag('');
+                    setRelapseEmotionTag('');
+                    setRelapseEnvironmentTag('');
+                    setRelapsePrecedingActivity('');
+                    setRelapseUrgeIntensity(5);
                   }}
                   className="py-3 px-4 bg-white/5 hover:bg-white/10 text-text-secondary font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center border border-white/5 font-mono"
                 >
@@ -1854,30 +1938,41 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!triggerNoteText.trim()) {
-                      dataStore.showNotification('Por favor, digite o gatilho antes de salvar.', 'error');
+                    if (!triggerNoteText.trim() && !relapseTriggerTag && !relapseEmotionTag && !relapseEnvironmentTag && !relapsePrecedingActivity.trim()) {
+                      dataStore.showNotification('Preencha ao menos uma informação para salvar o registro.', 'error');
                       return;
                     }
 
                     if (relapsedCheckinId) {
                       const success = await dataStore.updateAvoidanceCheckin(relapsedCheckinId, {
-                        trigger_note: triggerNoteText.trim()
+                        trigger_tag: relapseTriggerTag || null,
+                        emotion_tag: relapseEmotionTag || null,
+                        environment_tag: relapseEnvironmentTag || null,
+                        preceding_activity: relapsePrecedingActivity.trim() || null,
+                        urge_intensity: relapseUrgeIntensity,
+                        trigger_note: triggerNoteText.trim() || null
                       });
-                      if (success) {
-                        dataStore.showNotification('Gatilho mapeado com sucesso. Siga firme! 🧬', 'success');
-                      } else {
-                        dataStore.showNotification('Gatilho salvo offline. Continue lutando!', 'success');
+                      if (!success) {
+                        dataStore.showNotification('Não foi possível salvar a anotação. Tente novamente.', 'error');
+                        return;
                       }
+                      dataStore.showNotification('Anotação salva.', 'success');
                     } else {
-                      dataStore.showNotification('Erro: ID da recaída não encontrado.', 'error');
+                      dataStore.showNotification('Não encontramos o registro desta recaída.', 'error');
+                      return;
                     }
-                    
+
                     setShowTriggerInputModal(false);
                     setTriggerNoteText('');
+                    setRelapseTriggerTag('');
+                    setRelapseEmotionTag('');
+                    setRelapseEnvironmentTag('');
+                    setRelapsePrecedingActivity('');
+                    setRelapseUrgeIntensity(5);
                   }}
                   className="py-3 px-4 bg-green hover:bg-green-400 text-black font-bold uppercase tracking-wider text-[10px] rounded-xl transition-all cursor-pointer text-center font-mono"
                 >
-                  Salvar Gatilho
+                  Salvar registro
                 </button>
               </div>
             </motion.div>
@@ -1885,13 +1980,15 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
         )}
       </AnimatePresence>
 
-      <AntiVicioModal
-        isOpen={isAntiVicioOpen}
-        onClose={() => setIsAntiVicioOpen(false)}
-        initialHabitId={antiVicioHabitId}
-        associatedCheckinId={antiVicioCheckinId}
-        isVictoryMode={isAntiVicioVictory}
-      />
+      {isAntiVicioOpen && (
+        <AntiVicioModal
+          isOpen={true}
+          onClose={() => setIsAntiVicioOpen(false)}
+          initialHabitId={antiVicioHabitId}
+          associatedCheckinId={antiVicioCheckinId}
+          isVictoryMode={isAntiVicioVictory}
+        />
+      )}
 
       <DailyReopenModal
         isOpen={showReopenModal}

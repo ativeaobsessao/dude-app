@@ -23,6 +23,10 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
   );
   
   const [note, setNote] = useState('');
+  const [urgeIntensity, setUrgeIntensity] = useState(5);
+  const [emotionTag, setEmotionTag] = useState('');
+  const [environmentTag, setEnvironmentTag] = useState('');
+  const [recoveryAction, setRecoveryAction] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -33,6 +37,10 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
         setSelectedHabitId(avoidHabits[0].id);
       }
       setNote('');
+      setUrgeIntensity(5);
+      setEmotionTag('');
+      setEnvironmentTag('');
+      setRecoveryAction('');
     }
   }, [isOpen, initialHabitId]);
 
@@ -48,7 +56,7 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     );
   }
 
-  const currentHabitName = habits.find(h => h.id === selectedHabitId)?.name || 'este vício';
+  const currentHabitName = habits.find(h => h.id === selectedHabitId)?.name || 'este comportamento';
 
   const triggers = [
     { value: 'Fome/Sede', label: 'FOME/SEDE' },
@@ -59,35 +67,34 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     { value: 'Impulso do Nada', label: 'IMPULSO ESPONTÂNEO' },
   ];
 
-  const handleTriggerClick = async (triggerValue: string) => {
+  const saveTrigger = async (triggerTag: string) => {
     if (isUpdating) return;
-    setIsUpdating(true);
-    
-    if (associatedCheckinId) {
-      await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
-        trigger_tag: triggerValue,
-        trigger_note: note.trim() || null
-      });
+    if (!associatedCheckinId) {
+      dataStore.showNotification('Não encontramos o registro para anexar esta anotação.', 'error');
+      return;
     }
-    
+
+    setIsUpdating(true);
+    const saved = await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
+      trigger_tag: triggerTag,
+      trigger_note: note.trim() || null,
+      urge_intensity: urgeIntensity,
+      emotion_tag: emotionTag || null,
+      environment_tag: environmentTag || null,
+      recovery_action: recoveryAction || null
+    });
     setIsUpdating(false);
+
+    if (!saved) {
+      dataStore.showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
+      return;
+    }
+
     onClose();
   };
 
-  const handleNoTrigger = async () => {
-    if (isUpdating) return;
-    setIsUpdating(true);
-    
-    if (associatedCheckinId) {
-      await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
-        trigger_tag: 'none',
-        trigger_note: note.trim() || null
-      });
-    }
-    
-    setIsUpdating(false);
-    onClose();
-  };
+  const handleTriggerClick = (triggerValue: string) => saveTrigger(triggerValue);
+  const handleNoTrigger = () => saveTrigger('none');
 
   return (
     <div className="fixed inset-0 z-[1000] flex flex-col justify-end font-sans">
@@ -133,16 +140,45 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
             </div>
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-300 tracking-tight">
-            VONTADE SURFADA!
+            Você resistiu
           </h2>
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-400 font-light max-w-xs mx-auto">
-              Nessa janela de monitoramento de {currentHabitName}, teve alguma crise de impulsividade? Se sim, marque a opção que melhor descreva:
+              Durante o acompanhamento de {currentHabitName}, o que mais influenciou sua vontade? Selecione uma opção ou deixe uma anotação.
             </p>
           </div>
         </div>
 
-        {/* Textarea Fixo */}
+        <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="text-[10px] text-gray-400">
+            <span className="mb-1.5 block uppercase tracking-wider">Como você estava?</span>
+            <select value={emotionTag} onChange={e => setEmotionTag(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white outline-none">
+              <option value="">Não informado</option>
+              {['Ansiedade', 'Estresse', 'Tédio', 'Tristeza', 'Frustração', 'Solidão', 'Cansaço', 'Calma'].map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="text-[10px] text-gray-400">
+            <span className="mb-1.5 block uppercase tracking-wider">Onde você estava?</span>
+            <select value={environmentTag} onChange={e => setEnvironmentTag(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white outline-none">
+              <option value="">Não informado</option>
+              {['Em casa', 'No trabalho', 'Na rua', 'Na cama', 'Sozinho', 'Com outras pessoas', 'No celular ou computador', 'Outro'].map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="text-[10px] text-gray-400 sm:col-span-2">
+            <span className="mb-1.5 block uppercase tracking-wider">O que ajudou você a resistir?</span>
+            <select value={recoveryAction} onChange={e => setRecoveryAction(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white outline-none">
+              <option value="">Não quero especificar</option>
+              {['Mudei de ambiente', 'Adiei a decisão', 'Conversei com alguém', 'Fiz uma pausa', 'Escolhi outra atividade', 'Usei uma estratégia pessoal'].map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+          <div className="flex items-center justify-between text-[10px] text-gray-400">
+            <span className="uppercase tracking-wider">Intensidade do impulso</span>
+            <strong className="text-white">{urgeIntensity}/10</strong>
+          </div>
+          <input type="range" min="1" max="10" value={urgeIntensity} onChange={e => setUrgeIntensity(Number(e.target.value))} className="mt-2 w-full accent-emerald-300" />
+        </div>
         <div className="mb-4">
           <textarea
             value={note}

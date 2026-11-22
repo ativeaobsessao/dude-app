@@ -108,14 +108,43 @@ class AudioSynthesizer {
   }
 
   stop() {
-    if (this.ctx && this.gainNode) {
-      this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
-      setTimeout(() => {
-        this.killNodes();
-      }, 100);
-      return;
+    const ctx = this.ctx;
+    const oscLeft = this.oscLeft;
+    const oscRight = this.oscRight;
+    const gainNode = this.gainNode;
+    const compressorNode = this.compressorNode;
+
+    this.currentFreq = 0;
+    this.currentOffset = 0;
+    this.ctx = null;
+    this.oscLeft = null;
+    this.oscRight = null;
+    this.gainNode = null;
+    this.compressorNode = null;
+
+    if (!ctx) return;
+
+    try {
+      if (gainNode && ctx.state !== 'closed') {
+        gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+      }
+    } catch {
+      // Audio context may already be suspended or closed by the browser.
     }
-    this.killNodes();
+
+    // Capture the old nodes in this closure. A new start() can safely create
+    // another context before this short fade-out finishes.
+    setTimeout(() => {
+      try {
+        if (oscLeft) { try { oscLeft.stop(); } catch {} oscLeft.disconnect(); }
+        if (oscRight) { try { oscRight.stop(); } catch {} oscRight.disconnect(); }
+        gainNode?.disconnect();
+        compressorNode?.disconnect();
+        if (ctx.state !== 'closed') ctx.close().catch(() => {});
+      } catch {
+        // Cleanup is best-effort; the browser may have already disposed nodes.
+      }
+    }, 100);
   }
 
   playAlertChime() {
@@ -142,22 +171,7 @@ class AudioSynthesizer {
     }
   }
 
-  private killNodes() {
-    this.currentFreq = 0;
-    this.currentOffset = 0;
-    try {
-      if (this.oscLeft) { this.oscLeft.stop(); this.oscLeft.disconnect(); }
-      if (this.oscRight) { this.oscRight.stop(); this.oscRight.disconnect(); }
-      if (this.gainNode) this.gainNode.disconnect();
-      if (this.compressorNode) this.compressorNode.disconnect();
-      if (this.ctx && this.ctx.state !== 'closed') this.ctx.close();
-    } catch (e) {}
-    this.oscLeft = null;
-    this.oscRight = null;
-    this.gainNode = null;
-    this.compressorNode = null;
-    this.ctx = null;
-  }
+
 }
 
 export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolProps) => {
@@ -167,7 +181,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
   const currentHabit = habits.find(h => h.id === habitId);
   const habitName = currentHabit ? currentHabit.name : 'Crise Geral';
 
-  // 5-minute primary timer countdown (300 seconds)
+  // Protocolo guiado de 3 minutos e 33 segundos.
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
   const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
@@ -475,8 +489,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
   // Triggers immediate database persistence insert & reactive state synchronization
   const saveReflection = async () => {
-    if (!profile?.id) {
-      dataStore.showNotification('Conecte-se para salvar os registros.', 'error');
+    if (!dataStore.profile?.id) {
+      dataStore.showNotification('Entre na sua conta para salvar este registro.', 'error');
       return;
     }
 
@@ -484,98 +498,130 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     try {
       const timestamp = new Date().toISOString();
       const totalSecondsActive = isInfiniteMode ? (213 + infiniteSeconds) : (213 - (timeLeft || 0));
-      
       const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
-      const defaultPlaceholder = 'Resisti com a Sessão Profunda Guiada.';
-      const rawText = currentText || defaultPlaceholder;
 
-      // Concatenate content if we have already saved during this session
-      let mergedText = rawText;
+      let mergedText = currentText;
       if (lastSavedCheckinIdRef.current && lastSavedTextRef.current) {
-        if (rawText && rawText !== lastSavedTextRef.current && rawText !== defaultPlaceholder) {
-          mergedText = `${lastSavedTextRef.current} | ${rawText}`;
+        if (currentText && currentText !== lastSavedTextRef.current) {
+          mergedText = `${lastSavedTextRef.current} | ${currentText}`;
         } else {
           mergedText = lastSavedTextRef.current;
         }
       }
 
-      if (lastSavedCheckinIdRef.current) {
-        // If already saved, perform an atomic UPDATE on the same record
-        const updateData = {
-          status: 'resisti',
-          intensity: 5,
-          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
-          time_spent: totalSecondsActive
-        };
-        const success = await dataStore.updateAvoidanceCheckin(lastSavedCheckinIdRef.current, updateData);
-        if (success) {
-          lastSavedTextRef.current = mergedText;
-          await dataStore.fetchAvoidanceCheckins(profile.id);
-          setSaveStatus('saved');
-          if (isInfiniteMode) {
-            setInfiniteNote('');
-            setShowSaveSuccess(true);
-            setTimeout(() => {
-              setShowSaveSuccess(false);
-              setSaveStatus('idle'); // Reset the button to the default state for the next save
-            }, 3500);
-          } else {
-            setReflectionSaved(true);
+      // A guided pause can be started without an avoidance habit. In that case,
+      // save an optional reflection as an inbox note instead of inserting a
+      // an unlinked guided pause into the avoidance-check-in table.
+      if (!habitId) {
+        if (mergedText) {
+          const capture = await dataStore.addInboxCapture(
+            dataStore.profile.id,
+            `[Pausa guiada] ${mergedText}`
+          );
+          if (!capture) {
+            setSaveStatus('error');
+            dataStore.showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
+            return;
           }
-          dataStore.showNotification('Reflexão atualizada com sucesso ✓', 'success');
+          dataStore.showNotification('Anotação salva na sua caixa de entrada.', 'success');
         } else {
-          setSaveStatus('error');
-          dataStore.showNotification('Erro ao atualizar registro no banco.', 'error');
+          dataStore.showNotification('Pausa concluída. Nenhuma anotação foi salva.', 'success');
         }
+
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+          if (timeLeft === 1) {
+            setTimeLeft(0);
+            setIsEncruzilhada(true);
+          }
+        }
+        return;
+      }
+
+      const triggerNote = mergedText ? `[PAUSA GUIADA] ${mergedText}` : null;
+
+      if (lastSavedCheckinIdRef.current) {
+        const updated = await dataStore.updateAvoidanceCheckin(lastSavedCheckinIdRef.current, {
+          status: 'success',
+          intensity: 5,
+          trigger_note: triggerNote,
+          time_spent: totalSecondsActive
+        });
+
+        if (!updated) {
+          setSaveStatus('error');
+          dataStore.showNotification('Não foi possível atualizar o registro. Tente novamente.', 'error');
+          return;
+        }
+
+        lastSavedTextRef.current = mergedText;
+        await dataStore.fetchAvoidanceCheckins(dataStore.profile.id);
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+        }
+        dataStore.showNotification('Registro atualizado.', 'success');
       } else {
-        // First-time save (Insert payload cleanly)
-        const checkinData: any = {
-          user_id: profile.id,
-          habit_id: habitId || null,
+        const checkinData = {
+          user_id: dataStore.profile.id,
+          habit_id: habitId,
           checkin_date: getLocalDateString(),
           checkin_period: 'window',
-          status: 'resisti',
+          status: 'success',
+          occurred_at: timestamp,
           intensity: 5,
-          trigger_tag: 'SESSÃO PROFUNDA GUIADA',
-          trigger_note: `[SESSÃO PROFUNDA GUIADA] ${mergedText}`,
+          trigger_tag: 'PAUSA GUIADA',
+          trigger_note: triggerNote,
+          window_label: null,
           created_at: timestamp,
           time_spent: totalSecondsActive
         };
 
         const created = await dataStore.addAvoidanceCheckin(checkinData);
-
-        if (created) {
-          lastSavedCheckinIdRef.current = created.id;
-          lastSavedTextRef.current = mergedText;
-          await dataStore.fetchAvoidanceCheckins(profile.id);
-          setSaveStatus('saved');
-          
-          if (isInfiniteMode) {
-            setInfiniteNote('');
-            setShowSaveSuccess(true);
-            setTimeout(() => {
-              setShowSaveSuccess(false);
-              setSaveStatus('idle'); // Reset the button to the default state for the next save
-            }, 3500);
-          } else {
-            setReflectionSaved(true);
-            // Descongelar Fase 3: Se o usuário estiver congelado no último segundo da Fase 3, avança automaticamente
-            if (timeLeft === 1) {
-              setTimeLeft(0);
-              setIsEncruzilhada(true);
-            }
-          }
-          
-          dataStore.showNotification('Reflexão armazenada com sucesso ✓', 'success');
-        } else {
+        if (!created) {
           setSaveStatus('error');
-          dataStore.showNotification('Erro ao salvar no banco de dados.', 'error');
+          dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
+          return;
         }
+
+        lastSavedCheckinIdRef.current = created.id;
+        lastSavedTextRef.current = mergedText;
+        setSaveStatus('saved');
+        if (isInfiniteMode) {
+          setInfiniteNote('');
+          setShowSaveSuccess(true);
+          setTimeout(() => {
+            setShowSaveSuccess(false);
+            setSaveStatus('idle');
+          }, 3500);
+        } else {
+          setReflectionSaved(true);
+          if (timeLeft === 1) {
+            setTimeLeft(0);
+            setIsEncruzilhada(true);
+          }
+        }
+        dataStore.showNotification('Registro salvo.', 'success');
       }
-    } catch (e) {
-      console.error("Supabase transaction error:", e);
+    } catch (err) {
+      console.error('Error saving guided pause reflection:', err);
       setSaveStatus('error');
-      dataStore.showNotification('Erro de rede ao salvar reflexão.', 'error');
+      dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
     }
   };
 

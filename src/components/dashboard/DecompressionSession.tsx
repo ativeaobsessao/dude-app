@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Play, Pause, Moon } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { supabase } from '../../lib/supabase';
+import { useDataStore } from '../../store/useDataStore';
 
 interface DecompressionSessionProps {
   isOpen: boolean;
@@ -11,9 +11,12 @@ interface DecompressionSessionProps {
 
 export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionProps) => {
   const { user } = useAuthStore();
+  const addInboxCapture = useDataStore(state => state.addInboxCapture);
+  const showNotification = useDataStore(state => state.showNotification);
   const [isPlaying, setIsPlaying] = useState(false);
   const [text, setText] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [sleepTimer, setSleepTimer] = useState<number>(30); // Sleep timer in minutes
   const [timeRemaining, setTimeRemaining] = useState<number>(30 * 60);
   const [showContinuePopup, setShowContinuePopup] = useState(false);
@@ -81,6 +84,31 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
 
+  const stopAudio = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    const source = sourceRef.current;
+    const masterGain = gainNodeRef.current;
+    
+    if (ctx && source && masterGain) {
+      // Smooth fade out
+      masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2); 
+      
+      setTimeout(() => {
+        try {
+          source.stop();
+          source.disconnect();
+          masterGain.disconnect();
+        } catch (e) {
+          // ignore
+        }
+      }, 2100);
+      
+      sourceRef.current = null;
+      gainNodeRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
       stopAudio();
@@ -93,30 +121,23 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
         audioCtxRef.current.close().catch(console.error);
       }
     };
-  }, [isOpen]);
+  }, [isOpen, stopAudio]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            stopAudio();
-            setIsPlaying(false);
-            setShowContinuePopup(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timeRemaining === 0 && isPlaying) {
-      stopAudio();
-      setIsPlaying(false);
-      setShowContinuePopup(true);
-    }
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setTimeRemaining(previous => {
+        if (previous <= 1) {
+          stopAudio();
+          setIsPlaying(false);
+          setShowContinuePopup(true);
+          return 0;
+        }
+        return previous - 1;
+      });
+    }, 1000);
     return () => clearInterval(interval);
-  }, [isPlaying, timeRemaining]);
+  }, [isPlaying, stopAudio]);
 
   const initAudio = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -175,40 +196,26 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
     gainNodeRef.current = masterGain;
   };
 
-  const stopAudio = () => {
-    const ctx = audioCtxRef.current;
-    const source = sourceRef.current;
-    const masterGain = gainNodeRef.current;
-    
-    if (ctx && source && masterGain) {
-      // Smooth fade out
-      masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2); 
-      
-      setTimeout(() => {
-        try {
-          source.stop();
-          source.disconnect();
-        } catch (e) {
-          // ignore
-        }
-      }, 2100);
-      
-      sourceRef.current = null;
-      gainNodeRef.current = null;
-    }
-  };
+
 
   const toggleAudio = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isPlaying) {
       stopAudio();
-    } else {
-      playAudio();
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    // The session timer must work even if this browser/device cannot play audio.
+    try {
+      playAudio();
+    } catch (error) {
+      console.warn('Áudio ambiente indisponível neste dispositivo.', error);
+      showNotification('O áudio não está disponível neste dispositivo. A sessão pode continuar sem som.', 'info');
+    }
+    setIsPlaying(true);
   };
 
   const handleSave = async (e?: React.MouseEvent | React.KeyboardEvent) => {
@@ -217,22 +224,22 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
       e.stopPropagation();
     }
 
-    if (!text.trim() || !user) return;
-
     const contentToSave = text.trim();
-    setText('');
+    if (!contentToSave || !user || isSaving) return;
 
-    try {
-      await supabase.from('inbox_captures').insert({
-        user_id: user.id,
-        content: contentToSave
-      });
+    setIsSaving(true);
+    const saved = await addInboxCapture(user.id, contentToSave);
+    setIsSaving(false);
 
-      setShowFeedback(true);
-      setTimeout(() => setShowFeedback(false), 2500);
-    } catch (err) {
-      console.error('Error saving capture:', err);
+    if (!saved) {
+      showNotification('Não foi possível salvar sua anotação. O texto foi mantido para você tentar novamente.', 'error');
+      return;
     }
+
+    setText('');
+    setShowFeedback(true);
+    showNotification('Anotação salva.', 'success');
+    setTimeout(() => setShowFeedback(false), 2500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -419,7 +426,7 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
               exit={{ opacity: 0 }}
               className="text-zinc-500 text-sm mb-3 font-medium"
             >
-              Captura guardada.
+              Anotação salva.
             </motion.div>
           )}
         </AnimatePresence>
@@ -428,10 +435,20 @@ export const DecompressionSession = ({ isOpen, onClose }: DecompressionSessionPr
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Esvazie a mente... (Pressione Enter para guardar)"
+          placeholder="Escreva o que está ocupando sua mente..."
           className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-zinc-300 placeholder:text-zinc-700 text-lg p-0"
           rows={3}
         />
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!text.trim() || isSaving}
+            className="rounded-xl bg-white/10 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isSaving ? 'Salvando…' : 'Salvar anotação'}
+          </button>
+        </div>
       </div>
       <AnimatePresence>
         {showContinuePopup && (

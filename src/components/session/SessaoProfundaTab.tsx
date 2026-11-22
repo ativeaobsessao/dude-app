@@ -265,7 +265,7 @@ export const SessaoProfundaTab = () => {
         <header className="space-y-2.5 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-green/5 border border-primary-green/15 rounded-full text-primary-green">
             <Sparkles size={11} className="animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-wider font-sans">Modo Operação</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider font-sans">Modo foco</span>
           </div>
           <div className="space-y-1">
             <h2 className="text-2xl font-black tracking-tight text-text-primary uppercase font-sans">

@@ -170,7 +170,7 @@ export const EditSessionModal: React.FC<EditSessionModalProps> = ({ session, onC
 
           {/* Checklist de tarefas realizadas */}
           <div className="pt-4 border-t border-white/5 space-y-3 text-left">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570] block">Checklist de Execução</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6a7570] block">Checklist da sessão</label>
             
             <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
               {sessionTasks.length === 0 ? (

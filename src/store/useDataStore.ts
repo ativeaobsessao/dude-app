@@ -89,6 +89,7 @@ interface DataState {
   inboxCaptures: InboxCapture[];
   
   fetchInboxCaptures: (userId: string) => Promise<void>;
+  addInboxCapture: (userId: string, content: string) => Promise<InboxCapture | null>;
   deleteInboxCapture: (id: string) => Promise<boolean>;
 
   fetchDailyTasks: (userId: string) => Promise<void>;
@@ -141,7 +142,7 @@ interface DataState {
     extraAvoidanceParams?: Partial<Habit>
   ) => Promise<Habit | null>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<boolean>;
-  deleteAvoidanceHabit: (id: string) => Promise<void>;
+  deleteAvoidanceHabit: (id: string) => Promise<boolean>;
   addAvoidanceCheckin: (checkin: Omit<AvoidanceCheckin, 'id' | 'created_at'>) => Promise<AvoidanceCheckin | null>;
   updateAvoidanceCheckin: (id: string, updates: Partial<AvoidanceCheckin>) => Promise<boolean>;
   deleteAvoidanceCheckin: (id: string) => Promise<boolean>;
@@ -558,12 +559,13 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   fetchAvoidanceCheckins: async (userId) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('avoidance_checkins')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      if (data) set({ avoidanceCheckins: data || [] });
+      if (error) throw error;
+      set({ avoidanceCheckins: data || [] });
     } catch (err) {
       console.error('Error fetching avoidance checkins:', err);
     }
@@ -615,26 +617,19 @@ export const useDataStore = create<DataState>((set, get) => ({
         .select()
         .single();
       if (error) throw error;
-      if (data) {
-        set({ avoidanceCheckins: [data, ...get().avoidanceCheckins] });
-        return data;
-      }
-      return null;
+      if (!data) return null;
+
+      set({ avoidanceCheckins: [data, ...get().avoidanceCheckins] });
+      return data;
     } catch (err) {
-      console.error('Error adding avoidance checkin, falling back to local state:', err);
-      const tempId = crypto.randomUUID ? crypto.randomUUID() : 'avoidance-' + Math.random().toString(36).substring(2, 11);
-      const fallbackCheckinObj: AvoidanceCheckin = {
-        id: tempId,
-        created_at: new Date().toISOString(),
-        ...checkin
-      };
-      set({ avoidanceCheckins: [fallbackCheckinObj, ...get().avoidanceCheckins] });
-      return fallbackCheckinObj;
+      // Do not create fake local check-ins: they would inflate streaks and disappear
+      // on the next sync, making the user believe a record was saved when it was not.
+      console.error('Error adding avoidance check-in:', err);
+      return null;
     }
   },
 
   updateAvoidanceCheckin: async (id, updates) => {
-    console.log('[useDataStore] updateAvoidanceCheckin called for id:', id, 'with updates:', updates);
     try {
       const { data, error } = await supabase
         .from('avoidance_checkins')
@@ -643,44 +638,35 @@ export const useDataStore = create<DataState>((set, get) => ({
         .select()
         .single();
       if (error) throw error;
-      if (data) {
-        set({
-          avoidanceCheckins: get().avoidanceCheckins.map((item) =>
-            item.id === id ? data : item
-          ),
-        });
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('Error updating avoidance checkin, falling back to local state:', err);
+      if (!data) return false;
+
       set({
-        avoidanceCheckins: get().avoidanceCheckins.map((item) =>
-          item.id === id ? { ...item, ...updates } : item
-        ),
+        avoidanceCheckins: get().avoidanceCheckins.map(item =>
+          item.id === id ? data : item
+        )
       });
       return true;
+    } catch (err) {
+      console.error('Error updating avoidance check-in:', err);
+      return false;
     }
   },
 
   deleteAvoidanceCheckin: async (id) => {
-    console.log('[useDataStore] deleteAvoidanceCheckin called for id:', id);
     try {
       const { error } = await supabase
         .from('avoidance_checkins')
         .delete()
         .eq('id', id);
       if (error) throw error;
+
       set({
-        avoidanceCheckins: get().avoidanceCheckins.filter((item) => item.id !== id),
+        avoidanceCheckins: get().avoidanceCheckins.filter(item => item.id !== id)
       });
       return true;
     } catch (err) {
-      console.error('Error deleting avoidance checkin, falling back to local state:', err);
-      set({
-        avoidanceCheckins: get().avoidanceCheckins.filter((item) => item.id !== id),
-      });
-      return true;
+      console.error('Error deleting avoidance check-in:', err);
+      return false;
     }
   },
 
@@ -1906,23 +1892,24 @@ export const useDataStore = create<DataState>((set, get) => ({
   deleteAvoidanceHabit: async (id: string) => {
     try {
       const habitToDelete = get().habits.find(h => h.id === id && h.habit_mode === 'avoid');
-      if (!habitToDelete) {
-        console.warn('Avoidance habit not found in state:', id);
-        return;
-      }
+      if (!habitToDelete) return false;
 
-      // Deletar checkins primeiro para evitar erro de foreign key se não houver CASCADE
-      await supabase.from('avoidance_checkins').delete().eq('habit_id', id);
-
+      // The database FK is ON DELETE SET NULL. Removing the parent row keeps
+      // the user's check-ins and notes available in the history.
       const { error } = await supabase.from('habits').delete().eq('id', id);
       if (error) throw error;
 
       set({
         habits: get().habits.filter(h => h.id !== id),
-        avoidanceCheckins: get().avoidanceCheckins.filter(c => c.habit_id !== id)
+        // Preserve the user's history and notes after removing the control.
+        avoidanceCheckins: get().avoidanceCheckins.map(checkin =>
+          checkin.habit_id === id ? { ...checkin, habit_id: null } : checkin
+        )
       });
+      return true;
     } catch (err) {
       console.error('Error deleting avoidance habit:', err);
+      return false;
     }
   },
 
@@ -2223,11 +2210,29 @@ export const useDataStore = create<DataState>((set, get) => ({
   fetchInboxCaptures: async (userId) => {
     try {
       const { data, error } = await supabase.from('inbox_captures').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-      if (!error && data) {
-        set({ inboxCaptures: data });
-      }
+      if (error) throw error;
+      if (data) set({ inboxCaptures: data });
     } catch (err) {
       console.error('Error fetching inbox captures:', err);
+    }
+  },
+
+  addInboxCapture: async (userId, content) => {
+    const cleanContent = content.trim();
+    if (!cleanContent) return null;
+    try {
+      const { data, error } = await supabase
+        .from('inbox_captures')
+        .insert({ user_id: userId, content: cleanContent })
+        .select()
+        .single();
+      if (error) throw error;
+      if (!data) return null;
+      set({ inboxCaptures: [data, ...get().inboxCaptures] });
+      return data;
+    } catch (err) {
+      console.error('Error adding inbox capture:', err);
+      return null;
     }
   },
 

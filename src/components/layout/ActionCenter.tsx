@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState, type FormEvent, useMemo, useEffect, useRef } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore, getLocalMondayStr } from '../../store/useDataStore';
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import { sendToServiceWorker } from '../../hooks/useServiceWorker';
 import { unlockAudio } from '../../hooks/useSessionNotifications';
-import { calculateAvoidanceMetrics } from '../dashboard/AvoidanceSection';
+import { calculateAvoidanceMetrics } from '../../lib/avoidanceMetrics';
 import { formatHumanTime, resolverNomeSessao, formatSessionDuration, formatTimeRange, getLocalDateString, cleanActivityName } from '../../lib/utils';
 
 type Screen = 'session' | 'projects' | 'activities' | 'notes' | 'habits' | 'history' | 'agenda' | 'anti-vicio' | 'saved-links' | 'links-list';
@@ -94,7 +95,37 @@ export const ActionCenter = () => {
   );
 
   const timer = useTimerStore();
-  const dataStore = useDataStore();
+  const dataStore = useDataStore(useShallow(state => ({
+    activities: state.activities,
+    addActivity: state.addActivity,
+    addHabit: state.addHabit,
+    addManualSession: state.addManualSession,
+    addNote: state.addNote,
+    addProject: state.addProject,
+    addSession: state.addSession,
+    addSessionTask: state.addSessionTask,
+    avoidanceCheckins: state.avoidanceCheckins,
+    completeFirstSession: state.completeFirstSession,
+    completeHabitSession: state.completeHabitSession,
+    dailyTasks: state.dailyTasks,
+    deleteActivity: state.deleteActivity,
+    deleteHabit: state.deleteHabit,
+    deleteInboxCapture: state.deleteInboxCapture,
+    deleteNote: state.deleteNote,
+    deleteProject: state.deleteProject,
+    deleteSession: state.deleteSession,
+    habits: state.habits,
+    hasCompletedFirstSession: state.hasCompletedFirstSession,
+    pendingTasks: state.pendingTasks,
+    projects: state.projects,
+    scheduledActivities: state.scheduledActivities,
+    sessionTasks: state.sessionTasks,
+    sessions: state.sessions,
+    showNotification: state.showNotification,
+    updateDailyTask: state.updateDailyTask,
+    updateHabit: state.updateHabit,
+    updateScheduledActivity: state.updateScheduledActivity
+  })));
   const { user } = useAuthStore();
 
   // Reset screen when opening/closing
@@ -1167,7 +1198,7 @@ export const ActionCenter = () => {
   const handleAddAvoidance = async () => {
     if (isSaving) return;
     if (!avoidanceName || avoidanceName.trim() === '' || !user) {
-      dataStore.showNotification('Por favor, informe o vício ou comportamento que deseja controlar.', 'error');
+      dataStore.showNotification('Informe o comportamento que deseja acompanhar.', 'error');
       return;
     }
 
@@ -1175,16 +1206,29 @@ export const ActionCenter = () => {
     let finalEnd = avoidanceEnd;
 
     if (avoidanceScope === 'time_window') {
-      const startHs = String(Math.min(23, parseInt(avoidanceStartHours, 10) || 0)).padStart(2, '0');
-      const startMs = String(Math.min(59, parseInt(avoidanceStartMinutes, 10) || 0)).padStart(2, '0');
-      finalStart = `${startHs}:${startMs}`;
+      const startHour = Number(avoidanceStartHours);
+      const startMinute = Number(avoidanceStartMinutes);
+      const endHour = Number(avoidanceEndHours);
+      const endMinute = Number(avoidanceEndMinutes);
+      const validTimePart = (value: number, max: number) =>
+        Number.isInteger(value) && value >= 0 && value <= max;
 
-      const endHs = String(Math.min(23, parseInt(avoidanceEndHours, 10) || 0)).padStart(2, '0');
-      const endMs = String(Math.min(59, parseInt(avoidanceEndMinutes, 10) || 0)).padStart(2, '0');
-      finalEnd = `${endHs}:${endMs}`;
+      if (
+        [avoidanceStartHours, avoidanceStartMinutes, avoidanceEndHours, avoidanceEndMinutes].some(value => value.trim() === '') ||
+        !validTimePart(startHour, 23) ||
+        !validTimePart(startMinute, 59) ||
+        !validTimePart(endHour, 23) ||
+        !validTimePart(endMinute, 59)
+      ) {
+        dataStore.showNotification('Confira os horários informados.', 'error');
+        return;
+      }
 
-      if (!finalStart || !finalEnd) {
-        dataStore.showNotification('Por favor, defina a janela de horários para o autocontrole.', 'error');
+      finalStart = `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+      finalEnd = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+
+      if (finalStart === finalEnd) {
+        dataStore.showNotification('O início e o fim da janela precisam ser diferentes.', 'error');
         return;
       }
     }
@@ -1211,7 +1255,7 @@ export const ActionCenter = () => {
           ...payload
         });
         if (success) {
-          dataStore.showNotification('Módulo Anti-Vício atualizado com sucesso.', 'success');
+          dataStore.showNotification('Acompanhamento atualizado.', 'success');
           setIsOpen(false);
           setCurrentScreen(null);
         } else {
@@ -1230,11 +1274,11 @@ export const ActionCenter = () => {
           payload
         );
         if (result) {
-          dataStore.showNotification('Módulo Anti-Vício cadastrado com sucesso!', 'success');
+          dataStore.showNotification('Acompanhamento criado.', 'success');
           setIsOpen(false);
           setCurrentScreen(null);
         } else {
-          dataStore.showNotification('Erro ao criar módulo Anti-Vício.', 'error');
+          dataStore.showNotification('Não foi possível criar o acompanhamento.', 'error');
         }
       }
 
@@ -1380,26 +1424,27 @@ export const ActionCenter = () => {
           REALIZAR AGENDAMENTO
         </motion.button>
 
-        {/* NÍVEL 2: Sinais Vitais (Anti-Vício) */}
+        {/* AUTOCONTROLE */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
-            Sinais Vitais
+            Autocontrole
           </h3>
           <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-6 px-6 md:-mx-8 md:px-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {avoidHabits.map((habit) => {
               const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-              const diasLivres = metrics.diasLimposTotal || 0;
+              const totalLabel = metrics.totalLabel;
               return (
                 <motion.div
                   whileTap={{ scale: 0.96 }}
                   key={habit.id}
-                  onClick={() => setCurrentScreen('anti-vicio')}
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'anti-vicio', editHabit: habit } }))}
                   className="w-[85%] sm:w-[280px] shrink-0 snap-center bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 flex flex-col justify-between cursor-pointer"
                 >
                   <div className="space-y-1">
                     <h3 className="text-4xl font-light text-white tracking-tight leading-none">
-                      {diasLivres} {diasLivres === 1 ? 'Dia Livre' : 'Dias Livres'}
+                      {metrics.confirmedDaysTotal}
                     </h3>
+                    <p className="text-[11px] text-white/45">{totalLabel}</p>
                     <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-1">
                       {habit.name}
                     </h4>
@@ -1407,11 +1452,11 @@ export const ActionCenter = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCurrentScreen('anti-vicio');
+                      window.dispatchEvent(new CustomEvent('open-action-center', { detail: { screen: 'anti-vicio', editHabit: habit } }));
                     }}
-                    className="mt-6 w-full py-3 bg-red-500 text-white rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
+                    className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
                   >
-                    TÔ NAS ÚLTIMAS
+                    Editar controle
                   </button>
                 </motion.div>
               );
@@ -1433,10 +1478,10 @@ export const ActionCenter = () => {
           </div>
         </div>
 
-        {/* NÍVEL 3: Grid de Operações (Bento Box) */}
+        {/* ORGANIZAÇÃO */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
-            Operações
+            Organização
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <motion.button
@@ -1558,7 +1603,7 @@ export const ActionCenter = () => {
               ? "w-full max-w-xl bg-background border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl space-y-6 my-auto max-h-[85vh] flex flex-col overflow-y-auto"
               : "w-full max-w-4xl space-y-12 pb-32"
             }>
-              <header className="flex justify-between items-center border-b border-white/5 pb-8">
+              <header className="flex justify-between items-center border-b border-white/5 pb-4">
                 <div className="flex items-center gap-4">
                   {currentScreen !== null && (
                     <button 
@@ -1571,10 +1616,6 @@ export const ActionCenter = () => {
                       <ArrowLeft size={16} /> Voltar
                     </button>
                   )}
-                  <div className="space-y-1">
-                    <h2 className="text-[10px] font-bold uppercase tracking-[0.4em] text-text-secondary opacity-40">Centro de Operações</h2>
-                    <p className="text-[8px] text-primary-green/60 font-mono text-left">MODO EXECUÇÃO ATIVADO</p>
-                  </div>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
@@ -1591,7 +1632,7 @@ export const ActionCenter = () => {
                   <div className="w-full max-w-2xl space-y-10">
                     {isPrefilled ? (
                       <div className="space-y-1">
-                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-white text-center">Concluir Execução</h3>
+                        <h3 className="text-xl md:text-2xl font-bold tracking-tight text-white text-center">Concluir sessão</h3>
                         <p className="text-sm font-mono text-primary-green uppercase tracking-widest text-center">{sessionData.activityManual}</p>
                       </div>
                     ) : (
@@ -2239,7 +2280,7 @@ export const ActionCenter = () => {
                                             </div>
 
                                             <div className="space-y-1 text-left">
-                                              <label className={labelClasses}>Horário Fixo de Execução</label>
+                                              <label className={labelClasses}>Horário de início</label>
                                               <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1 text-left">
                                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
@@ -2795,10 +2836,10 @@ export const ActionCenter = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="text-3xl font-bold tracking-tight text-text-primary">
-                            {editingAvoidanceId ? 'Editar Módulo' : 'Novo Autocontrole'}
+                            {editingAvoidanceId ? 'Editar acompanhamento' : 'Novo Autocontrole'}
                           </h3>
                           <p className="text-xs text-text-secondary/60 mt-1">
-                            {editingAvoidanceId ? 'Ajuste os parâmetros de monitoramento mental.' : 'Defina o comportamento e restabeleça seu controle.'}
+                            {editingAvoidanceId ? 'Ajuste os horários e a frequência dos registros.' : 'Escolha o comportamento e defina quando deseja acompanhá-lo.'}
                           </p>
                         </div>
                         {editingAvoidanceId && (
@@ -2821,7 +2862,7 @@ export const ActionCenter = () => {
                     <div className="space-y-6 text-left">
                       {/* Name input */}
                       <div className="flex flex-col">
-                        <label className={labelClasses}>O que você quer controlar?</label>
+                        <label className={labelClasses}>Qual comportamento você quer acompanhar?</label>
                         <input
                           type="text"
                           value={avoidanceName}
@@ -2833,7 +2874,7 @@ export const ActionCenter = () => {
 
                       {/* Control Scope / Type */}
                       <div className="flex flex-col">
-                        <label className={labelClasses}>Escopo do Autocontrole</label>
+                        <label className={labelClasses}>Quando deseja fazer o acompanhamento?</label>
                         <div className="grid grid-cols-2 gap-4">
                           <button
                             onClick={() => setAvoidanceScope('full_day')}
@@ -2843,7 +2884,7 @@ export const ActionCenter = () => {
                                 : 'bg-white/5 border-white/10 text-text-secondary/80 hover:border-white/20'
                             }`}
                           >
-                            🛡️ O dia todo
+                            O dia todo
                           </button>
                           <button
                             onClick={() => setAvoidanceScope('time_window')}
@@ -2853,7 +2894,7 @@ export const ActionCenter = () => {
                                 : 'bg-white/5 border-white/10 text-text-secondary/80 hover:border-white/20'
                             }`}
                           >
-                            ⏱️ Janela de Horário
+                            Horário específico
                           </button>
                         </div>
                       </div>
@@ -2868,7 +2909,7 @@ export const ActionCenter = () => {
                             className="grid grid-cols-2 gap-4 overflow-hidden"
                           >
                             <div className="space-y-1 text-left">
-                              <label className={labelClasses}>Início da Janela</label>
+                              <label className={labelClasses}>Início do período</label>
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1 text-left">
                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
@@ -2917,7 +2958,7 @@ export const ActionCenter = () => {
                               </div>
                             </div>
                             <div className="space-y-1 text-left">
-                              <label className={labelClasses}>Fim da Janela</label>
+                              <label className={labelClasses}>Fim do período</label>
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1 text-left">
                                   <span className="text-[9px] font-bold text-text-secondary/40 uppercase tracking-widest block text-center">Horas</span>
@@ -3218,9 +3259,9 @@ export const ActionCenter = () => {
                                     </div>
                                   </div>
 
-                                  {/* Horário Fixo de Execução (HH | MM CONTAINER) */}
+                                  {/* Horário de início (HH | MM CONTAINER) */}
                                   <div className="space-y-1 text-left">
-                                    <label className={labelClasses}>Horário Fixo de Execução</label>
+                                    <label className={labelClasses}>Horário de início</label>
                                     <div className="grid grid-cols-2 gap-4">
                                       {/* HORAS */}
                                       <div className="space-y-1 text-left">
@@ -3399,7 +3440,7 @@ export const ActionCenter = () => {
             className="fixed inset-x-0 top-0 bottom-20 z-[210] bg-background/98 backdrop-blur-3xl flex flex-col items-center px-6 py-12 overflow-y-auto"
           >
             <div className="w-full max-w-2xl space-y-10">
-              <header className="flex justify-between items-center border-b border-white/5 pb-8">
+              <header className="flex justify-between items-center border-b border-white/5 pb-4">
                 <button
                   onClick={() => setShowHabitsModal(false)}
                   className="flex items-center gap-2 text-text-secondary hover:text-primary-green transition-colors font-bold uppercase tracking-widest text-[10px]"

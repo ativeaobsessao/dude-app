@@ -138,6 +138,18 @@ CREATE TABLE IF NOT EXISTS avoidance_checkins (
   checkin_date TEXT NOT NULL,
   checkin_period TEXT NOT NULL CHECK (checkin_period IN ('morning', 'afternoon', 'evening', 'window')),
   status TEXT NOT NULL CHECK (status IN ('success', 'relapse', 'pending')),
+  trigger_tag TEXT,
+  trigger_note TEXT,
+  window_label TEXT,
+  prompts_shown INTEGER NOT NULL DEFAULT 0,
+  intensity INTEGER,
+  time_spent INTEGER,
+  urge_intensity SMALLINT,
+  emotion_tag TEXT,
+  environment_tag TEXT,
+  preceding_activity TEXT,
+  recovery_action TEXT,
+  occurred_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useState, useEffect, useRef } from 'react';
 import { Target, X, AlertTriangle, Check, Home, ListTodo, Play, BarChart2, Menu as MenuIcon, FolderKanban, Layers, Zap } from 'lucide-react';
 import { TaskListScreen } from './components/dashboard/TaskListScreen';
@@ -16,7 +17,7 @@ import { ActionCenter } from './components/layout/ActionCenter';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { SubscriptionGuard } from './components/layout/SubscriptionGuard';
-import { ProgressStats } from './components/dashboard/ProgressStats';
+import { CentroDashboard } from './components/dashboard/CentroDashboard';
 import { SessaoProfundaTab } from './components/session/SessaoProfundaTab';
 import { useAuthStore } from './store/useAuthStore';
 import { useDataStore } from './store/useDataStore';
@@ -47,7 +48,8 @@ import { MoodRitualModal } from './components/mood/MoodRitualModal';
 const ENABLE_QUICK_CAPTURE = true;
 
 export default function App() {
-  const { signOut, user } = useAuthStore();
+  const signOut = useAuthStore(state => state.signOut);
+  const user = useAuthStore(state => state.user);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -58,19 +60,40 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
-  const { 
-    hasCompletedFirstSession, 
-    profile, 
-    notification, 
+  const dataStore = useDataStore(useShallow(state => ({
+    hasCompletedFirstSession: state.hasCompletedFirstSession,
+    profile: state.profile,
+    notification: state.notification,
+    clearNotification: state.clearNotification,
+    sessions: state.sessions,
+    initialFetchDone: state.initialFetchDone,
+    habitCompletions: state.habitCompletions,
+    habits: state.habits,
+    moodEntries: state.moodEntries,
+    avoidanceCheckins: state.avoidanceCheckins,
+    scheduledActivities: state.scheduledActivities,
+    dailyShutdowns: state.dailyShutdowns,
+    fetchScheduledActivities: state.fetchScheduledActivities,
+    isLinksHistoryOpen: state.isLinksHistoryOpen,
+    isNotesHistoryOpen: state.isNotesHistoryOpen,
+    revalidateSyncState: state.revalidateSyncState,
+    setLinksHistoryOpen: state.setLinksHistoryOpen,
+    setNotesHistoryOpen: state.setNotesHistoryOpen
+  })));
+  const dataStoreRef = useRef(dataStore);
+  dataStoreRef.current = dataStore;
+
+  const {
+    hasCompletedFirstSession,
+    profile,
+    notification,
     clearNotification,
-    sessions, 
+    sessions,
     initialFetchDone,
     habitCompletions,
     avoidanceCheckins,
     scheduledActivities
-  } = useDataStore();
-  const dataStore = useDataStore();
-
+  } = dataStore;
 
   const [activeTab, setActiveTab] = useState<'home' | 'listas' | 'session' | 'centro' | 'menu'>('home');
   const [isRevalidating, setIsRevalidating] = useState(false);
@@ -149,7 +172,7 @@ export default function App() {
     if (!user || !initialFetchDone) return;
 
     runServerPopupCheck();
-    dataStore.fetchScheduledActivities(user.id);
+    dataStoreRef.current.fetchScheduledActivities(user.id);
 
     // Play schedule state sound (app open)
     const playLoadedScheduleSounds = async () => {
@@ -162,7 +185,7 @@ export default function App() {
       const currentMM = nowTime.getMinutes();
       const currentTotalMins = currentHH * 60 + currentMM;
 
-      const todaysSchedules = (dataStore.scheduledActivities || []).filter(sa => {
+      const todaysSchedules = (dataStoreRef.current.scheduledActivities || []).filter(sa => {
         return sa.scheduled_date === todayStr && (sa.status === 'pending' || sa.status === 'agendada');
       });
 
@@ -171,7 +194,7 @@ export default function App() {
       if (dayOfWeek === 0) dayOfWeek = 7;
       const dayOfWeekStr = String(dayOfWeek);
 
-      const activeHabits = (dataStore.habits || [])
+      const activeHabits = (dataStoreRef.current.habits || [])
         .filter(h => {
           if (!h.is_scheduled) return false;
           if (h.sched_weekdays === 'all') return true;
@@ -179,7 +202,7 @@ export default function App() {
           return days.includes(dayOfWeekStr);
         })
         .filter(h => {
-          const isCompleted = (dataStore.habitCompletions || []).some(hc => {
+          const isCompleted = (dataStoreRef.current.habitCompletions || []).some(hc => {
             if (hc.habit_id !== h.id) return false;
             const compDateStr = getLocalDateString(new Date(hc.completed_at));
             return compDateStr === todayStr;
@@ -222,35 +245,37 @@ export default function App() {
 
     playLoadedScheduleSounds();
 
-    const handleVisibility = async () => {
-      if (document.visibilityState === 'visible') {
-        setIsRevalidating(true);
+    let lastRefreshAt = 0;
+    let refreshInFlight: Promise<void> | null = null;
+
+    const refreshOnReturn = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 5000) return;
+      if (refreshInFlight) return refreshInFlight;
+
+      lastRefreshAt = now;
+      setIsRevalidating(true);
+      const refreshTask = (async () => {
         try {
-          await dataStore.revalidateSyncState(user.id);
+          await dataStoreRef.current.revalidateSyncState(user.id);
           await runServerPopupCheck();
-        } catch (e) {
-          console.error("Error in revalidateSyncState:", e);
+          await dataStoreRef.current.fetchScheduledActivities(user.id);
+        } catch (error) {
+          console.error('Error refreshing app data:', error);
         } finally {
           setIsRevalidating(false);
+          refreshInFlight = null;
         }
-        dataStore.fetchScheduledActivities(user.id);
-      }
+      })();
+      refreshInFlight = refreshTask;
+      await refreshTask;
     };
 
-    const handleFocus = async () => {
-      setIsRevalidating(true);
-      try {
-        await dataStore.revalidateSyncState(user.id);
-        await runServerPopupCheck();
-      } catch (e) {
-        console.error("Error in revalidateSyncState:", e);
-      } finally {
-        setIsRevalidating(false);
-      }
-      dataStore.fetchScheduledActivities(user.id);
-    };
+    const handleVisibility = () => { void refreshOnReturn(); };
+    const handleFocus = () => { void refreshOnReturn(); };
 
-    window.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
 
     // Real-time synchronization across devices for daily shutdowns
@@ -265,18 +290,18 @@ export default function App() {
           filter: `user_id=eq.${user.id}`,
         },
         async () => {
-          await dataStore.revalidateSyncState(user.id);
+          await dataStoreRef.current.revalidateSyncState(user.id);
           await runServerPopupCheck();
         }
       )
       .subscribe();
 
     return () => {
-      window.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', handleFocus);
       supabase.removeChannel(channel);
     };
-  }, [user, initialFetchDone, dataStore.scheduledActivities.length]);
+  }, [user, initialFetchDone]);
 
   // Listen to custom popups & session startup events
   useEffect(() => {
@@ -953,7 +978,7 @@ export default function App() {
             )}
 
             {activeTab === 'centro' && (
-              <ProgressStats onClose={() => setActiveTab('home')} />
+              <CentroDashboard onClose={() => setActiveTab('home')} />
             )}
 
             {activeTab === 'menu' && <MenuTab />}

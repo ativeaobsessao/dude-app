@@ -68,8 +68,8 @@ export const InboxCaptures = () => {
             <Inbox size={18} className="text-indigo-400" />
           </div>
           <div className="text-left">
-            <h4 className="text-sm font-semibold text-zinc-100">Limbo Descarregado</h4>
-            <p className="text-xs font-medium text-zinc-400">Você tem {inboxCaptures.length} {inboxCaptures.length === 1 ? 'captura não processada' : 'capturas não processadas'} da noite anterior.</p>
+            <h4 className="text-sm font-semibold text-zinc-100">Caixa de entrada</h4>
+            <p className="text-xs font-medium text-zinc-400">Você tem {inboxCaptures.length} {inboxCaptures.length === 1 ? 'anotação rápida' : 'anotações rápidas'} para organizar.</p>
           </div>
         </div>
       </motion.button>
@@ -88,7 +88,7 @@ export const InboxCaptures = () => {
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                   <Inbox size={18} className="text-indigo-400" />
-                  <h3 className="text-lg font-semibold text-zinc-100">Capturas do Limbo</h3>
+                  <h3 className="text-lg font-semibold text-zinc-100">Anotações rápidas</h3>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
@@ -119,7 +119,7 @@ export const InboxCaptures = () => {
                           className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 rounded-xl text-sm font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
                         >
                           <ArrowRightCircle size={16} />
-                          Converter em Tarefa
+                          Criar tarefa
                         </button>
                         
                         <button
@@ -139,7 +139,7 @@ export const InboxCaptures = () => {
                           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
                         >
                           <Trash2 size={16} />
-                          Apagar
+                          Excluir
                         </button>
                       </div>
                     </motion.div>
@@ -162,7 +162,7 @@ export const InboxCaptures = () => {
               transition={{ duration: 0.15 }}
               className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-center"
             >
-              <h3 className="text-lg font-semibold text-zinc-100 mb-2">Apagar captura?</h3>
+              <h3 className="text-lg font-semibold text-zinc-100 mb-2">Excluir anotação rápida?</h3>
               <p className="text-sm text-zinc-400 mb-6">Esta ação não pode ser desfeita.</p>
               
               <div className="flex gap-3 w-full">
@@ -176,7 +176,7 @@ export const InboxCaptures = () => {
                   onClick={handleConfirmDelete}
                   className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                 >
-                  Apagar
+                  Excluir
                 </button>
               </div>
             </motion.div>

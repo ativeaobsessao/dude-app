@@ -1,13 +1,19 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useDataStore } from '../../store/useDataStore';
-import { calculateAvoidanceMetrics } from '../dashboard/AvoidanceSection';
+import { calculateAvoidanceMetrics } from '../../lib/avoidanceMetrics';
 import { AntiVicioCardOptionsModal } from '../dashboard/AntiVicioCardOptionsModal';
-import { Habit } from '../../types';
+import type { Habit } from '../../types';
 import { Plus, FolderKanban, Target, Layers, StickyNote, Link2, History, ChevronRight } from 'lucide-react';
 
 export const MenuTab = () => {
-  const dataStore = useDataStore();
+  const dataStore = useDataStore(useShallow(state => ({
+    activities: state.activities,
+    avoidanceCheckins: state.avoidanceCheckins,
+    habits: state.habits,
+    projects: state.projects
+  })));
 
   const [selectedAntiVicioHabit, setSelectedAntiVicioHabit] = useState<Habit | null>(null);
   
@@ -16,9 +22,9 @@ export const MenuTab = () => {
   const activitiesCount = dataStore.activities.length;
   const habitsCount = dataStore.habits.filter(h => h.habit_mode === 'build').length;
 
-  const openScreen = (screenName: string) => {
+  const openScreen = (screenName: string, editHabit?: Habit) => {
     window.dispatchEvent(new CustomEvent('open-action-center', {
-      detail: { screen: screenName }
+      detail: { screen: screenName, ...(editHabit ? { editHabit } : {}) }
     }));
   };
 
@@ -39,10 +45,10 @@ export const MenuTab = () => {
           </motion.button>
         </div>
 
-        {/* NÍVEL 2: Sinais Vitais (Anti-Vício) */}
+        {/* AUTOCONTROLE */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
-            Sinais Vitais
+            Autocontrole
           </h3>
           <div 
             onTouchStart={(e) => e.stopPropagation()}
@@ -51,7 +57,7 @@ export const MenuTab = () => {
           >
             {avoidHabits.map((habit) => {
               const metrics = calculateAvoidanceMetrics(habit, dataStore.avoidanceCheckins);
-              const diasLivres = metrics.diasLimposTotal || 0;
+              const totalLabel = metrics.totalLabel;
               return (
                 <motion.div
                   whileTap={{ scale: 0.96 }}
@@ -61,8 +67,9 @@ export const MenuTab = () => {
                 >
                   <div className="space-y-1">
                     <h3 className="text-4xl font-light text-white tracking-tight leading-none">
-                      {diasLivres} {diasLivres === 1 ? 'Dia Livre' : 'Dias Livres'}
+                      {metrics.confirmedDaysTotal}
                     </h3>
+                    <p className="mt-1 text-[11px] text-white/45">{totalLabel}</p>
                     <h4 className="text-sm font-medium text-white/50 tracking-wide font-sans mt-1">
                       {habit.name}
                     </h4>
@@ -70,11 +77,11 @@ export const MenuTab = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      openScreen('anti-vicio');
+                      openScreen('anti-vicio', habit);
                     }}
-                    className="mt-6 w-full py-3 bg-red-500 text-white rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
+                    className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-2xl font-semibold uppercase tracking-widest text-[10px]"
                   >
-                    TÔ NAS ÚLTIMAS
+                    Editar controle
                   </button>
                 </motion.div>
               );
@@ -96,10 +103,10 @@ export const MenuTab = () => {
           </div>
         </div>
 
-        {/* NÍVEL 3: Grid de Operações (Bento Box) */}
+        {/* ORGANIZAÇÃO */}
         <div className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-text-secondary/40 pl-2">
-            Operações
+            Organização
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <motion.button
