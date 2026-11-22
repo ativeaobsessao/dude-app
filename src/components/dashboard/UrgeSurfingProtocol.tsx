@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, X, ShieldCheck, Heart, Send, Sparkles, AlertCircle, Maximize, Minimize, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { Volume2, VolumeX, X, ShieldCheck, Send, Sparkles, Maximize, Minimize, CheckCircle2 } from 'lucide-react';
 import { useDataStore } from '../../store/useDataStore';
-import { getLocalDateString } from '../../lib/utils';
+import {
+  GUIDED_SESSION_SECONDS,
+  getBallTravelConfig,
+  getGuidedBreathingState,
+  getGuidedPhase,
+  getInfiniteAct
+} from '../../lib/guidedSession';
 
 interface UrgeSurfingProtocolProps {
   key?: string | number;
@@ -11,100 +17,90 @@ interface UrgeSurfingProtocolProps {
   onClose: () => void;
 }
 
-// Clinically equalized real-time Tone Generator supporting Solfeggio & Perceptually-boosted Binaural Beats
+// Geração opcional de som ambiente. O áudio só é iniciado após uma ação explícita do usuário.
 class AudioSynthesizer {
   private ctx: AudioContext | null = null;
   private oscLeft: OscillatorNode | null = null;
   private oscRight: OscillatorNode | null = null;
   private gainNode: GainNode | null = null;
   private compressorNode: DynamicsCompressorNode | null = null;
-  private currentFreq: number = 0;
-  private currentOffset: number = 0;
+  private pannerLeft: StereoPannerNode | null = null;
+  private pannerRight: StereoPannerNode | null = null;
+  private currentFreq = 0;
+  private currentOffset = 0;
 
-  start(frequency: number, binauralOffset: number = 0, volumeMultiplier: number = 1.0) {
-    const baseGain = 0.08;
-    const targetVolume = baseGain * volumeMultiplier;
-
-    if (this.ctx && this.currentFreq === frequency && this.currentOffset === binauralOffset) {
-      return; 
-    }
-
-    if (this.ctx && this.oscLeft && this.gainNode) {
-      if ((this.currentOffset === 0 && binauralOffset !== 0) || (this.currentOffset !== 0 && binauralOffset === 0)) {
-         // Force recreate nodes to ensure structural integrity of channels
-      } else {
-        this.currentFreq = frequency;
-        this.currentOffset = binauralOffset;
-        const currentTime = this.ctx.currentTime;
-        this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.05);
-        if (this.oscRight) {
-          this.oscRight.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.05);
-        }
-        this.gainNode.gain.setTargetAtTime(targetVolume, currentTime, 0.05);
-        return;
-      }
-    }
-
-    this.currentFreq = frequency;
-    this.currentOffset = binauralOffset;
-    
+  async start(frequency: number, binauralOffset = 0, volumeMultiplier = 1): Promise<boolean> {
     try {
-      this.stop();
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      
-      this.ctx = new AudioContextClass();
-      
-      // Auto-resume if in suspended state (Safari/iOS requirement)
+      if (!AudioContextClass) return false;
+
+      if (this.ctx && this.ctx.state === 'closed') this.stop();
+
+      if (!this.ctx) {
+        this.ctx = new AudioContextClass();
+        const ctx = this.ctx;
+        this.gainNode = ctx.createGain();
+        this.compressorNode = ctx.createDynamicsCompressor();
+
+        this.compressorNode.threshold.setValueAtTime(-18, ctx.currentTime);
+        this.compressorNode.knee.setValueAtTime(24, ctx.currentTime);
+        this.compressorNode.ratio.setValueAtTime(8, ctx.currentTime);
+        this.compressorNode.attack.setValueAtTime(0.01, ctx.currentTime);
+        this.compressorNode.release.setValueAtTime(0.3, ctx.currentTime);
+        this.gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        this.gainNode.connect(this.compressorNode);
+        this.compressorNode.connect(ctx.destination);
+
+        this.oscLeft = ctx.createOscillator();
+        this.oscRight = ctx.createOscillator();
+        this.oscLeft.type = 'sine';
+        this.oscRight.type = 'sine';
+        this.oscLeft.frequency.setValueAtTime(frequency, ctx.currentTime);
+        this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, ctx.currentTime);
+
+        if (ctx.createStereoPanner) {
+          this.pannerLeft = ctx.createStereoPanner();
+          this.pannerRight = ctx.createStereoPanner();
+          this.pannerLeft.pan.setValueAtTime(0, ctx.currentTime);
+          this.pannerRight.pan.setValueAtTime(0, ctx.currentTime);
+          this.oscLeft.connect(this.pannerLeft).connect(this.gainNode);
+          this.oscRight.connect(this.pannerRight).connect(this.gainNode);
+        } else {
+          this.oscLeft.connect(this.gainNode);
+          this.oscRight.connect(this.gainNode);
+        }
+
+        this.oscLeft.start();
+        this.oscRight.start();
+      }
+
       if (this.ctx.state === 'suspended') {
-        this.ctx.resume();
+        await this.ctx.resume();
       }
+      if (this.ctx.state !== 'running' || !this.gainNode || !this.oscLeft) return false;
 
-      this.gainNode = this.ctx.createGain();
-      this.compressorNode = this.ctx.createDynamicsCompressor();
-      
-      this.compressorNode.threshold.setValueAtTime(-12, this.ctx.currentTime);
-      this.compressorNode.knee.setValueAtTime(30, this.ctx.currentTime);
-      this.compressorNode.ratio.setValueAtTime(12, this.ctx.currentTime);
-      this.compressorNode.attack.setValueAtTime(0.003, this.ctx.currentTime);
-      this.compressorNode.release.setValueAtTime(0.25, this.ctx.currentTime);
-      this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
-      
-      this.gainNode.connect(this.compressorNode);
-      this.compressorNode.connect(this.ctx.destination);
-
-      const pannerLeft = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-      const pannerRight = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-
-      this.oscLeft = this.ctx.createOscillator();
-      this.oscLeft.type = 'sine';
-      this.oscLeft.frequency.setValueAtTime(frequency, this.ctx.currentTime);
-
-      this.oscRight = this.ctx.createOscillator();
-      this.oscRight.type = 'sine';
-      this.oscRight.frequency.setValueAtTime(frequency + binauralOffset, this.ctx.currentTime);
-
-      if (pannerLeft && pannerRight && binauralOffset !== 0) {
-        pannerLeft.pan.setValueAtTime(-1, this.ctx.currentTime);
-        pannerRight.pan.setValueAtTime(1, this.ctx.currentTime);
-        
-        this.oscLeft.connect(pannerLeft).connect(this.gainNode);
-        this.oscRight.connect(pannerRight).connect(this.gainNode);
-      } else {
-        this.oscLeft.connect(this.gainNode);
-        this.oscRight.connect(this.gainNode);
+      const currentTime = this.ctx.currentTime;
+      const safeVolume = Math.min(0.08, Math.max(0, 0.035 * volumeMultiplier));
+      if (this.currentFreq !== frequency || this.currentOffset !== binauralOffset) {
+        this.oscLeft.frequency.setTargetAtTime(frequency, currentTime, 0.12);
+        this.oscRight?.frequency.setTargetAtTime(frequency + binauralOffset, currentTime, 0.12);
       }
-
-      this.oscLeft.start();
-      this.oscRight.start();
-      
-      // Ensure loop/lifecycle is continuous
-      // Oscillators loop naturally, but we ensure gain isn't zero
-      this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.05);
-
-    } catch (e) {
-      console.warn("AudioContext blocked or failed initialization.", e);
+      if (this.pannerLeft && this.pannerRight) {
+        this.pannerLeft.pan.setTargetAtTime(binauralOffset !== 0 ? -1 : 0, currentTime, 0.15);
+        this.pannerRight.pan.setTargetAtTime(binauralOffset !== 0 ? 1 : 0, currentTime, 0.15);
+      }
+      this.gainNode.gain.setTargetAtTime(safeVolume, currentTime, 0.2);
+      this.currentFreq = frequency;
+      this.currentOffset = binauralOffset;
+      return true;
+    } catch (error) {
+      console.warn('Não foi possível iniciar o som ambiente.', error);
+      return false;
     }
+  }
+
+  isRunning(): boolean {
+    return this.ctx?.state === 'running';
   }
 
   stop() {
@@ -113,6 +109,8 @@ class AudioSynthesizer {
     const oscRight = this.oscRight;
     const gainNode = this.gainNode;
     const compressorNode = this.compressorNode;
+    const pannerLeft = this.pannerLeft;
+    const pannerRight = this.pannerRight;
 
     this.currentFreq = 0;
     this.currentOffset = 0;
@@ -121,353 +119,298 @@ class AudioSynthesizer {
     this.oscRight = null;
     this.gainNode = null;
     this.compressorNode = null;
+    this.pannerLeft = null;
+    this.pannerRight = null;
 
     if (!ctx) return;
 
     try {
       if (gainNode && ctx.state !== 'closed') {
-        gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+        gainNode.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
       }
     } catch {
-      // Audio context may already be suspended or closed by the browser.
+      // O navegador pode já ter encerrado o contexto.
     }
 
-    // Capture the old nodes in this closure. A new start() can safely create
-    // another context before this short fade-out finishes.
-    setTimeout(() => {
+    window.setTimeout(() => {
       try {
         if (oscLeft) { try { oscLeft.stop(); } catch {} oscLeft.disconnect(); }
         if (oscRight) { try { oscRight.stop(); } catch {} oscRight.disconnect(); }
         gainNode?.disconnect();
         compressorNode?.disconnect();
-        if (ctx.state !== 'closed') ctx.close().catch(() => {});
+        pannerLeft?.disconnect();
+        pannerRight?.disconnect();
+        if (ctx.state !== 'closed') void ctx.close().catch(() => {});
       } catch {
-        // Cleanup is best-effort; the browser may have already disposed nodes.
+        // Limpeza segura mesmo se o navegador já tiver descartado os nós.
       }
-    }, 100);
+    }, 120);
   }
-
-  playAlertChime() {
-    if (!this.ctx) return;
-    try {
-      // Cria um "Sino de Atenção" não-bloqueante por cima da frequência atual
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(888, this.ctx.currentTime); // Frequência harmônica aguda e limpa
-      
-      // Envelope de som (Ataque rápido, decay longo de 3 segundos)
-      gain.gain.setValueAtTime(0, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 3.0);
-      
-      osc.connect(gain);
-      gain.connect(this.ctx.destination); // Conecta direto ao destino para não sofrer compressão
-      
-      osc.start();
-      osc.stop(this.ctx.currentTime + 3.0);
-    } catch (e) {
-      console.warn("Chime failed", e);
-    }
-  }
-
 
 }
 
 export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolProps) => {
-  const dataStore = useDataStore();
-  const { profile, habits } = dataStore;
+  const profileId = useDataStore(state => state.profile?.id);
+  const habits = useDataStore(state => state.habits);
+  const addInboxCapture = useDataStore(state => state.addInboxCapture);
+  const showNotification = useDataStore(state => state.showNotification);
+  const prefersReducedMotion = useReducedMotion();
 
   const currentHabit = habits.find(h => h.id === habitId);
-  const habitName = currentHabit ? currentHabit.name : 'Crise Geral';
+  const habitName = currentHabit?.name || 'este comportamento';
+  const sessionStorageKey = `dude_guided_pause_end_time_${habitId || 'general'}`;
+  const legacyStorageKey = `urge_surfing_5min_end_time_${habitId || 'general'}`;
 
-  // Protocolo guiado de 3 minutos e 33 segundos.
+  // A duração total permanece em 3min33s; as etapas internas foram alinhadas
+  // para terminar cada transição somente depois de uma expiração completa.
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
+  const [endAt, setEndAt] = useState<number | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  const [audioUnavailable, setAudioUnavailable] = useState(false);
   const [ghostQuoteContent, setGhostQuoteContent] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
-  const [showHeadphonesAlert, setShowHeadphonesAlert] = useState<boolean>(true);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  );
 
   // Fullscreen Native Engine (Desktop)
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const element = document.getElementById('urge_surfing_portal_screen');
     if (!element) return;
-    if (!document.fullscreenElement) {
-      element.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+    try {
+      if (!document.fullscreenElement) {
+        await element.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      showNotification('Não foi possível alterar a visualização em tela cheia.', 'error');
     }
   };
 
-  // Infinite Extension Mode properties
-  const [isInfiniteMode, setIsInfiniteMode] = useState<boolean>(false);
-  const [infiniteSeconds, setInfiniteSeconds] = useState<number>(0);
-  const [isEncruzilhada, setIsEncruzilhada] = useState<boolean>(false);
-  const [infiniteNote, setInfiniteNote] = useState<string>('');
-  const [phase3Seconds, setPhase3Seconds] = useState<number>(0);
-  const [isAccelerated, setIsAccelerated] = useState<boolean>(false);
-
-  // Refs for tracking check-in updates and text concatenation under Directive 1
-  const lastSavedCheckinIdRef = useRef<string | null>(null);
-  const lastSavedTextRef = useRef<string>('');
+  // Tempo adicional após a primeira sessão.
+  const [isInfiniteMode, setIsInfiniteMode] = useState(false);
+  const [infiniteSeconds, setInfiniteSeconds] = useState(0);
+  const [infiniteStartedAt, setInfiniteStartedAt] = useState<number | null>(null);
+  const [isEncruzilhada, setIsEncruzilhada] = useState(false);
+  const [infiniteNote, setInfiniteNote] = useState('');
 
   // Sound generator reference
   const synthRef = useRef<AudioSynthesizer | null>(null);
   // Screen Wake Lock API reference
   const wakeLockRef = useRef<any>(null);
 
-  // Screen Wake Lock initialization/disposal
+  // Mantém a tela ativa durante a pausa quando o navegador oferece suporte.
   useEffect(() => {
-    async function requestWakeLock() {
+    let disposed = false;
+    const requestWakeLock = async () => {
       try {
-        if ('wakeLock' in navigator) {
-          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        if (document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+        if (wakeLockRef.current && !wakeLockRef.current.released) return;
+        const sentinel = await (navigator as any).wakeLock.request('screen');
+        if (disposed) {
+          await sentinel.release();
+          return;
         }
-      } catch (err) {
-        console.warn("Screen Wake Lock could not be obtained:", err);
+        wakeLockRef.current = sentinel;
+        sentinel.addEventListener('release', () => {
+          if (wakeLockRef.current === sentinel) wakeLockRef.current = null;
+        });
+      } catch (error) {
+        console.warn('Não foi possível manter a tela ativa:', error);
       }
-    }
-    requestWakeLock();
+    };
+
+    void requestWakeLock();
+    document.addEventListener('visibilitychange', requestWakeLock);
     return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', requestWakeLock);
       if (wakeLockRef.current) {
-        wakeLockRef.current.release().then(() => {
-          wakeLockRef.current = null;
-        }).catch(() => {});
+        void wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
       }
     };
   }, []);
 
-  // Retrieve or initialize the session progress from localStorage (Tab-close protection)
+  // Mantém o estado do botão de tela cheia sincronizado com o navegador.
   useEffect(() => {
-    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
-    const savedEndTime = localStorage.getItem(key);
+    const syncFullscreenState = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
+  }, []);
+
+  // Recalcula a largura disponível para manter a mesma velocidade da luz em telas diferentes.
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener('resize', updateViewportWidth, { passive: true });
+    return () => window.removeEventListener('resize', updateViewportWidth);
+  }, []);
+
+  // Recupera uma sessão em andamento usando um horário final absoluto.
+  // Isso evita que o contador perca segundos quando o navegador suspende a aba.
+  useEffect(() => {
     const now = Date.now();
-    let initialSeconds = 213; // 213 segundos (3m33s)
+    const storedValue = localStorage.getItem(sessionStorageKey) || localStorage.getItem(legacyStorageKey);
+    const storedEndAt = storedValue ? Number.parseInt(storedValue, 10) : Number.NaN;
+    const isValidStoredSession = Number.isFinite(storedEndAt)
+      && storedEndAt > now
+      && storedEndAt <= now + GUIDED_SESSION_SECONDS * 1000;
+    const nextEndAt = isValidStoredSession ? storedEndAt : now + GUIDED_SESSION_SECONDS * 1000;
 
-    if (savedEndTime) {
-      const remaining = Math.round((parseInt(savedEndTime, 10) - now) / 1000);
-      if (remaining > 0 && remaining <= 213) {
-        initialSeconds = remaining;
-      } else {
-        const newEndTime = now + 213 * 1000;
-        localStorage.setItem(key, newEndTime.toString());
+    localStorage.setItem(sessionStorageKey, String(nextEndAt));
+    localStorage.removeItem(legacyStorageKey);
+    setEndAt(nextEndAt);
+    setTimeLeft(Math.max(0, Math.ceil((nextEndAt - now) / 1000)));
+  }, [sessionStorageKey, legacyStorageKey]);
+
+  // Relógio baseado no tempo real, atualizado em intervalos curtos e sem acumular atraso.
+  useEffect(() => {
+    if (endAt === null || isInfiniteMode || isEncruzilhada) return;
+
+    const updateRemainingTime = () => {
+      const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      const hasUnsentReflection = ghostQuoteContent.trim().length > 0 && !reflectionSaved;
+      if (remaining <= 1 && hasUnsentReflection) {
+        setTimeLeft(previous => previous === 1 ? previous : 1);
+        return;
       }
-    } else {
-      const newEndTime = now + 213 * 1000;
-      localStorage.setItem(key, newEndTime.toString());
+
+      setTimeLeft(previous => previous === remaining ? previous : remaining);
+      if (remaining === 0) {
+        localStorage.removeItem(sessionStorageKey);
+        setIsEncruzilhada(true);
+      }
+    };
+
+    updateRemainingTime();
+    const timer = window.setInterval(updateRemainingTime, 250);
+    return () => window.clearInterval(timer);
+  }, [endAt, isInfiniteMode, isEncruzilhada, ghostQuoteContent, reflectionSaved, sessionStorageKey]);
+
+  // O tempo adicional também usa um horário de início absoluto.
+  useEffect(() => {
+    if (!isInfiniteMode || infiniteStartedAt === null) return;
+    const updateElapsedTime = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - infiniteStartedAt) / 1000));
+      setInfiniteSeconds(previous => previous === elapsed ? previous : elapsed);
+    };
+    updateElapsedTime();
+    const timer = window.setInterval(updateElapsedTime, 250);
+    return () => window.clearInterval(timer);
+  }, [isInfiniteMode, infiniteStartedAt]);
+
+  // Atualiza a disponibilidade do áudio caso o navegador suspenda o contexto em segundo plano.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isAudioEnabled && synthRef.current && !synthRef.current.isRunning()) {
+        setIsAudioEnabled(false);
+        setAudioUnavailable(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isAudioEnabled]);
+
+  // As etapas são calculadas por uma única regra compartilhada e testável.
+  const currentPhase = useMemo(
+    () => getGuidedPhase(timeLeft, isInfiniteMode, isEncruzilhada),
+    [timeLeft, isInfiniteMode, isEncruzilhada]
+  );
+
+  const infiniteAct = useMemo(() => getInfiniteAct(infiniteSeconds), [infiniteSeconds]);
+
+  const breathingState = useMemo(
+    () => getGuidedBreathingState(currentPhase, timeLeft, infiniteSeconds),
+    [currentPhase, timeLeft, infiniteSeconds]
+  );
+
+  const breathingScale = useMemo(() => {
+    if (prefersReducedMotion) {
+      return { outer: 1, middle: 1, inner: 1, core: 1 };
     }
+    if (breathingState.phase === 'inhale') {
+      return { outer: 2.8, middle: 2.2, inner: 1.6, core: 1.2 };
+    }
+    if (breathingState.phase === 'hold') {
+      return { outer: 2.9, middle: 2.3, inner: 1.7, core: 1.25 };
+    }
+    return { outer: 1, middle: 1, inner: 1, core: 1 };
+  }, [breathingState.phase, prefersReducedMotion]);
 
-    setTimeLeft(initialSeconds);
-  }, [habitId]);
+  const ballTravel = useMemo(() => getBallTravelConfig(viewportWidth), [viewportWidth]);
 
-  // Main countdown scheduler
+  // O som é opcional e só toca depois que o usuário o ativa.
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0 || isInfiniteMode || isEncruzilhada) return;
+    if (!synthRef.current) synthRef.current = new AudioSynthesizer();
+    const synth = synthRef.current;
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null) return null;
-        if (prev === 1) {
-          // Congelamento Empático: se está no último segundo da Fase 3 e o usuário começou a digitar mas não salvou, congele o tempo.
-          if (ghostQuoteContent.trim().length > 0 && !reflectionSaved) {
-            return 1;
-          }
-        }
-        if (prev <= 1) {
-          clearInterval(timer);
-          const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
-          localStorage.removeItem(key);
-          setIsEncruzilhada(true); // Enters decision checkpoint
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, isInfiniteMode, isEncruzilhada, habitId, ghostQuoteContent, reflectionSaved]);
-
-  // Infinite mode counting sequence logic (Count up elapsed seconds)
-  useEffect(() => {
-    if (!isInfiniteMode) return;
-
-    const timer = setInterval(() => {
-      setInfiniteSeconds(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isInfiniteMode]);
-
-  // EMDR Random Acceleration logic
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    let finishTimeoutId: NodeJS.Timeout;
-    
-    const scheduleNextAcceleration = () => {
-      // O gatilho aleatório dispara entre 15s e 25s (15000ms and 25000ms)
-      const randomDelay = Math.floor(Math.random() * 10001) + 15000;
-      
-      timeoutId = setTimeout(() => {
-        setIsAccelerated(true);
-        // O Pico Abrupto dura exatos 3.5 segundos (3500ms) antes de frear
-        finishTimeoutId = setTimeout(() => {
-          setIsAccelerated(false);
-          scheduleNextAcceleration();
-        }, 3500);
-      }, randomDelay);
-    };
-
-    scheduleNextAcceleration();
-
-    return () => {
-      clearTimeout(timeoutId);
-      clearTimeout(finishTimeoutId);
-    };
-  }, []);
-
-  // Headphones notification banner fading control (Fades out after 10s)
-  useEffect(() => {
-    const alertTimer = setTimeout(() => {
-      setShowHeadphonesAlert(false);
-    }, 10000);
-    return () => clearTimeout(alertTimer);
-  }, []);
-
-  // Compute chronologically secure steps (State Machine render blocks)
-  // Phase 0: Opening / Absorção Inicial (First millisecond checks)
-  // Phase 1: Freio Vagal (05:00 down to 03:30; 300 to 210 seconds remaining)
-  // Phase 2: A Viajante / EMDR (03:30 to 01:30; 210 to 90 seconds remaining)
-  // Phase 3: Aterramento e Descarga (01:30 to 00:00; 90 to 1 seconds remaining)
-  // Phase 4: A Encruzilhada (Decision Checkpoint, reached 00:00)
-  // Phase 5: Modo Infinito (Countdown extension)
-  const currentPhase = useMemo(() => {
-    if (isInfiniteMode) return 5;
-    if (isEncruzilhada) return 4;
-    if (timeLeft === null) return -1; 
-    if (timeLeft > 205) return 0;     // 213s a 205s (8 segundos): Fase 0 (Abertura)
-    if (timeLeft > 108) return 1;     // 205s a 108s (97 segundos): Fase 1 (Freio Vagal)
-    if (timeLeft > 78) return 2;      // 108s a 78s (30 segundos): Fase 2 (EMDR)
-    if (timeLeft > 0) return 3;       // 78s a 1s (78 segundos): Fase 3 (Aterramento)
-    return 4;                         // 0s: Encruzilhada
-  }, [timeLeft, isInfiniteMode, isEncruzilhada]);
-
-  const infiniteAct = useMemo(() => {
-    if (infiniteSeconds <= 11) return 1;    // 0 a 11: Ato 1 (Abertura)
-    if (infiniteSeconds <= 91) return 2;   // 12 a 91: Transição A (Lótus Box Breathing)
-    if (infiniteSeconds <= 96) return 3;   // 92 a 96: Ato 2 (Transição EMDR)
-    return 4;                              // >= 97: Transição B (Bolinha EMDR)
-  }, [infiniteSeconds]);
-
-  // Invisible counter for Phase 3 Nudge (300 seconds)
-  useEffect(() => {
-    if (currentPhase !== 3 || reflectionSaved) {
-      setPhase3Seconds(0);
+    if (!isAudioEnabled) {
+      synth.stop();
       return;
     }
 
-    const timer = setInterval(() => {
-      setPhase3Seconds(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [currentPhase, reflectionSaved]);
-
-  // 1. Hook de Orquestração (O Piloto): Muda frequências e muta o som sem matar a classe
-  useEffect(() => {
-    if (!synthRef.current) {
-      synthRef.current = new AudioSynthesizer();
-    }
-
-    const synth = synthRef.current;
-
-    if (isAudioEnabled) {
-      if (currentPhase === 1) {
-        // Fase 1: Solfeggio 432Hz imediatamente
-        synth.start(432, 0, 1.0);
-      } else if (currentPhase === 2) {
-        // Fase 2: 40 Hz
-        synth.start(40, 0, 1.5);
-      } else if (currentPhase === 3) {
-        // Fase 3: Deep Theta 7.5Hz Binaural (150Hz left carrier, 7.5Hz separation)
-        synth.start(150, 7.5, 4.5); // Deep Theta 7.5Hz Binaural (150Hz carrier)
-      } else if (currentPhase === 5) {
-        // Loop Total: 840 Segundos (14 minutos)
-        const cycleTime = infiniteSeconds % 840;
-        
-        if (cycleTime < 180) {
-          // 0 a 3 min: 432 Hz - Aterramento Emocional
-          synth.start(432, 0, 1.0);
-        } else if (cycleTime < 360) {
-          // 3 a 6 min: 174 Hz - Alívio Físico
-          synth.start(174, 0, 1.2);
-        } else if (cycleTime < 540) {
-          // 6 a 9 min: 40 Hz
-          synth.start(40, 0, 9.5);
-        } else {
-          // 9 a 14 min (Duração estendida de 5 min): 888 Hz Binaural - Abundância & Flow
-          synth.start(888, 8, 1.5);
-        }
-      } else {
-        synth.stop();
-      }
+    if (currentPhase === 0 || currentPhase === 1) {
+      void synth.start(432, 0, 1);
+    } else if (currentPhase === 2) {
+      void synth.start(220, 0, 1);
+    } else if (currentPhase === 3) {
+      void synth.start(150, 7.5, 1);
+    } else if (currentPhase === 5) {
+      const cycleTime = infiniteSeconds % 840;
+      if (cycleTime < 180) void synth.start(432, 0, 1);
+      else if (cycleTime < 360) void synth.start(174, 0, 1);
+      else if (cycleTime < 540) void synth.start(220, 0, 1);
+      else void synth.start(220, 7.5, 1);
     } else {
-      synth.stop();
+      void synth.start(432, 0, 0.7);
     }
   }, [currentPhase, isAudioEnabled, infiniteSeconds]);
 
-  // 1.5 Alerta Sonoro a cada 15 Minutos (900 segundos) na Fase 5
-  useEffect(() => {
-    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds > 0 && infiniteSeconds % 900 === 0) {
-      if (isAudioEnabled && synthRef.current) {
-        synthRef.current.playAlertChime();
-      }
+  const toggleAudio = async () => {
+    if (isAudioEnabled) {
+      synthRef.current?.stop();
+      setIsAudioEnabled(false);
+      setAudioUnavailable(false);
+      return;
     }
-  }, [infiniteSeconds, currentPhase, isInfiniteMode, isAudioEnabled]);
 
-  // 2. Hook de Limpeza (A Faxina): Garante o Garbage Collection apenas quando o componente desmonta (fechar tela)
+    if (!synthRef.current) synthRef.current = new AudioSynthesizer();
+    const synth = synthRef.current;
+    let frequency = 432;
+    let offset = 0;
+    if (currentPhase === 2) frequency = 220;
+    if (currentPhase === 3) { frequency = 150; offset = 7.5; }
+    if (currentPhase === 5) {
+      const cycleTime = infiniteSeconds % 840;
+      if (cycleTime >= 540) offset = 7.5;
+      if (cycleTime >= 360) frequency = 220;
+      else if (cycleTime >= 180) frequency = 174;
+    }
+
+    const started = await synth.start(frequency, offset, 1);
+    if (started) {
+      setAudioUnavailable(false);
+      setIsAudioEnabled(true);
+    } else {
+      setAudioUnavailable(true);
+      setIsAudioEnabled(false);
+      showNotification('O navegador não permitiu iniciar o som. Você pode continuar sem áudio.', 'error');
+    }
+  };
+
   useEffect(() => {
     return () => {
-      if (synthRef.current) {
-        synthRef.current.stop();
-      }
+      synthRef.current?.stop();
+      synthRef.current = null;
     };
   }, []);
-
-  // Inhalation/Exhalation breathing guidance sequence (Zero-aligned multi-technique clinical engine)
-  const breathingState = useMemo(() => {
-    // Fase 1A: O Extintor 4-7-8 (De 205s a 148s)
-    if (currentPhase === 1 && timeLeft > 148) {
-      const elapsed = 205 - (timeLeft || 205);
-      const cycle = elapsed % 22;
-      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
-      if (cycle < 13) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(7 - (cycle - 5))}`, duration: 8.0 };
-      return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(8 - (cycle - 13))}`, duration: 9.0 };
-    }
-    // Fase 1B: Box Breathing 4-4-4-4 (Inicia em 140s, após os 8s de frase empática)
-    if (currentPhase === 1 && timeLeft <= 140 && timeLeft > 108) {
-      const elapsed = 140 - (timeLeft || 140);
-      const cycle = elapsed % 20;
-      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
-      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
-      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
-    }
-    // Fase 5 (Pós-Encruzilhada): Box Breathing 4-4-4-4
-    if (currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 12 && infiniteSeconds <= 91) {
-      const elapsed = infiniteSeconds - 12;
-      const cycle = elapsed % 20;
-      if (cycle < 5) return { phase: 'inhale', text: 'Inspire profundamente...', countText: `${Math.floor(4 - cycle)}`, duration: 5.0 };
-      if (cycle < 10) return { phase: 'hold', text: 'Segure o ar...', countText: `${Math.floor(4 - (cycle - 5))}`, duration: 5.0 };
-      if (cycle < 15) return { phase: 'exhale', text: 'Exale devagar...', countText: `${Math.floor(4 - (cycle - 10))}`, duration: 5.0 };
-      return { phase: 'empty', text: 'Mantenha vazio...', countText: `${Math.floor(4 - (cycle - 15))}`, duration: 5.0 };
-    }
-    return { phase: 'idle', text: '', countText: '', duration: 4.0 };
-  }, [timeLeft, currentPhase, isInfiniteMode, infiniteSeconds]);
 
   // SVG progressive ring stroke coefficients
   const timerCircleProps = useMemo(() => {
@@ -487,154 +430,75 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     };
   }, [timeLeft]);
 
-  // Triggers immediate database persistence insert & reactive state synchronization
+  // A pausa guiada salva apenas uma anotação opcional. Ela nunca cria
+  // nem altera um registro de resistência ou recaída.
   const saveReflection = async () => {
-    if (!dataStore.profile?.id) {
-      dataStore.showNotification('Entre na sua conta para salvar este registro.', 'error');
+    if (!profileId) {
+      showNotification('Entre na sua conta para salvar esta anotação.', 'error');
+      return;
+    }
+
+    const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
+    if (!currentText) {
+      setSaveStatus('saved');
+      if (isInfiniteMode) {
+        showNotification('Tudo bem continuar sem anotar.', 'success');
+      } else {
+        setReflectionSaved(true);
+        showNotification('Você pode seguir sem escrever nada.', 'success');
+      }
       return;
     }
 
     setSaveStatus('saving');
     try {
-      const timestamp = new Date().toISOString();
-      const totalSecondsActive = isInfiniteMode ? (213 + infiniteSeconds) : (213 - (timeLeft || 0));
-      const currentText = isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim();
+      const contextLabel = habitId ? ` — ${habitName}` : '';
+      const capture = await addInboxCapture(
+        profileId,
+        `[Pausa guiada${contextLabel}]\n${currentText}`
+      );
 
-      let mergedText = currentText;
-      if (lastSavedCheckinIdRef.current && lastSavedTextRef.current) {
-        if (currentText && currentText !== lastSavedTextRef.current) {
-          mergedText = `${lastSavedTextRef.current} | ${currentText}`;
-        } else {
-          mergedText = lastSavedTextRef.current;
-        }
-      }
-
-      // A guided pause can be started without an avoidance habit. In that case,
-      // save an optional reflection as an inbox note instead of inserting a
-      // an unlinked guided pause into the avoidance-check-in table.
-      if (!habitId) {
-        if (mergedText) {
-          const capture = await dataStore.addInboxCapture(
-            dataStore.profile.id,
-            `[Pausa guiada] ${mergedText}`
-          );
-          if (!capture) {
-            setSaveStatus('error');
-            dataStore.showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
-            return;
-          }
-          dataStore.showNotification('Anotação salva na sua caixa de entrada.', 'success');
-        } else {
-          dataStore.showNotification('Pausa concluída. Nenhuma anotação foi salva.', 'success');
-        }
-
-        setSaveStatus('saved');
-        if (isInfiniteMode) {
-          setInfiniteNote('');
-          setShowSaveSuccess(true);
-          setTimeout(() => {
-            setShowSaveSuccess(false);
-            setSaveStatus('idle');
-          }, 3500);
-        } else {
-          setReflectionSaved(true);
-          if (timeLeft === 1) {
-            setTimeLeft(0);
-            setIsEncruzilhada(true);
-          }
-        }
+      if (!capture) {
+        setSaveStatus('error');
+        showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
         return;
       }
 
-      const triggerNote = mergedText ? `[PAUSA GUIADA] ${mergedText}` : null;
-
-      if (lastSavedCheckinIdRef.current) {
-        const updated = await dataStore.updateAvoidanceCheckin(lastSavedCheckinIdRef.current, {
-          status: 'success',
-          intensity: 5,
-          trigger_note: triggerNote,
-          time_spent: totalSecondsActive
-        });
-
-        if (!updated) {
-          setSaveStatus('error');
-          dataStore.showNotification('Não foi possível atualizar o registro. Tente novamente.', 'error');
-          return;
-        }
-
-        lastSavedTextRef.current = mergedText;
-        await dataStore.fetchAvoidanceCheckins(dataStore.profile.id);
-        setSaveStatus('saved');
-        if (isInfiniteMode) {
-          setInfiniteNote('');
-          setShowSaveSuccess(true);
-          setTimeout(() => {
-            setShowSaveSuccess(false);
-            setSaveStatus('idle');
-          }, 3500);
-        } else {
-          setReflectionSaved(true);
-        }
-        dataStore.showNotification('Registro atualizado.', 'success');
+      showNotification('Anotação salva.', 'success');
+      setSaveStatus('saved');
+      if (isInfiniteMode) {
+        setInfiniteNote('');
+        setShowSaveSuccess(true);
+        window.setTimeout(() => {
+          setShowSaveSuccess(false);
+          setSaveStatus('idle');
+        }, 2500);
       } else {
-        const checkinData = {
-          user_id: dataStore.profile.id,
-          habit_id: habitId,
-          checkin_date: getLocalDateString(),
-          checkin_period: 'window',
-          status: 'success',
-          occurred_at: timestamp,
-          intensity: 5,
-          trigger_tag: 'PAUSA GUIADA',
-          trigger_note: triggerNote,
-          window_label: null,
-          created_at: timestamp,
-          time_spent: totalSecondsActive
-        };
-
-        const created = await dataStore.addAvoidanceCheckin(checkinData);
-        if (!created) {
-          setSaveStatus('error');
-          dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
-          return;
-        }
-
-        lastSavedCheckinIdRef.current = created.id;
-        lastSavedTextRef.current = mergedText;
-        setSaveStatus('saved');
-        if (isInfiniteMode) {
-          setInfiniteNote('');
-          setShowSaveSuccess(true);
-          setTimeout(() => {
-            setShowSaveSuccess(false);
-            setSaveStatus('idle');
-          }, 3500);
-        } else {
-          setReflectionSaved(true);
-          if (timeLeft === 1) {
-            setTimeLeft(0);
-            setIsEncruzilhada(true);
-          }
-        }
-        dataStore.showNotification('Registro salvo.', 'success');
+        setReflectionSaved(true);
       }
-    } catch (err) {
-      console.error('Error saving guided pause reflection:', err);
+    } catch (error) {
+      console.error('Erro ao salvar anotação da pausa guiada:', error);
       setSaveStatus('error');
-      dataStore.showNotification('Não foi possível salvar o registro. Tente novamente.', 'error');
+      showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
     }
   };
 
   const handleCancel = () => {
-    const key = `urge_surfing_5min_end_time_${habitId || 'general'}`;
-    localStorage.removeItem(key);
+    localStorage.removeItem(sessionStorageKey);
+    localStorage.removeItem(legacyStorageKey);
     setTimeLeft(null);
-    if (synthRef.current) {
-      synthRef.current.stop();
-      synthRef.current = null;
+    setEndAt(null);
+    setIsAudioEnabled(false);
+    setShowCloseConfirmation(false);
+    synthRef.current?.stop();
+    synthRef.current = null;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
     }
     onClose();
   };
+
+  const requestClose = () => setShowCloseConfirmation(true);
 
   const formatMinSec = (secs: number) => {
     const mm = Math.floor(secs / 60);
@@ -642,53 +506,6 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
     return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   };
 
-  // Skip phases helper for grading validation
-  const skipToPhase = (phase: number) => {
-    setIsInfiniteMode(false);
-    setIsEncruzilhada(false);
-
-    if (phase === 0) setTimeLeft(213);
-    else if (phase === 1) setTimeLeft(204);
-    else if (phase === 2) setTimeLeft(107);
-    else if (phase === 3) setTimeLeft(77);
-    else if (phase === 4) {
-      setTimeLeft(0);
-      setIsEncruzilhada(true);
-    } else if (phase === 5) {
-      setIsInfiniteMode(true);
-      setInfiniteSeconds(1);
-    }
-  };
-
-  // Frequência dinâmica exibida no cartão
-  const currentInfiniteFrequencyCardText = useMemo(() => {
-    if (!isInfiniteMode) return '';
-    const cycleTime = infiniteSeconds % 840;
-    if (cycleTime < 180) {
-      return '📻 432 hertz - Frequência do Aterramento';
-    } else if (cycleTime < 360) {
-      return '📻 174 hertz - Frequência do Alívio';
-    } else if (cycleTime < 540) {
-      return '📻 40 hertz - Frequência de relaxamento';
-    } else {
-      return '📻 888 hertz - Frequência da Prosperidade';
-    }
-  }, [isInfiniteMode, infiniteSeconds]);
-
-  // Audio frequency tag name under infinite mode looping
-  const currentInfiniteFrequencyTag = useMemo(() => {
-    if (!isInfiniteMode) return '';
-    const cycleTime = infiniteSeconds % 840;
-    if (cycleTime < 180) {
-      return '432 Hz · Aterramento Cósmico';
-    } else if (cycleTime < 360) {
-      return '174 Hz · Alívio Biológico';
-    } else if (cycleTime < 540) {
-      return '40 Hz · Ondas suaves de relaxamento';
-    } else {
-      return '888 Hz · Abundância & Flow (Binaural Theta)';
-    }
-  }, [isInfiniteMode, infiniteSeconds]);
 
   // Construct UI payload using safe standard portal injection
   return createPortal(
@@ -700,9 +517,9 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       {/* Controle de fechamento */}
       <button 
         id="sos_esc_button"
-        onClick={handleCancel}
+        onClick={requestClose}
         className="absolute top-6 right-6 text-white/20 hover:text-white/80 hover:scale-105 active:scale-95 transition-all p-3 rounded-full hover:bg-white/5 z-[10000] cursor-pointer"
-        aria-label="Encerrar Resgate"
+        aria-label="Fechar pausa"
       >
         <X size={22} />
       </button>
@@ -710,38 +527,27 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
       {/* Symmetrical audio mute button placed elegantly in top-left to replace clutter */}
       <div className="absolute top-6 left-6 z-[10000]">
         <button
-          onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+          onClick={toggleAudio}
+          aria-pressed={isAudioEnabled}
+          aria-label={isAudioEnabled ? 'Desativar som' : 'Ativar som'}
           className={`p-3 rounded-xl transition-all text-xs flex items-center gap-2 hover:bg-white/5 ${
-            isAudioEnabled 
-              ? 'text-purple-400 hover:text-purple-300' 
-              : 'text-white/30 hover:text-white/50'
+            isAudioEnabled
+              ? 'text-emerald-300 hover:text-emerald-200'
+              : 'text-white/45 hover:text-white/75'
           }`}
         >
           {isAudioEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          <span className="text-[9px] uppercase tracking-[0.18em] font-mono font-bold select-none hidden sm:inline">
-            {isAudioEnabled ? 'SONS ATIVOS' : 'MUTADO'}
+          <span className="text-[9px] tracking-[0.08em] font-medium select-none hidden sm:inline">
+            {isAudioEnabled ? 'Som ligado' : audioUnavailable ? 'Som indisponível' : 'Ativar som'}
           </span>
         </button>
-      </div>
-
-      {/* Hidden tester phase skips - Hover revealed at bottom-left corner to keep top pristine */}
-      <div className="absolute bottom-6 left-6 z-[10000] flex items-center gap-1 bg-white/[0.01] hover:bg-white/[0.04] px-2 py-1 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300">
-        {[0, 1, 2, 3, 4, 5].map(p => (
-          <button 
-            key={p} 
-            onClick={() => skipToPhase(p)}
-            className="w-5 h-5 text-[9px] font-mono rounded-lg flex items-center justify-center transition-all cursor-pointer text-white/30 hover:bg-white/20 hover:text-white"
-          >
-            {p}
-          </button>
-        ))}
       </div>
 
       {/* Main active stage content area */}
       <div className="flex-1 w-full flex flex-col items-center justify-center relative py-6 max-w-2xl mx-auto space-y-6">
         
         {/* Indicador circular de tempo */}
-        {currentPhase <= 3 && (
+        {currentPhase >= 0 && currentPhase <= 3 && (
           <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
             <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 144 144">
               <circle
@@ -772,7 +578,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 {formatMinSec(timeLeft || 0)}
               </span>
               <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] font-mono mt-0.5">
-                TIMER S.O.S.
+                PAUSA
               </span>
             </div>
           </div>
@@ -781,13 +587,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         {/* INFINITE MODE COUNTER: Minimalist upward ring */}
         {currentPhase === 5 && (
           <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-            <div className="absolute inset-0 rounded-full bg-emerald-500/5 border border-emerald-500/10 animate-pulse blur-sm" />
+            <div className={`absolute inset-0 rounded-full bg-emerald-500/5 border border-emerald-500/10 blur-sm ${prefersReducedMotion ? '' : 'animate-pulse'}`} />
             <div className="absolute flex flex-col items-center justify-center">
               <span className="text-3xl font-mono font-black text-emerald-400 tracking-tighter">
                 {formatMinSec(infiniteSeconds)}
               </span>
               <span className="text-[7.5px] font-black text-emerald-500/55 uppercase tracking-[0.2em] font-mono mt-1">
-                MODO INFINITO
+                TEMPO ADICIONAL
               </span>
             </div>
           </div>
@@ -797,23 +603,21 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
         <div className="w-full flex-1 flex flex-col justify-center items-center relative min-h-[340px]">
           <AnimatePresence mode="wait">
             
-            {/* FASE 0: ABERTURA EMPÁTICA (5 Segundos) */}
+            {/* ABERTURA (8 segundos) */}
             {currentPhase === 0 && (
               <motion.div 
                 key="phase-0"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 1.0, ease: "easeOut" }}
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 15 }}
+                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -15 }}
+                transition={{ duration: prefersReducedMotion ? 0.15 : 1.0, ease: "easeOut" }}
                 className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
               >
                 <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
-                  "Você não está sozinho. A DUDE assumiu o controle. Apenas siga o guia."
+                  Você não precisa resolver tudo agora. Vamos criar um pouco de espaço para respirar.
                 </h2>
                 <div className="h-[1px] w-12 bg-white/10" />
-                <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
-                  Fase 0 · Absorção Inicial
-                </span>
+                <span className="text-xs text-white/40">Um momento de cada vez.</span>
               </motion.div>
             )}
 
@@ -828,21 +632,21 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
                 <AnimatePresence mode="wait">
-                  {/* Fase 1A: De 205 a 148, renderize a Lótus 4-7-8 */}
+                  {/* Primeira sequência de respiração */}
                   {timeLeft !== null && timeLeft > 148 && (
                     <motion.div
                       key="phase-1a-lotus"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.8 }}
+                      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      transition={{ duration: prefersReducedMotion ? 0.15 : 0.8 }}
                       className="flex flex-col items-center justify-center space-y-12"
                     >
                       {/* 4x Layered concentric expanding lotus circles */}
                       <div className="relative w-40 h-40 flex items-center justify-center">
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                            scale: breathingScale.outer,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -852,7 +656,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                            scale: breathingScale.middle,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -862,7 +666,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                            scale: breathingScale.inner,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -872,7 +676,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                            scale: breathingScale.core,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -884,51 +688,52 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
                       {/* Breathing status instructions */}
                       <div className="text-center space-y-3">
-                        <span className="text-xl font-light tracking-wide text-white block">
+                        <span aria-live="polite" className="text-xl font-light tracking-wide text-white block">
                           {breathingState.text}
                         </span>
-                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                        <span aria-hidden="true" className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
                           {breathingState.countText}
                         </span>
+                        <span className="block text-[11px] text-white/35">Se alguma etapa não for confortável, volte à respiração natural.</span>
                       </div>
                     </motion.div>
                   )}
 
-                  {/* Transição Limpa: De 148 a 140 */}
-                  {timeLeft !== null && timeLeft <= 148 && timeLeft > 140 && (
+                  {/* Transição breve após a expiração completa */}
+                  {timeLeft !== null && timeLeft <= 148 && timeLeft > 143 && (
                     <motion.div
                       key="phase-1-text"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.8 }}
+                      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      transition={{ duration: prefersReducedMotion ? 0.15 : 0.8 }}
                       className="flex flex-col items-center justify-center space-y-8 text-center max-w-xl px-6"
                     >
                       <h2 className="text-2xl md:text-3xl font-light text-white/95 leading-relaxed tracking-wide">
-                        "Vamos mudar de ritmo. Acompanhe o flow para retomar o controle da sua mente."
+                        Você já completou alguns ciclos. Agora, vamos continuar com suavidade.
                       </h2>
                       <div className="h-[1px] w-12 bg-white/10" />
                       <span className="text-[10px] text-white/35 tracking-[0.3em] font-mono uppercase">
-                        Fase 1B · Transição de Respiração
+                        Vamos seguir em outro ritmo.
                       </span>
                     </motion.div>
                   )}
 
-                  {/* Fase 1B: De 140 a 108, renderize a Lótus Box Breathing */}
-                  {timeLeft !== null && timeLeft <= 140 && (
+                  {/* Segunda sequência de respiração */}
+                  {timeLeft !== null && timeLeft <= 143 && (
                     <motion.div
                       key="phase-1b-lotus"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.8 }}
+                      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                      transition={{ duration: prefersReducedMotion ? 0.15 : 0.8 }}
                       className="flex flex-col items-center justify-center space-y-12"
                     >
                       {/* 4x Layered concentric expanding lotus circles */}
                       <div className="relative w-40 h-40 flex items-center justify-center">
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                            scale: breathingScale.outer,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -938,7 +743,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                            scale: breathingScale.middle,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -948,7 +753,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                            scale: breathingScale.inner,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -958,7 +763,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                         />
                         <motion.div
                           animate={{
-                            scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                            scale: breathingScale.core,
                           }}
                           transition={{
                             duration: breathingState.duration,
@@ -970,12 +775,13 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
                       {/* Breathing status instructions */}
                       <div className="text-center space-y-3">
-                        <span className="text-xl font-light tracking-wide text-white block">
+                        <span aria-live="polite" className="text-xl font-light tracking-wide text-white block">
                           {breathingState.text}
                         </span>
-                        <span className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
+                        <span aria-hidden="true" className="text-4xl font-mono font-extrabold text-white/40 block leading-none tracking-tighter">
                           {breathingState.countText}
                         </span>
+                        <span className="block text-[11px] text-white/35">Se alguma etapa não for confortável, volte à respiração natural.</span>
                       </div>
                     </motion.div>
                   )}
@@ -983,7 +789,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               </motion.div>
             )}
 
-            {/* FASE 2: A VIAJANTE (EMDR - Cinematic Choreography) */}
+            {/* Etapa de acompanhamento visual */}
             {currentPhase === 2 && (
               <motion.div 
                 key="phase-2"
@@ -993,31 +799,31 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 pointer-events-none flex items-center justify-center overflow-visible"
               >
-                {/* Texto Empático: Fica no centro por 6s, depois desce */}
+                {/* Orientação breve */}
                 <motion.div
-                  initial={{ y: "-5vh", opacity: 0 }}
-                  animate={{ 
-                    y: ["-5vh", "-5vh", "25vh"], 
-                    opacity: [0, 1, 1, 1] 
+                  initial={prefersReducedMotion ? { opacity: 0 } : { y: "-5vh", opacity: 0 }}
+                  animate={prefersReducedMotion ? { opacity: 1 } : {
+                    y: ["-5vh", "-5vh", "25vh"],
+                    opacity: [0, 1, 1, 1]
                   }}
-                  transition={{ 
-                    duration: 7.5, 
-                    times: [0, 0.1, 0.8, 1], // Aparece rápido (10%), fica parado até 80% (6s), desce no final
-                    ease: "easeInOut" 
+                  transition={prefersReducedMotion ? { duration: 0.15 } : {
+                    duration: 7.5,
+                    times: [0, 0.1, 0.8, 1],
+                    ease: "easeInOut"
                   }}
                   className="absolute text-center space-y-1.5 z-40 px-4 w-full"
                 >
                   <span className="text-lg font-light tracking-wide text-white/95 leading-none block drop-shadow-lg">
-                    Acompanhe a luz com o olhar.
+                    Acompanhe a luz com o olhar, se isso for confortável.
                   </span>
                   <p className="text-[10px] text-white/20 tracking-[0.2em] font-mono uppercase">
-                    Deslocando a atenção cognitiva para dissolver a fissura
+                    Se preferir, apenas descanse os olhos.
                   </p>
                 </motion.div>
               </motion.div>
             )}
 
-            {/* FASE 3: ATERRAMENTO & DESCARGA COGNITIVA */}
+            {/* Etapa de anotação opcional */}
             {currentPhase === 3 && (
               <motion.div 
                 key="phase-3"
@@ -1029,14 +835,14 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
               >
                 {/* Centralized grounding guide representation */}
                 <div className="relative w-16 h-16 flex items-center justify-center">
-                  <div className="absolute w-8 h-8 rounded-full bg-emerald-500/10 animate-ping" />
-                  <div className="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-[0_0_20px_10px_#10b981,0_0_50px_20px_#10b981] animate-pulse" />
+                  <div className={`absolute w-8 h-8 rounded-full bg-emerald-500/10 ${prefersReducedMotion ? '' : 'animate-ping'}`} />
+                  <div className={`w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-[0_0_20px_10px_#10b981,0_0_50px_20px_#10b981] ${prefersReducedMotion ? '' : 'animate-pulse'}`} />
                 </div>
 
                 {/* Cognitive Discharge Panel */}
                 <div className="w-full flex flex-col space-y-4">
                   <span className="text-xs text-white/70 font-light leading-relaxed text-center block max-w-md mx-auto">
-                    Esvazie sua mente, descreva o que sente agora. (Anotar é opcional, apenas respire e sinta a frequência)
+                    Se quiser, anote o que está ocupando sua mente. Não precisa organizar as ideias. Você também pode apenas respirar.
                   </span>
 
                   <div className="relative w-full">
@@ -1044,9 +850,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       <div className="space-y-4">
                         <textarea
                           id="sos_reflection_textarea"
+                          aria-label="Anotação opcional"
                           value={ghostQuoteContent}
                           onChange={(e) => setGhostQuoteContent(e.target.value)}
-                          placeholder="Digite sem filtros, o bloco de escrita cresce elasticamente conforme sua escrita flui..."
+                          placeholder="Escreva o que vier à mente. Você não precisa organizar as ideias."
                           className="w-full min-h-[140px] bg-white/[0.03] border-none text-white/95 text-sm font-light rounded-2xl p-5 focus:outline-none placeholder-white/20 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
                           style={{ height: 'auto' }}
                           onInput={(e) => {
@@ -1064,12 +871,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           {saveStatus === 'saving' ? (
                             <>
                               <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                              <span>Sincronizando Banco de Dados...</span>
+                              <span>Salvando...</span>
                             </>
                           ) : (
                             <>
                               <Send size={14} />
-                              <span>GUARDAR REFLEXÃO</span>
+                              <span>{(isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim()) ? 'Salvar anotação' : 'Continuar sem anotar'}</span>
                             </>
                           )}
                         </button>
@@ -1077,16 +884,16 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     ) : (
                       <motion.div
                         id="sos_save_confirmation"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5 }}
+                        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                        transition={{ duration: prefersReducedMotion ? 0.15 : 0.5 }}
                         className="py-6 px-8 bg-emerald-500/5 border border-emerald-500/15 rounded-3xl text-center space-y-2 max-w-sm mx-auto shadow-xl"
                       >
                         <span className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 uppercase tracking-widest leading-none">
-                          <ShieldCheck size={16} /> Registro de campo salvo ✓
+                          <ShieldCheck size={16} /> {ghostQuoteContent.trim() ? 'Anotação salva' : 'Pausa concluída'}
                         </span>
                         <p className="text-[11px] text-white/40 leading-relaxed">
-                          Sua reflexão foi gravada com segurança no banco de dados e sincronizada reativamente de forma imediata.
+                          Você pode continuar ou encerrar a pausa quando estiver pronto.
                         </p>
                       </motion.div>
                     )}
@@ -1099,51 +906,52 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
             {currentPhase === 4 && (
               <motion.div 
                 key="phase-4"
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 1.0 }}
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97 }}
+                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                transition={{ duration: prefersReducedMotion ? 0.15 : 1.0 }}
                 className="flex flex-col items-center justify-center space-y-10 text-center max-w-sm px-6"
               >
                 <div className="space-y-3">
                   <h3 className="text-2xl font-light tracking-wide text-white leading-relaxed">
-                    "O tempo passou. Como está a sua mente agora?"
+                    Como você está se sentindo agora?
                   </h3>
                   <div className="h-[1px] w-12 bg-white/10 mx-auto" />
                   <span className="text-[10px] text-white/35 tracking-[0.25em] font-mono uppercase block">
-                    Decisão Consciente
+                    Você decide o próximo passo.
                   </span>
                 </div>
 
                 <div className="w-full space-y-4">
-                  {/* Estou em paz (Close and complete successfully) */}
+                  {/* Concluir a pausa */}
                   <button
                     id="sos_peace_button"
                     onClick={handleCancel}
                     className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] backdrop-blur-md border border-white/10 hover:bg-white/[0.08] text-white font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-xl flex items-center justify-center gap-2"
                   >
                     <ShieldCheck size={15} className="text-emerald-400" />
-                    <span>Estou em paz.</span>
+                    <span>Estou pronto para voltar</span>
                   </button>
 
-                  {/* Preciso de mais tempo (Turns on Infinite Mode) */}
+                  {/* Continuar por mais um pouco */}
                   <button
                     id="sos_infinite_button"
                     onClick={() => {
                       setIsEncruzilhada(false);
                       setIsInfiniteMode(true);
-                      setInfiniteSeconds(1);
+                      setInfiniteSeconds(0);
+                      setInfiniteStartedAt(Date.now());
                     }}
                     className="w-full py-4 px-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/15 text-emerald-300 font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.15)] flex items-center justify-center gap-2"
                   >
                     <Sparkles size={15} />
-                    <span>Preciso de mais tempo.</span>
+                    <span>Continuar por mais um pouco</span>
                   </button>
                 </div>
               </motion.div>
             )}
 
-            {/* FASE 5: MODO INFINITO (Extensão da sessão) */}
+            {/* FASE 5: TEMPO ADICIONAL (Extensão da sessão) */}
             {currentPhase === 5 && (
               <motion.div 
                 key="phase-5"
@@ -1153,7 +961,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                 transition={{ duration: 1.0 }}
                 className="w-full h-full absolute inset-0 flex flex-col justify-center items-center overflow-visible"
               >
-                {/* ATO 1: Totalmente minimalista (De 0 a 11 segundos) */}
+                {/* ABERTURA (8 segundos) */}
                 {infiniteAct === 1 && (
                   <motion.div 
                     key="infinite-act-1"
@@ -1164,12 +972,12 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     className="text-center px-6 max-w-lg mx-auto"
                   >
                     <p className="text-lg md:text-xl font-light tracking-wide text-white/95 leading-relaxed">
-                      "Está tudo bem, se acalme, se quiser faça mais alguns ciclos de respiração guiada. O que verdadeiramente importa agora é: escute o som das frequências."
+                      Está tudo bem continuar mais um pouco. Acompanhe a respiração sem pressa e respeite o seu ritmo.
                     </p>
                   </motion.div>
                 )}
 
-                {/* TRANSIÇÃO A: Respirador Lótus (De 12 a 91 segundos) */}
+                {/* RESPIRAÇÃO (60 segundos) */}
                 {infiniteAct === 2 && (
                   <motion.div 
                     key="infinite-act-2"
@@ -1184,7 +992,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       {/* Camada 1: bg-purple-500/10 */}
                       <motion.div
                         animate={{
-                          scale: breathingState.phase === 'inhale' ? 2.8 : breathingState.phase === 'hold' ? 2.9 : 1.0,
+                          scale: breathingScale.outer,
                         }}
                         transition={{
                           duration: breathingState.duration,
@@ -1195,7 +1003,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       {/* Camada 2: bg-purple-500/20 */}
                       <motion.div
                         animate={{
-                          scale: breathingState.phase === 'inhale' ? 2.2 : breathingState.phase === 'hold' ? 2.3 : 1.0,
+                          scale: breathingScale.middle,
                         }}
                         transition={{
                           duration: breathingState.duration,
@@ -1206,7 +1014,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       {/* Camada 3: bg-indigo-500/30 */}
                       <motion.div
                         animate={{
-                          scale: breathingState.phase === 'inhale' ? 1.6 : breathingState.phase === 'hold' ? 1.7 : 1.0,
+                          scale: breathingScale.inner,
                         }}
                         transition={{
                           duration: breathingState.duration,
@@ -1217,7 +1025,7 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                       {/* Camada 4: bg-gradient-to-tr from-purple-500 to-indigo-500 with slight glow */}
                       <motion.div
                         animate={{
-                          scale: breathingState.phase === 'inhale' ? 1.2 : breathingState.phase === 'hold' ? 1.25 : 1.0,
+                          scale: breathingScale.core,
                         }}
                         transition={{
                           duration: breathingState.duration,
@@ -1230,49 +1038,43 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     {/* Loop breathing guidance details */}
                     <div className="text-center space-y-3 px-4 max-w-lg mt-6">
                       <span className="text-xs uppercase tracking-[0.25em] font-mono text-white/50 block">
-                        Modo Extensão
+                        Tempo adicional
                       </span>
                       
-                      <span className="text-sm font-light tracking-wide text-white block leading-relaxed">
+                      <span aria-live="polite" className="text-sm font-light tracking-wide text-white block leading-relaxed">
                         {breathingState.text}
                       </span>
                       
-                      <span className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
+                      <span aria-hidden="true" className="text-3xl font-mono font-extrabold text-white/30 block leading-none tracking-tighter">
                         {breathingState.countText}
                       </span>
+                      <span className="block text-[11px] text-white/35">Se alguma etapa não for confortável, volte à respiração natural.</span>
 
-                      {/* Active Loop details */}
-                      <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/10 px-4 py-2 rounded-full mt-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                        <span className="text-[9px] font-mono font-bold tracking-widest text-[#a855f7] uppercase">
-                          {currentInfiniteFrequencyTag}
-                        </span>
-                      </div>
                     </div>
                   </motion.div>
                 )}
 
-                {/* ATO 2: Mensagem Transicional Central (De 92 a 96 segundos) */}
+                {/* TRANSIÇÃO (5 segundos) */}
                 {infiniteAct === 3 && (
                   <motion.div 
                     key="infinite-act-3"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+                    animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8 }}
+                    transition={{ duration: prefersReducedMotion ? 0.15 : 0.8 }}
                     className="text-center space-y-4 px-6 max-w-md"
                   >
                     <p className="text-xl md:text-2xl font-light tracking-wide text-white leading-relaxed">
-                      "Acompanhe a bolinha até a mente se acalmar."
+                      Se quiser, acompanhe a luz por alguns instantes.
                     </p>
                     <div className="h-[1px] w-12 bg-white/10 mx-auto" />
                     <span className="text-[10px] text-white/35 tracking-[0.2em] font-mono uppercase block">
-                      Preparando campo perceptual...
+                      Sem pressa. Você pode apenas observar.
                     </span>
                   </motion.div>
                 )}
 
-                {/* Transição B: etapa final */}
+                {/* Etapa final */}
                 {infiniteAct === 4 && (
                   <motion.div 
                     key="infinite-act-4"
@@ -1285,9 +1087,10 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                     <div className="relative w-full max-w-md z-40 space-y-4">
                       <textarea
                         id="sos_infinite_reflection_textarea"
+                        aria-label="Anotação opcional"
                         value={infiniteNote}
                         onChange={(e) => setInfiniteNote(e.target.value)}
-                        placeholder="Digite sem pressa, solte o fluxo de consciência..."
+                        placeholder="Anote algo, se isso ajudar. Você pode deixar em branco."
                         className="w-full min-h-[140px] bg-white/[0.03] border border-white/5 hover:border-white/10 focus:border-[#10b981]/30 focus:outline-none text-white/95 text-sm font-light rounded-2xl p-5 leading-relaxed shadow-inner focus:bg-white/[0.05] transition-all resize-none overflow-hidden"
                         style={{ height: 'auto' }}
                         onInput={(e) => {
@@ -1307,40 +1110,33 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
                           {saveStatus === 'saving' ? (
                             <>
                               <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                              <span>Sincronizando...</span>
+                              <span>Salvando...</span>
                             </>
                           ) : (
                             <>
                               <Send size={13} />
-                              <span>GUARDAR REFLEXÃO</span>
+                              <span>{(isInfiniteMode ? infiniteNote.trim() : ghostQuoteContent.trim()) ? 'Salvar anotação' : 'Continuar sem anotar'}</span>
                             </>
                           )}
                         </button>
 
-                        {/* Indicador de frequência */}
-                        <div className="py-2 flex items-center justify-center select-none opacity-80">
-                          <span className="text-[10px] md:text-xs tracking-[0.15em] text-white/50 font-mono uppercase font-semibold">
-                            {currentInfiniteFrequencyCardText}
-                          </span>
-                        </div>
-
                         <button
                           id="sos_infinite_finish_btn"
-                          onClick={handleCancel}
+                          onClick={requestClose}
                           className="w-full py-4 px-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-white/80 font-extrabold text-[11px] uppercase tracking-[0.2em] border border-white/10 transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
                           <ShieldCheck size={14} className="text-emerald-400" />
-                          <span>CONCLUIR SESSÃO</span>
+                          <span>Concluir pausa</span>
                         </button>
                       </div>
 
                       {/* TEXTO EMPÁTICO (Fluxo Natural - Evita Sobreposição) */}
                       <div className="pt-3 px-2 text-center pointer-events-none">
                         <p className="text-[11px] font-light tracking-wide text-white/50 leading-relaxed">
-                          "Agora, acompanhe a bolinha até a mente se acalmar. Se quiser registrar algo agora, escreva."
+                          Você pode encerrar quando quiser. Se algo vier à mente, anote sem pressa.
                         </p>
                         <span className="text-[8px] text-[#10b981]/40 tracking-[0.2em] font-mono uppercase block mt-1">
-                          Espaço de Resgate Perceptual Ativo
+                          Um momento para você.
                         </span>
                       </div>
                     </div>
@@ -1354,84 +1150,8 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
 
       </div>
 
-      {/* Dynamic island recommended headphones (Placed at top-[24vh] in high negative space) */}
-      <AnimatePresence>
-        {showHeadphonesAlert && (
-          <motion.div 
-            initial={{ opacity: 0, y: -15, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.95 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="absolute top-[24vh] left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-full text-center z-[10010] shadow-2xl pointer-events-none w-[90%] max-w-sm"
-          >
-            <span className="text-xs text-white/90 tracking-wide font-medium block">
-              🎧 Recomendamos fones de ouvido para imersão profunda
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
- 
-      {/* Nudge Fase 3 - Glassmorphism notification overspread */}
-      <AnimatePresence>
-        {currentPhase === 3 && phase3Seconds >= 300 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-[10020] p-6"
-          >
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[32px] max-w-md text-center space-y-6 shadow-2xl relative">
-              <p className="text-white text-base font-light leading-relaxed">
-                "Você já externalizou bastante coisa. Salve este registro para libertar sua mente e darmos o próximo passo."
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => saveReflection()}
-                  disabled={saveStatus === 'saving'}
-                  className="w-full py-4 px-6 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-black font-extrabold text-xs uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.25)]"
-                >
-                  {saveStatus === 'saving' ? 'Salvando...' : 'GUARDAR REGISTRO'}
-                </button>
-                <button
-                  onClick={() => setPhase3Seconds(0)}
-                  className="text-white/40 hover:text-white/60 text-[10px] uppercase tracking-widest font-mono py-2"
-                >
-                  Continuar Escrevendo
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Nudge Fase 5 - Translucent card top-center on every multiple of 300 seconds for 15s */}
-      <AnimatePresence>
-        {currentPhase === 5 && isInfiniteMode && infiniteSeconds >= 300 && (infiniteSeconds % 300 < 15) && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ duration: 0.5 }}
-            className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-lg border border-white/20 p-6 rounded-[24px] text-center z-[10015] shadow-2xl w-[90%] max-w-md"
-          >
-            <p className="text-white text-xs font-light leading-relaxed">
-              "A crise foi contida e a mente está limpa. Salve seu registro, feche a sessão e volte a dominar suas tarefas. O mundo real te espera."
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom informational branding layout */}
-      <div className="w-full shrink-0 flex flex-col items-center justify-end z-[9999]">
-        {currentPhase <= 3 ? (
-          <div className="flex flex-col items-center justify-center space-y-1">
-            <span className="text-[9px] font-mono font-bold text-white/20 uppercase tracking-[0.3em]">
-              Fase {currentPhase} integrada · DUDE Mindfulness
-            </span>
-          </div>
-        ) : (
-          <div className="h-4" />
-        )}
+      <div className="w-full shrink-0 flex items-center justify-center z-[40] pb-1">
+        <span className="text-[11px] text-white/25">Um momento de cada vez.</span>
       </div>
 
       {/* BOTÃO DE TELA CHEIA (Exclusivo Desktop) */}
@@ -1441,35 +1161,85 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
           className="bg-white/[0.03] border border-white/10 hover:bg-white/10 p-3 rounded-xl text-white/40 hover:text-white transition-all flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono font-bold cursor-pointer"
         >
           {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-          <span>{isFullscreen ? 'Sair da Tela Cheia' : 'Modo Tela Cheia'}</span>
+          <span>{isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}</span>
         </button>
       </div>
 
-      {/* A BOLINHA SOBERANA GLOBAL (Z-Index Absoluto sobre Timer e UI) */}
+      {/* Luz de acompanhamento: movimento lento, horizontal e com velocidade constante. */}
       <AnimatePresence>
         {(currentPhase === 2 || (currentPhase === 5 && infiniteAct === 4)) && (
+          prefersReducedMotion ? (
+            <div
+              aria-hidden="true"
+              className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_22px_7px_rgba(16,185,129,0.42)] z-[20] pointer-events-none"
+              style={{ top: 'calc(50% - 12px)', left: 'calc(50% - 12px)' }}
+            />
+          ) : (
+            <motion.div
+              key="guided-session-light"
+              aria-hidden="true"
+              style={{ top: 'calc(50% - 12px)', left: 0 }}
+              initial={{ x: ballTravel.startX }}
+              animate={{ x: [ballTravel.startX, ballTravel.endX] }}
+              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.5 } }}
+              transition={{
+                x: {
+                  duration: Math.max(1, ballTravel.durationSeconds),
+                  ease: 'linear',
+                  repeat: Infinity,
+                  repeatType: 'mirror'
+                },
+                opacity: { duration: 0.4 }
+              }}
+              className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_22px_7px_rgba(16,185,129,0.42)] z-[20] pointer-events-none"
+            />
+          )
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCloseConfirmation && (
           <motion.div
-            key="sovereign-emdr-ball"
-            style={{ top: 0, left: 0 }}
-            animate={{ 
-              x: ['0px', 'calc(100vw - 24px)'], 
-              y: ['0px', 'calc(100vh - 24px)'] 
-            }}
-            exit={{ 
-              top: '50%', 
-              left: '50%', 
-              x: '-50%', 
-              y: '-50%', 
-              scale: 0, 
-              opacity: 0, 
-              transition: { duration: 1.0, ease: "anticipate" } 
-            }}
-            transition={{ 
-              x: { duration: 3.2, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" },
-              y: { duration: 4.1, ease: "easeInOut", repeat: Infinity, repeatType: "mirror" }
-            }}
-            className="fixed w-6 h-6 rounded-full bg-[#10b981] shadow-[0_0_30px_12px_rgba(16,185,129,0.95),0_0_70px_25px_rgba(16,185,129,0.65),0_0_120px_45px_rgba(16,185,129,0.4)] z-[999999] pointer-events-none"
-          />
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000001] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+            role="presentation"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="guided-close-title"
+              className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#111713] p-6 text-center shadow-2xl"
+            >
+              <h3 id="guided-close-title" className="text-lg font-semibold text-white">Encerrar a pausa?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/60">
+                {(isInfiniteMode ? infiniteNote.trim().length > 0 : ghostQuoteContent.trim().length > 0 && !reflectionSaved)
+                  ? 'O texto que ainda não foi salvo será perdido. As anotações já salvas continuam disponíveis.'
+                  : 'O tempo será interrompido. As anotações que você já salvou continuam disponíveis.'}
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCloseConfirmation(false)}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.08]"
+                >
+                  Continuar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-[#06130d] transition-colors hover:bg-emerald-300"
+                >
+                  Encerrar pausa
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1483,23 +1253,24 @@ export const UrgeSurfingProtocol = ({ habitId, onClose }: UrgeSurfingProtocolPro
             className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={prefersReducedMotion ? { opacity: 0 } : { scale: 0.95, opacity: 0 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.95, opacity: 0 }}
+              transition={{ duration: prefersReducedMotion ? 0.15 : 0.2 }}
               className="bg-gray-900 rounded-2xl border border-emerald-500/30 p-8 max-w-sm w-full shadow-2xl flex flex-col items-center justify-center text-center space-y-4"
             >
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
                 <CheckCircle2 size={32} className="text-emerald-500" />
               </div>
-              <h3 className="text-white text-lg font-semibold">Reflexão guardada com segurança</h3>
+              <h3 className="text-white text-lg font-semibold">Anotação salva</h3>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                Seu registro de campo foi armazenado. Você pode continuar nesta sessão o tempo que precisar.
+                Sua anotação está na caixa de entrada. Você pode continuar ou encerrar a pausa quando quiser.
               </p>
               <button
                 onClick={() => setShowSaveSuccess(false)}
                 className="mt-4 px-8 py-2.5 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-full transition-colors border border-white/10"
               >
-                OK
+                Continuar
               </button>
             </motion.div>
           </motion.div>

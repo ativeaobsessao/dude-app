@@ -1980,6 +1980,7 @@ export const HeroSection = ({ tasks = [], onNavigateToLists }: HeroSectionProps)
           initialHabitId={antiVicioHabitId}
           associatedCheckinId={antiVicioCheckinId}
           isVictoryMode={isAntiVicioVictory}
+          isDeepSessionContext={!isAntiVicioVictory}
         />
       )}
 

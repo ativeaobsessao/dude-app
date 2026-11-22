@@ -12,15 +12,12 @@ interface AntiVicioModalProps {
   isVictoryMode?: boolean;
 }
 
-export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedCheckinId, isVictoryMode = false }: AntiVicioModalProps) => {
-  const dataStore = useDataStore();
-  const { habits } = dataStore;
+export const AntiVicioModal = ({ isOpen, onClose, isDeepSessionContext = false, initialHabitId, associatedCheckinId, isVictoryMode = false }: AntiVicioModalProps) => {
+  const habits = useDataStore(state => state.habits);
+  const showNotification = useDataStore(state => state.showNotification);
+  const updateAvoidanceCheckin = useDataStore(state => state.updateAvoidanceCheckin);
   
-  const avoidHabits = habits.filter(h => h.habit_mode === 'avoid');
-  
-  const [selectedHabitId, setSelectedHabitId] = useState<string>(
-    initialHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : '')
-  );
+  const [selectedHabitId, setSelectedHabitId] = useState<string>(initialHabitId || '');
   
   const [note, setNote] = useState('');
   const [urgeIntensity, setUrgeIntensity] = useState(5);
@@ -33,8 +30,8 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     if (isOpen) {
       if (initialHabitId) {
         setSelectedHabitId(initialHabitId);
-      } else if (avoidHabits.length > 0) {
-        setSelectedHabitId(avoidHabits[0].id);
+      } else {
+        setSelectedHabitId('');
       }
       setNote('');
       setUrgeIntensity(5);
@@ -50,7 +47,7 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     return (
       <UrgeSurfingProtocol 
         key={selectedHabitId || 'general'} 
-        habitId={selectedHabitId || (avoidHabits.length > 0 ? avoidHabits[0].id : undefined)} 
+        habitId={isDeepSessionContext ? undefined : (selectedHabitId || undefined)} 
         onClose={onClose} 
       />
     );
@@ -70,12 +67,12 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
   const saveTrigger = async (triggerTag: string) => {
     if (isUpdating) return;
     if (!associatedCheckinId) {
-      dataStore.showNotification('Não encontramos o registro para anexar esta anotação.', 'error');
+      showNotification('Não encontramos o registro para anexar esta anotação.', 'error');
       return;
     }
 
     setIsUpdating(true);
-    const saved = await dataStore.updateAvoidanceCheckin(associatedCheckinId, {
+    const saved = await updateAvoidanceCheckin(associatedCheckinId, {
       trigger_tag: triggerTag,
       trigger_note: note.trim() || null,
       urge_intensity: urgeIntensity,
@@ -86,7 +83,7 @@ export const AntiVicioModal = ({ isOpen, onClose, initialHabitId, associatedChec
     setIsUpdating(false);
 
     if (!saved) {
-      dataStore.showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
+      showNotification('Não foi possível salvar sua anotação. Tente novamente.', 'error');
       return;
     }
 
