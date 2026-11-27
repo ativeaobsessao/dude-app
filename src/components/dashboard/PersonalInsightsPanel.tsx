@@ -71,11 +71,6 @@ export const PersonalInsightsPanel: React.FC = () => {
   }), [sessions, projects, activities, habits, habitCompletions, dailyTasks, scheduledActivities, period]);
 
   const activityCalendar = useMemo(() => buildActivityCalendar(sessions, 30), [sessions]);
-  const calendarCells = useMemo(() => {
-    if (activityCalendar.length === 0) return [];
-    const firstWeekday = new Date(`${activityCalendar[0].dateKey}T12:00:00`).getDay();
-    return [...Array.from({ length: firstWeekday }, () => null), ...activityCalendar];
-  }, [activityCalendar]);
   const defaultSelectedDate = [...activityCalendar].reverse().find(day => day.sessionCount > 0)?.dateKey
     || activityCalendar[activityCalendar.length - 1]?.dateKey
     || getLocalDateString(new Date());
@@ -170,50 +165,51 @@ export const PersonalInsightsPanel: React.FC = () => {
         </div>
       </section>
 
-      <SectionCard title="Atividade nos últimos 30 dias" subtitle="Quanto mais escuro o verde, mais tempo você registrou naquele dia.">
-        <div className="overflow-x-auto pb-1">
-          <div className="flex min-w-[290px] gap-2">
-            <div className="grid grid-rows-7 gap-1 pt-0.5 text-[9px] text-zinc-600">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((label, index) => (
-                <span key={`${label}-${index}`} className="flex h-3.5 w-3 items-center justify-center">{label}</span>
-              ))}
-            </div>
-            <div
-              className="grid flex-1 grid-flow-col grid-rows-7 gap-1"
-              style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(calendarCells.length / 7))}, minmax(0, 1fr))` }}
-            >
-              {calendarCells.map((day, index) => {
-                if (!day) return <span key={`blank-${index}`} aria-hidden="true" className="h-3.5 w-full" />;
-                const intensityClass = [
-                  'bg-white/[0.055] border-white/[0.06]',
-                  'bg-emerald-100/80 border-emerald-100/80',
-                  'bg-emerald-300 border-emerald-300',
-                  'bg-emerald-600 border-emerald-600',
-                  'bg-emerald-900 border-emerald-800'
-                ][day.intensity];
-                const isSelected = day.dateKey === selectedDateKey;
-                const dayTitle = `${formatDateLabel(day.dateKey)} · ${day.sessionCount} ${day.sessionCount === 1 ? 'sessão' : 'sessões'} · ${formatMinutesTotal(day.minutes)}`;
-                return (
-                  <button
-                    key={day.dateKey}
-                    type="button"
-                    onClick={() => setSelectedDate(day.dateKey)}
-                    title={dayTitle}
-                    aria-label={`${dayTitle}. ${isSelected ? 'Dia selecionado.' : 'Selecionar dia.'}`}
-                    aria-pressed={isSelected}
-                    className={`h-3.5 min-w-0 rounded-[3px] border transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 ${intensityClass} ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[#141820]' : ''}`}
-                  />
-                );
-              })}
-            </div>
-          </div>
+      <SectionCard title="Atividade nos últimos 30 dias" subtitle="Cada quadrado representa um dia. Quanto mais escuro o verde, mais tempo você registrou.">
+        <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 lg:grid-cols-10">
+          {activityCalendar.map(day => {
+            const isSelected = day.dateKey === selectedDateKey;
+            const intensityStyles = [
+              { surface: 'bg-[#252A32]', border: 'border-white/[0.06]', day: 'text-zinc-400', minutes: 'text-zinc-500' },
+              { surface: 'bg-emerald-100', border: 'border-emerald-100', day: 'text-emerald-950', minutes: 'text-emerald-900' },
+              { surface: 'bg-emerald-300', border: 'border-emerald-300', day: 'text-emerald-950', minutes: 'text-emerald-950' },
+              { surface: 'bg-emerald-700', border: 'border-emerald-600', day: 'text-white', minutes: 'text-emerald-100' },
+              { surface: 'bg-emerald-950', border: 'border-emerald-800', day: 'text-emerald-50', minutes: 'text-emerald-200' }
+            ][day.intensity];
+            const dayTitle = `${formatDateLabel(day.dateKey)} · ${day.sessionCount} ${day.sessionCount === 1 ? 'sessão concluída' : 'sessões concluídas'} · ${formatMinutesTotal(day.minutes)}`;
+            const minutesLabel = day.minutes >= 60
+              ? `${Math.floor(day.minutes / 60)}h${day.minutes % 60 > 0 ? `${day.minutes % 60}m` : ''}`
+              : `${day.minutes}m`;
+
+            return (
+              <button
+                key={day.dateKey}
+                type="button"
+                onClick={() => setSelectedDate(day.dateKey)}
+                title={dayTitle}
+                aria-label={`${dayTitle}. ${isSelected ? 'Dia selecionado.' : 'Selecionar dia.'}`}
+                aria-pressed={isSelected}
+                className={`aspect-square min-w-0 rounded-xl border p-2 text-left flex flex-col justify-between transition-all duration-150 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 ${intensityStyles.surface} ${intensityStyles.border} ${isSelected ? 'ring-2 ring-emerald-200 ring-offset-2 ring-offset-[#141820] scale-[1.03]' : ''}`}
+              >
+                <span className={`block text-[11px] font-mono font-bold leading-none ${intensityStyles.day}`}>
+                  {new Date(`${day.dateKey}T12:00:00`).getDate()}
+                </span>
+                <span className={`block w-full truncate text-[9px] font-medium tabular-nums ${intensityStyles.minutes}`}>
+                  {minutesLabel}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-3 flex items-center justify-end gap-1.5 text-[9px] text-zinc-500">
-          <span>Menos</span>
-          {['bg-white/[0.055] border-white/[0.06]', 'bg-emerald-100/80 border-emerald-100/80', 'bg-emerald-300 border-emerald-300', 'bg-emerald-600 border-emerald-600', 'bg-emerald-900 border-emerald-800'].map((tone, index) => (
-            <span key={index} className={`h-3 w-3 rounded-[3px] border ${tone}`} />
-          ))}
-          <span>Mais</span>
+
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3 text-[10px] font-medium text-zinc-500">
+          <span>Menos atividade</span>
+          <div className="flex shrink-0 items-center gap-1.5" aria-label="Legenda de intensidade: do menor para o maior tempo registrado">
+            {['bg-[#252A32] border-white/[0.06]', 'bg-emerald-100 border-emerald-100', 'bg-emerald-300 border-emerald-300', 'bg-emerald-700 border-emerald-600', 'bg-emerald-950 border-emerald-800'].map((tone, index) => (
+              <span key={index} className={`h-3.5 w-3.5 rounded-[4px] border ${tone}`} />
+            ))}
+          </div>
+          <span>Mais atividade</span>
         </div>
 
         <div className="mt-5 border-t border-white/[0.06] pt-4">
