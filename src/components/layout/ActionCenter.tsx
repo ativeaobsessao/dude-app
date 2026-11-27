@@ -26,6 +26,7 @@ import { CriarAgendamentoScreen } from '../agenda/CriarAgendamentoScreen';
 import { SavedLinksConfigScreen } from '../links/SavedLinksConfigScreen';
 import { LinksListScreen } from '../links/LinksListScreen';
 import { EditSessionModal } from '../shared/EditSessionModal';
+import { ProjectActivityPicker } from '../session/ProjectActivityPicker';
 
 export const ActionCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -672,11 +673,6 @@ export const ActionCenter = () => {
 
   const [filterProject, setFilterProject] = useState('');
   const [filterDate, setFilterDate] = useState('');
-
-  const filteredActivities = useMemo(() => {
-    if (!sessionData.project) return dataStore.activities;
-    return dataStore.activities.filter(a => a.project_id === sessionData.project);
-  }, [dataStore.activities, sessionData.project]);
 
   const showSuccess = (msg: string) => {
     dataStore.showNotification(msg, 'success');
@@ -1649,33 +1645,21 @@ export const ActionCenter = () => {
                       <div className="space-y-8 bg-surface/10 p-8 rounded-[2.5rem] border border-white/5">
                         {!isPrefilled && (
                           <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div className="space-y-1 text-left">
-                                <label className={labelClasses}>Projeto (opcional)</label>
-                                <CustomSelect
-                                  value={sessionData.project}
-                                  onChange={val => setSessionData({...sessionData, project: val, activityId: ''})}
-                                  placeholder="Geral (Sem Projeto)"
-                                  options={[
-                                    { value: '', label: 'Geral (Sem Projeto)' },
-                                    ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
-                                  ]}
-                                />
-                              </div>
-                              <div className="space-y-1 text-left">
-                                <label className={labelClasses}>Atividade (opcional)</label>
-                                <CustomSelect
-                                  className={!!sessionData.activityManual ? 'opacity-50 pointer-events-none' : ''}
-                                  value={sessionData.activityId}
-                                  onChange={val => setSessionData({...sessionData, activityId: val})}
-                                  placeholder="Selecionar Atividade"
-                                  options={[
-                                    { value: '', label: 'Selecionar Atividade' },
-                                    ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
-                                  ]}
-                                />
-                              </div>
-                            </div>
+                            <ProjectActivityPicker
+                              projectId={sessionData.project}
+                              activityId={sessionData.activityId}
+                              onProjectChange={project => setSessionData(current => ({
+                                ...current,
+                                project,
+                                activityId: ''
+                              }))}
+                              onActivityChange={activityId => setSessionData(current => ({
+                                ...current,
+                                activityId,
+                                activityManual: activityId ? '' : current.activityManual
+                              }))}
+                              activityDisabled={!!sessionData.activityManual}
+                            />
                             <div className="space-y-1 text-left">
                               <label className={labelClasses}>Atividade Avulsa (opcional)</label>
                               <input

@@ -1,10 +1,11 @@
-import { useState, type FormEvent, useMemo, useEffect } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useDataStore } from '../../store/useDataStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Play, Info, Sparkles, Clock } from 'lucide-react';
 import { CustomSelect } from '../ui/CustomSelect';
+import { ProjectActivityPicker } from './ProjectActivityPicker';
 import { unlockAudio } from '../../hooks/useSessionNotifications';
 import { cleanActivityName } from '../../lib/utils';
 
@@ -59,12 +60,6 @@ export const SessaoProfundaTab = () => {
     window.addEventListener('open-action-center', handlePrefill);
     return () => window.removeEventListener('open-action-center', handlePrefill);
   }, [timer]);
-
-  // Filter activities by project
-  const filteredActivities = useMemo(() => {
-    if (!projectId) return dataStore.activities;
-    return dataStore.activities.filter(a => a.project_id === projectId);
-  }, [dataStore.activities, projectId]);
 
   // Handle setting/resetting when starting
   const handleStartSession = async (e: FormEvent) => {
@@ -277,41 +272,19 @@ export const SessaoProfundaTab = () => {
         {/* SETUP FORM */}
         <form onSubmit={handleStartSession} className="space-y-6">
           {/* SELECT PROJECT & ACTIVITY */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-1 text-left">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-text-secondary/60">
-                PROJETO (opcional)
-              </label>
-              <CustomSelect
-                value={projectId}
-                onChange={val => {
-                  setProjectId(val);
-                  setActivityId('');
-                }}
-                placeholder="Geral (Sem Projeto)"
-                options={[
-                  { value: '', label: 'Geral (Sem Projeto)' },
-                  ...dataStore.projects.map(p => ({ value: p.id, label: p.name }))
-                ]}
-              />
-            </div>
-            
-            <div className="space-y-1 text-left">
-              <label className="text-[10px] font-extrabold uppercase tracking-widest text-text-secondary/60">
-                ATIVIDADE (opcional)
-              </label>
-              <CustomSelect
-                className={!!activityManual ? 'opacity-50 pointer-events-none' : ''}
-                value={activityId}
-                onChange={val => setActivityId(val)}
-                placeholder="Selecionar Atividade"
-                options={[
-                  { value: '', label: 'Selecionar Atividade' },
-                  ...filteredActivities.map(a => ({ value: a.id, label: cleanActivityName(a.name) }))
-                ]}
-              />
-            </div>
-          </div>
+          <ProjectActivityPicker
+            projectId={projectId}
+            activityId={activityId}
+            onProjectChange={nextProjectId => {
+              setProjectId(nextProjectId);
+              setActivityId('');
+            }}
+            onActivityChange={nextActivityId => {
+              setActivityId(nextActivityId);
+              if (nextActivityId) setActivityManual('');
+            }}
+            activityDisabled={!!activityManual}
+          />
 
           {/* MANUAL ACTIVITY NAME */}
           <div className="space-y-1 text-left">

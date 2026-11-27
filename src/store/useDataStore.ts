@@ -129,7 +129,7 @@ interface DataState {
   fetchPendingTasks: (userId: string) => Promise<void>;
   fetchScheduledActivities: (userId: string) => Promise<void>;
   
-  addProject: (userId: string, name: string) => Promise<void>;
+  addProject: (userId: string, name: string) => Promise<Project | null>;
   addHabit: (
     userId: string,
     name: string,
@@ -909,9 +909,14 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const { data, error } = await supabase.from('projects').insert({ user_id: userId, name }).select().single();
       if (error) throw error;
-      if (data) set({ projects: [data, ...get().projects] });
+      if (data) {
+        set({ projects: [data, ...get().projects] });
+        return data as Project;
+      }
+      return null;
     } catch (err) {
       console.error('Error adding project:', err);
+      return null;
     }
   },
 
